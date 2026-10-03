@@ -1,0 +1,16 @@
+import { chromium } from "playwright";
+const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1100, height: 1000 } });
+p.on("pageerror", e => console.log("PAGEERROR", String(e)));
+const out = (n, ok, d = "") => console.log(ok ? "PASS" : "FAIL", n, d === "" ? "" : "-> " + d);
+await p.goto("http://localhost:5173/"); await p.waitForSelector("text=Create an account");
+await p.click("text=Create an account"); await p.waitForSelector('button:text-is("Sign up")');
+await p.fill('input[autocomplete="username"]', "uitest" + Date.now()); await p.fill('input[type="password"]', "hunter2hunter2");
+await p.keyboard.press("Enter"); await p.waitForSelector("section[data-drop-list]");
+const y = async (sel) => (await p.locator(sel).first().boundingBox()).y;
+const order = [await y('[aria-label="Goals"]'), await y("section[data-drop-list]"), await y('[aria-label="New list name"]'), await y('[aria-label="Tags"]')];
+out("order: Goals, lists, New list, Tags at the bottom", order.every((v, i) => i === 0 || v > order[i - 1]), order.map(Math.round).join(" < "));
+out("no Sort controls", (await p.locator('[aria-label="Sort tasks"]').count()) === 0);
+await p.locator('[data-task-editor^="add:"]').click(); await p.keyboard.type("A"); await p.keyboard.press("Enter"); await p.waitForTimeout(400);
+out("drag handle present", (await p.locator('[aria-label="Drag to move this task"]').count()) === 1);
+await p.screenshot({ path: "layout.png", fullPage: true });
+await b.close();

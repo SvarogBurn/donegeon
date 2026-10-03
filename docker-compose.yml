@@ -1,0 +1,21 @@
+# Local development database only. Production uses a hosted Postgres.
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: donegeon
+      POSTGRES_PASSWORD: donegeon
+      POSTGRES_DB: donegeon
+    ports:
+      - "5432:5432"
+    volumes:
+      - donegeon_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U donegeon"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  donegeon_pgdata:

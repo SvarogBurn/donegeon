@@ -1,0 +1,43 @@
+import type { CombinedCountdown, Countdown, PressureSummary, Task, TaskTreeNode } from "../types";
+import { api } from "./client";
+
+/** A place in the tree: under a parent task, or at the top level of a list. */
+export interface TaskPlacement {
+  parentId: string | null;
+  listId: string | null;
+  /** Position among the destination's tasks, not counting the task being placed. */
+  index: number;
+}
+
+export interface TaskChanges {
+  title?: string;
+  notes?: string | null;
+  /** Full replacement sets. */
+  goalIds?: string[];
+  tagIds?: string[];
+  deadlineDate?: string | null;
+  deadlineType?: "hard" | "soft";
+}
+
+export const listTaskTrees = () => api<{ tasks: TaskTreeNode[] }>("/tasks").then((r) => r.tasks);
+export const createTask = (body: {
+  title: string;
+  parentId?: string | null;
+  listId?: string | null;
+  index?: number;
+  goalIds?: string[];
+  tagIds?: string[];
+}) =>
+  api<{ task: Task }>("/tasks", { body }).then((r) => r.task);
+export const updateTask = (id: string, body: TaskChanges) =>
+  api<{ task: Task }>(`/tasks/${id}`, { method: "PATCH", body }).then((r) => r.task);
+export const toggleTask = (id: string) =>
+  api<{ task: Task }>(`/tasks/${id}/toggle`, { method: "PATCH" }).then((r) => r.task);
+export const moveTask = (id: string, placement: TaskPlacement) => api(`/tasks/${id}/move`, { body: placement });
+export const deleteTask = (id: string) => api(`/tasks/${id}`, { method: "DELETE" });
+export const restoreTask = (id: string) => api(`/tasks/${id}/restore`, { method: "POST" });
+
+export const getCountdown = (id: string) => api<{ countdown: Countdown }>(`/tasks/${id}/countdown`).then((r) => r.countdown);
+export const getPressure = () => api<{ pressure: PressureSummary }>("/dashboard").then((r) => r.pressure);
+export const getCombinedCountdown = () =>
+  api<{ countdown: CombinedCountdown }>("/dashboard/countdown").then((r) => r.countdown);

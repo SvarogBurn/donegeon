@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Calendar days (startDate, deadlineDate, completedOn, DailyEntry.date, ...)
+// are stored as "YYYY-MM-DD" strings in the user's local time. They are days,
+// not instants, so keeping them out of timestamp columns avoids timezone
+// shifts between the phone, the server and the database.
+
+enum DeadlineType {
+  hard
+  soft
+}
+
+enum PointTransactionType {
+  earned
+  redeemed
+  reversal
+}
+
+enum DailyEntryStatus {
+  active
+  deferred
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  goals             Goal[]
+  tags              Tag[]
+  tasks             Task[]
+  lists             List[]
+  rewards           Reward[]
+  pointTransactions PointTransaction[]
+  dailyEntries      DailyEntry[]
+}
+
+model Goal {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  description String?
+  isArchived  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks Task[]
+
+  @@index([userId])
+}
+
+// A free-form label. Works like a goal (many per task, filterable) without
+// meaning "something I'm working towards".
+model Tag {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks Task[]
+
+  @@index([userId])
+}
+
+model Task {
+  id           String        @id @default(uuid())
+  userId       String
+  parentId     String?
+  // The list (folder) a top-level task sits in. Null for subtasks, which
+  // belong to their parent's list.
+  listId       String?
+  title        String
+  notes        String?
+  startDate    String?
+  deadlineDate String?
+  deadlineType DeadlineType?
+  isComplete   Boolean       @default(false)
+  // Stamp-once: set on completion, cleared on un-toggle.
+  completedAt  DateTime?
+  completedOn  String?
+  points       Int?
+  // Soft delete, so a delete can be undone. Set on the whole deleted subtree
+  // with one shared timestamp; every query must filter on deletedAt = null.
+  deletedAt    DateTime?
+  position     Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent            Task?              @relation("TaskTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children          Task[]             @relation("TaskTree")
+  // Any task can carry several goals and several tags.
+  goals             Goal[]
+  tags              Tag[]
+  list              List?              @relation(fields: [listId], references: [id], onDelete: Cascade)
+  dailyEntries      DailyEntry[]
+  pointTransactions PointTransaction[]
+
+  @@index([userId])
+  @@index([parentId])
+  @@index([listId])
+}
+
+model List {
+  id          String    @id @default(uuid())
+  userId      String
+  name        String
+  description String?
+  position    Int       @default(0)
+  isArchived  Boolean   @default(false)
+  // Soft delete, undoable like tasks. The list's tasks get the same timestamp.
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks Task[]
+
+  @@index([userId])
+}
+
+model Reward {
+  id         String   @id @default(uuid())
+  userId     String
+  name       String
+  pointCost  Int
+  isArchived Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions PointTransaction[]
+
+  @@index([userId])
+}
+
+// Append-only ledger. Balance = SUM(amount).
+model PointTransaction {
+  id              String               @id @default(uuid())
+  userId          String
+  type            PointTransactionType
+  amount          Int
+  relatedTaskId   String?
+  relatedRewardId String?
+  createdAt       DateTime             @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task   Task?   @relation(fields: [relatedTaskId], references: [id], onDelete: SetNull)
+  reward Reward? @relation(fields: [relatedRewardId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
+
+model DailyEntry {
+  id           String           @id @default(uuid())
+  userId       String
+  taskId       String
+  date         String
+  originalDate String
+  status       DailyEntryStatus @default(active)
+  createdAt    DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, date])
+  @@index([userId, date])
+}
+
+// Session store for connect-pg-simple. Declared here so Prisma migrations own
+// the table and don't report it as drift.
+model Session {
+  sid    String   @id @db.VarChar
+  sess   Json     @db.Json
+  expire DateTime @db.Timestamp(6)
+
+  @@index([expire], map: "IDX_session_expire")
+  @@map("session")
+}

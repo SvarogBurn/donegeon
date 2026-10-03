@@ -1,0 +1,287 @@
+import { Fragment, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from "react";
+import { useNavigate } from "react-router";
+import { useCreateTask, useGoals, useTags, useToggleTask, useUpdateTask } from "../../hooks/useTasks";
+import { hasTaskPage } from "../../lib/taskPage";
+import type { TaskTreeNode } from "../../types";
+import { DeadlineBadge } from "./DeadlineBadge";
+import { TaskMenu } from "./TaskMenu";
+import { focusNeighbor, TitleEditor } from "./TitleEditor";
+import { useTree } from "./TreeContext";
+
+/** The task's goals (filled pills) and tags (#outlined), by name. */
+function LabelChips({ node }: { node: TaskTreeNode }) {
+  const { data: goals = [] } = useGoals();
+  const { data: tags = [] } = useTags();
+  if (node.goalIds.length + node.tagIds.length === 0) return null;
+
+  return (
+    <>
+      {goals
+        .filter((goal) => node.goalIds.includes(goal.id))
+        .map((goal) => (
+          <span
+            key={goal.id}
+            className="max-w-32 truncate rounded-full bg-stone-200 px-2 py-0.5 text-xs text-stone-700 dark:bg-stone-700 dark:text-stone-200"
+            title={`Goal: ${goal.name}`}
+          >
+            {goal.name}
+          </span>
+        ))}
+      {tags
+        .filter((tag) => node.tagIds.includes(tag.id))
+        .map((tag) => (
+          <span
+            key={tag.id}
+            className="max-w-32 truncate rounded-full border border-stone-300 px-2 py-0.5 text-xs text-stone-600 dark:border-stone-600 dark:text-stone-300"
+            title={`Tag: ${tag.name}`}
+          >
+            #{tag.name}
+          </span>
+        ))}
+    </>
+  );
+}
+
+const DROP_STYLES = {
+  before: "shadow-[inset_0_2px_0_var(--color-emerald-600)]",
+  after: "shadow-[inset_0_-2px_0_var(--color-emerald-600)]",
+  inside: "bg-emerald-100 dark:bg-emerald-950",
+};
+
+/** Parts of a row that do their own thing; a click anywhere else opens the task's page (if it has one). */
+const ROW_CONTROLS = "button, input, textarea, a, label, [role=dialog]";
+
+function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
+  const tree = useTree();
+  const navigate = useNavigate();
+  // A drag starts on the handle but can end on the row's empty space, which the browser reports as a click there.
+  const pressedControl = useRef(false);
+  const [isOpen, setIsOpen] = useState(true);
+  const [title, setTitle] = useState(node.title);
+  useEffect(() => setTitle(node.title), [node.title]);
+
+  const toggle = useToggleTask();
+  const rename = useUpdateTask();
+  const error = toggle.error ?? rename.error;
+
+  const hasChildren = node.children.length > 0;
+  const hasDraftChild = tree.draft?.parentId === node.id;
+  const drop = tree.dropTarget?.kind === "task" && tree.dropTarget.id === node.id ? tree.dropTarget.zone : null;
+
+  function saveTitle() {
+    const next = title.trim();
+    if (!next) setTitle(node.title);
+    else if (next !== node.title) rename.mutate({ id: node.id, changes: { title: next } });
+  }
+
+  function addSubtask() {
+    setIsOpen(true);
+    tree.setDraft({ parentId: node.id, listId: null, afterId: node.children.at(-1)?.id ?? null });
+  }
+
+  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      saveTitle();
+      if (e.ctrlKey || e.metaKey) addSubtask();
+      else if (node.id === tree.rootId) {
+        setIsOpen(true);
+        tree.setDraft({ parentId: node.id, listId: null, afterId: null });
+      } else tree.setDraft({ parentId: node.parentId, listId: node.parentId ? null : node.listId, afterId: node.id });
+    } else if (e.key === "Escape") {
+      setTitle(node.title);
+    } else if (e.key === "Delete" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      // With the caret at the end there is no text left to delete, so the key
+      // deletes the task (and its subtasks); Ctrl+Z undoes it. Mid-title it still edits text.
+      const el = e.currentTarget;
+      if (el.selectionStart !== el.value.length || el.selectionEnd !== el.value.length) return;
+      e.preventDefault();
+      if (!focusNeighbor(el, -1)) focusNeighbor(el, 1);
+      tree.deleteTask(node);
+    } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      e.preventDefault();
+      tree.moveBy(node, e.key === "ArrowUp" ? -1 : 1);
+    }
+  }
+
+  const opens = hasTaskPage(node);
+  function openTask(e: MouseEvent<HTMLDivElement>) {
+    if (!opens || pressedControl.current || (e.target as Element).closest(ROW_CONTROLS)) return;
+    navigate(`/tasks/${node.id}`);
+  }
+
+  return (
+    <li className={tree.draggingId === node.id ? "opacity-40" : ""}>
+      <div
+        data-task-row={node.id}
+        onPointerDown={(e) => (pressedControl.current = Boolean((e.target as Element).closest(ROW_CONTROLS)))}
+        onClick={openTask}
+        className={`flex ${opens ? "cursor-pointer" : ""} flex-wrap items-start gap-x-1.5 gap-y-1 rounded px-1 py-0.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 ${drop ? DROP_STYLES[drop] : ""}`}
+      >
+        <button
+          type="button"
+          className="mt-1.5 w-4 text-xs text-stone-400 disabled:invisible"
+          onClick={() => setIsOpen(!isOpen)}
+          disabled={!hasChildren}
+          aria-label={isOpen ? "Collapse subtasks" : "Expand subtasks"}
+        >
+          {isOpen ? "▾" : "▸"}
+        </button>
+
+        <input
+          type="checkbox"
+          className="mt-2 size-4 accent-emerald-700"
+          checked={node.isComplete}
+          disabled={toggle.isPending}
+          onChange={() => toggle.mutate(node.id)}
+          aria-label={`Mark "${node.title}" ${node.isComplete ? "not done" : "done"}`}
+        />
+
+        <div className="min-w-32 flex-1">
+          <TitleEditor
+            editorId={node.id}
+            fitText
+            value={title}
+            onChange={setTitle}
+            onKeyDown={onKeyDown}
+            onBlur={saveTitle}
+            aria-label="Task title"
+            className={node.isComplete ? "text-stone-400 line-through" : ""}
+          />
+        </div>
+
+        <span className="flex flex-wrap items-center justify-end gap-1.5 pt-1">
+          <LabelChips node={node} />
+          <DeadlineBadge task={node} />
+          {hasChildren && (
+            <span className="text-xs text-stone-500 tabular-nums">
+              {node.descendantDoneCount}/{node.descendantCount} done
+            </span>
+          )}
+          <TaskMenu node={node} depth={depth} onAddSubtask={addSubtask} />
+          <button
+            type="button"
+            className="btn-quiet cursor-grab touch-none text-base leading-none select-none active:cursor-grabbing"
+            onPointerDown={(e) => tree.startDrag(e, node)}
+            aria-label="Drag to move this task"
+            title="Drag to move. Keyboard: Alt+↑ / Alt+↓ in the task"
+          >
+            ⠿
+          </button>
+        </span>
+      </div>
+
+      {error && <p className="ml-7 text-xs text-red-600">{error.message}</p>}
+
+      {((hasChildren && isOpen) || hasDraftChild) && (
+        <div className="ml-3 border-l border-stone-200 pl-3 dark:border-stone-800">
+          <TaskTree nodes={isOpen ? node.children : []} parentId={node.id} listId={null} depth={depth + 1} />
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** The unsaved row opened by Enter / Ctrl+Enter. */
+function DraftRow() {
+  const tree = useTree();
+  const createTask = useCreateTask();
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const draft = tree.draft!;
+  useEffect(() => ref.current?.focus(), []);
+
+  const placement = () => ({ ...tree.draftPlacement(), ...tree.newTaskLabels });
+
+  function close() {
+    tree.setDraft(null);
+    tree.setDraftText("");
+  }
+
+  /** Saves the row, then opens the next one: below it, or beneath it as its first subtask. */
+  async function submit(next: "sibling" | "subtask") {
+    const title = tree.draftText.trim();
+    if (!title || createTask.isPending) return;
+    tree.setDraftText("");
+    try {
+      const created = await createTask.mutateAsync({ title, ...placement() });
+      tree.setDraft(
+        next === "subtask"
+          ? { parentId: created.id, listId: null, afterId: null }
+          : { ...draft, afterId: created.id },
+      );
+    } catch {
+      tree.setDraftText(title);
+    }
+  }
+
+  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Escape" || (e.key === "Enter" && !e.shiftKey && !tree.draftText.trim())) {
+      focusNeighbor(e.currentTarget, -1);
+      close();
+    } else if (e.key === "Enter" && !e.shiftKey) {
+      submit(e.ctrlKey || e.metaKey ? "subtask" : "sibling");
+    }
+  }
+
+  // Leaving the row keeps what was typed. Checked a tick later, because the row
+  // also loses focus for a moment when it is re-inserted further down the list.
+  const finishRef = useRef(() => {});
+  finishRef.current = () => {
+    const title = tree.draftText.trim();
+    if (title) createTask.mutate({ title, ...placement() });
+    close();
+  };
+  function onBlur(e: FocusEvent<HTMLTextAreaElement>) {
+    const el = e.currentTarget;
+    setTimeout(() => {
+      if (el.isConnected && document.activeElement !== el) finishRef.current();
+    });
+  }
+
+  return (
+    <li>
+      <div className="flex items-start gap-x-1.5 px-1 py-0.5">
+        <span className="w-4" />
+        <span className="mt-2 size-4 rounded-sm border border-dashed border-stone-400" />
+        <div className="min-w-32 flex-1">
+          <TitleEditor
+            ref={ref}
+            editorId="draft"
+            value={tree.draftText}
+            onChange={tree.setDraftText}
+            onKeyDown={onKeyDown}
+            onBlur={onBlur}
+            placeholder="New task"
+            aria-label="New task title"
+          />
+        </div>
+      </div>
+      {createTask.error && <p className="ml-7 text-xs text-red-600">{createTask.error.message}</p>}
+    </li>
+  );
+}
+
+interface TaskTreeProps {
+  nodes: TaskTreeNode[];
+  parentId: string | null;
+  /** For top-level tasks: the list they are in. Null below the top level. */
+  listId: string | null;
+  /** Depth of `nodes`: 0 for main tasks. Decides which options a row offers. */
+  depth?: number;
+}
+
+export function TaskTree({ nodes, parentId, listId, depth = 0 }: TaskTreeProps) {
+  const { draft } = useTree();
+  const draftIsHere = draft !== null && draft.parentId === parentId && (parentId !== null || draft.listId === listId);
+
+  return (
+    <ul>
+      {draftIsHere && draft.afterId === null && <DraftRow />}
+      {nodes.map((node) => (
+        <Fragment key={node.id}>
+          <TaskNode node={node} depth={depth} />
+          {draftIsHere && draft.afterId === node.id && <DraftRow />}
+        </Fragment>
+      ))}
+    </ul>
+  );
+}

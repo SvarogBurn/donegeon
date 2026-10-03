@@ -1,0 +1,44 @@
+import { chromium } from "playwright";
+const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1100, height: 900 } });
+p.on("pageerror", e => console.log("PAGEERROR", String(e)));
+p.on("response", async r => r.status() >= 500 && console.log("HTTP", r.status(), r.url(), await r.text()));
+const out = (n, ok, d = "") => console.log(ok ? "PASS" : "FAIL", n, d === "" ? "" : "-> " + d);
+const wait = (ms = 450) => p.waitForTimeout(ms);
+const names = () => p.locator('input[aria-label="List name"]').evaluateAll(els => els.map(e => e.value).join(","));
+const outline = () => p.evaluate(() => [...document.querySelectorAll("[data-task-row]")].map(row => { let d = 0; for (let el = row.parentElement; el; el = el.parentElement) if (el.tagName === "UL") d++; return "-".repeat(d - 1) + row.querySelector("textarea").value; }).join(","));
+const row = (t) => p.locator(`[data-task-row]:has(textarea:text-is("${t}"))`).first();
+await p.goto("http://localhost:5173/"); await p.waitForSelector("text=Create an account");
+await p.click("text=Create an account"); await p.waitForSelector('button:text-is("Sign up")');
+await p.fill('input[autocomplete="username"]', "uitest" + Date.now()); await p.fill('input[type="password"]', "hunter2hunter2");
+await p.keyboard.press("Enter"); await p.waitForSelector("section[data-drop-list]");
+out("new account has exactly one list, called List", (await names()) === "List", await names());
+await p.locator('[data-task-editor^="add:"]').click();
+await p.keyboard.type("Big"); await p.keyboard.press("Enter"); await wait();
+await p.keyboard.press("ArrowUp"); await p.keyboard.press("Control+Enter"); await p.keyboard.type("Small"); await p.keyboard.press("Enter"); await wait(); await p.keyboard.press("Escape");
+// goal tags: empty by default, available on a subtask
+await p.fill('[aria-label="New goal name"]', "Fitness"); await p.keyboard.press("Enter"); await wait();
+await row("Small").locator('[aria-label="Task options"]').click();
+const sel = row("Small").locator('[role=dialog] label:has-text("Fitness") input');
+out("goal tag is empty by default, also offered on subtasks", !(await sel.isChecked()) && (await p.locator('[title^="Goal:"]').count()) === 0);
+await sel.click(); await wait(); await p.keyboard.press("Escape");
+out("subtask tagged with a goal; Goals box counts it", await row("Small").locator('[title="Goal: Fitness"]').isVisible());
+// delete a non-empty list with the button, undo with Ctrl+Z
+out("non-empty list has a delete button", (await p.locator('[aria-label=\'Delete list "List"\']').count()) === 1);
+await p.locator('[aria-label=\'Delete list "List"\']').click(); await wait(600);
+out("button deletes the list and its tasks", (await names()) === "" && (await outline()) === "" && await p.locator("text=Deleted list “List”").isVisible(), `${await names()} / ${await outline()}`);
+await p.keyboard.press("Control+z"); await wait(700);
+out("Ctrl+Z brings the list and its tasks back (goal tag kept)", (await names()) === "List" && (await outline()) === "Big,-Small" && await row("Small").locator('[title="Goal: Fitness"]').isVisible(), `${await names()} / ${await outline()}`);
+// second list, delete with the Delete key while its name is selected
+await p.fill('[aria-label="New list name"]', "Second"); await p.keyboard.press("Enter"); await wait();
+const second = p.locator('input[aria-label="List name"]').nth(1);
+await second.click(); await p.keyboard.press("End"); await p.keyboard.press("Delete"); await wait(600);
+out("Delete key on a selected list deletes it", (await names()) === "List", await names());
+await p.click("text=Undo (Ctrl+Z)"); await wait(600);
+out("undo button restores it", (await names()) === "List,Second", await names());
+await second.click(); await p.keyboard.press("Home"); await p.keyboard.press("Delete"); await wait(400);
+out("Delete mid-name only edits the name", (await names()).startsWith("List,") && (await p.locator('input[aria-label="List name"]').count()) === 2 && (await second.inputValue()) === "econd", await second.inputValue());
+await p.keyboard.press("Escape");
+await p.reload(); await p.waitForSelector("section[data-drop-list]");
+out("state after reload", (await names()) === "List,Second" && (await outline()) === "Big,-Small", `${await names()} / ${await outline()}`);
+await p.screenshot({ path: "lists.png", fullPage: true });
+await b.close();
