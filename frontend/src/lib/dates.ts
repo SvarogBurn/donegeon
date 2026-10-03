@@ -9,6 +9,13 @@ export function formatDay(day: string, withWeekday = false) {
   return `${weekday} ${short}`;
 }
 
+/** "2026-10-07", -1 -> "2026-10-06". */
+export function addDays(day: string, days: number) {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 /** "2026-10-07" -> "07/10/26", as in the countdown table. */
 export function formatShortDay(day: string) {
   const [year, month, date] = day.split("-");

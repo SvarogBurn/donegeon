@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CombinedTable } from "../components/Countdown/CombinedTable";
 import { PressureSummary } from "../components/Countdown/PressureSummary";
+import { DoneLog } from "../components/Done/DoneLog";
 import { LabelsPanel } from "../components/Labels/LabelsPanel";
 import { ListBoard } from "../components/Lists/ListBoard";
 import {
@@ -79,6 +80,7 @@ export function Dashboard() {
         isBusy={createTag.isPending || deleteTag.isPending}
         error={createTag.error ?? deleteTag.error}
       />
+      <DoneLog tasks={tasks.data} />
     </div>
   );
 }
