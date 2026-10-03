@@ -19,11 +19,17 @@ export interface Tag {
   name: string;
 }
 
+export type ListKind = "task" | "reward";
+
 /** A user-made folder of top-level tasks. */
 export interface List {
   id: string;
   name: string;
   position: number;
+  /** Items in a task list add points when done; items in a reward list cost points. */
+  kind: ListKind;
+  /** What an item is worth unless it has its own amount. */
+  defaultPoints: number;
 }
 
 export interface Task {
@@ -43,8 +49,26 @@ export interface Task {
   completedAt: string | null;
   /** The user's calendar day the task was completed on, "YYYY-MM-DD". */
   completedOn: string | null;
+  /** Top-level tasks only: a hand-set amount; null = the list's default. */
   points: number | null;
+  /** The day it was marked for Today; null = not in Today. */
+  todaySince: string | null;
+  /** Top-level tasks only: done again and again with a button instead of ticked once. */
+  isPersistent: boolean;
   position: number;
+}
+
+/** One press of a persistent task's "done it" button. */
+export interface TaskPress {
+  id: string;
+  day: string;
+  createdAt: string;
+}
+
+export interface PointsSummary {
+  balance: number;
+  /** Newest first. */
+  transactions: { id: string; type: "earned" | "redeemed" | "reversal"; amount: number; title: string; createdAt: string }[];
 }
 
 /** Where a task stands on one day: Days left / Left / Per day. */
@@ -62,6 +86,10 @@ export interface TaskTreeNode extends Task {
   descendantDoneCount: number;
   /** Today's pace, for tasks with a deadline (hard or soft). */
   pace: Pace | null;
+  /** What a top-level task is worth right now; null for subtasks. */
+  value: number | null;
+  /** Presses of a persistent task, oldest first. */
+  completions: TaskPress[];
 }
 
 export interface CountdownRow extends Pace {

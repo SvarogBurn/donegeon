@@ -1,8 +1,10 @@
 import { Fragment, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { useNavigate } from "react-router";
 import { useCreateTask, useGoals, useTags, useToggleTask, useUpdateTask } from "../../hooks/useTasks";
+import { localDate } from "../../api/client";
 import { hasTaskPage } from "../../lib/taskPage";
 import type { TaskTreeNode } from "../../types";
+import { ValueChip } from "../Points/ValueChip";
 import { DeadlineBadge } from "./DeadlineBadge";
 import { TaskMenu } from "./TaskMenu";
 import { focusNeighbor, TitleEditor } from "./TitleEditor";
@@ -64,6 +66,9 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
   const rename = useUpdateTask();
   const error = toggle.error ?? rename.error;
 
+  const isPersistent = node.isPersistent && !node.parentId;
+  const today = localDate();
+  const pressedToday = node.completions.filter((press) => press.day === today).length;
   const hasChildren = node.children.length > 0;
   const hasDraftChild = tree.draft?.parentId === node.id;
   const drop = tree.dropTarget?.kind === "task" && tree.dropTarget.id === node.id ? tree.dropTarget.zone : null;
@@ -115,7 +120,10 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
         data-task-row={node.id}
         onPointerDown={(e) => (pressedControl.current = Boolean((e.target as Element).closest(ROW_CONTROLS)))}
         onClick={openTask}
-        className={`flex ${opens ? "cursor-pointer" : ""} flex-wrap items-start gap-x-1.5 gap-y-1 rounded px-1 py-0.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 ${drop ? DROP_STYLES[drop] : ""}`}
+        data-today={node.todaySince ? "" : undefined}
+        title={node.todaySince ? "In Today" : undefined}
+        // Tasks marked for Today are tinted green in their list.
+        className={`flex ${opens ? "cursor-pointer" : ""} flex-wrap items-start gap-x-1.5 gap-y-1 rounded px-1 py-0.5 ${node.todaySince ? "bg-emerald-50 dark:bg-emerald-950/40" : "hover:bg-stone-50 dark:hover:bg-stone-800/50"} ${drop ? DROP_STYLES[drop] : ""}`}
       >
         <button
           type="button"
@@ -127,14 +135,27 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
           {isOpen ? "▾" : "▸"}
         </button>
 
-        <input
-          type="checkbox"
-          className="mt-2 size-4 accent-emerald-700"
-          checked={node.isComplete}
-          disabled={toggle.isPending}
-          onChange={() => toggle.mutate(node.id)}
-          aria-label={`Mark "${node.title}" ${node.isComplete ? "not done" : "done"}`}
-        />
+        {isPersistent ? (
+          <button
+            type="button"
+            className="mt-1.5 flex size-5 items-center justify-center rounded-full border border-emerald-700 text-xs leading-none text-emerald-700 hover:bg-emerald-700 hover:text-white dark:border-emerald-400 dark:text-emerald-400"
+            onClick={() => tree.pressTask(node)}
+            aria-label={`Done "${node.title}" once more`}
+            title="Done it. Stays here for next time (Ctrl+Z to undo)"
+          >
+            ↻
+          </button>
+        ) : (
+          <input
+            type="checkbox"
+            className="mt-2 size-4 accent-emerald-700"
+            checked={node.isComplete}
+            disabled={toggle.isPending}
+            // Ticking a main task finishes it: it is in the Done tab, and leaves its list a few days later. With an undo.
+            onChange={() => (!node.parentId && !node.isComplete ? tree.finishTask(node) : toggle.mutate(node.id))}
+            aria-label={`Mark "${node.title}" ${node.isComplete ? "not done" : "done"}`}
+          />
+        )}
 
         <div className="min-w-32 flex-1">
           <TitleEditor
@@ -151,6 +172,11 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
 
         <span className="flex flex-wrap items-center justify-end gap-1.5 pt-1">
           <LabelChips node={node} />
+          {isPersistent && pressedToday > 0 && (
+            <span className="text-xs text-stone-500 tabular-nums" data-pressed-today={pressedToday}>
+              ×{pressedToday} today
+            </span>
+          )}
           <DeadlineBadge task={node} />
           {hasChildren && (
             <span className="text-xs text-stone-500 tabular-nums">
@@ -163,10 +189,11 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
             className="btn-quiet cursor-grab touch-none text-base leading-none select-none active:cursor-grabbing"
             onPointerDown={(e) => tree.startDrag(e, node)}
             aria-label="Drag to move this task"
-            title="Drag to move. Keyboard: Alt+↑ / Alt+↓ in the task"
+            title="Drag to move, or onto the Today box to do it today. Keyboard: Alt+↑ / Alt+↓ in the task"
           >
             ⠿
           </button>
+          <ValueChip node={node} />
         </span>
       </div>
 

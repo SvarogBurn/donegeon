@@ -36,8 +36,8 @@ out("merged 'Essay deadline' row just above its day", l[3] === "Essay deadline" 
 out("'Exam deadline' row closes the table; the empty 0-per-day day after it is hidden", l.at(-1) === "Exam deadline" && l.at(-2).includes(short(6)), l.slice(-2).join(" / "));
 out("summary: 13 tasks, 0 done, 13 left, 2 deadlines", JSON.stringify(await table.locator("[data-summary]").allInnerTexts()) === '["13","0","13","2"]');
 
-// finish the essay: from then on only the exam's 1 per day
-for (let i = 0; i <= 5; i++) { await row(i ? `Essay ${i}` : "Essay").locator("input[type=checkbox]").click(); await wait(250); }
+// finish the essay by ticking the main task: its open subtasks count as done with it, and only the exam's 1 per day is left
+await row("Essay").locator("input[type=checkbox]").click(); await wait(250);
 await wait(800); l = await lines();
 out("essay done today: 6 done, exam alone at 1 per day", l[0].endsWith("|6|7|1") && l[4].endsWith("|7|1"), `${l[0]} / ${l[4]}`);
 await p.screenshot({ path: "combined.png", fullPage: true });

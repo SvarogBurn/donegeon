@@ -59,6 +59,28 @@ export function subtreeIds(tasks: Pick<Task, "id" | "parentId">[], rootId: strin
   return ids;
 }
 
+type FinishInput = Pick<Task, "id" | "parentId" | "isComplete" | "completedOn">;
+
+/**
+ * Ticking a main task finishes the whole task: it moves to the Done tab, and
+ * for the deadline numbers everything still open beneath it counts as done
+ * that day. Returns the tasks seen that way, plus the ids inside finished tasks.
+ */
+export function withFinishedRoots<T extends FinishInput>(tasks: T[]): { tasks: T[]; finished: Set<string> } {
+  const finishedOn = new Map<string, string>();
+  for (const root of tasks) {
+    if (root.parentId || !root.isComplete || !root.completedOn) continue;
+    for (const id of subtreeIds(tasks, root.id)) finishedOn.set(id, root.completedOn);
+  }
+  return {
+    tasks: tasks.map((task) => {
+      const day = finishedOn.get(task.id);
+      return day && !task.completedOn ? { ...task, completedOn: day } : task;
+    }),
+    finished: new Set(finishedOn.keys()),
+  };
+}
+
 /** 0 for a top-level task, 1 for its children, and so on. */
 export function depthOf(tasks: Pick<Task, "id" | "parentId">[], id: string): number {
   const parentOf = new Map(tasks.map((t) => [t.id, t.parentId]));
@@ -73,7 +95,7 @@ export function insertAt(ids: string[], id: string, index: number): string[] {
   return [...ids.slice(0, at), id, ...ids.slice(at)];
 }
 
-type CompletionState =Pick<Task, "isComplete" | "completedAt" | "completedOn">;
+type CompletionState = Pick<Task, "isComplete" | "completedAt" | "completedOn">;
 
 /**
  * The spreadsheet's x -> date rule: completing stamps the day once, completing

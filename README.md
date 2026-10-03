@@ -56,11 +56,26 @@ In a task:
 | `Ctrl+Z` within 10 seconds of a delete | bring it back |
 | `Esc` | discard the new row / undo the edit in progress |
 
+## Points, rewards, Today
+
+- Every list is a **task list** (its items add points) or a **reward list** (its items cost points), with a points-per-item amount. Both are set when the list is created and can be changed in the list's header.
+- Ticking a main task books its points and moves it to the **Done** tab; unticking it there puts it back and reverses the points. Subtasks carry no points.
+- In a task's ⋯ menu: **Do today** (shows it in the Today box until it is done), **Persistent** (a ↻ button instead of a checkbox: can be done or bought again and again), and its own point amount (empty = the list's amount).
+- The balance in the nav bar opens the points history.
+
 ## Dev date
 
 In dev builds the nav bar has a dashed "Dev date" field. Setting it makes the
 app treat that day as today (completion stamps now; countdown and daily
 rollover later). "reset" goes back to the real date.
-# donegeon
-# donegeon
-# donegeon
+
+## Specs
+
+donegeon/
+├── backend/            Express 5 + Prisma API (port 3001)
+├── frontend/           React 19 + Vite SPA (port 5173)
+├── e2e/                Playwright browser-check scripts
+└── docker-compose.yml  Postgres on localhost:5432
+
+Backend: 
+index.ts starts the server.

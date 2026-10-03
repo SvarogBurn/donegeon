@@ -1,4 +1,4 @@
-import type { CombinedCountdown, Countdown, PressureSummary, Task, TaskTreeNode } from "../types";
+import type { CombinedCountdown, Countdown, PointsSummary, PressureSummary, Task, TaskTreeNode } from "../types";
 import { api } from "./client";
 
 /** A place in the tree: under a parent task, or at the top level of a list. */
@@ -17,6 +17,10 @@ export interface TaskChanges {
   tagIds?: string[];
   deadlineDate?: string | null;
   deadlineType?: "hard" | "soft";
+  /** null = back to the list's default. */
+  points?: number | null;
+  today?: boolean;
+  isPersistent?: boolean;
 }
 
 export const listTaskTrees = () => api<{ tasks: TaskTreeNode[] }>("/tasks").then((r) => r.tasks);
@@ -33,6 +37,12 @@ export const updateTask = (id: string, body: TaskChanges) =>
   api<{ task: Task }>(`/tasks/${id}`, { method: "PATCH", body }).then((r) => r.task);
 export const toggleTask = (id: string) =>
   api<{ task: Task }>(`/tasks/${id}/toggle`, { method: "PATCH" }).then((r) => r.task);
+/** One press of a persistent task's "done it" button, and its undo. */
+export const pressTask = (id: string) =>
+  api<{ completion: { id: string; day: string } }>(`/tasks/${id}/completions`, { method: "POST" }).then((r) => r.completion);
+export const undoPress = (id: string, completionId: string) =>
+  api(`/tasks/${id}/completions/${completionId}`, { method: "DELETE" });
+export const getPoints = () => api<PointsSummary>("/points");
 export const moveTask = (id: string, placement: TaskPlacement) => api(`/tasks/${id}/move`, { body: placement });
 export const deleteTask = (id: string) => api(`/tasks/${id}`, { method: "DELETE" });
 export const restoreTask = (id: string) => api(`/tasks/${id}/restore`, { method: "POST" });

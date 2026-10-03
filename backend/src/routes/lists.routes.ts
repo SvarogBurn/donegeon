@@ -7,7 +7,12 @@ import { subtreeIds } from "../services/taskTree.service.js";
 
 const DELETED_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
-const listInput = z.object({ name: z.string().trim().min(1, "Name is required").max(200) });
+const name = z.string().trim().min(1, "Name is required").max(200);
+const kind = z.enum(["task", "reward"]);
+const defaultPoints = z.number().int().min(0, "Points can't be negative").max(100_000);
+
+const listInput = z.object({ name, kind: kind.optional(), defaultPoints: defaultPoints.optional() });
+const listPatch = z.object({ name: name.optional(), kind: kind.optional(), defaultPoints: defaultPoints.optional() });
 
 async function ownList(req: Request, id: string) {
   const list = await prisma.list.findFirst({ where: { id, userId: userId(req), deletedAt: null } });
@@ -15,7 +20,11 @@ async function ownList(req: Request, id: string) {
   return list;
 }
 
-/** Lists are the user's own folders for top-level tasks; they carry no deadline or points logic. */
+/**
+ * Lists are the user's own folders for top-level tasks. A list is a task list
+ * (its items add points) or a reward list (its items cost points), and sets
+ * what an item is worth unless the item has its own amount.
+ */
 export const listsRouter = Router();
 
 listsRouter.get("/", async (req, res) => {
@@ -32,19 +41,20 @@ listsRouter.get("/", async (req, res) => {
 });
 
 listsRouter.post("/", async (req, res) => {
-  const { name } = listInput.parse(req.body);
+  const input = listInput.parse(req.body);
   const owner = userId(req);
   const last = await prisma.list.aggregate({ where: { userId: owner }, _max: { position: true } });
   const list = await prisma.list.create({
-    data: { userId: owner, name, position: (last._max.position ?? -1) + 1 },
+    data: { userId: owner, ...input, position: (last._max.position ?? -1) + 1 },
   });
   res.status(201).json({ list });
 });
 
 listsRouter.patch("/:id", async (req, res) => {
-  const { name } = listInput.parse(req.body);
+  // Changing kind or default only affects what gets booked from now on; the ledger stays as it is.
+  const input = listPatch.parse(req.body);
   await ownList(req, req.params.id);
-  res.json({ list: await prisma.list.update({ where: { id: req.params.id }, data: { name } }) });
+  res.json({ list: await prisma.list.update({ where: { id: req.params.id }, data: input }) });
 });
 
 // Soft-deletes the list together with every task in it, under one shared

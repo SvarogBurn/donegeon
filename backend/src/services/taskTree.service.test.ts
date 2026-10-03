@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTree, completionPatch, depthOf, insertAt, subtreeIds } from "./taskTree.service.js";
+import { buildTree, completionPatch, depthOf, insertAt, subtreeIds, withFinishedRoots } from "./taskTree.service.js";
 
 const t0 = new Date("2026-10-01T10:00:00Z");
 
@@ -93,5 +93,32 @@ describe("completionPatch", () => {
     const cleared = completionPatch(stamped, false, later, "2026-10-05");
     expect(cleared).toEqual(open);
     expect(completionPatch(cleared, true, later, "2026-10-05").completedOn).toBe("2026-10-05");
+  });
+});
+
+describe("withFinishedRoots", () => {
+  const node = (id: string, parentId: string | null, completedOn: string | null = null) => ({
+    id,
+    parentId,
+    isComplete: completedOn !== null,
+    completedOn,
+  });
+
+  it("counts everything open under a ticked main task as done that day", () => {
+    const { tasks, finished } = withFinishedRoots([
+      node("root", null, "2026-10-04"),
+      node("early", "root", "2026-10-02"),
+      node("open", "root"),
+      node("deep", "open"),
+    ]);
+    expect(tasks.map((t) => t.completedOn)).toEqual(["2026-10-04", "2026-10-02", "2026-10-04", "2026-10-04"]);
+    expect([...finished].sort()).toEqual(["deep", "early", "open", "root"]);
+  });
+
+  it("leaves open main tasks alone, even when a subtask is ticked", () => {
+    const input = [node("root", null), node("sub", "root", "2026-10-04"), node("leaf", "sub")];
+    const { tasks, finished } = withFinishedRoots(input);
+    expect(tasks).toEqual(input);
+    expect(finished.size).toBe(0);
   });
 });

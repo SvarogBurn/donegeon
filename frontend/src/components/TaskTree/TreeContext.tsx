@@ -11,7 +11,17 @@ import {
 } from "react";
 import type { TaskPlacement } from "../../api/tasks";
 import { NO_FILTER, type LabelFilter } from "../../lib/labels";
-import { useDeleteList, useDeleteTask, useMoveTask, useRestoreList, useRestoreTask } from "../../hooks/useTasks";
+import {
+  useDeleteList,
+  useDeleteTask,
+  useMoveTask,
+  usePressTask,
+  useRestoreList,
+  useRestoreTask,
+  useSetToday,
+  useToggleTask,
+  useUndoPress,
+} from "../../hooks/useTasks";
 import type { List, TaskTreeNode } from "../../types";
 import { focusTaskEditor } from "./TitleEditor";
 
@@ -26,7 +36,9 @@ export interface Draft {
 
 export type DropTarget =
   | { kind: "task"; id: string; zone: "before" | "after" | "inside" }
-  | { kind: "list"; listId: string };
+  | { kind: "list"; listId: string }
+  /** The Today box: marks the task for today; it stays where it is. */
+  | { kind: "today" };
 
 interface TreeContextValue {
   draft: Draft | null;
@@ -45,23 +57,25 @@ interface TreeContextValue {
   startDrag: (e: ReactPointerEvent<HTMLElement>, node: TaskTreeNode) => void;
   /** Alt+Up / Alt+Down: swap with the previous / next sibling. */
   moveBy: (node: TaskTreeNode, direction: -1 | 1) => void;
-  /** Deletes the task with its subtasks; undoable while it is in `deleted`. */
+  /** Deletes the task with its subtasks; undoable while it is in `undoable`. */
   deleteTask: (node: TaskTreeNode) => void;
   /** Deletes the list with all its tasks; undoable the same way. */
   deleteList: (list: List) => void;
-  /** Recently deleted tasks and lists that Ctrl+Z / the undo bar can still bring back, oldest first. */
-  deleted: DeletedItem[];
-  undoDelete: () => void;
+  /** Ticks a main task, which sends it to the Done tab; undoable, so a slip doesn't mean a trip there. */
+  finishTask: (node: TaskTreeNode) => void;
+  /** One press of a persistent task's "done it" button; undoable. */
+  pressTask: (node: TaskTreeNode) => void;
+  /** What Ctrl+Z / the undo bar can still take back, oldest first. */
+  undoable: Undoable[];
+  undo: () => void;
   error: Error | null;
 }
 
-export interface DeletedItem {
-  kind: "task" | "list";
-  id: string;
-  title: string;
-}
+export type Undoable =
+  | { kind: "task" | "list" | "finished"; id: string; title: string }
+  | { kind: "press"; id: string; title: string; completionId: string };
 
-/** How long a delete stays undoable from the page (the server keeps it longer). */
+/** How long an action stays undoable from the page (the server keeps deletes longer). */
 const UNDO_WINDOW_MS = 10_000;
 
 const TreeContext = createContext<TreeContextValue | null>(null);
@@ -88,6 +102,7 @@ function hitTest(x: number, y: number, own: Element | null): DropTarget | null {
     const zone = fraction < 0.3 ? "before" : fraction > 0.7 ? "after" : "inside";
     return { kind: "task", id: row.dataset.taskRow!, zone };
   }
+  if (el.closest("[data-drop-today]")) return { kind: "today" };
   const list = el.closest<HTMLElement>("[data-drop-list]");
   if (list) return { kind: "list", listId: list.dataset.dropList! };
   return null;
@@ -106,8 +121,12 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
   const [draftText, setDraftText] = useState("");
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
-  const [deleted, setDeleted] = useState<DeletedItem[]>([]);
+  const [undoable, setUndoable] = useState<Undoable[]>([]);
   const move = useMoveTask();
+  const toggle = useToggleTask();
+  const press = usePressTask();
+  const undoPress = useUndoPress();
+  const setToday = useSetToday();
   const remove = useDeleteTask();
   const restore = useRestoreTask();
   const removeList = useDeleteList();
@@ -136,7 +155,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
     (node: TaskTreeNode) => {
       // Offered for undo only once the server has really deleted it.
       remove.mutateAsync(node.id).then(
-        () => setDeleted((stack) => [...stack, { kind: "task", id: node.id, title: node.title }]),
+        () => setUndoable((stack) => [...stack, { kind: "task", id: node.id, title: node.title }]),
         () => {},
       );
     },
@@ -146,40 +165,66 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
   const deleteList = useCallback(
     (list: List) => {
       removeList.mutateAsync(list.id).then(
-        () => setDeleted((stack) => [...stack, { kind: "list", id: list.id, title: list.name }]),
+        () => setUndoable((stack) => [...stack, { kind: "list", id: list.id, title: list.name }]),
         () => {},
       );
     },
     [removeList],
   );
 
-  const undoDelete = useCallback(() => {
-    const last = deleted.at(-1);
+  const finishTask = useCallback(
+    (node: TaskTreeNode) => {
+      toggle.mutateAsync(node.id).then(
+        () => setUndoable((stack) => [...stack, { kind: "finished", id: node.id, title: node.title }]),
+        () => {},
+      );
+    },
+    [toggle],
+  );
+
+  const pressTask = useCallback(
+    (node: TaskTreeNode) => {
+      press.mutateAsync(node.id).then(
+        (completion) =>
+          setUndoable((stack) => [...stack, { kind: "press", id: node.id, title: node.title, completionId: completion.id }]),
+        () => {},
+      );
+    },
+    [press],
+  );
+
+  const undo = useCallback(() => {
+    const last = undoable.at(-1);
     if (!last) return;
-    setDeleted((stack) => stack.slice(0, -1));
+    setUndoable((stack) => stack.slice(0, -1));
     if (last.kind === "list") {
       restoreList.mutate(last.id);
+    } else if (last.kind === "press") {
+      undoPress.mutate({ id: last.id, completionId: last.completionId });
+    } else if (last.kind === "finished") {
+      // Still ticked? Then untick it, which puts it back in its list.
+      if (byId.get(last.id)?.isComplete) toggle.mutate(last.id);
     } else {
       focusWhenShown.current = last.id;
       restore.mutate(last.id);
     }
-  }, [deleted, restore, restoreList]);
+  }, [undoable, restore, restoreList, undoPress, toggle, byId]);
 
-  // While a delete is undoable, Ctrl+Z means "bring it back" rather than undoing typing.
+  // While something is undoable, Ctrl+Z means "take it back" rather than undoing typing.
   useEffect(() => {
-    if (deleted.length === 0) return;
+    if (undoable.length === 0) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== "z" || !(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
       e.preventDefault();
-      undoDelete();
+      undo();
     };
-    const expire = setTimeout(() => setDeleted([]), UNDO_WINDOW_MS);
+    const expire = setTimeout(() => setUndoable([]), UNDO_WINDOW_MS);
     document.addEventListener("keydown", onKeyDown, true);
     return () => {
       clearTimeout(expire);
       document.removeEventListener("keydown", onKeyDown, true);
     };
-  }, [deleted, undoDelete]);
+  }, [undoable, undo]);
 
   // Read by drag listeners that outlive the render they were created in.
   const latest = useRef({ tasks, byId });
@@ -197,6 +242,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       const { tasks, byId } = latest.current;
       const notDragged = (t: TaskTreeNode) => t.id !== draggedId;
 
+      if (target.kind === "today") return null;
       if (target.kind === "list") {
         const inList = tasks.filter((t) => t.listId === target.listId).filter(notDragged);
         return { parentId: null, listId: target.listId, index: inList.length };
@@ -249,6 +295,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
         handle.removeEventListener("pointercancel", onCancel);
         setDraggingId(null);
         setDropTarget(null);
+        if (drop && target?.kind === "today") return setToday.mutate({ id: node.id, today: true });
         const placement = drop && target ? placementFor(target, node.id) : null;
         if (placement) move.mutate({ id: node.id, placement });
       };
@@ -259,7 +306,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       handle.addEventListener("pointerup", onUp);
       handle.addEventListener("pointercancel", onCancel);
     },
-    [move, placementFor],
+    [move, placementFor, setToday],
   );
 
   const moveBy = useCallback(
@@ -288,9 +335,20 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
     moveBy,
     deleteTask,
     deleteList,
-    deleted,
-    undoDelete,
-    error: move.error ?? remove.error ?? restore.error ?? removeList.error ?? restoreList.error,
+    finishTask,
+    pressTask,
+    undoable,
+    undo,
+    error:
+      move.error ??
+      remove.error ??
+      restore.error ??
+      removeList.error ??
+      restoreList.error ??
+      toggle.error ??
+      setToday.error ??
+      press.error ??
+      undoPress.error,
   };
   return <TreeContext.Provider value={value}>{children}</TreeContext.Provider>;
 }

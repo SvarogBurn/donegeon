@@ -9,17 +9,23 @@ interface DoneTask {
   /** Titles of the tasks it sits under, outermost first. */
   path: string[];
   completedAt: string | null;
+  /** A persistent task pressed more than once that day. */
+  times?: number;
 }
 
 const firstLine = (title: string) => title.split("\n")[0];
 
-/** Every task ticked off on `day`, at any depth, in the order they were ticked. */
+/** Every task ticked off on `day`, at any depth, in the order they were ticked; a persistent task once, with how often. */
 function doneOn(trees: TaskTreeNode[], day: string): DoneTask[] {
   const found: DoneTask[] = [];
   const visit = (nodes: TaskTreeNode[], path: string[]) => {
     for (const node of nodes) {
       const title = firstLine(node.title);
       if (node.completedOn === day) found.push({ id: node.id, title, path, completedAt: node.completedAt });
+      const presses = node.completions.filter((press) => press.day === day);
+      if (presses.length > 0) {
+        found.push({ id: node.id, title, path, completedAt: presses.at(-1)!.createdAt, times: presses.length });
+      }
       visit(node.children, [...path, title]);
     }
   };
@@ -95,6 +101,7 @@ export function DoneLog({ tasks }: { tasks: TaskTreeNode[] }) {
           {done.map((task) => (
             <li key={task.id} className="flex items-baseline gap-2">
               <span className="min-w-0 truncate">{task.title}</span>
+              {task.times && task.times > 1 && <span className="shrink-0 text-stone-500 tabular-nums">×{task.times}</span>}
               {task.path.length > 0 && <span className="min-w-0 shrink-[2] truncate text-stone-500">{task.path.join(" › ")}</span>}
             </li>
           ))}

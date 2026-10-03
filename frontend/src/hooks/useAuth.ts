@@ -36,8 +36,9 @@ export function useLogout() {
   return useMutation({
     mutationFn: authApi.logout,
     onSuccess: () => {
-      queryClient.clear();
+      // Not clear(): that drops the "me" query out from under AppShell, which then never hears it changed.
       queryClient.setQueryData(ME, null);
+      queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== ME[0] });
     },
   });
 }

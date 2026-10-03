@@ -4,6 +4,9 @@ import { PressureSummary } from "../components/Countdown/PressureSummary";
 import { DoneLog } from "../components/Done/DoneLog";
 import { LabelsPanel } from "../components/Labels/LabelsPanel";
 import { ListBoard } from "../components/Lists/ListBoard";
+import { TreeProvider } from "../components/TaskTree/TreeContext";
+import { TreeError, UndoBar } from "../components/TaskTree/TreeStatus";
+import { TodayBox } from "../components/Today/TodayBox";
 import {
   useCreateGoal,
   useCreateTag,
@@ -38,49 +41,54 @@ export function Dashboard() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <PressureSummary />
-      <CombinedTable />
-      <LabelsPanel
-        title="Goals"
-        noun="goal"
-        items={goals.data}
-        counts={countLabels(tasks.data, "goalIds")}
-        selected={filter.goalIds}
-        onToggle={(id) => setPicked({ ...filter, goalIds: toggleId(filter.goalIds, id) })}
-        onCreate={(name) => createGoal.mutate({ name })}
-        onDelete={(id) => deleteGoal.mutate(id)}
-        isBusy={createGoal.isPending || deleteGoal.isPending}
-        error={createGoal.error ?? deleteGoal.error}
-      />
-      {isFiltering(filter) && (
-        <p className="flex flex-wrap items-center gap-2 text-sm" role="status">
-          <span>
-            Showing only tasks with{" "}
-            {[...goals.data.filter((g) => filter.goalIds.includes(g.id)), ...tags.data.filter((t) => filter.tagIds.includes(t.id))]
-              .map((label) => `“${label.name}”`)
-              .join(" and ")}
-            . New tasks added now get the same.
-          </span>
-          <button type="button" className="btn-quiet underline" onClick={() => setPicked(NO_FILTER)}>
-            Clear filter
-          </button>
-        </p>
-      )}
-      <ListBoard lists={lists.data} tasks={tasks.data} filter={filter} />
-      <LabelsPanel
-        title="Tags"
-        noun="tag"
-        items={tags.data}
-        counts={countLabels(tasks.data, "tagIds")}
-        selected={filter.tagIds}
-        onToggle={(id) => setPicked({ ...filter, tagIds: toggleId(filter.tagIds, id) })}
-        onCreate={(name) => createTag.mutate(name)}
-        onDelete={(id) => deleteTag.mutate(id)}
-        isBusy={createTag.isPending || deleteTag.isPending}
-        error={createTag.error ?? deleteTag.error}
-      />
-      <DoneLog tasks={tasks.data} />
-    </div>
+    <TreeProvider tasks={tasks.data} newTaskLabels={filter}>
+      <div className="mx-auto max-w-3xl space-y-4">
+        <PressureSummary />
+        <CombinedTable />
+        <TreeError />
+        <LabelsPanel
+          title="Goals"
+          noun="goal"
+          items={goals.data}
+          counts={countLabels(tasks.data, "goalIds")}
+          selected={filter.goalIds}
+          onToggle={(id) => setPicked({ ...filter, goalIds: toggleId(filter.goalIds, id) })}
+          onCreate={(name) => createGoal.mutate({ name })}
+          onDelete={(id) => deleteGoal.mutate(id)}
+          isBusy={createGoal.isPending || deleteGoal.isPending}
+          error={createGoal.error ?? deleteGoal.error}
+        />
+        {isFiltering(filter) && (
+          <p className="flex flex-wrap items-center gap-2 text-sm" role="status">
+            <span>
+              Showing only tasks with{" "}
+              {[...goals.data.filter((g) => filter.goalIds.includes(g.id)), ...tags.data.filter((t) => filter.tagIds.includes(t.id))]
+                .map((label) => `“${label.name}”`)
+                .join(" and ")}
+              . New tasks added now get the same.
+            </span>
+            <button type="button" className="btn-quiet underline" onClick={() => setPicked(NO_FILTER)}>
+              Clear filter
+            </button>
+          </p>
+        )}
+        <TodayBox tasks={tasks.data} />
+        <ListBoard lists={lists.data} tasks={tasks.data} filter={filter} />
+        <LabelsPanel
+          title="Tags"
+          noun="tag"
+          items={tags.data}
+          counts={countLabels(tasks.data, "tagIds")}
+          selected={filter.tagIds}
+          onToggle={(id) => setPicked({ ...filter, tagIds: toggleId(filter.tagIds, id) })}
+          onCreate={(name) => createTag.mutate(name)}
+          onDelete={(id) => deleteTag.mutate(id)}
+          isBusy={createTag.isPending || deleteTag.isPending}
+          error={createTag.error ?? deleteTag.error}
+        />
+        <DoneLog tasks={tasks.data} />
+        <UndoBar />
+      </div>
+    </TreeProvider>
   );
 }

@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Calendar days (startDate, deadlineDate, completedOn, DailyEntry.date, ...)
+// Calendar days (startDate, deadlineDate, completedOn, todaySince, ...)
 // are stored as "YYYY-MM-DD" strings in the user's local time. They are days,
 // not instants, so keeping them out of timestamp columns avoids timezone
 // shifts between the phone, the server and the database.
@@ -23,9 +23,10 @@ enum PointTransactionType {
   reversal
 }
 
-enum DailyEntryStatus {
-  active
-  deferred
+// A task list adds points when an item is ticked; a reward list subtracts them.
+enum ListKind {
+  task
+  reward
 }
 
 model User {
@@ -38,9 +39,8 @@ model User {
   tags              Tag[]
   tasks             Task[]
   lists             List[]
-  rewards           Reward[]
   pointTransactions PointTransaction[]
-  dailyEntries      DailyEntry[]
+  taskCompletions   TaskCompletion[]
 }
 
 model Goal {
@@ -87,7 +87,13 @@ model Task {
   // Stamp-once: set on completion, cleared on un-toggle.
   completedAt  DateTime?
   completedOn  String?
+  // Top-level tasks only. Null = worth the list's defaultPoints; a number is a
+  // hand-set amount that travels with the task. The list's kind decides add or subtract.
   points       Int?
+  // The day the task was marked for Today; null = not in Today.
+  todaySince   String?
+  // Top-level tasks only. Done again and again: never complete, each press is a TaskCompletion.
+  isPersistent Boolean       @default(false)
   // Soft delete, so a delete can be undone. Set on the whole deleted subtree
   // with one shared timestamp; every query must filter on deletedAt = null.
   deletedAt    DateTime?
@@ -102,7 +108,7 @@ model Task {
   goals             Goal[]
   tags              Tag[]
   list              List?              @relation(fields: [listId], references: [id], onDelete: Cascade)
-  dailyEntries      DailyEntry[]
+  completions       TaskCompletion[]
   pointTransactions PointTransaction[]
 
   @@index([userId])
@@ -111,15 +117,18 @@ model Task {
 }
 
 model List {
-  id          String    @id @default(uuid())
-  userId      String
-  name        String
-  description String?
-  position    Int       @default(0)
-  isArchived  Boolean   @default(false)
+  id            String    @id @default(uuid())
+  userId        String
+  name          String
+  description   String?
+  position      Int       @default(0)
+  kind          ListKind  @default(task)
+  // What a top-level task in this list is worth unless it has its own amount.
+  defaultPoints Int       @default(1)
+  isArchived    Boolean   @default(false)
   // Soft delete, undoable like tasks. The list's tasks get the same timestamp.
-  deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
 
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   tasks Task[]
@@ -127,51 +136,44 @@ model List {
   @@index([userId])
 }
 
-model Reward {
-  id         String   @id @default(uuid())
-  userId     String
-  name       String
-  pointCost  Int
-  isArchived Boolean  @default(false)
-  createdAt  DateTime @default(now())
-
-  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions PointTransaction[]
-
-  @@index([userId])
-}
-
 // Append-only ledger. Balance = SUM(amount).
 model PointTransaction {
-  id              String               @id @default(uuid())
-  userId          String
-  type            PointTransactionType
-  amount          Int
-  relatedTaskId   String?
-  relatedRewardId String?
-  createdAt       DateTime             @default(now())
+  id            String               @id @default(uuid())
+  userId        String
+  type          PointTransactionType
+  amount        Int
+  relatedTaskId String?
+  // The task's title when the row was written, so history still reads after the task is gone.
+  title         String               @default("")
+  // On a reversal: the earned / redeemed row it cancels.
+  reversesId    String?              @unique
+  createdAt     DateTime             @default(now())
 
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  task   Task?   @relation(fields: [relatedTaskId], references: [id], onDelete: SetNull)
-  reward Reward? @relation(fields: [relatedRewardId], references: [id], onDelete: SetNull)
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task       Task?             @relation(fields: [relatedTaskId], references: [id], onDelete: SetNull)
+  reverses   PointTransaction? @relation("Reversal", fields: [reversesId], references: [id], onDelete: SetNull)
+  reversedBy PointTransaction? @relation("Reversal")
 
   @@index([userId])
+  @@index([relatedTaskId])
 }
 
-model DailyEntry {
-  id           String           @id @default(uuid())
-  userId       String
-  taskId       String
-  date         String
-  originalDate String
-  status       DailyEntryStatus @default(active)
-  createdAt    DateTime         @default(now())
+// One press of a persistent task's "done it" button.
+model TaskCompletion {
+  id                 String   @id @default(uuid())
+  userId             String
+  taskId             String
+  day                String
+  // The points this press booked, if any; reversed when the press is undone.
+  pointTransactionId String?
+  // Subtasks the press unticked for the next round, with their stamps, so undo can put them back.
+  unticked           Json     @default("[]")
+  createdAt          DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
-  @@unique([taskId, date])
-  @@index([userId, date])
+  @@index([taskId])
 }
 
 // Session store for connect-pg-simple. Declared here so Prisma migrations own

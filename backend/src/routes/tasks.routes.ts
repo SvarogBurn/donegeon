@@ -6,7 +6,15 @@ import { isLocalDate } from "../lib/localDate.js";
 import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
 import { countdownForTask, todayPace } from "../services/countdown.service.js";
-import { buildTree, completionPatch, depthOf, insertAt, subtreeIds } from "../services/taskTree.service.js";
+import { bookTask, reverseBooking, reverseTaskBooking, taskValue } from "../services/points.service.js";
+import {
+  buildTree,
+  completionPatch,
+  depthOf,
+  insertAt,
+  subtreeIds,
+  withFinishedRoots,
+} from "../services/taskTree.service.js";
 
 const title = z.string().trim().min(1, "Title is required").max(300);
 const notes = z.string().trim().max(5000).nullish();
@@ -34,7 +42,16 @@ const taskPatch = z.object({
   startDate: localDate.optional(),
   deadlineDate: localDate.nullable().optional(),
   deadlineType: z.enum(["hard", "soft"]).optional(),
+  /** Main tasks only: its own amount, or null to go back to the list's default. */
+  points: z.number().int().min(0, "Points can't be negative").max(100_000).nullable().optional(),
+  /** In or out of the Today box. */
+  today: z.boolean().optional(),
+  /** Main tasks only: done again and again instead of once. */
+  isPersistent: z.boolean().optional(),
 });
+
+/** Subtasks a press unticked, as stored on the TaskCompletion. */
+const untickedSchema = z.array(z.object({ id: z.string(), completedAt: z.string(), completedOn: z.string() }));
 
 const DELETED_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 /** Deadlines are allowed on top-level tasks (depth 0) and their direct subtasks (depth 1). */
@@ -96,22 +113,33 @@ async function placeAmongSiblings(
 export const tasksRouter = Router();
 
 // All of the user's tasks as nested trees of top-level tasks. Tasks with a
-// deadline (hard or soft) carry today's pace, which colours their deadline pill.
+// deadline (hard or soft) carry today's pace, which colours their deadline pill;
+// top-level tasks carry what they are worth, persistent ones their presses.
 tasksRouter.get("/", async (req, res) => {
   const owner = userId(req);
   // Deleted tasks stay restorable for a while, then are removed for good.
   await prisma.task.deleteMany({
     where: { userId: owner, deletedAt: { lt: new Date(Date.now() - DELETED_RETENTION_MS) } },
   });
-  const tasks = await prisma.task.findMany({
-    where: { userId: owner, deletedAt: null },
-    include: { goals: { select: { id: true } }, tags: { select: { id: true } } },
-  });
+  const [tasks, lists] = await Promise.all([
+    prisma.task.findMany({
+      where: { userId: owner, deletedAt: null },
+      include: {
+        goals: { select: { id: true } },
+        tags: { select: { id: true } },
+        completions: { select: { id: true, day: true, createdAt: true }, orderBy: { createdAt: "asc" } },
+      },
+    }),
+    prisma.list.findMany({ where: { userId: owner } }),
+  ]);
+  const listById = new Map(lists.map((list) => [list.id, list]));
+  const forPace = withFinishedRoots(tasks).tasks;
   const flat = tasks.map(({ goals, tags, ...task }) => ({
     ...task,
     goalIds: goals.map((g) => g.id),
     tagIds: tags.map((t) => t.id),
-    pace: task.deadlineDate ? todayPace(tasks, task, req.localDate) : null,
+    value: task.parentId ? null : taskValue(task, listById.get(task.listId ?? "") ?? null),
+    pace: task.deadlineDate ? todayPace(forPace, task, req.localDate) : null,
   }));
   res.json({ tasks: buildTree(flat) });
 });
@@ -126,7 +154,7 @@ tasksRouter.get("/:id/countdown", async (req, res) => {
   if (task.deadlineType !== "hard" || !task.deadlineDate) {
     throw new HttpError(400, "Only tasks with a hard deadline have a countdown");
   }
-  const tasks = await liveTasks(userId(req));
+  const { tasks } = withFinishedRoots(await liveTasks(userId(req)));
   res.json({
     task: { id: task.id, title: task.title, parentId: task.parentId },
     countdown: countdownForTask(tasks, task, req.localDate),
@@ -182,6 +210,22 @@ tasksRouter.patch("/:id", async (req, res) => {
   // Hard/soft is the user's own choice and can be picked before there is a
   // date; it only has an effect once a date is set.
   if (input.deadlineType) data.deadlineType = input.deadlineType;
+  if (input.points !== undefined) {
+    if (task.parentId) throw new HttpError(400, "Only main tasks carry points");
+    data.points = input.points;
+  }
+  if (input.today !== undefined) data.todaySince = input.today ? (task.todaySince ?? req.localDate) : null;
+
+  const isPersistent = input.isPersistent ?? task.isPersistent;
+  if (input.isPersistent) {
+    if (task.parentId) throw new HttpError(400, "Only main tasks can be persistent");
+    if (task.isComplete) throw new HttpError(400, "Untick it first");
+  }
+  if (isPersistent && (input.deadlineDate === undefined ? task.deadlineDate : input.deadlineDate)) {
+    throw new HttpError(400, "A persistent task is never finished, so it can't have a deadline. Remove one or the other.");
+  }
+  data.isPersistent = input.isPersistent;
+
   if (input.deadlineDate !== undefined) {
     if (input.deadlineDate && depthOf(await liveTasks(task.userId), task.id) > MAX_DEADLINE_DEPTH) {
       throw new HttpError(400, "Deadlines can only be set on main tasks and their direct subtasks");
@@ -195,13 +239,74 @@ tasksRouter.patch("/:id", async (req, res) => {
 });
 
 // Flips completion for this one node only; parents and children are untouched.
+// Ticking a main task books its points (a reward's cost, in a reward list);
+// un-ticking reverses exactly that booking.
 tasksRouter.patch("/:id/toggle", async (req, res) => {
   const task = await ownTask(req, req.params.id);
-  const updated = await prisma.task.update({
-    where: { id: task.id },
-    data: completionPatch(task, !task.isComplete, new Date(), req.localDate),
+  if (task.isPersistent) throw new HttpError(400, "A persistent task is done with its “done it” button");
+  const updated = await prisma.$transaction(async (tx) => {
+    if (task.isComplete) await reverseTaskBooking(tx, task);
+    else await bookTask(tx, task);
+    return tx.task.update({
+      where: { id: task.id },
+      data: completionPatch(task, !task.isComplete, new Date(), req.localDate),
+    });
   });
   res.json({ task: updated });
+});
+
+// One press of a persistent task's "done it" button: logs it, books the points
+// and unticks its subtasks for the next round. The task itself stays open.
+tasksRouter.post("/:id/completions", async (req, res) => {
+  const task = await ownTask(req, req.params.id);
+  if (!task.isPersistent || task.parentId) throw new HttpError(400, "Only persistent tasks can be done again and again");
+  const all = await liveTasks(task.userId);
+  const below = new Set(subtreeIds(all, task.id));
+  const ticked = all.filter((t) => below.has(t.id) && t.id !== task.id && t.completedAt && t.completedOn);
+
+  const completion = await prisma.$transaction(async (tx) => {
+    const booked = await bookTask(tx, task);
+    await tx.task.updateMany({
+      where: { id: { in: ticked.map((t) => t.id) } },
+      data: { isComplete: false, completedAt: null, completedOn: null },
+    });
+    return tx.taskCompletion.create({
+      data: {
+        userId: task.userId,
+        taskId: task.id,
+        day: req.localDate,
+        pointTransactionId: booked?.id ?? null,
+        unticked: ticked.map((t) => ({ id: t.id, completedAt: t.completedAt!.toISOString(), completedOn: t.completedOn! })),
+      },
+    });
+  });
+  res.status(201).json({ completion: { id: completion.id, day: completion.day } });
+});
+
+// Undo of a press: the log entry goes, its points are reversed and the
+// subtasks it unticked get their ticks back.
+tasksRouter.delete("/:id/completions/:completionId", async (req, res) => {
+  const task = await ownTask(req, req.params.id);
+  const completion = await prisma.taskCompletion.findFirst({
+    where: { id: req.params.completionId, taskId: task.id },
+  });
+  if (!completion) throw notFound("Completion");
+  const unticked = untickedSchema.catch([]).parse(completion.unticked);
+
+  await prisma.$transaction(async (tx) => {
+    const booked = completion.pointTransactionId
+      ? await tx.pointTransaction.findUnique({ where: { id: completion.pointTransactionId } })
+      : null;
+    if (booked) await reverseBooking(tx, booked);
+    for (const sub of unticked) {
+      await tx.task.updateMany({
+        where: { id: sub.id, userId: task.userId, isComplete: false },
+        data: { isComplete: true, completedAt: new Date(sub.completedAt), completedOn: sub.completedOn },
+      });
+    }
+    await tx.taskCompletion.delete({ where: { id: completion.id } });
+  });
+  res.status(204).end();
 });
 
 // Moves a task (with its subtree) anywhere: reorder among siblings, under
@@ -221,6 +326,9 @@ tasksRouter.post("/:id/move", async (req, res) => {
     await assertOwnList(req, input.listId);
   } else {
     throw new HttpError(400, "A task goes either in a list or under a parent task");
+  }
+  if (input.parentId && task.isPersistent) {
+    throw new HttpError(400, `"${task.title}" is persistent, and only main tasks can be. Switch that off first.`);
   }
 
   // Refuse rather than silently drop a deadline that would end up too deep.

@@ -16,6 +16,11 @@ export function addDays(day: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+/** Whole days from `from` to `to`: "2026-10-07", "2026-10-09" -> 2. */
+export function daysBetween(from: string, to: string) {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+}
+
 /** "2026-10-07" -> "07/10/26", as in the countdown table. */
 export function formatShortDay(day: string) {
   const [year, month, date] = day.split("-");
