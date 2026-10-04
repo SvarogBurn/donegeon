@@ -203,6 +203,29 @@
    * its own picture on top. The knob is drawn at the right (rewards); for
    * tasks it sits 12 art pixels to the left, and it moves between the two in steps.
    */
+  /*
+   * The plate the switch and its two words sit on (59x15 art pixels, 2px each):
+   * a nine-slice, so it is as wide as its contents. Its edges are 1 art pixel
+   * at the top and left, 2 (edge and shadow) at the right and bottom.
+   */
+  .kind-plate {
+    @apply inline-flex flex-none items-center gap-1 px-1;
+    height: 30px;
+    border-style: solid;
+    border-width: 2px 4px 4px 2px;
+    border-image: url("../../assets/59x15border_text_v1.svg") 59 118 118 59 fill / 2px 4px 4px 2px stretch;
+    image-rendering: pixelated;
+  }
+  /* "Task" / "Reward": small and pale, larger and dark for the one that is on. Fixed widths, so nothing moves when they swap. */
+  .kind-label {
+    @apply cursor-pointer text-center leading-none;
+    font-size: 8px;
+    color: #7592ce;
+  }
+  .kind-label[data-active="true"] {
+    font-size: 10px;
+    color: #222034;
+  }
   .kind-switch {
     @apply relative flex-none cursor-pointer;
     width: 40px;
@@ -288,10 +311,8 @@
   .btn-quiet {
     @apply rounded px-1.5 py-1 text-xs text-stone-500 hover:bg-stone-200 hover:text-stone-900 disabled:opacity-30 disabled:hover:bg-transparent dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100;
   }
-  /* Small boxes without a title band (the task menu, notices): a plain pixel border in the frame's blues. */
+  /* Small boxes without a title band (the task menu, the clock's panel, dialogs, notices): a plain grey border. */
   .card {
-    @apply bg-white p-4 dark:bg-stone-900;
-    border: var(--u) solid #5b6ee1;
-    outline: var(--u) solid #cbdbfc;
+    @apply border-2 border-stone-300 bg-white p-4 dark:border-stone-700 dark:bg-stone-900;
   }
 }

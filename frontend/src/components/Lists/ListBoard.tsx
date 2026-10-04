@@ -19,27 +19,39 @@ interface KindFieldsProps {
   onPointsDone?: () => void;
 }
 
-/** Task list or reward list (a switch: off = tasks, on = rewards), and what each item in it is worth. */
+/**
+ * Task list or reward list, and what each item in it is worth. The kind is a
+ * switch on a little plate, "Task" at its left and "Reward" at its right; the
+ * chosen word is bigger and darker, and either word can be clicked too.
+ */
 function KindFields({ kind, points, onKind, onPoints, onPointsDone }: KindFieldsProps) {
   const isReward = kind === "reward";
   return (
     <>
-      <button
-        type="button"
-        role="switch"
-        className="kind-switch"
-        aria-checked={isReward}
-        aria-label="Reward list"
-        data-kind={kind}
-        title={
-          isReward
-            ? "Reward list: its items cost points. Click to make it a task list."
-            : "Task list: its items add points. Click to make it a reward list."
-        }
-        onClick={() => onKind(isReward ? "task" : "reward")}
-      >
-        <span />
-      </button>
+      <div className="kind-plate mr-auto" role="group" aria-label="Kind of list">
+        <button type="button" className="kind-label w-10" data-active={!isReward} tabIndex={-1} onClick={() => isReward && onKind("task")}>
+          Task
+        </button>
+        <button
+          type="button"
+          role="switch"
+          className="kind-switch"
+          aria-checked={isReward}
+          aria-label="Reward list"
+          data-kind={kind}
+          title={
+            isReward
+              ? "Reward list: its items cost points. Click to make it a task list."
+              : "Task list: its items add points. Click to make it a reward list."
+          }
+          onClick={() => onKind(isReward ? "task" : "reward")}
+        >
+          <span />
+        </button>
+        <button type="button" className="kind-label w-[60px]" data-active={isReward} tabIndex={-1} onClick={() => !isReward && onKind("reward")}>
+          Reward
+        </button>
+      </div>
       <label className="flex items-center gap-1 text-xs text-stone-500">
         <input
           className="points-field tabular-nums"
@@ -173,7 +185,7 @@ export function ListCard({ list, tasks, taskCount }: ListCardProps) {
         />
       }
     >
-      <header className="flex flex-wrap items-center justify-end gap-2">
+      <header className="flex flex-wrap items-center gap-2">
         <KindFields
           kind={list.kind}
           points={points}

@@ -118,14 +118,14 @@ function Doing({ node }: { node: TaskTreeNode }) {
           </label>
           <label className="flex items-center gap-2 px-1 text-xs">
             <span className="shrink-0">{isReward ? "Costs" : "Points"}</span>
+            {/* The same dark field as a list's "N each". */}
             <input
-              className="nes-input input !w-20 !px-2 !py-1 tabular-nums"
-              type="number"
-              min={0}
-              step={1}
+              className="points-field !w-10 tabular-nums placeholder:text-stone-400"
+              type="text"
               inputMode="numeric"
+              maxLength={3}
               value={points}
-              onChange={(e) => setPoints(e.target.value)}
+              onChange={(e) => setPoints(e.target.value.replace(/\D/g, ""))}
               onBlur={savePoints}
               onKeyDown={(e) => e.key === "Enter" && savePoints()}
               placeholder={String(list?.defaultPoints ?? (node.points === null ? (node.value ?? "") : ""))}
@@ -179,8 +179,9 @@ export function TaskMenu({ node, depth, onAddSubtask }: Props) {
       </button>
       {isOpen && (
         // On a phone it is a sheet along the bottom of the screen: beside its button it would hang off the edge.
+        // It lies over the task bar (z-50), so a menu opened low on the screen is not cut off by it.
         <div
-          className="card absolute top-full right-0 z-20 mt-1 w-64 space-y-3 !p-3 shadow-lg max-sm:fixed max-sm:inset-x-2 max-sm:top-auto max-sm:bottom-2 max-sm:z-50 max-sm:mt-0 max-sm:max-h-[75dvh] max-sm:w-auto max-sm:overflow-y-auto"
+          className="card absolute top-full right-0 z-50 mt-1 w-64 space-y-3 !p-3 shadow-lg max-sm:fixed max-sm:inset-x-2 max-sm:top-auto max-sm:bottom-2 max-sm:z-50 max-sm:mt-0 max-sm:max-h-[75dvh] max-sm:w-auto max-sm:overflow-y-auto"
           role="dialog"
           aria-label="Task options"
         >
@@ -200,6 +201,10 @@ export function TaskMenu({ node, depth, onAddSubtask }: Props) {
               Delete task
             </button>
           </div>
+          {/* Everything above is saved as it is changed (a typed field when it is left); OK just says so and closes. */}
+          <button type="button" className="nes-btn is-primary btn" title="Changes are saved; close this menu" onClick={() => setIsOpen(false)}>
+            OK
+          </button>
         </div>
       )}
     </span>
