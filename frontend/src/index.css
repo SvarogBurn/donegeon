@@ -161,29 +161,50 @@
     @apply bg-white px-2 py-1 text-xs text-stone-900 outline-none focus:bg-sky-50;
     margin: 4px;
   }
-  /* The points field of a list, light on near-black: "nes-input is-dark input-small input-dark". */
-  .input-dark {
-    @apply text-white focus:bg-stone-700;
+  /* The points field of a list: two digits, light on near-black, no border; the same colour while typing. */
+  .points-field {
+    @apply px-1 py-1 text-center text-xs text-white outline-none;
+    width: 28px;
     background-color: #212529;
   }
   /*
-   * Tasks / Rewards switch of a list: two halves, the chosen one filled with
-   * its colour (the frame's blue for tasks, its orange for rewards).
+   * Tasks / Rewards switch of a list: a track with a knob, on the left in the
+   * frame's blue for tasks, on the right in its orange for rewards. Both are
+   * cut to stepped pixel-art corners on a 2px grid, and the knob moves in steps.
    */
-  .kind-toggle {
-    @apply inline-flex bg-white text-xs;
-  }
-  .kind-toggle > button {
-    @apply cursor-pointer px-2 py-1 text-stone-500;
-  }
-  .kind-toggle > button[aria-pressed="true"] {
-    @apply text-white;
-  }
-  .kind-toggle > button[data-kind="task"][aria-pressed="true"] {
+  .kind-switch {
+    @apply relative flex-none cursor-pointer;
+    width: 36px;
+    height: 20px;
     background-color: #5b6ee1;
+    clip-path: polygon(
+      4px 0, calc(100% - 4px) 0, calc(100% - 4px) 2px, calc(100% - 2px) 2px, calc(100% - 2px) 4px, 100% 4px,
+      100% calc(100% - 4px), calc(100% - 2px) calc(100% - 4px), calc(100% - 2px) calc(100% - 2px),
+      calc(100% - 4px) calc(100% - 2px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 2px), 2px calc(100% - 2px),
+      2px calc(100% - 4px), 0 calc(100% - 4px), 0 4px, 2px 4px, 2px 2px, 4px 2px
+    );
   }
-  .kind-toggle > button[data-kind="reward"][aria-pressed="true"] {
+  .kind-switch[data-kind="reward"] {
     background-color: #df7126;
+  }
+  /* An outline would be cut off with the corners. */
+  .kind-switch:focus-visible {
+    filter: brightness(1.2);
+  }
+  .kind-switch > span {
+    @apply absolute bg-white;
+    top: 4px;
+    left: 4px;
+    width: 12px;
+    height: 12px;
+    clip-path: polygon(
+      2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px),
+      calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px), 0 2px, 2px 2px
+    );
+    transition: transform 120ms steps(4);
+  }
+  .kind-switch[data-kind="reward"] > span {
+    transform: translateX(16px);
   }
   /* A compact NES button, for switches inside menus: "nes-btn btn-small". */
   .btn-small {

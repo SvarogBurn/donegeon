@@ -24,7 +24,12 @@ await sel.click(); await wait(); await p.keyboard.press("Escape");
 out("subtask tagged with a goal; Goals box counts it", await row("Small").locator('[title="Goal: Fitness"]').isVisible());
 // delete a non-empty list with the button, undo with Ctrl+Z
 out("non-empty list has a delete button", (await p.locator('[aria-label=\'Delete list "List"\']').count()) === 1);
-await p.locator('[aria-label=\'Delete list "List"\']').click(); await wait(600);
+await p.locator('[aria-label=\'Delete list "List"\']').click(); await wait();
+out("a list with tasks asks first; Cancel keeps it", await p.locator('[role=alertdialog]:has-text("has 1 task")').isVisible());
+await p.locator('[role=alertdialog] button:text-is("Cancel")').click(); await wait();
+out("cancelled: list still there", (await names()) === "List" && (await p.locator("[role=alertdialog]").count()) === 0);
+await p.locator('[aria-label=\'Delete list "List"\']').click(); await wait();
+await p.locator('[role=alertdialog] button:text-is("Delete")').click(); await wait(600);
 out("button deletes the list and its tasks", (await names()) === "" && (await outline()) === "" && await p.locator("text=Deleted list “List”").isVisible(), `${await names()} / ${await outline()}`);
 await p.keyboard.press("Control+z"); await wait(700);
 out("Ctrl+Z brings the list and its tasks back (goal tag kept)", (await names()) === "List" && (await outline()) === "Big,-Small" && await row("Small").locator('[title="Goal: Fitness"]').isVisible(), `${await names()} / ${await outline()}`);

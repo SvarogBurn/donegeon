@@ -79,7 +79,7 @@ export function Dashboard() {
     ...cards.map((card) => ({
       key: `list:${card.list.id}`,
       name: `list "${card.list.name}"`,
-      node: <ListCard list={card.list} tasks={card.tasks} />,
+      node: <ListCard list={card.list} tasks={card.tasks} taskCount={card.taskCount} />,
     })),
     !filtering && { key: NEW_LIST_TILE, name: "the new-list field", node: <ListForm /> },
     {

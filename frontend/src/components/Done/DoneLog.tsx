@@ -49,30 +49,31 @@ export function DoneLog({ tasks }: { tasks: TaskTreeNode[] }) {
 
   return (
     <TileFrame title="Done" tone="record" aria-label="Done">
+      {/* The day sits in the middle at a fixed width, so the arrows stay put under the pointer while stepping. */}
       <div
-        className="flex items-center gap-1"
+        className="relative flex items-center justify-center gap-1"
         onKeyDown={(e) => {
           if (e.key === "ArrowLeft") show(addDays(day, -1));
           if (e.key === "ArrowRight") show(addDays(day, 1));
         }}
       >
-        <button type="button" className="btn-quiet glyph ml-auto" aria-label="Previous day" onClick={() => show(addDays(day, -1))}>
+        <button type="button" className="btn-quiet glyph px-3 py-2 text-2xl" aria-label="Previous day" onClick={() => show(addDays(day, -1))}>
           ‹
         </button>
-        <p className="min-w-36 text-center text-sm tabular-nums" data-done-day={day} aria-live="polite">
+        <p className="w-32 text-center text-sm tabular-nums" data-done-day={day} aria-live="polite">
           {formatDay(day, true)}/{day.slice(0, 4)}
-          {label && <span className="text-stone-500"> · {label}</span>}
+          <span className="block text-xs text-stone-500">{label ?? "\u00a0"}</span>
         </p>
         <button
           type="button"
-          className="btn-quiet glyph"
+          className="btn-quiet glyph px-3 py-2 text-2xl"
           aria-label="Next day"
           disabled={day === today}
           onClick={() => show(addDays(day, 1))}
         >
           ›
         </button>
-        <div className="relative">
+        <div className="absolute right-0">
           <button
             type="button"
             className="btn-quiet glyph"

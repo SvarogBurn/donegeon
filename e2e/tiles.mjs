@@ -30,7 +30,8 @@ out("three columns arranged", before.split(" | ").length === 3, before);
 const fits = () => p.locator("[data-tile-grid]").getAttribute("data-fits");
 const fitsBefore = await fits();
 
-await tile(fun).locator('[aria-label^="Delete list"]').click(); await wait(900);
+await tile(fun).locator('[aria-label^="Delete list"]').click(); await wait();
+await p.locator('[role=alertdialog] button:text-is("Delete")').click(); await wait(900);
 const after = await shape();
 out("deleting a list only removes that list: every other tile stays in its column and order", after === before.replace(",list:Fun", ""), `\n  before: ${before}\n  after:  ${after}`);
 out("the number of columns that fit did not change with the page's height", (await fits()) === fitsBefore, `${fitsBefore} -> ${await fits()}`);

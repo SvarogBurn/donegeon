@@ -25,7 +25,7 @@ const main = await cardOf("List");
 out("first list is a task list worth 1", (await main.getAttribute("data-list-kind")) === "task" && (await main.locator('[aria-label="Points per item"]').inputValue()) === "1");
 await main.locator('[aria-label="Points per item"]').fill("5"); await p.keyboard.press("Enter"); await wait();
 await p.fill('[aria-label="New list name"]', "Fun");
-await p.locator('form [aria-label="Kind of list"] button[data-kind="reward"]').last().click();
+await p.locator('form .kind-switch').last().click();
 await p.locator('form [aria-label="Points per item"]').last().fill("10");
 await p.locator('[aria-label="New list name"]').press("Enter"); await wait();
 const fun = await cardOf("Fun");
@@ -67,7 +67,7 @@ await row("Essay").locator("input[type=checkbox]").click(); await wait(700);
 out("earned 8 + 5", (await balance()) === 13, await balance());
 await row("Movie").locator("input[type=checkbox]").click(); await wait(700);
 out("buying a reward: −10, stays ticked in its list", (await balance()) === 3 && (await row("Movie").locator("input[type=checkbox]").isChecked()), await balance());
-await (await cardOf("Chores")).locator('[aria-label="Kind of list"] button[data-kind="reward"]').click(); await wait(700);
+await (await cardOf("Chores")).locator('.kind-switch').click(); await wait(700);
 out("list kind can be changed later; balance untouched", (await chip("Plain")) === "−1" && (await balance()) === 3, `${await chip("Plain")} ${await balance()}`);
 
 // --- persistent

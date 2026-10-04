@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { localDate } from "../../api/client";
 import { useCreateList, useUpdateList } from "../../hooks/useTasks";
 import { daysBetween } from "../../lib/dates";
@@ -9,9 +10,6 @@ import { TaskTree } from "../TaskTree/TaskNode";
 import { useTree } from "../TaskTree/TreeContext";
 import { TileFrame } from "../Tiles/TileFrame";
 
-/** The compact NES fields of a list's header and the new-list form. */
-const SMALL_FIELD = "nes-input is-dark input-small input-dark";
-
 interface KindFieldsProps {
   kind: ListKind;
   points: string;
@@ -21,43 +19,35 @@ interface KindFieldsProps {
   onPointsDone?: () => void;
 }
 
-const KINDS: { kind: ListKind; label: string }[] = [
-  { kind: "task", label: "Tasks" },
-  { kind: "reward", label: "Rewards" },
-];
-
-/** Task list or reward list (a two-sided switch), and what each item in it is worth. */
+/** Task list or reward list (a switch: off = tasks, on = rewards), and what each item in it is worth. */
 function KindFields({ kind, points, onKind, onPoints, onPointsDone }: KindFieldsProps) {
+  const isReward = kind === "reward";
   return (
     <>
-      <div
-        className="kind-toggle pixel-chip"
-        role="group"
-        aria-label="Kind of list"
+      <button
+        type="button"
+        role="switch"
+        className="kind-switch"
+        aria-checked={isReward}
+        aria-label="Reward list"
         data-kind={kind}
-        title="A task list adds points when an item is done; a reward list takes them."
+        title={
+          isReward
+            ? "Reward list: its items cost points. Click to make it a task list."
+            : "Task list: its items add points. Click to make it a reward list."
+        }
+        onClick={() => onKind(isReward ? "task" : "reward")}
       >
-        {KINDS.map((option) => (
-          <button
-            key={option.kind}
-            type="button"
-            data-kind={option.kind}
-            aria-pressed={kind === option.kind}
-            onClick={() => kind !== option.kind && onKind(option.kind)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+        <span />
+      </button>
       <label className="flex items-center gap-1 text-xs text-stone-500">
         <input
-          className={`${SMALL_FIELD} !w-16 tabular-nums`}
-          type="number"
-          min={0}
-          step={1}
+          className="points-field tabular-nums"
+          type="text"
           inputMode="numeric"
+          maxLength={2}
           value={points}
-          onChange={(e) => onPoints(e.target.value)}
+          onChange={(e) => onPoints(e.target.value.replace(/\D/g, ""))}
           onBlur={onPointsDone}
           onKeyDown={(e) => e.key === "Enter" && onPointsDone && (e.preventDefault(), e.currentTarget.blur())}
           aria-label="Points per item"
@@ -75,14 +65,47 @@ function parsePoints(text: string): number | null {
   return text.trim() !== "" && Number.isFinite(value) && value >= 0 ? Math.round(value) : null;
 }
 
+/** Asks before a list that still holds tasks is deleted. Enter (the focused button) deletes, Esc cancels. */
+function ConfirmDelete({ list, count, onConfirm, onCancel }: { list: List; count: number; onConfirm: () => void; onCancel: () => void }) {
+  return createPortal(
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
+      onClick={(e) => e.target === e.currentTarget && onCancel()}
+      onKeyDown={(e) => e.key === "Escape" && onCancel()}
+    >
+      <div className="card w-80 max-w-full space-y-3" role="alertdialog" aria-modal="true" aria-label="Delete list">
+        <p>
+          “{list.name}” has {count} {count === 1 ? "task" : "tasks"}. Are you sure you want to delete it?
+        </p>
+        <div className="flex justify-end">
+          <button type="button" className="nes-btn btn-small" onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="button" className="nes-btn is-error btn-small" onClick={onConfirm} autoFocus>
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 /**
  * One of the user's lists: a renameable folder of main tasks, and a drop zone
  * for dragged tasks. Its kind (tasks or rewards) and points per item can be
  * changed at any time. Deleting it (× or the Delete key in its name) takes its
- * tasks along; Ctrl+Z brings everything back. Must sit inside a TreeProvider
+ * tasks along, after asking if it has any; Ctrl+Z brings everything back. Must sit inside a TreeProvider
  * (the dashboard's), which holds the drag, draft and undo state.
  */
-export function ListCard({ list, tasks }: { list: List; tasks: TaskTreeNode[] }) {
+interface ListCardProps {
+  list: List;
+  tasks: TaskTreeNode[];
+  /** Every main task in the list, shown or not: what a delete would take along. */
+  taskCount: number;
+}
+
+export function ListCard({ list, tasks, taskCount }: ListCardProps) {
   const update = useUpdateList();
   const { dropTarget, deleteList } = useTree();
   const [name, setName] = useState(list.name);
@@ -91,6 +114,12 @@ export function ListCard({ list, tasks }: { list: List; tasks: TaskTreeNode[] })
   useEffect(() => setPoints(String(list.defaultPoints)), [list.defaultPoints]);
   const isDropTarget = dropTarget?.kind === "list" && dropTarget.listId === list.id;
   const isReward = list.kind === "reward";
+  const [confirming, setConfirming] = useState(false);
+
+  function askDelete() {
+    if (taskCount > 0) setConfirming(true);
+    else deleteList(list);
+  }
 
   function saveName() {
     const next = name.trim();
@@ -115,7 +144,7 @@ export function ListCard({ list, tasks }: { list: List; tasks: TaskTreeNode[] })
           className="tile-button tile-button-x"
           aria-label={`Delete list "${list.name}"`}
           title="Delete this list and its tasks (Ctrl+Z to undo)"
-          onClick={() => deleteList(list)}
+          onClick={askDelete}
         />
       }
       tone={isReward ? "reward" : "blue"}
@@ -136,7 +165,7 @@ export function ListCard({ list, tasks }: { list: List; tasks: TaskTreeNode[] })
             const untouched = el.value === list.name && !e.repeat;
             if (e.key === "Delete" && atEnd && untouched && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
               e.preventDefault();
-              deleteList(list);
+              askDelete();
             }
           }}
           aria-label="List name"
@@ -156,6 +185,17 @@ export function ListCard({ list, tasks }: { list: List; tasks: TaskTreeNode[] })
       {update.error && <p className="text-xs text-red-600">{update.error.message}</p>}
       <TaskTree nodes={tasks} parentId={null} listId={list.id} />
       <TaskForm listId={list.id} placeholder={isReward ? "Add a reward, then press Enter" : "Add a task, then press Enter"} />
+      {confirming && (
+        <ConfirmDelete
+          list={list}
+          count={taskCount}
+          onCancel={() => setConfirming(false)}
+          onConfirm={() => {
+            setConfirming(false);
+            deleteList(list);
+          }}
+        />
+      )}
     </TileFrame>
   );
 }
@@ -220,6 +260,9 @@ export function listCards(lists: List[], tasks: TaskTreeNode[], filter: LabelFil
   const inList = (task: TaskTreeNode) =>
     !task.isComplete || !task.completedOn || daysBetween(task.completedOn, today) < DAYS_KEPT_WHEN_DONE;
   return lists
-    .map((list) => ({ list, tasks: filterTree(tasks.filter((t) => t.listId === list.id && inList(t)), filter) }))
+    .map((list) => {
+      const own = tasks.filter((t) => t.listId === list.id);
+      return { list, taskCount: own.length, tasks: filterTree(own.filter(inList), filter) };
+    })
     .filter((card) => !filtering || card.tasks.length > 0);
 }
