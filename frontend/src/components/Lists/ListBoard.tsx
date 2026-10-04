@@ -17,6 +17,8 @@ interface KindFieldsProps {
   onPoints: (points: string) => void;
   /** Called when the points field is left or Enter is pressed in it. */
   onPointsDone?: () => void;
+  /** In a list's header: the plate sits in the box's top left corner, against its border. */
+  inCorner?: boolean;
 }
 
 /**
@@ -24,11 +26,11 @@ interface KindFieldsProps {
  * switch on a little plate, "Task" at its left and "Reward" at its right; the
  * chosen word is bigger and darker, and either word can be clicked too.
  */
-function KindFields({ kind, points, onKind, onPoints, onPointsDone }: KindFieldsProps) {
+function KindFields({ kind, points, onKind, onPoints, onPointsDone, inCorner = false }: KindFieldsProps) {
   const isReward = kind === "reward";
   return (
     <>
-      <div className="kind-plate mr-auto" role="group" aria-label="Kind of list">
+      <div className={`kind-plate mr-auto ${inCorner ? "kind-plate-corner" : ""}`} role="group" aria-label="Kind of list">
         <button type="button" className="kind-label w-10" data-active={!isReward} tabIndex={-1} onClick={() => isReward && onKind("task")}>
           Task
         </button>
@@ -192,6 +194,7 @@ export function ListCard({ list, tasks, taskCount }: ListCardProps) {
           onKind={(kind) => update.mutate({ id: list.id, changes: { kind } })}
           onPoints={setPoints}
           onPointsDone={savePoints}
+          inCorner
         />
       </header>
       {update.error && <p className="text-xs text-red-600">{update.error.message}</p>}

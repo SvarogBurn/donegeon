@@ -216,6 +216,12 @@
     border-image: url("../../assets/59x15border_text_v1.svg") 59 118 118 59 fill / 2px 4px 4px 2px stretch;
     image-rendering: pixelated;
   }
+  /* In a list's header: pulled out over the box's padding (see .tile-body) into its top left corner. */
+  .kind-plate-corner {
+    align-self: flex-start;
+    margin-top: calc(-3 * var(--u));
+    margin-left: calc(-4 * var(--u));
+  }
   /* "Task" / "Reward": small and pale, larger and dark for the one that is on. Fixed widths, so nothing moves when they swap. */
   .kind-label {
     @apply cursor-pointer text-center leading-none;
