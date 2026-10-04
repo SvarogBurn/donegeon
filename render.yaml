@@ -6,6 +6,9 @@ services:
     name: donegeon
     runtime: node
     plan: free
+    # Same place as the database (Neon, Frankfurt): every request makes several
+    # database calls, and each one pays the distance between the two.
+    region: frankfurt
     buildCommand: >-
       (cd frontend && npm ci --include=dev && npm run build) &&
       (cd backend && npm ci --include=dev && npx prisma generate && npm run build)
