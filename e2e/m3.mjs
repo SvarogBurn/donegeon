@@ -118,5 +118,51 @@ await p.click('nav >> text=Done'); await wait();
 out("and are still in the Done tab", (await p.locator("[data-finished]").allInnerTexts()).join().includes("Essay"));
 await p.click('nav >> text=Tasks'); await p.waitForSelector("section[data-drop-list]"); await wait();
 await pretend(0);
+
+// --- tasks written straight into Today
+const names = () => p.locator('input[aria-label="List name"]').evaluateAll((els) => els.map((e) => e.value).join(","));
+const own = today.locator("[data-today-own]");
+await p.locator('[data-task-editor="today-add"]').click(); await p.keyboard.type("Call mum"); await p.keyboard.press("Enter"); await wait();
+await p.keyboard.type("Buy milk"); await p.keyboard.press("Enter"); await wait(); await p.keyboard.press("Escape");
+out("a task typed into Today lives only there", (await titles(own)) === "Call mum,Buy milk" && !(await titles(await cardOf("List"))).includes("Call mum"), await titles(own));
+await p.reload(); await p.waitForSelector("section[data-drop-list]"); await wait();
+out("and is still there after a reload", (await titles(own)) === "Call mum,Buy milk", await titles(own));
+await drag("Buy milk", await cardOf("List"));
+out("dragged to a list: now in the list, still shown in Today", (await titles(await cardOf("List"))).includes("Buy milk") && (await titles(own)) === "Call mum" && (await todayText()).includes("Buy milk"), `${await titles(await cardOf("List"))} / ${await todayText()}`);
+out("in the list it is worth the list's amount", (await (await cardOf("List")).locator('[data-task-row]:has(textarea:text-is("Buy milk")) [data-value-chip]').innerText()) === "+5");
+{ const h = await (await cardOf("List")).locator('[data-task-row]:has(textarea:text-is("Body")) [aria-label="Drag to move this task"]').boundingBox(); const t = await own.locator("[data-task-row]").first().boundingBox(); await p.mouse.move(h.x + h.width / 2, h.y + h.height / 2); await p.mouse.down(); await p.mouse.move(t.x + 100, t.y + 3, { steps: 8 }); await p.mouse.up(); await wait(600); }
+out("a list's task dropped among Today's own tasks is only marked for today", (await titles(await cardOf("List"))).includes("Body") && (await titles(own)) === "Call mum" && (await todayText()).includes("Body"), await todayText());
+await own.locator("input[type=checkbox]").click(); await wait(700);
+out("ticking a Today-only task works and it stays for the day", (await own.locator("input[type=checkbox]").isChecked()) && !(await p.locator("text=That didn't work").count()));
+
+// --- the dashboard as a grid of tiles (a tall window, so every tile is on screen to drag)
+await p.setViewportSize({ width: 1200, height: 3000 }); await wait();
+const tile = (key) => p.locator(`[data-tile="${key}"]`);
+const at = async (key) => { const r = await tile(key).boundingBox(); return { x: Math.round(r.x), y: Math.round(r.y) }; };
+const listKey = async (name) => "list:" + await (await cardOf(name)).getAttribute("data-drop-list");
+const dragTile = async (key, x, y) => { const h = await tile(key).locator('[aria-label^="Drag to move"]').first().boundingBox(); await p.mouse.move(h.x + h.width / 2, h.y + h.height / 2); await p.mouse.down(); await p.mouse.move(x, y - 30, { steps: 6 }); await p.mouse.move(x, y, { steps: 6 }); await wait(150); };
+const funKey = await listKey("Fun"), choresKey = await listKey("Chores");
+out("default: one column, in the usual order", (await at("goals")).x === (await at("today")).x && (await at("goals")).y < (await at("today")).y && (await at("today")).y < (await at(funKey)).y);
+{ const r = await tile("goals").boundingBox(); await dragTile(choresKey, r.x + r.width / 2, r.y + 5); await p.mouse.up(); await wait(600); }
+out("a list can be dragged above another tile", (await at(choresKey)).y < (await at("goals")).y && (await at(choresKey)).x === (await at("goals")).x);
+{ const g = await p.locator("[data-tile-grid]").boundingBox(); await dragTile(funKey, g.x + 10, g.y + 300); const zone = await p.locator('[data-zone="new"]').boundingBox(); await p.mouse.move(zone.x + zone.width / 2, zone.y + 40, { steps: 6 }); await wait(150); await p.mouse.up(); await wait(600); }
+out("dragged to the side: a second column, side by side", (await at(funKey)).x > (await at("goals")).x + 100 && (await at(funKey)).y === (await at(choresKey)).y, JSON.stringify([await at(funKey), await at("goals")]));
+{ const r = await tile(funKey).boundingBox(); await dragTile("done", r.x + r.width / 2, r.y + r.height - 5); await p.mouse.up(); await wait(600); }
+out("another tile can join that column, below it", (await at("done")).x === (await at(funKey)).x && (await at("done")).y > (await at(funKey)).y);
+await tile("today").locator('[aria-label="Pin Today"]').click(); await wait(600);
+out("pinning puts a tile above everything", (await at("today")).y < (await at(choresKey)).y && (await at("today")).y < (await at(funKey)).y && (await tile("today").getAttribute("data-pinned")) !== null);
+const saved = JSON.stringify([await at("today"), await at(funKey), await at("done"), await at(choresKey)]);
+await p.reload(); await p.waitForSelector("section[data-drop-list]"); await wait();
+out("the arrangement is kept after a reload", JSON.stringify([await at("today"), await at(funKey), await at("done"), await at(choresKey)]) === saved);
+await p.screenshot({ path: "m3-grid.png", fullPage: true });
+await p.setViewportSize({ width: 390, height: 800 }); await wait(600);
+const xs = new Set(await p.locator("[data-tile]").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().x))));
+out("phone width: everything in one column, nothing wider than the screen", xs.size === 1 && (await p.evaluate(() => document.documentElement.scrollWidth)) <= 390, `${[...xs]} / ${await p.evaluate(() => document.documentElement.scrollWidth)}`);
+out("pinned tile is still first on the phone", (await at("today")).y < (await at(choresKey)).y);
+await p.screenshot({ path: "m3-phone.png", fullPage: true });
+await p.setViewportSize({ width: 1200, height: 3000 }); await wait(600);
+out("back on a wide screen the two columns return", (await at(funKey)).x > (await at("goals")).x + 100);
+await today.locator('[aria-label="Unpin Today"]').click({ force: true }).catch(() => {}); await tile("today").locator('[aria-label="Unpin Today"]').click().catch(() => {}); await wait(600);
+out("unpinning puts it back in the columns", (await tile("today").getAttribute("data-pinned")) === null);
 await p.screenshot({ path: "m3.png", fullPage: true });
 await b.close();

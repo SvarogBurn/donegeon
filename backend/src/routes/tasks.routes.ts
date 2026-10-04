@@ -24,7 +24,7 @@ const localDate = z.string().refine(isLocalDate, "Dates must look like 2026-10-0
 const taskInput = z.object({
   title,
   notes,
-  /** Exactly one of parentId (a subtask) or listId (a top-level task). */
+  /** parentId (a subtask), listId (a top-level task in a list), or neither: a task that lives only in Today. */
   parentId: z.string().uuid().nullish(),
   listId: z.string().uuid().nullish(),
   goalIds: z.array(z.string().uuid()).max(50).optional(),
@@ -167,9 +167,7 @@ tasksRouter.post("/", async (req, res) => {
   const parentId = input.parentId ?? null;
   const listId = input.listId ?? null;
 
-  if (Boolean(parentId) === Boolean(listId)) {
-    throw new HttpError(400, "A task goes either in a list or under a parent task");
-  }
+  if (parentId && listId) throw new HttpError(400, "A task goes either in a list or under a parent task");
   if (parentId) await ownTask(req, parentId);
   if (listId) await assertOwnList(req, listId);
   await assertOwnLabels(req, input.goalIds, input.tagIds);
@@ -183,6 +181,8 @@ tasksRouter.post("/", async (req, res) => {
         title: input.title,
         notes: input.notes || null,
         startDate: req.localDate,
+        // Without a list or a parent it was written straight into Today, and lives only there until moved to a list.
+        todaySince: parentId || listId ? null : req.localDate,
         goals: { connect: (input.goalIds ?? []).map((id) => ({ id })) },
         tags: { connect: (input.tagIds ?? []).map((id) => ({ id })) },
       },
@@ -213,6 +213,9 @@ tasksRouter.patch("/:id", async (req, res) => {
   if (input.points !== undefined) {
     if (task.parentId) throw new HttpError(400, "Only main tasks carry points");
     data.points = input.points;
+  }
+  if (input.today === false && !task.parentId && !task.listId) {
+    throw new HttpError(400, "This task only lives in Today. Move it to a list first, or delete it.");
   }
   if (input.today !== undefined) data.todaySince = input.today ? (task.todaySince ?? req.localDate) : null;
 
@@ -324,8 +327,9 @@ tasksRouter.post("/:id/move", async (req, res) => {
     if (moved.includes(input.parentId)) throw new HttpError(400, "A task can't be moved inside itself");
   } else if (input.listId) {
     await assertOwnList(req, input.listId);
-  } else {
-    throw new HttpError(400, "A task goes either in a list or under a parent task");
+  } else if (task.parentId || task.listId) {
+    // Only tasks written straight into Today live without a list; they can be reordered there.
+    throw new HttpError(400, "Today is only a view: mark the task for today instead, it stays in its list");
   }
   if (input.parentId && task.isPersistent) {
     throw new HttpError(400, `"${task.title}" is persistent, and only main tasks can be. Switch that off first.`);

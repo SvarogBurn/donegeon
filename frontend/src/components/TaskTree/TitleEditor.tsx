@@ -8,9 +8,12 @@ function focusAtEnd(editor: HTMLElement) {
   if (editor instanceof HTMLTextAreaElement) editor.setSelectionRange(editor.value.length, editor.value.length);
 }
 
-/** Moves focus to the task editor above (-1) or below (+1) `from` in reading order. */
-export function focusNeighbor(from: HTMLElement, direction: -1 | 1): boolean {
-  const editors = Array.from(document.querySelectorAll<HTMLElement>(EDITOR));
+/**
+ * Moves focus to the task editor above (-1) or below (+1) `from` in reading
+ * order; with `within`, only to one inside that element.
+ */
+export function focusNeighbor(from: HTMLElement, direction: -1 | 1, within: ParentNode | null = null): boolean {
+  const editors = Array.from((within ?? document).querySelectorAll<HTMLElement>(EDITOR));
   const next = editors[editors.indexOf(from) + direction];
   if (!next) return false;
   focusAtEnd(next);

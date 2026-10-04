@@ -4,14 +4,16 @@ import { TitleEditor } from "./TitleEditor";
 import { useTree } from "./TreeContext";
 
 interface Props {
-  /** Where new tasks go: the top level of a list, or under a task (on its own page). */
+  /** Where new tasks go: the top level of a list, or under a task (on its own page). Neither = a task that lives only in Today. */
   listId?: string;
   parentId?: string;
   placeholder: string;
+  /** Names the field for keyboard navigation; defaults to "add:<list or parent>". */
+  editorId?: string;
 }
 
 /** The always-present field at the bottom of a list or task page: Enter adds a task and stays ready for the next. */
-export function TaskForm({ listId, parentId, placeholder }: Props) {
+export function TaskForm({ listId, parentId, placeholder, editorId }: Props) {
   const [title, setTitle] = useState("");
   const createTask = useCreateTask();
   const { newTaskLabels } = useTree();
@@ -27,7 +29,7 @@ export function TaskForm({ listId, parentId, placeholder }: Props) {
   return (
     <div>
       <TitleEditor
-        editorId={`add:${listId ?? parentId}`}
+        editorId={editorId ?? `add:${listId ?? parentId}`}
         value={title}
         onChange={setTitle}
         onKeyDown={onKeyDown}

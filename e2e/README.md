@@ -14,7 +14,7 @@ per check. They are scripts, not a test runner suite.
 | `del.mjs` | Delete key on tasks |
 | `undo.mjs` | Ctrl+Z after deleting tasks |
 | `layout.mjs` | dashboard box order |
-| `m3.mjs` | list kinds and points per item, earning / spending / reversing points, Done tab, persistent tasks and rewards, points history, Today box |
+| `m3.mjs` | list kinds and points per item, earning / spending / reversing points, Done tab, persistent tasks and rewards, points history, Today box (marking, dragging in, tasks written there), the tile grid (columns, pinning, phone width) |
 | `logout.mjs` | log out lands on the login page, stays logged out, works again after logging back in |
 
 ## Run

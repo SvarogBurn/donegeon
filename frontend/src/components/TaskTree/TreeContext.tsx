@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type { TaskPlacement } from "../../api/tasks";
+import { edgeScroller } from "../../lib/edgeScroll";
 import { NO_FILTER, type LabelFilter } from "../../lib/labels";
 import {
   useDeleteList,
@@ -280,22 +281,31 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       const handle = e.currentTarget;
       const own = handle.closest("li");
       let target: DropTarget | null = null;
+      const scroller = edgeScroller();
       handle.setPointerCapture(e.pointerId);
       setDraggingId(node.id);
 
       const onMove = (ev: PointerEvent) => {
+        scroller.update(ev.clientY);
         const next = hitTest(ev.clientX, ev.clientY, own);
         if (sameTarget(next, target)) return;
         target = next;
         setDropTarget(next);
       };
       const finish = (drop: boolean) => {
+        scroller.stop();
         handle.removeEventListener("pointermove", onMove);
         handle.removeEventListener("pointerup", onUp);
         handle.removeEventListener("pointercancel", onCancel);
         setDraggingId(null);
         setDropTarget(null);
-        if (drop && target?.kind === "today") return setToday.mutate({ id: node.id, today: true });
+        // Today is a view: dropping a list's task on it (or among the tasks written there) marks it for today and leaves it in its list.
+        const livesInToday = (t: TaskTreeNode | undefined) => Boolean(t) && !t!.parentId && !t!.listId;
+        const amongTodays =
+          target?.kind === "task" && target.zone !== "inside" && livesInToday(latest.current.byId.get(target.id));
+        if (drop && (target?.kind === "today" || (amongTodays && !livesInToday(node)))) {
+          return setToday.mutate({ id: node.id, today: true });
+        }
         const placement = drop && target ? placementFor(target, node.id) : null;
         if (placement) move.mutate({ id: node.id, placement });
       };

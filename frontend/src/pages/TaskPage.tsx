@@ -45,7 +45,7 @@ export function TaskPage() {
 
   return (
     <TreeProvider tasks={tasks.data} rootId={taskId}>
-      <div className="space-y-4">
+      <div className="mx-auto max-w-5xl space-y-4">
         <Link to="/" className="text-sm text-emerald-700 underline dark:text-emerald-400">
           ← All tasks
         </Link>

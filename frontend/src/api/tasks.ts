@@ -1,4 +1,5 @@
 import type { CombinedCountdown, Countdown, PointsSummary, PressureSummary, Task, TaskTreeNode } from "../types";
+import type { DashboardLayout } from "../lib/tileLayout";
 import { api } from "./client";
 
 /** A place in the tree: under a parent task, or at the top level of a list. */
@@ -42,6 +43,8 @@ export const pressTask = (id: string) =>
   api<{ completion: { id: string; day: string } }>(`/tasks/${id}/completions`, { method: "POST" }).then((r) => r.completion);
 export const undoPress = (id: string, completionId: string) =>
   api(`/tasks/${id}/completions/${completionId}`, { method: "DELETE" });
+export const getLayout = () => api<{ layout: DashboardLayout | null }>("/layout").then((r) => r.layout);
+export const saveLayout = (layout: DashboardLayout) => api("/layout", { method: "PUT", body: layout });
 export const getPoints = () => api<PointsSummary>("/points");
 export const moveTask = (id: string, placement: TaskPlacement) => api(`/tasks/${id}/move`, { body: placement });
 export const deleteTask = (id: string) => api(`/tasks/${id}`, { method: "DELETE" });

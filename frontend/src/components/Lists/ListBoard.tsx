@@ -64,9 +64,10 @@ function parsePoints(text: string): number | null {
  * One of the user's lists: a renameable folder of main tasks, and a drop zone
  * for dragged tasks. Its kind (tasks or rewards) and points per item can be
  * changed at any time. Deleting it (× or the Delete key in its name) takes its
- * tasks along; Ctrl+Z brings everything back.
+ * tasks along; Ctrl+Z brings everything back. Must sit inside a TreeProvider
+ * (the dashboard's), which holds the drag, draft and undo state.
  */
-function ListCard({ list, tasks }: { list: List; tasks: TaskTreeNode[] }) {
+export function ListCard({ list, tasks }: { list: List; tasks: TaskTreeNode[] }) {
   const update = useUpdateList();
   const { dropTarget, deleteList } = useTree();
   const [name, setName] = useState(list.name);
@@ -95,8 +96,9 @@ function ListCard({ list, tasks }: { list: List; tasks: TaskTreeNode[] }) {
       className={`card space-y-3 ${isReward ? "!border-amber-400 dark:!border-amber-600" : ""} ${isDropTarget ? "ring-2 ring-emerald-600" : ""}`}
     >
       <header className="flex flex-wrap items-center justify-between gap-2">
+
         <input
-          className="min-w-0 flex-1 rounded bg-transparent px-1 font-semibold outline-none focus:ring-2 focus:ring-emerald-600/30"
+          className="min-w-32 flex-1 rounded bg-transparent px-1 font-semibold outline-none focus:ring-2 focus:ring-emerald-600/30"
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={saveName}
@@ -139,7 +141,7 @@ function ListCard({ list, tasks }: { list: List; tasks: TaskTreeNode[] }) {
 }
 
 /** A new list: its name, whether its items add or cost points, and how many. Enter in the name creates it. */
-function ListForm() {
+export function ListForm() {
   const [name, setName] = useState("");
   const [kind, setKind] = useState<ListKind>("task");
   const [points, setPoints] = useState("1");
@@ -181,34 +183,21 @@ function ListForm() {
   );
 }
 
-interface Props {
-  lists: List[];
-  /** Top-level task trees; a finished one stays in its list, ticked, for DAYS_KEPT_WHEN_DONE days (and is in the Done tab from the start). */
-  tasks: TaskTreeNode[];
-  /** Goals/tags picked above. While active, only matching tasks and the lists holding them are shown. */
-  filter: LabelFilter;
-}
-
 /** How long a ticked main task stays in its list: ticked on Monday, gone on Thursday. */
 const DAYS_KEPT_WHEN_DONE = 3;
 
-/** Must sit inside a TreeProvider (the dashboard's), which holds the drag, draft and undo state. */
-export function ListBoard({ lists, tasks, filter }: Props) {
+/**
+ * Each list with the top-level tasks shown in it. A finished task stays in its
+ * list, ticked, for DAYS_KEPT_WHEN_DONE days (and is in the Done tab from the
+ * start). While a goal/tag filter is on, only matching tasks and the lists
+ * holding them are kept.
+ */
+export function listCards(lists: List[], tasks: TaskTreeNode[], filter: LabelFilter) {
   const filtering = isFiltering(filter);
   const today = localDate();
   const inList = (task: TaskTreeNode) =>
     !task.isComplete || !task.completedOn || daysBetween(task.completedOn, today) < DAYS_KEPT_WHEN_DONE;
-  const cards = lists
+  return lists
     .map((list) => ({ list, tasks: filterTree(tasks.filter((t) => t.listId === list.id && inList(t)), filter) }))
     .filter((card) => !filtering || card.tasks.length > 0);
-
-  return (
-    <div className="space-y-4">
-      {cards.map((card) => (
-        <ListCard key={card.list.id} list={card.list} tasks={card.tasks} />
-      ))}
-      {filtering && cards.length === 0 && <p className="text-sm text-stone-500">No tasks match this filter.</p>}
-      {!filtering && <ListForm />}
-    </div>
-  );
 }

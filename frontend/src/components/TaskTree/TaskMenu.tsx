@@ -95,15 +95,18 @@ function Doing({ node }: { node: TaskTreeNode }) {
 
   return (
     <div className="space-y-1">
-      <label className={CHECK_ROW}>
-        <input
-          type="checkbox"
-          className="accent-emerald-700"
-          checked={node.todaySince !== null}
-          onChange={(e) => setToday.mutate({ id: node.id, today: e.target.checked })}
-        />
-        Do today
-      </label>
+      {/* A task written straight into Today has no list to go back to, so it can't be taken out. */}
+      {(node.parentId || node.listId) && (
+        <label className={CHECK_ROW}>
+          <input
+            type="checkbox"
+            className="accent-emerald-700"
+            checked={node.todaySince !== null}
+            onChange={(e) => setToday.mutate({ id: node.id, today: e.target.checked })}
+          />
+          Do today
+        </label>
+      )}
       {!node.parentId && (
         <>
           <label className={CHECK_ROW} title="Stays in its list and can be done again and again; each time counts its points.">

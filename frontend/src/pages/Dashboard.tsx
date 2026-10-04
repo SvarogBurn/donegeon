@@ -3,7 +3,8 @@ import { CombinedTable } from "../components/Countdown/CombinedTable";
 import { PressureSummary } from "../components/Countdown/PressureSummary";
 import { DoneLog } from "../components/Done/DoneLog";
 import { LabelsPanel } from "../components/Labels/LabelsPanel";
-import { ListBoard } from "../components/Lists/ListBoard";
+import { ListCard, ListForm, listCards } from "../components/Lists/ListBoard";
+import { TileGrid, type Tile } from "../components/Tiles/TileGrid";
 import { TreeProvider } from "../components/TaskTree/TreeContext";
 import { TreeError, UndoBar } from "../components/TaskTree/TreeStatus";
 import { TodayBox } from "../components/Today/TodayBox";
@@ -12,12 +13,17 @@ import {
   useCreateTag,
   useDeleteGoal,
   useDeleteTag,
+  useCombinedCountdown,
   useGoals,
+  useLayout,
   useLists,
+  usePressure,
+  useSaveLayout,
   useTags,
   useTaskTrees,
 } from "../hooks/useTasks";
 import { countLabels, isFiltering, NO_FILTER, toggleId, type LabelFilter } from "../lib/labels";
+import { EMPTY_LAYOUT, NEW_LIST_TILE } from "../lib/tileLayout";
 
 export function Dashboard() {
   const goals = useGoals();
@@ -28,11 +34,16 @@ export function Dashboard() {
   const deleteGoal = useDeleteGoal();
   const createTag = useCreateTag();
   const deleteTag = useDeleteTag();
+  const pressure = usePressure();
+  const combined = useCombinedCountdown();
+  const layout = useLayout();
+  const saveLayout = useSaveLayout();
   const [picked, setPicked] = useState<LabelFilter>(NO_FILTER);
 
   const error = goals.error ?? tags.error ?? lists.error ?? tasks.error;
   if (error) return <p className="text-sm text-red-600">Couldn't load your tasks: {error.message}</p>;
-  if (!goals.data || !tags.data || !lists.data || !tasks.data) return <p className="text-sm text-stone-500">Loading…</p>;
+  // The layout is waited for (not required), so the tiles don't jump once it arrives.
+  if (!goals.data || !tags.data || !lists.data || !tasks.data || layout.isLoading) return <p className="text-sm text-stone-500">Loading…</p>;
 
   // Ignore picks whose goal or tag has since been deleted.
   const filter: LabelFilter = {
@@ -40,12 +51,16 @@ export function Dashboard() {
     tagIds: picked.tagIds.filter((id) => tags.data.some((t) => t.id === id)),
   };
 
-  return (
-    <TreeProvider tasks={tasks.data} newTaskLabels={filter}>
-      <div className="mx-auto max-w-3xl space-y-4">
-        <PressureSummary />
-        <CombinedTable />
-        <TreeError />
+  const filtering = isFiltering(filter);
+  const cards = listCards(lists.data, tasks.data, filter);
+  // The two deadline boxes only exist once there is a deadline.
+  const tiles: (Tile | false)[] = [
+    Boolean(pressure.data?.items.length) && { key: "pressure", name: "deadline pressure", node: <PressureSummary /> },
+    Boolean(combined.data?.items.length) && { key: "deadlines", name: "All deadlines", node: <CombinedTable /> },
+    {
+      key: "goals",
+      name: "Goals",
+      node: (
         <LabelsPanel
           title="Goals"
           noun="goal"
@@ -58,22 +73,19 @@ export function Dashboard() {
           isBusy={createGoal.isPending || deleteGoal.isPending}
           error={createGoal.error ?? deleteGoal.error}
         />
-        {isFiltering(filter) && (
-          <p className="flex flex-wrap items-center gap-2 text-sm" role="status">
-            <span>
-              Showing only tasks with{" "}
-              {[...goals.data.filter((g) => filter.goalIds.includes(g.id)), ...tags.data.filter((t) => filter.tagIds.includes(t.id))]
-                .map((label) => `“${label.name}”`)
-                .join(" and ")}
-              . New tasks added now get the same.
-            </span>
-            <button type="button" className="btn-quiet underline" onClick={() => setPicked(NO_FILTER)}>
-              Clear filter
-            </button>
-          </p>
-        )}
-        <TodayBox tasks={tasks.data} />
-        <ListBoard lists={lists.data} tasks={tasks.data} filter={filter} />
+      ),
+    },
+    { key: "today", name: "Today", node: <TodayBox tasks={tasks.data} /> },
+    ...cards.map((card) => ({
+      key: `list:${card.list.id}`,
+      name: `list "${card.list.name}"`,
+      node: <ListCard list={card.list} tasks={card.tasks} />,
+    })),
+    !filtering && { key: NEW_LIST_TILE, name: "the new-list field", node: <ListForm /> },
+    {
+      key: "tags",
+      name: "Tags",
+      node: (
         <LabelsPanel
           title="Tags"
           noun="tag"
@@ -86,7 +98,35 @@ export function Dashboard() {
           isBusy={createTag.isPending || deleteTag.isPending}
           error={createTag.error ?? deleteTag.error}
         />
-        <DoneLog tasks={tasks.data} />
+      ),
+    },
+    { key: "done", name: "Done", node: <DoneLog tasks={tasks.data} /> },
+  ];
+
+  return (
+    <TreeProvider tasks={tasks.data} newTaskLabels={filter}>
+      <div className="space-y-4">
+        <TreeError />
+        {filtering && (
+          <p className="flex flex-wrap items-center justify-center gap-2 text-sm" role="status">
+            <span>
+              Showing only tasks with{" "}
+              {[...goals.data.filter((g) => filter.goalIds.includes(g.id)), ...tags.data.filter((t) => filter.tagIds.includes(t.id))]
+                .map((label) => `“${label.name}”`)
+                .join(" and ")}
+              . New tasks added now get the same.{cards.length === 0 && " No tasks match."}
+            </span>
+            <button type="button" className="btn-quiet underline" onClick={() => setPicked(NO_FILTER)}>
+              Clear filter
+            </button>
+          </p>
+        )}
+        <TileGrid
+          tiles={tiles.filter((tile): tile is Tile => tile !== false)}
+          layout={layout.data ?? EMPTY_LAYOUT}
+          onChange={(next) => saveLayout.mutate(next)}
+        />
+        {saveLayout.error && <p className="text-center text-sm text-red-600">Couldn't save the layout: {saveLayout.error.message}</p>}
         <UndoBar />
       </div>
     </TreeProvider>

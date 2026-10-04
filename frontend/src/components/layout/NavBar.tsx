@@ -45,7 +45,7 @@ export function NavBar({ user }: { user: User }) {
   return (
     // Stays at the top of the screen while the page scrolls underneath.
     <header className="sticky top-0 z-40 border-b border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900">
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
         <Link to="/" className="text-lg font-bold tracking-tight text-emerald-800 dark:text-emerald-400">
           Donegeon
         </Link>

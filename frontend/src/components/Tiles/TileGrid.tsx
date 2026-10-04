@@ -1,0 +1,218 @@
+import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { edgeScroller } from "../../lib/edgeScroll";
+import {
+  arrange,
+  MAX_COLUMNS,
+  moveTile,
+  togglePin,
+  withArrangement,
+  type DashboardLayout,
+  type Zone,
+} from "../../lib/tileLayout";
+
+export interface Tile {
+  key: string;
+  /** For the handle's and pin's labels: "Today", "list Chores". */
+  name: string;
+  node: ReactNode;
+}
+
+interface Props {
+  /** The tiles that exist right now, in their default order. */
+  tiles: Tile[];
+  layout: DashboardLayout;
+  onChange: (layout: DashboardLayout) => void;
+}
+
+/** A column is never narrower than this; fewer fit on a narrower screen. */
+const MIN_COLUMN_PX = 352;
+const GAP_PX = 16;
+/** ...and never wider than this, so one or two columns on a big screen stay readable. */
+const MAX_COLUMN_REM = 48;
+
+interface DropAt {
+  zone: Zone;
+  /** The tile it lands next to; null = at the end of the zone. */
+  key: string | null;
+  after: boolean;
+}
+
+const DROP_STYLES = {
+  above: "shadow-[0_-4px_0_var(--color-emerald-600)]",
+  below: "shadow-[0_4px_0_var(--color-emerald-600)]",
+  left: "shadow-[-4px_0_0_var(--color-emerald-600)]",
+  right: "shadow-[4px_0_0_var(--color-emerald-600)]",
+};
+
+function zoneOf(el: Element): Zone | null {
+  const zone = el.closest<HTMLElement>("[data-zone]")?.dataset.zone;
+  if (zone === undefined) return null;
+  return zone === "pinned" || zone === "new" ? zone : Number(zone);
+}
+
+/** Where the pointer would drop the dragged tile. Pinned tiles sit side by side, so there left/right decides. */
+function dropAt(x: number, y: number, draggedKey: string): DropAt | null {
+  const el = document.elementFromPoint(x, y);
+  if (!el) return null;
+  const zone = zoneOf(el);
+  if (zone === null) return null;
+  const tile = el.closest<HTMLElement>("[data-tile]");
+  if (!tile || tile.dataset.tile === draggedKey) return tile ? null : { zone, key: null, after: true };
+  const rect = tile.getBoundingClientRect();
+  const after = zone === "pinned" ? x > rect.left + rect.width / 2 : y > rect.top + rect.height / 2;
+  return { zone, key: tile.dataset.tile!, after };
+}
+
+/**
+ * The dashboard as a responsive grid of tiles. Each tile has a ⠿ handle to drag
+ * it above or below another, into another column, or into a new column at the
+ * right; and a pin that keeps it in a band across the top. As many columns as
+ * fit the screen are offered, down to one on a phone.
+ */
+export function TileGrid({ tiles, layout, onChange }: Props) {
+  const wrapper = useRef<HTMLDivElement>(null);
+  const [fits, setFits] = useState(1);
+  useLayoutEffect(() => {
+    const el = wrapper.current!;
+    const measure = () =>
+      setFits(Math.max(1, Math.min(MAX_COLUMNS, Math.floor((el.clientWidth + GAP_PX) / (MIN_COLUMN_PX + GAP_PX)))));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const [draggingKey, setDraggingKey] = useState<string | null>(null);
+  const [drop, setDrop] = useState<DropAt | null>(null);
+
+  const byKey = new Map(tiles.map((tile) => [tile.key, tile]));
+  const arrangement = arrange(layout, fits, tiles.map((tile) => tile.key));
+  const shown = (keys: string[]) => keys.flatMap((key) => byKey.get(key) ?? []);
+  const pinned = shown(arrangement.pinned);
+  // Columns keep their index in the full arrangement, which also holds tiles that aren't shown right now.
+  const columns = arrangement.columns.map((keys, index) => ({ index, tiles: shown(keys) })).filter((c) => c.tiles.length > 0);
+  const save = (next: typeof arrangement) => onChange(withArrangement(layout, fits, next));
+
+  // Read by drag listeners that outlive the render they were created in.
+  const latest = useRef({ arrangement, save });
+  latest.current = { arrangement, save };
+
+  function startDrag(e: ReactPointerEvent<HTMLElement>, key: string) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const handle = e.currentTarget;
+    let target: DropAt | null = null;
+    const scroller = edgeScroller();
+    handle.setPointerCapture(e.pointerId);
+    setDraggingKey(key);
+
+    const onMove = (ev: PointerEvent) => {
+      scroller.update(ev.clientY);
+      const next = dropAt(ev.clientX, ev.clientY, key);
+      if (JSON.stringify(next) === JSON.stringify(target)) return;
+      target = next;
+      setDrop(next);
+    };
+    const finish = (dropped: boolean) => {
+      scroller.stop();
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onUp);
+      handle.removeEventListener("pointercancel", onCancel);
+      setDraggingKey(null);
+      setDrop(null);
+      if (!dropped || !target) return;
+      const { arrangement, save } = latest.current;
+      let beforeKey = target.key;
+      if (target.key && target.after) {
+        const zoneKeys = (target.zone === "pinned" ? arrangement.pinned : (arrangement.columns[target.zone as number] ?? [])).filter(
+          (other) => other !== key,
+        );
+        beforeKey = zoneKeys[zoneKeys.indexOf(target.key) + 1] ?? null;
+      }
+      save(moveTile(arrangement, key, target.zone, beforeKey));
+    };
+    const onUp = () => finish(true);
+    const onCancel = () => finish(false);
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onUp);
+    handle.addEventListener("pointercancel", onCancel);
+  }
+
+  function renderTile(tile: Tile, isPinned: boolean) {
+    const mark =
+      drop?.key === tile.key ? DROP_STYLES[isPinned ? (drop.after ? "right" : "left") : drop.after ? "below" : "above"] : "";
+    return (
+      <div
+        key={tile.key}
+        data-tile={tile.key}
+        data-pinned={isPinned || undefined}
+        className={`min-w-0 rounded-lg ${draggingKey === tile.key ? "opacity-40" : ""} ${mark}`}
+      >
+        <div className="flex items-center justify-between px-1 text-stone-400">
+          <button
+            type="button"
+            className="btn-quiet cursor-grab touch-none !py-0 text-base leading-none select-none active:cursor-grabbing"
+            onPointerDown={(e) => startDrag(e, tile.key)}
+            aria-label={`Drag to move ${tile.name}`}
+            title="Drag to move: above or below another tile, or into another column"
+          >
+            ⠿
+          </button>
+          <button
+            type="button"
+            className={`btn-quiet !py-0 ${isPinned ? "!text-emerald-700 dark:!text-emerald-400" : ""}`}
+            aria-pressed={isPinned}
+            aria-label={`${isPinned ? "Unpin" : "Pin"} ${tile.name}`}
+            title={isPinned ? "Unpin: back into the columns" : "Pin to the top of the page"}
+            onClick={() => save(togglePin(arrangement, tile.key))}
+          >
+            {isPinned ? "Pinned" : "Pin"}
+          </button>
+        </div>
+        {tile.node}
+      </div>
+    );
+  }
+
+  const offersNewColumn = draggingKey !== null && columns.length < fits;
+  const columnCount = columns.length;
+  const maxWidth = `calc(${Math.max(columnCount, 1) * MAX_COLUMN_REM}rem + ${(Math.max(columnCount, 1) - 1) * GAP_PX}px)`;
+
+  return (
+    <div ref={wrapper} data-tile-grid data-fits={fits} className="relative">
+      {pinned.length > 0 && (
+        <div
+          data-zone="pinned"
+          aria-label="Pinned"
+          className="mx-auto mb-4 grid items-start gap-4 border-b border-stone-300 pb-4 dark:border-stone-700"
+          style={{ maxWidth, gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${MIN_COLUMN_PX - 32}px), 1fr))` }}
+        >
+          {pinned.map((tile) => renderTile(tile, true))}
+        </div>
+      )}
+      <div
+        className="mx-auto grid items-start gap-4"
+        style={{ maxWidth, gridTemplateColumns: `repeat(${Math.max(columnCount, 1)}, minmax(0, 1fr))` }}
+      >
+        {columns.map((column) => (
+          <div
+            key={column.index}
+            data-zone={column.index}
+            className={`min-w-0 space-y-4 rounded-lg pb-8 ${drop?.zone === column.index && drop.key === null ? "ring-2 ring-emerald-600" : ""}`}
+          >
+            {column.tiles.map((tile) => renderTile(tile, false))}
+          </div>
+        ))}
+      </div>
+      {/* Laid over the right edge rather than added to the grid, so nothing shifts when a drag starts. */}
+      {offersNewColumn && (
+        <div
+          data-zone="new"
+          className={`absolute inset-y-0 right-0 z-10 flex w-28 items-start justify-center rounded-lg border-2 border-dashed p-3 pt-10 text-center text-sm ${drop?.zone === "new" ? "border-emerald-600 bg-emerald-100/90 text-emerald-900 dark:bg-emerald-950/90 dark:text-emerald-200" : "border-stone-400 bg-stone-100/80 text-stone-600 dark:border-stone-600 dark:bg-stone-900/80 dark:text-stone-300"}`}
+        >
+          Drop here for a new column
+        </div>
+      )}
+    </div>
+  );
+}

@@ -30,10 +30,12 @@ enum ListKind {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  username     String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
+  id              String   @id @default(uuid())
+  username        String   @unique
+  passwordHash    String
+  createdAt       DateTime @default(now())
+  // How the dashboard's tiles are arranged and which are pinned; null = the default single column.
+  dashboardLayout Json?
 
   goals             Goal[]
   tags              Tag[]

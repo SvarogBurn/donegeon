@@ -100,7 +100,9 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
       const el = e.currentTarget;
       if (el.selectionStart !== el.value.length || el.selectionEnd !== el.value.length) return;
       e.preventDefault();
-      if (!focusNeighbor(el, -1)) focusNeighbor(el, 1);
+      // Focus stays in the same box (list, Today or task page) rather than jumping to the one above.
+      const box = el.closest("section");
+      if (!focusNeighbor(el, -1, box)) focusNeighbor(el, 1, box);
       tree.deleteTask(node);
     } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
       e.preventDefault();
@@ -183,6 +185,7 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
               {node.descendantDoneCount}/{node.descendantCount} done
             </span>
           )}
+          <ValueChip node={node} />
           <TaskMenu node={node} depth={depth} onAddSubtask={addSubtask} />
           <button
             type="button"
@@ -193,7 +196,6 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
           >
             ⠿
           </button>
-          <ValueChip node={node} />
         </span>
       </div>
 

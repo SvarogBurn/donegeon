@@ -3,6 +3,8 @@ import { useSetToday, useToggleTask } from "../../hooks/useTasks";
 import { daysBetween } from "../../lib/dates";
 import type { TaskTreeNode } from "../../types";
 import { ValueChip } from "../Points/ValueChip";
+import { TaskForm } from "../TaskTree/TaskForm";
+import { TaskTree } from "../TaskTree/TaskNode";
 import { useTree } from "../TaskTree/TreeContext";
 
 interface TodayItem {
@@ -13,8 +15,11 @@ interface TodayItem {
 
 const firstLine = (title: string) => title.split("\n")[0];
 
+/** Written straight into Today: a main task with no list. It is shown here as a full, editable task. */
+const livesInToday = (node: TaskTreeNode) => !node.parentId && !node.listId;
+
 /**
- * Everything marked for Today, at any depth. Open items stay from day to day;
+ * Everything from the lists that is marked for Today, at any depth. Open items stay from day to day;
  * a ticked one stays for the rest of the day it was ticked on. Subtasks left
  * open inside a finished main task went to the Done tab with it.
  */
@@ -23,7 +28,7 @@ function todayItems(trees: TaskTreeNode[], today: string): TodayItem[] {
   const visit = (nodes: TaskTreeNode[], path: string[], rootFinished: boolean) => {
     for (const node of nodes) {
       const shown = node.isComplete ? node.completedOn === today : !rootFinished;
-      if (node.todaySince && shown) found.push({ node, path });
+      if (node.todaySince && shown && !livesInToday(node)) found.push({ node, path });
       visit(node.children, [...path, firstLine(node.title)], rootFinished || (path.length === 0 && node.isComplete));
     }
   };
@@ -75,6 +80,7 @@ function TodayRow({ node, path, today }: TodayItem & { today: string }) {
               carried over {carried} {carried === 1 ? "day" : "days"}
             </span>
           )}
+          <ValueChip node={node} />
           <button
             type="button"
             className="btn-quiet text-lg leading-none"
@@ -84,7 +90,6 @@ function TodayRow({ node, path, today }: TodayItem & { today: string }) {
           >
             ×
           </button>
-          <ValueChip node={node} />
         </span>
       </div>
       {error && <p className="text-xs text-red-600">{error.message}</p>}
@@ -93,15 +98,16 @@ function TodayRow({ node, path, today }: TodayItem & { today: string }) {
 }
 
 /**
- * The day's working set: tasks dragged here, or marked "Do today" in their ⋯
- * menu. Looks like a list and sits above them, but holds no tasks of its own:
- * each row is a task that lives in one of the lists below.
+ * The day's working set. Tasks dragged here, or marked "Do today" in their ⋯
+ * menu, are only shown here: they live in one of the lists below. Tasks typed
+ * into the field at the bottom live here alone, until they are dragged to a list.
  */
 export function TodayBox({ tasks }: { tasks: TaskTreeNode[] }) {
   const { dropTarget } = useTree();
   const today = localDate();
   const items = todayItems(tasks, today);
-  const left = items.filter((item) => !item.node.isComplete && !item.node.isPersistent).length;
+  const own = tasks.filter((task) => livesInToday(task) && (!task.isComplete || task.completedOn === today));
+  const left = [...items.map((item) => item.node), ...own].filter((node) => !node.isComplete && !node.isPersistent).length;
 
   return (
     <section
@@ -111,19 +117,24 @@ export function TodayBox({ tasks }: { tasks: TaskTreeNode[] }) {
     >
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="px-1 font-semibold">Today</h2>
-        {items.length > 0 && <span className="text-xs text-stone-500 tabular-nums">{left} left</span>}
+        {items.length + own.length > 0 && <span className="text-xs text-stone-500 tabular-nums">{left} left</span>}
       </header>
-      {items.length === 0 ? (
+      {items.length + own.length === 0 && (
         <p className="px-1 text-sm text-stone-500">
           Nothing picked for today. Drag a task here by its ⠿ handle, or choose “Do today” in its ⋯ menu; it stays in its list.
         </p>
-      ) : (
+      )}
+      {items.length > 0 && (
         <ul>
           {items.map((item) => (
             <TodayRow key={item.node.id} {...item} today={today} />
           ))}
         </ul>
       )}
+      <div data-today-own>
+        <TaskTree nodes={own} parentId={null} listId={null} />
+      </div>
+      <TaskForm editorId="today-add" placeholder="Add a task just for today, then press Enter" />
     </section>
   );
 }

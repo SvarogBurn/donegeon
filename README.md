@@ -62,6 +62,11 @@ In a task:
 - Ticking a main task books its points and moves it to the **Done** tab; unticking it there puts it back and reverses the points. Subtasks carry no points.
 - In a task's ⋯ menu: **Do today** (shows it in the Today box until it is done), **Persistent** (a ↻ button instead of a checkbox: can be done or bought again and again), and its own point amount (empty = the list's amount).
 - The balance in the nav bar opens the points history.
+- The Today box also has its own field: a task typed there lives only in Today until you drag it into a list.
+
+## Arranging the dashboard
+
+Every box has a ⠿ handle and a Pin button above it. Drag a box above or below another, into another column, or onto the strip at the right edge for a new column; Pin keeps it in a band across the top. The arrangement is saved per account, separately for each screen width.
 
 ## Dev date
 

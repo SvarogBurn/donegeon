@@ -8,6 +8,7 @@ import { requireAuth } from "./middleware/requireAuth.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { dashboardRouter } from "./routes/dashboard.routes.js";
 import { goalsRouter } from "./routes/goals.routes.js";
+import { layoutRouter } from "./routes/layout.routes.js";
 import { listsRouter } from "./routes/lists.routes.js";
 import { pointsRouter } from "./routes/points.routes.js";
 import { tagsRouter } from "./routes/tags.routes.js";
@@ -48,6 +49,7 @@ export function createApp() {
   api.use("/tasks", requireAuth, tasksRouter);
   api.use("/dashboard", requireAuth, dashboardRouter);
   api.use("/points", requireAuth, pointsRouter);
+  api.use("/layout", requireAuth, layoutRouter);
   api.use((_req, _res) => {
     throw new HttpError(404, "No such endpoint");
   });

@@ -5,6 +5,7 @@ import * as tagsApi from "../api/tags";
 import * as tasksApi from "../api/tasks";
 import { localDate } from "../api/client";
 import { findNode, toggleInCountdown, toggleInTrees, type CompletionChange } from "../lib/optimisticToggle";
+import type { DashboardLayout } from "../lib/tileLayout";
 import type { Countdown, TaskTreeNode } from "../types";
 
 const TASKS = ["tasks"];
@@ -21,6 +22,19 @@ export const useTaskTrees = () => useQuery({ queryKey: TASKS, queryFn: tasksApi.
 export const useGoals = () => useQuery({ queryKey: GOALS, queryFn: goalsApi.listGoals });
 export const useTags = () => useQuery({ queryKey: TAGS, queryFn: tagsApi.listTags });
 export const useLists = () => useQuery({ queryKey: LISTS, queryFn: listsApi.listLists });
+const LAYOUT = ["layout"];
+export const useLayout = () => useQuery({ queryKey: LAYOUT, queryFn: tasksApi.getLayout });
+/** The new arrangement shows at once and is saved in the background. */
+export function useSaveLayout() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: tasksApi.saveLayout,
+    onMutate: (layout: DashboardLayout) => {
+      queryClient.setQueryData(LAYOUT, layout);
+    },
+    onError: () => queryClient.invalidateQueries({ queryKey: LAYOUT }),
+  });
+}
 export const usePoints = () => useQuery({ queryKey: POINTS, queryFn: tasksApi.getPoints });
 export const usePressure = () => useQuery({ queryKey: PRESSURE, queryFn: tasksApi.getPressure });
 /** Kept under the countdown key so every task change refreshes it too. */

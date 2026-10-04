@@ -41,10 +41,10 @@ export async function balanceOf(tx: Prisma.TransactionClient, userId: string): P
 
 /** Books a top-level task being done (ticked, or pressed if persistent). Returns the row, or null if it is worth nothing. */
 export async function bookTask(tx: Prisma.TransactionClient, task: Task) {
-  if (task.parentId || !task.listId) return null;
-  const list = await tx.list.findUnique({ where: { id: task.listId } });
-  if (!list) return null;
-  const booking = bookingFor(list.kind, taskValue(task, list), await balanceOf(tx, task.userId));
+  if (task.parentId) return null;
+  // A task that lives only in Today has no list: it earns its own amount, if it was given one.
+  const list = task.listId ? await tx.list.findUnique({ where: { id: task.listId } }) : null;
+  const booking = bookingFor(list?.kind ?? "task", taskValue(task, list), await balanceOf(tx, task.userId));
   if (!booking.ok) throw new HttpError(400, `Not enough points: you need ${booking.short} more`);
   if (!booking.row) return null;
   return tx.pointTransaction.create({
