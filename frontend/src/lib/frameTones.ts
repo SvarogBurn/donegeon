@@ -1,4 +1,4 @@
-import frameSvg from "../../../assets/140x140border_blue_v2.svg?raw";
+import frameSvg from "../../../assets/140x140border_blue_v3.svg?raw";
 
 /**
  * The tile frame in other colours. The border art is drawn once, in blue; its

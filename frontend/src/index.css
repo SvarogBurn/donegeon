@@ -50,7 +50,7 @@
 }
 
 /*
- * Pixel-art tile frame (assets/140x140border_blue_v2.svg). --u is the size of
+ * Pixel-art tile frame (assets/140x140border_blue_v3.svg). --u is the size of
  * one art pixel; the frame, its title band and its 7x7 buttons are all sized
  * in it, so they stay in proportion. In art pixels the frame is: 18 on top
  * (the title band is rows 3-15, inset 3 from each side), 5 left, 4 right, 5 bottom.
@@ -78,7 +78,7 @@
     border-style: solid;
     border-width: calc(18 * var(--u)) calc(4 * var(--u)) calc(5 * var(--u)) calc(5 * var(--u));
     /* The SVG is drawn at 140 units per art pixel: slices of 18, 4, 52 and 89 art pixels. */
-    border-image-source: var(--frame, url("../../assets/140x140border_blue_v2.svg"));
+    border-image-source: var(--frame, url("../../assets/140x140border_blue_v3.svg"));
     border-image-slice: 2520 560 7280 12460;
     border-image-width: calc(18 * var(--u)) calc(4 * var(--u)) calc(52 * var(--u)) calc(89 * var(--u));
     border-image-repeat: stretch;
