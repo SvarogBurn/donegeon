@@ -19,7 +19,7 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
 
   return (
     <main className="mx-auto max-w-sm px-4 py-16">
-      <h1 className="mb-6 font-pixel text-xl text-emerald-800 dark:text-emerald-400">Donegeon</h1>
+      <h1 className="logo mb-6 h-[42px]" aria-label="Donegeon" />
       <TileFrame title={isSignup ? "Create an account" : "Log in"}>
       <form onSubmit={submit} className="space-y-4">
         <label className="block space-y-1 text-sm">

@@ -36,6 +36,8 @@ model User {
   createdAt       DateTime @default(now())
   // How the dashboard's tiles are arranged and which are pinned; null = the default single column.
   dashboardLayout Json?
+  // What a task written straight into Today (so in no list) is worth, unless it has its own amount.
+  todayPoints     Int      @default(2)
 
   goals             Goal[]
   tags              Tag[]

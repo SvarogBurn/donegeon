@@ -36,6 +36,8 @@ export function useSaveLayout() {
   });
 }
 export const usePoints = () => useQuery({ queryKey: POINTS, queryFn: tasksApi.getPoints });
+// Changes what every Today-only task without its own amount is worth.
+export const useSetTodayPoints = () => useInvalidating(tasksApi.setTodayPoints, [POINTS, TASKS]);
 export const usePressure = () => useQuery({ queryKey: PRESSURE, queryFn: tasksApi.getPressure });
 /** Kept under the countdown key so every task change refreshes it too. */
 export const useCombinedCountdown = () => useQuery({ queryKey: [...COUNTDOWN, "all"], queryFn: tasksApi.getCombinedCountdown });

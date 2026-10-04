@@ -45,10 +45,11 @@ export function TitleEditor({ value, onChange, editorId, onKeyDown, className = 
 
   useLayoutEffect(() => {
     const el = innerRef.current;
-    if (!el) return;
+    // A fitted title fills its grid cell, which the invisible copy sizes at any width.
+    if (!el || fitText) return;
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
-  }, [value]);
+  }, [value, fitText]);
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     // Let an input method finish composing before any key means something here.
@@ -78,11 +79,12 @@ export function TitleEditor({ value, onChange, editorId, onKeyDown, className = 
       }}
       data-task-editor={editorId}
       rows={1}
+      enterKeyHint="done"
       maxLength={300}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       onKeyDown={handleKeyDown}
-      className={`block w-full resize-none overflow-hidden rounded bg-transparent px-1.5 py-1 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600/30 dark:focus:bg-stone-950 ${fitText ? "col-start-1 row-start-1" : ""} ${className}`}
+      className={`block w-full resize-none overflow-hidden rounded bg-transparent px-1.5 py-1 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600/30 dark:focus:bg-stone-950 ${fitText ? "col-start-1 row-start-1 h-full" : ""} ${className}`}
     />
   );
   if (!fitText) return textarea;

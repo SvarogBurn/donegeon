@@ -128,10 +128,10 @@ function Doing({ node }: { node: TaskTreeNode }) {
               onChange={(e) => setPoints(e.target.value)}
               onBlur={savePoints}
               onKeyDown={(e) => e.key === "Enter" && savePoints()}
-              placeholder={String(list?.defaultPoints ?? "")}
-              aria-label="Points for this task (empty = the list's amount)"
+              placeholder={String(list?.defaultPoints ?? (node.points === null ? (node.value ?? "") : ""))}
+              aria-label={`Points for this task (empty = ${list ? "the list's" : "Today's"} amount)`}
             />
-            <span className="text-stone-500">{node.points === null ? "the list's amount" : "its own amount"}</span>
+            <span className="text-stone-500">{node.points !== null ? "its own amount" : list ? "the list's amount" : "Today's amount"}</span>
           </label>
         </>
       )}
@@ -178,7 +178,12 @@ export function TaskMenu({ node, depth, onAddSubtask }: Props) {
         ⋯
       </button>
       {isOpen && (
-        <div className="card absolute top-full right-0 z-20 mt-1 w-64 space-y-3 !p-3 shadow-lg" role="dialog" aria-label="Task options">
+        // On a phone it is a sheet along the bottom of the screen: beside its button it would hang off the edge.
+        <div
+          className="card absolute top-full right-0 z-20 mt-1 w-64 space-y-3 !p-3 shadow-lg max-sm:fixed max-sm:inset-x-2 max-sm:top-auto max-sm:bottom-2 max-sm:z-50 max-sm:mt-0 max-sm:max-h-[75dvh] max-sm:w-auto max-sm:overflow-y-auto"
+          role="dialog"
+          aria-label="Task options"
+        >
           <Doing node={node} />
           <Labels node={node} />
           {depth <= 1 && !node.isPersistent && (

@@ -3,16 +3,19 @@ import { bookingFor, openBooking, taskValue } from "./points.service.js";
 
 describe("taskValue", () => {
   it("uses the list's default until the task has its own amount", () => {
-    expect(taskValue({ points: null }, { defaultPoints: 5 })).toBe(5);
-    expect(taskValue({ points: 8 }, { defaultPoints: 5 })).toBe(8);
+    expect(taskValue({ points: null }, { defaultPoints: 5 }, 2)).toBe(5);
+    expect(taskValue({ points: 8 }, { defaultPoints: 5 }, 2)).toBe(8);
   });
 
   it("keeps a hand-set amount of 0", () => {
-    expect(taskValue({ points: 0 }, { defaultPoints: 5 })).toBe(0);
+    expect(taskValue({ points: 0 }, { defaultPoints: 5 }, 2)).toBe(0);
   });
 
-  it("is worth nothing without a list", () => {
-    expect(taskValue({ points: null }, null)).toBe(0);
+  it("is worth the user's Today amount without a list, unless it has its own", () => {
+    expect(taskValue({ points: null }, null, 2)).toBe(2);
+    expect(taskValue({ points: null }, null, 6)).toBe(6);
+    expect(taskValue({ points: 7 }, null, 2)).toBe(7);
+    expect(taskValue({ points: 0 }, null, 2)).toBe(0);
   });
 });
 

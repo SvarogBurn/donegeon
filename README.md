@@ -61,18 +61,53 @@ In a task:
 - Every list is a **task list** (its items add points) or a **reward list** (its items cost points), with a points-per-item amount. Both are set when the list is created and can be changed in the list's header.
 - Ticking a main task books its points and moves it to the **Done** tab; unticking it there puts it back and reverses the points. Subtasks carry no points.
 - In a task's ⋯ menu: **Do today** (shows it in the Today box until it is done), **Persistent** (a ↻ button instead of a checkbox: can be done or bought again and again), and its own point amount (empty = the list's amount).
-- The balance in the nav bar opens the points history.
-- The Today box also has its own field: a task typed there lives only in Today until you drag it into a list.
+- The balance in the task bar at the bottom opens the points history.
+- The Today box also has its own field: a task typed there lives only in Today until you drag it into a list. It is worth what the "N each" field at the top of the Today box says (2 to start with) unless you give it its own amount; once dragged into a list it follows that list.
 
 ## Arranging the dashboard
 
-Every box has a ⠿ handle and a Pin button above it. Drag a box above or below another, into another column, or onto the strip at the right edge for a new column; Pin keeps it in a band across the top. The arrangement is saved per account, separately for each screen width.
+Every box has a drag handle and a Pin button on its title band. Drag a box above or below another, into another column, or onto the strip at the right edge for a new column; Pin keeps it in a band across the top. The arrangement is saved per account, separately for each screen width.
 
-## Dev date
+Every box except the lists also has a minimize button at the far right of its band, which hides it. Hidden boxes are listed in a "Hidden" row under the boxes; click one to bring it back where it was. Which boxes are hidden is saved per account.
 
-In dev builds the nav bar has a dashed "Dev date" field. Setting it makes the
-app treat that day as today (completion stamps now; countdown and daily
-rollover later). "reset" goes back to the real date.
+## On a phone
+
+To try the dev build from a phone on the same WiFi, start the frontend with
+`npm run dev -- --host` and open the "Network" address it prints.
+
+Under 640px wide the task bar shows its icons and logo at half size and keeps the same bar, only smaller, a task's ⋯ menu
+opens as a sheet along the bottom of the screen, and the tables use smaller
+text so they fit without sideways scrolling.
+
+## Production build and deploy
+
+In production one Node process serves both the API and the built app:
+
+```sh
+(cd frontend && npm ci --include=dev && npm run build)
+(cd backend && npm ci --include=dev && npx prisma generate && npm run build)
+cd backend && npx prisma migrate deploy && NODE_ENV=production npm start
+```
+
+It needs `DATABASE_URL`, `SESSION_SECRET` and `NODE_ENV=production` (which turns
+on secure cookies, so it must sit behind HTTPS). `render.yaml` describes exactly
+this for Render: create a Blueprint from the repo and paste a hosted Postgres
+connection string (e.g. Neon) into `DATABASE_URL`. `GET /api/health` is the
+health check.
+
+## Your account
+
+Your icon and name at the right of the task bar open your own page, which is
+where Log out is.
+
+## Changing the time and date
+
+The clock at the right of the task bar shows the time with the date under it.
+Click it to change either one: the app then treats that moment as now (what
+"today" is for completion stamps, countdowns and the daily rollover). A changed
+time keeps running, and rolls the day over at midnight; a changed date stays
+until "Back to the real time". The clock is amber while it is not the real
+time. Anyone can do this, in any build; it is stored in that browser only.
 
 ## Specs
 

@@ -121,7 +121,7 @@ tasksRouter.get("/", async (req, res) => {
   await prisma.task.deleteMany({
     where: { userId: owner, deletedAt: { lt: new Date(Date.now() - DELETED_RETENTION_MS) } },
   });
-  const [tasks, lists] = await Promise.all([
+  const [tasks, lists, { todayPoints }] = await Promise.all([
     prisma.task.findMany({
       where: { userId: owner, deletedAt: null },
       include: {
@@ -131,6 +131,7 @@ tasksRouter.get("/", async (req, res) => {
       },
     }),
     prisma.list.findMany({ where: { userId: owner } }),
+    prisma.user.findUniqueOrThrow({ where: { id: owner }, select: { todayPoints: true } }),
   ]);
   const listById = new Map(lists.map((list) => [list.id, list]));
   const forPace = withFinishedRoots(tasks).tasks;
@@ -138,7 +139,7 @@ tasksRouter.get("/", async (req, res) => {
     ...task,
     goalIds: goals.map((g) => g.id),
     tagIds: tags.map((t) => t.id),
-    value: task.parentId ? null : taskValue(task, listById.get(task.listId ?? "") ?? null),
+    value: task.parentId ? null : taskValue(task, listById.get(task.listId ?? "") ?? null, todayPoints),
     pace: task.deadlineDate ? todayPace(forPace, task, req.localDate) : null,
   }));
   res.json({ tasks: buildTree(flat) });

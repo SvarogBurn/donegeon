@@ -1,7 +1,8 @@
 /**
  * How the dashboard's tiles are arranged. Tiles are named by key ("today",
  * "goals", "list:<id>", ...). Pinned tiles sit in a band at the top; the rest
- * are stacked in columns.
+ * are stacked in columns. Hidden tiles (minimized by the user) are not shown
+ * but keep their place, on every screen size, for when they are brought back.
  *
  * Two arrangements are kept: "wide" for any screen that fits two or more
  * columns, and "phone" for a single column. A wide screen that fits fewer
@@ -12,6 +13,7 @@
  */
 export interface DashboardLayout {
   pinned: string[];
+  hidden?: string[];
   byColumns: Record<string, string[][]>;
 }
 
@@ -50,7 +52,7 @@ export function normalizeLayout(layout: DashboardLayout | null | undefined): Das
   const byColumns: Record<string, string[][]> = {};
   if (wide ?? legacyWide) byColumns.wide = (wide ?? legacyWide)!;
   if (phone ?? legacy["1"]) byColumns.phone = (phone ?? legacy["1"])!;
-  return { pinned: layout.pinned, byColumns };
+  return { pinned: layout.pinned, hidden: layout.hidden ?? [], byColumns };
 }
 
 /** The saved arrangement for a screen that fits `n` columns, if there is one to go by. */
@@ -120,7 +122,14 @@ export function togglePin(arrangement: Arrangement, key: string): Arrangement {
 export function withArrangement(layout: DashboardLayout, n: number, arrangement: Arrangement): DashboardLayout {
   const columns = fold(arrangement.columns, Math.min(Math.max(n, 1), MAX_COLUMNS));
   return {
+    ...layout,
     pinned: arrangement.pinned,
     byColumns: { ...layout.byColumns, [n === 1 ? "phone" : "wide"]: columns },
   };
+}
+
+/** The layout with `key` hidden (minimized) or shown again. */
+export function withHidden(layout: DashboardLayout, key: string, hidden: boolean): DashboardLayout {
+  const others = (layout.hidden ?? []).filter((other) => other !== key);
+  return { ...layout, hidden: hidden ? [...others, key] : others };
 }

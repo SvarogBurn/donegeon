@@ -1,78 +1,68 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { Link, NavLink } from "react-router";
-import { getDevDate, localDate, setDevDate } from "../../api/client";
-import { useLogout } from "../../hooks/useAuth";
 import { usePoints } from "../../hooks/useTasks";
 import type { User } from "../../types";
+import { Clock } from "./Clock";
 
-/** Dev builds only: pretend today is another day, to test date-driven features. */
-function DevDateField() {
-  const queryClient = useQueryClient();
-  const [override, setOverride] = useState(getDevDate());
-
-  function change(date: string | null) {
-    setDevDate(date);
-    setOverride(date);
-    queryClient.invalidateQueries();
-  }
-
-  return (
-    <label className="flex items-center gap-1 rounded border border-dashed border-amber-500 px-2 py-1 text-xs text-amber-700 dark:text-amber-400">
-      Dev date
-      <input
-        type="date"
-        className="bg-transparent"
-        value={override ?? localDate()}
-        onChange={(e) => change(e.target.value || null)}
-      />
-      {override && (
-        <button type="button" className="underline" onClick={() => change(null)}>
-          reset
-        </button>
-      )}
-    </label>
-  );
-}
-
+// The label under each icon: near-black, and the frame's blue on the page that is open.
 const tab = ({ isActive }: { isActive: boolean }) =>
-  `px-2 py-1.5 font-pixel text-[10px] ${isActive ? "bg-stone-200 font-medium dark:bg-stone-800" : "text-stone-500 hover:text-stone-900 dark:hover:text-stone-100"}`;
+  `flex flex-col items-center gap-0.5 px-1.5 pt-1 pb-0.5 font-pixel text-[8px] sm:px-2 ${isActive ? "bg-stone-200/80 text-[#3544a1] dark:bg-stone-800/80 dark:text-[#cbdbfc]" : "text-stone-900 hover:bg-stone-200/50 dark:text-stone-100 dark:hover:bg-stone-800/50"}`;
 
 export function NavBar({ user }: { user: User }) {
-  const logout = useLogout();
   const { data: points } = usePoints();
 
+  // The bar's height changes (it wraps on narrow screens), so it is published as --bar-h for
+  // whatever must stay clear of it: the page's bottom padding and the undo bar.
+  const bar = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const el = bar.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const publish = () => root.style.setProperty("--bar-h", `${el.offsetHeight}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--bar-h");
+    };
+  }, []);
+
   return (
-    // Stays at the top of the screen while the page scrolls underneath.
-    <header className="sticky top-0 z-40 border-b border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-        <Link to="/" className="font-pixel text-sm text-emerald-800 dark:text-emerald-400">
-          Donegeon
-        </Link>
+    // A task bar: fixed along the bottom of the screen, 70% opaque, while the page scrolls above it (AppShell leaves room for it).
+    <header ref={bar} className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-stone-300 bg-white/70 pb-[env(safe-area-inset-bottom)] dark:border-stone-700 dark:bg-stone-900/70">
+      {/*
+        Tabs at the far left, the logo in the middle (equal side columns keep it centred), the rest at the right.
+        A phone has no room for the logo: there it is just the two ends.
+      */}
+      <div className="flex items-center justify-between gap-x-2 px-2 py-1.5 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:gap-x-4 sm:px-3">
         <nav className="flex items-center gap-1" aria-label="Pages">
-          <NavLink to="/" end className={tab}>
+          <NavLink to="/" end className={tab} aria-label="Tasks">
+            <span className="tab-icon tab-icon-tasks" aria-hidden />
             Tasks
           </NavLink>
-          <NavLink to="/done" className={tab}>
+          <NavLink to="/done" className={tab} aria-label="Done">
+            <span className="tab-icon tab-icon-done" aria-hidden />
             Done
           </NavLink>
         </nav>
-        <div className="ml-auto flex flex-wrap items-center gap-3 text-sm">
-          {import.meta.env.DEV && <DevDateField />}
+        <Link to="/" className="logo h-[42px] max-sm:hidden" aria-label="Donegeon" />
+        <div className="flex items-center justify-end gap-x-2 text-sm sm:gap-x-3">
+          {/* The balance, laid out like a tab: a big number where the icon would be, "pts" underneath. */}
           {points && (
-            <Link
-              to="/points"
-              data-nav-balance={points.balance}
-              className="bg-emerald-100 px-2.5 py-1.5 font-pixel text-[10px] text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-              title="Your points: earned minus spent. Click for the history."
-            >
-              {points.balance} {points.balance === 1 ? "pt" : "pts"}
-            </Link>
+            <NavLink to="/points" className={tab} data-nav-balance={points.balance} aria-label="Points" title="Your points: earned minus spent. Click for the history.">
+              <span className="flex h-[21px] items-center text-sm leading-none tabular-nums sm:h-[42px] sm:text-3xl">
+                {points.balance}
+              </span>
+              {points.balance === 1 ? "pt" : "pts"}
+            </NavLink>
           )}
-          <span className="text-stone-500">{user.username}</span>
-          <button type="button" className="btn-quiet" disabled={logout.isPending} onClick={() => logout.mutate()}>
-            Log out
-          </button>
+          {/* The user's own page (and logging out), under their name. */}
+          <NavLink to="/user" className={tab} aria-label="Account" title={user.username}>
+            <span className="tab-icon tab-icon-user" aria-hidden />
+            <span className="max-w-16 truncate sm:max-w-28">{user.username}</span>
+          </NavLink>
+          <Clock />
         </div>
       </div>
     </header>

@@ -1,6 +1,8 @@
 import connectPgSimple from "connect-pg-simple";
 import express, { type NextFunction, type Request, type Response } from "express";
 import session from "express-session";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import { ZodError } from "zod";
 import { HttpError } from "./lib/httpError.js";
 import { localDateMiddleware } from "./lib/localDate.js";
@@ -42,6 +44,10 @@ export function createApp() {
   app.use(localDateMiddleware);
 
   const api = express.Router();
+  // For the host's "is it up?" check; needs no login and no database.
+  api.get("/health", (_req, res) => {
+    res.json({ ok: true });
+  });
   api.use("/auth", authRouter);
   api.use("/goals", requireAuth, goalsRouter);
   api.use("/tags", requireAuth, tagsRouter);
@@ -54,6 +60,23 @@ export function createApp() {
     throw new HttpError(404, "No such endpoint");
   });
   app.use("/api", api);
+
+  // In production this server also hands out the built app (frontend/dist), so
+  // the page and the API share one origin. Every other address is a page of
+  // the app, which finds its own way from index.html.
+  const frontend = path.resolve(import.meta.dirname, "../../frontend/dist");
+  if (isProd && existsSync(frontend)) {
+    // Built files carry a hash of their content in their name: safe to keep forever.
+    app.use("/assets", express.static(path.join(frontend, "assets"), { immutable: true, maxAge: "1y" }));
+    app.use("/assets", (_req, res) => {
+      res.status(404).end();
+    });
+    app.use(express.static(frontend, { index: false }));
+    app.use((req, res, next) => {
+      if (req.method !== "GET" && req.method !== "HEAD") return next();
+      res.set("Cache-Control", "no-cache").sendFile(path.join(frontend, "index.html"));
+    });
+  }
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof ZodError) {

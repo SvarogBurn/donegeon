@@ -12,10 +12,11 @@ export function AppShell() {
 
   return (
     <>
-      <NavBar user={user} />
-      <main className="px-4 py-6">
+      {/* The bottom padding is the room the task bar covers (--bar-h, set by NavBar). */}
+      <main className="px-4 pt-6 pb-[calc(var(--bar-h,5rem)+1.5rem)]">
         <Outlet />
       </main>
+      <NavBar user={user} />
     </>
   );
 }

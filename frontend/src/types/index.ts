@@ -67,6 +67,8 @@ export interface TaskPress {
 
 export interface PointsSummary {
   balance: number;
+  /** What a task written straight into Today is worth, unless it has its own amount. */
+  todayPoints: number;
   /** Newest first. */
   transactions: { id: string; type: "earned" | "redeemed" | "reversal"; amount: number; title: string; createdAt: string }[];
 }

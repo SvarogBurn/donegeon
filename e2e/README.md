@@ -16,6 +16,7 @@ per check. They are scripts, not a test runner suite.
 | `layout.mjs` | dashboard box order |
 | `m3.mjs` | list kinds and points per item, earning / spending / reversing points, Done tab, persistent tasks and rewards, points history, Today box (marking, dragging in, tasks written there), the tile grid (columns, pinning, phone width) |
 | `tiles.mjs` | the tile arrangement survives deleting a list (and its undo), window resizes and a reload |
+| `hide.mjs` | hiding boxes with the minimize button, the Hidden row that brings them back, surviving a reload |
 | `logout.mjs` | log out lands on the login page, stays logged out, works again after logging back in |
 
 ## Run

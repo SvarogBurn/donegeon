@@ -10,10 +10,12 @@ const column = z.array(key).max(200);
  * The dashboard's arrangement. Tiles are named by key ("today", "goals",
  * "list:<id>", ...). Two arrangements are kept, "wide" and "phone", so
  * rearranging on a phone doesn't undo the desktop layout. (Older saves used
- * "1".."4"; the frontend converts those.)
+ * "1".."4"; the frontend converts those.) `hidden` are the tiles the user has
+ * minimized away; they keep their place for when they are brought back.
  */
 const layoutSchema = z.object({
   pinned: column,
+  hidden: column.optional(),
   byColumns: z.record(z.string().min(1).max(10), z.array(column).max(4)).refine((r) => Object.keys(r).length <= 8),
 });
 

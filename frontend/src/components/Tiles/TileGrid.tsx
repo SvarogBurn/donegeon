@@ -6,6 +6,7 @@ import {
   moveTile,
   togglePin,
   withArrangement,
+  withHidden,
   type DashboardLayout,
   type Zone,
 } from "../../lib/tileLayout";
@@ -16,6 +17,8 @@ export interface Tile {
   /** For the handle's and pin's labels: "Today", "list Chores". */
   name: string;
   node: ReactNode;
+  /** Whether its frame gets a minimize button (every box except the lists, which are deleted instead). */
+  canHide?: boolean;
 }
 
 interface Props {
@@ -156,6 +159,7 @@ export function TileGrid({ tiles, layout, onChange }: Props) {
             isPinned,
             onTogglePin: () => save(togglePin(arrangement, tile.key)),
             onDragStart: (e) => startDrag(e, tile.key),
+            onHide: tile.canHide ? () => onChange(withHidden(layout, tile.key, true)) : undefined,
           }}
         >
           {tile.node}

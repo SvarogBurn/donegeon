@@ -1,0 +1,22 @@
+# Render blueprint: one web service that serves both the API and the built app.
+# The database is not created here: paste a hosted Postgres connection string
+# (e.g. from Neon) into DATABASE_URL in the Render dashboard.
+services:
+  - type: web
+    name: donegeon
+    runtime: node
+    plan: free
+    buildCommand: >-
+      (cd frontend && npm ci --include=dev && npm run build) &&
+      (cd backend && npm ci --include=dev && npx prisma generate && npm run build)
+    startCommand: cd backend && npx prisma migrate deploy && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "26"
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false

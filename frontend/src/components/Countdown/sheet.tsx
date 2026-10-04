@@ -17,7 +17,7 @@ const weekdayOf = (day: string) => new Date(`${day}T00:00:00Z`).getUTCDay();
 
 // Sheet gridlines: thin and dark enough to read; a heavier one closes each week (Sunday / Monday).
 export const LINE = "border-stone-400 dark:border-stone-600";
-export const CELL = `border-r border-b ${LINE} px-2 py-0.5`;
+export const CELL = `border-r border-b ${LINE} px-1 py-0.5 sm:px-2`;
 const WEEK_END = "!border-b-2 !border-b-stone-700 dark:!border-b-stone-300";
 
 /** Little labelled sheet cells above a table, e.g. Tasks / Done / Left. */
@@ -40,11 +40,11 @@ export function SummaryCells({ cells }: { cells: readonly (readonly [label: stri
 export function SheetTable({ headers, children }: { headers: string[]; children: ReactNode }) {
   return (
     <div className={`border-t border-l ${LINE}`}>
-      <table className="w-full border-separate border-spacing-0 text-sm tabular-nums">
+      <table className="w-full border-separate border-spacing-0 text-xs tabular-nums sm:text-sm">
         <thead className="sticky top-0 z-10 bg-stone-100 dark:bg-stone-800">
           <tr>
             {headers.map((label) => (
-              <th key={label} className={`${CELL} text-center font-bold whitespace-nowrap`}>
+              <th key={label} className={`${CELL} text-center font-bold sm:whitespace-nowrap`}>
                 {label}
               </th>
             ))}
@@ -74,10 +74,10 @@ export function DayCells({ date, cell }: { date: string; cell: string }) {
   const weekday = WEEKDAYS[weekdayOf(date)];
   return (
     <>
-      <td className={`${cell} w-px !pr-1 !pl-1.5 whitespace-nowrap text-stone-900`} style={{ backgroundColor: weekday.color }}>
+      <td className={`${cell} w-px !pr-1 !pl-1 whitespace-nowrap text-stone-900 sm:!pl-1.5`} style={{ backgroundColor: weekday.color }}>
         {weekday.name}
       </td>
-      <td className={`${cell} w-px !pr-3 !pl-1.5 whitespace-nowrap`}>{formatShortDay(date)}</td>
+      <td className={`${cell} w-px !pr-1 !pl-1 whitespace-nowrap sm:!pr-3 sm:!pl-1.5`}>{formatShortDay(date)}</td>
     </>
   );
 }

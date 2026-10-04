@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<svg version="1.1" width="225" height="225" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+<rect x="60" y="30" width="75" height="75" fill="#CBDBFC" />
+<rect x="135" y="45" width="15" height="60" fill="#CBDBFC" />
+<rect x="75" y="105" width="60" height="15" fill="#CBDBFC" />
+<rect x="90" y="150" width="60" height="75" fill="#CBDBFC" />
+<rect x="45" y="165" width="45" height="60" fill="#CBDBFC" />
+<rect x="150" y="165" width="30" height="60" fill="#CBDBFC" />
+<rect x="30" y="180" width="15" height="45" fill="#CBDBFC" />
+<rect x="180" y="180" width="15" height="45" fill="#CBDBFC" />
+</svg>

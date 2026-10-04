@@ -64,7 +64,7 @@ export function TaskPage() {
             </header>
 
             <div className="grid items-start gap-4 lg:grid-cols-2">
-              <section aria-label="Countdown">
+              <section aria-label="Countdown" className="min-w-0">
                 {table ? (
                   <CountdownTable countdown={table} />
                 ) : !hasHardDeadline ? (
@@ -79,7 +79,7 @@ export function TaskPage() {
                   <p className="text-sm text-stone-500">Loading…</p>
                 )}
               </section>
-              <TileFrame title="Tasks" aria-label="Tasks">
+              <TileFrame title="Tasks" aria-label="Tasks" className="min-w-0">
                 <TreeError />
                 <TaskTree nodes={[found.node]} parentId={found.node.parentId} listId={found.node.listId} depth={found.depth} />
                 <TaskForm parentId={found.node.id} placeholder="Add a subtask, then press Enter" />

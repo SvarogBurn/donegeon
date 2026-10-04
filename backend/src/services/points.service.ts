@@ -1,9 +1,13 @@
 import type { List, PointTransaction, Prisma, Task } from "@prisma/client";
 import { HttpError } from "../lib/httpError.js";
 
-/** What a top-level task is worth: its own amount if it has one, else its list's default. */
-export function taskValue(task: Pick<Task, "points">, list: Pick<List, "defaultPoints"> | null): number {
-  return task.points ?? list?.defaultPoints ?? 0;
+/**
+ * What a top-level task is worth: its own amount if it has one, else its
+ * list's default, else (no list: it lives only in Today) the user's amount
+ * for Today, which they set in the Today box.
+ */
+export function taskValue(task: Pick<Task, "points">, list: Pick<List, "defaultPoints"> | null, todayPoints: number): number {
+  return task.points ?? (list ? list.defaultPoints : todayPoints);
 }
 
 export type Booking =
@@ -42,9 +46,10 @@ export async function balanceOf(tx: Prisma.TransactionClient, userId: string): P
 /** Books a top-level task being done (ticked, or pressed if persistent). Returns the row, or null if it is worth nothing. */
 export async function bookTask(tx: Prisma.TransactionClient, task: Task) {
   if (task.parentId) return null;
-  // A task that lives only in Today has no list: it earns its own amount, if it was given one.
+  // A task that lives only in Today has no list: it earns its own amount, or the user's amount for Today.
   const list = task.listId ? await tx.list.findUnique({ where: { id: task.listId } }) : null;
-  const booking = bookingFor(list?.kind ?? "task", taskValue(task, list), await balanceOf(tx, task.userId));
+  const { todayPoints } = await tx.user.findUniqueOrThrow({ where: { id: task.userId }, select: { todayPoints: true } });
+  const booking = bookingFor(list?.kind ?? "task", taskValue(task, list, todayPoints), await balanceOf(tx, task.userId));
   if (!booking.ok) throw new HttpError(400, `Not enough points: you need ${booking.short} more`);
   if (!booking.row) return null;
   return tx.pointTransaction.create({

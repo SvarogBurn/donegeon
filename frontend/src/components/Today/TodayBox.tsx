@@ -1,6 +1,7 @@
+import { useEffect, useState } from "react";
 import { localDate } from "../../api/client";
 import { PixelCheckbox } from "../PixelCheckbox";
-import { useSetToday, useToggleTask } from "../../hooks/useTasks";
+import { usePoints, useSetToday, useSetTodayPoints, useToggleTask } from "../../hooks/useTasks";
 import { daysBetween } from "../../lib/dates";
 import type { TaskTreeNode } from "../../types";
 import { ValueChip } from "../Points/ValueChip";
@@ -97,6 +98,41 @@ function TodayRow({ node, path, today }: TodayItem & { today: string }) {
   );
 }
 
+/** What a task typed into Today is worth unless it has its own amount: the same field as a list's "N each". */
+function TodayPoints() {
+  const { data } = usePoints();
+  const save = useSetTodayPoints();
+  const current = data?.todayPoints;
+  const [text, setText] = useState("");
+  useEffect(() => setText(current === undefined ? "" : String(current)), [current]);
+  if (current === undefined) return null;
+
+  function done() {
+    const next = text.trim() === "" ? null : Number(text);
+    if (next === null) setText(String(current));
+    else if (next !== current) save.mutate(next);
+  }
+
+  return (
+    <label className="flex items-center gap-1">
+      <input
+        className="points-field tabular-nums"
+        type="text"
+        inputMode="numeric"
+        maxLength={2}
+        value={text}
+        onChange={(e) => setText(e.target.value.replace(/\D/g, ""))}
+        onBlur={done}
+        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), e.currentTarget.blur())}
+        aria-label="Points per task added in Today"
+        title="What a task typed into Today is worth unless it has its own amount"
+      />
+      each
+      {save.error && <span className="text-red-600">{save.error.message}</span>}
+    </label>
+  );
+}
+
 /**
  * The day's working set. Tasks dragged here, or marked "Do today" in their ⋯
  * menu, are only shown here: they live in one of the lists below. Tasks typed
@@ -116,7 +152,10 @@ export function TodayBox({ tasks }: { tasks: TaskTreeNode[] }) {
       className={dropTarget?.kind === "today" ? "ring-2 ring-emerald-600" : ""}
       aria-label="Today"
     >
-      {items.length + own.length > 0 && <p className="text-right text-xs text-stone-500 tabular-nums">{left} left</p>}
+      <header className="flex flex-wrap items-center justify-end gap-2 text-xs text-stone-500">
+        {items.length + own.length > 0 && <span className="tabular-nums">{left} left</span>}
+        <TodayPoints />
+      </header>
       {items.length + own.length === 0 && (
         <p className="px-1 text-sm text-stone-500">
           Nothing picked for today. Drag a task here by its ⠿ handle, or choose “Do today” in its ⋯ menu; it stays in its list.

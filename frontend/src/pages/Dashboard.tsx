@@ -23,7 +23,14 @@ import {
   useTaskTrees,
 } from "../hooks/useTasks";
 import { countLabels, isFiltering, NO_FILTER, toggleId, type LabelFilter } from "../lib/labels";
-import { NEW_LIST_TILE, normalizeLayout } from "../lib/tileLayout";
+import { NEW_LIST_TILE, normalizeLayout, withHidden } from "../lib/tileLayout";
+
+/** What a hidden box is called on its button in the "Hidden" row. */
+const LABELS: Record<string, string> = {
+  pressure: "Deadline pressure",
+  deadlines: "All deadlines",
+  [NEW_LIST_TILE]: "New list",
+};
 
 export function Dashboard() {
   const goals = useGoals();
@@ -103,6 +110,15 @@ export function Dashboard() {
     { key: "done", name: "Done", node: <DoneLog tasks={tasks.data} /> },
   ];
 
+  // Every box but the lists can be minimized away; the hidden ones are offered again in a row under the grid.
+  const saved = normalizeLayout(layout.data);
+  const isHidden = (tile: Tile) => !tile.key.startsWith("list:") && (saved.hidden ?? []).includes(tile.key);
+  const allTiles = tiles
+    .filter((tile): tile is Tile => tile !== false)
+    .map((tile) => ({ ...tile, canHide: !tile.key.startsWith("list:") }));
+  const shownTiles = allTiles.filter((tile) => !isHidden(tile));
+  const hiddenTiles = allTiles.filter(isHidden).map((tile) => ({ key: tile.key, label: LABELS[tile.key] ?? tile.name }));
+
   return (
     <TreeProvider tasks={tasks.data} newTaskLabels={filter}>
       <div className="space-y-4">
@@ -121,11 +137,23 @@ export function Dashboard() {
             </button>
           </p>
         )}
-        <TileGrid
-          tiles={tiles.filter((tile): tile is Tile => tile !== false)}
-          layout={normalizeLayout(layout.data)}
-          onChange={(next) => saveLayout.mutate(next)}
-        />
+        <TileGrid tiles={shownTiles} layout={saved} onChange={(next) => saveLayout.mutate(next)} />
+        {hiddenTiles.length > 0 && (
+          <div className="flex flex-wrap items-center justify-center gap-2 text-xs" role="group" aria-label="Hidden boxes">
+            <span className="text-stone-500">Hidden:</span>
+            {hiddenTiles.map((tile) => (
+              <button
+                key={tile.key}
+                type="button"
+                className="pixel-chip cursor-pointer bg-stone-200 px-2 py-1 hover:bg-white dark:bg-stone-700 dark:hover:bg-stone-600"
+                title="Show this box again, where it was"
+                onClick={() => saveLayout.mutate(withHidden(saved, tile.key, false))}
+              >
+                {tile.label}
+              </button>
+            ))}
+          </div>
+        )}
         {saveLayout.error && <p className="text-center text-sm text-red-600">Couldn't save the layout: {saveLayout.error.message}</p>}
         <UndoBar />
       </div>

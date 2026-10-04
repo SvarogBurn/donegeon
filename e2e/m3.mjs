@@ -47,11 +47,11 @@ out("ticking a main task: +5, stays ticked in its list, undo bar", (await balanc
 await p.keyboard.press("Control+z"); await wait(700);
 out("Ctrl+Z unticks it and reverses the points", (await balance()) === 0 && !(await row("Essay").locator("input[type=checkbox]").isChecked()), `${await balance()} / ${await titles(main)}`);
 await row("Essay").locator("input[type=checkbox]").click(); await wait(700);
-await p.click('nav >> text=Done'); await wait();
+await p.click('nav [aria-label="Done"]'); await wait();
 out("Done tab lists it under today", (await p.locator(`[data-done-on="${day(0)}"] [data-finished]`).count()) === 1 && (await p.locator("[data-finished]").innerText()).includes("Essay"));
 await p.locator("[data-finished] input[type=checkbox]").click(); await wait(700);
 out("unticking in the Done tab takes the points back", (await balance()) === 0 && (await p.locator("[data-finished]").count()) === 0);
-await p.click('nav >> text=Tasks'); await p.waitForSelector("section[data-drop-list]"); await wait();
+await p.click('nav [aria-label="Tasks"]'); await p.waitForSelector("section[data-drop-list]"); await wait();
 out("and it is open again in its list, in place", (await titles(await cardOf("List"))) === "Essay,Own,Plain" && !(await row("Essay").locator("input[type=checkbox]").isChecked()), await titles(await cardOf("List")));
 
 // --- own amount travels, default follows the list
@@ -81,13 +81,13 @@ await p.keyboard.press("Control+z"); await wait(700);
 out("Ctrl+Z takes one press back", (await balance()) === 2 && (await row("Cake").locator("[data-pressed-today]").getAttribute("data-pressed-today")) === "1", await balance());
 await press.click(); await wait(700); await press.click(); await wait(700); await press.click(); await wait(700);
 out("a persistent reward you can't afford is refused too", (await balance()) === 0 && (await row("Cake").locator("[data-pressed-today]").getAttribute("data-pressed-today")) === "3", await balance());
-out("Done box shows the presses", (await p.locator('[aria-label="Done"]').innerText()).replace(/\s+/g, " ").includes("Cake ×3"));
+out("Done box shows the presses", (await p.locator('section[aria-label="Done"]').innerText()).replace(/\s+/g, " ").includes("Cake ×3"));
 
 // --- points history
 await p.click("[data-nav-balance]"); await p.waitForSelector('[aria-label="History"]');
 const history = (await p.locator('[aria-label="History"]').innerText()).replace(/\s+/g, " ");
 out("history has earned, spent and taken-back rows", ["Earned", "Spent", "Taken back"].every((w) => history.includes(w)) && (await p.locator("[data-balance]").getAttribute("data-balance")) === "0");
-await p.click('nav >> text=Tasks'); await p.waitForSelector("section[data-drop-list]"); await wait();
+await p.click('nav [aria-label="Tasks"]'); await p.waitForSelector("section[data-drop-list]"); await wait();
 
 // --- Today
 out("Today box is there, empty, before anything is marked", (await today.count()) === 1 && (await today.locator("[data-today-item]").count()) === 0);
@@ -102,7 +102,7 @@ out("marked rows are tinted in their list", (await row("Intro").getAttribute("da
 out("dragging a task onto Today adds it at once and leaves it in its list", (await today.locator("[data-today-item]").count()) === 3 && (await titles(await cardOf("List"))).includes("Report"), await todayText());
 await today.locator('[aria-label=\'Take "Report" out of Today\']').click(); await wait();
 await p.mouse.wheel(0, 600); await wait(200);
-out("top bar stays on screen when scrolled", (await p.evaluate(() => window.scrollY)) > 0 && Math.round((await p.locator("header").first().boundingBox()).y) === 0);
+out("task bar stays along the bottom of the screen when scrolled", (await p.evaluate(() => window.scrollY)) > 0 && await p.locator("header.fixed").evaluate((el) => Math.round(el.getBoundingClientRect().bottom) === innerHeight));
 await p.mouse.wheel(0, -600); await wait(200);
 await today.locator('li:has-text("Intro") input[type=checkbox]').click(); await wait(700);
 out("ticked item stays for the day, and is ticked in its list too", (await todayText()).includes("Intro") && await row("Intro").locator("input[type=checkbox]").isChecked());
@@ -114,9 +114,9 @@ await pretend(2);
 out("two days on: ticked main tasks are still in their lists", (await row("Essay").count()) === 1 && (await row("Movie").count()) === 1);
 await pretend(3);
 out("three days on: they have left their lists", (await row("Essay").count()) === 0 && (await row("Movie").count()) === 0 && (await row("Plain").count()) === 1);
-await p.click('nav >> text=Done'); await wait();
+await p.click('nav [aria-label="Done"]'); await wait();
 out("and are still in the Done tab", (await p.locator("[data-finished]").allInnerTexts()).join().includes("Essay"));
-await p.click('nav >> text=Tasks'); await p.waitForSelector("section[data-drop-list]"); await wait();
+await p.click('nav [aria-label="Tasks"]'); await p.waitForSelector("section[data-drop-list]"); await wait();
 await pretend(0);
 
 // --- tasks written straight into Today
@@ -125,6 +125,9 @@ const own = today.locator("[data-today-own]");
 await p.locator('[data-task-editor="today-add"]').click(); await p.keyboard.type("Call mum"); await p.keyboard.press("Enter"); await wait();
 await p.keyboard.type("Buy milk"); await p.keyboard.press("Enter"); await wait(); await p.keyboard.press("Escape");
 out("a task typed into Today lives only there", (await titles(own)) === "Call mum,Buy milk" && !(await titles(await cardOf("List"))).includes("Call mum"), await titles(own));
+out("a task typed into Today is worth 2 points by default", (await own.locator('[data-task-row]:has(textarea:text-is("Call mum")) [data-value-chip]').innerText()) === "+2");
+await today.locator('[aria-label="Points per task added in Today"]').fill("4"); await p.keyboard.press("Enter"); await wait(700);
+out("Today's own amount can be changed in the Today box", (await own.locator('[data-task-row]:has(textarea:text-is("Call mum")) [data-value-chip]').innerText()) === "+4");
 await p.reload(); await p.waitForSelector("section[data-drop-list]"); await wait();
 out("and is still there after a reload", (await titles(own)) === "Call mum,Buy milk", await titles(own));
 await drag("Buy milk", await cardOf("List"));
@@ -132,7 +135,9 @@ out("dragged to a list: now in the list, still shown in Today", (await titles(aw
 out("in the list it is worth the list's amount", (await (await cardOf("List")).locator('[data-task-row]:has(textarea:text-is("Buy milk")) [data-value-chip]').innerText()) === "+5");
 { const h = await (await cardOf("List")).locator('[data-task-row]:has(textarea:text-is("Body")) [aria-label="Drag to move this task"]').boundingBox(); const t = await own.locator("[data-task-row]").first().boundingBox(); await p.mouse.move(h.x + h.width / 2, h.y + h.height / 2); await p.mouse.down(); await p.mouse.move(t.x + 100, t.y + 3, { steps: 8 }); await p.mouse.up(); await wait(600); }
 out("a list's task dropped among Today's own tasks is only marked for today", (await titles(await cardOf("List"))).includes("Body") && (await titles(own)) === "Call mum" && (await todayText()).includes("Body"), await todayText());
+const beforeOwn = await balance();
 await own.locator("input[type=checkbox]").click(); await wait(700);
+out("ticking it earns Today's amount", (await balance()) === beforeOwn + 4, `${beforeOwn} -> ${await balance()}`);
 out("ticking a Today-only task works and it stays for the day", (await own.locator("input[type=checkbox]").isChecked()) && !(await p.locator("text=That didn't work").count()));
 
 // --- the dashboard as a grid of tiles (a tall window, so every tile is on screen to drag)

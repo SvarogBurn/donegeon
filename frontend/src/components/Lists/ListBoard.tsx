@@ -226,7 +226,7 @@ export function ListForm() {
     <TileFrame title="New list" tone="setup">
       <form onSubmit={submit} className="flex flex-wrap items-center gap-2">
         <input
-          className="nes-input input min-w-40 flex-1"
+          className="nes-input input min-w-40 flex-1 max-sm:basis-full"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="New list, then press Enter"

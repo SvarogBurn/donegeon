@@ -5,6 +5,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { DonePage } from "./pages/Done";
 import { PointsPage } from "./pages/Points";
 import { CountdownRedirect, TaskPage } from "./pages/TaskPage";
+import { UserPage } from "./pages/User";
 
 export function App() {
   return (
@@ -15,6 +16,7 @@ export function App() {
         <Route index element={<Dashboard />} />
         <Route path="done" element={<DonePage />} />
         <Route path="points" element={<PointsPage />} />
+        <Route path="user" element={<UserPage />} />
         <Route path="tasks/:taskId" element={<TaskPage />} />
         <Route path="tasks/:taskId/countdown" element={<CountdownRedirect />} />
       </Route>

@@ -46,6 +46,7 @@ export const undoPress = (id: string, completionId: string) =>
 export const getLayout = () => api<{ layout: DashboardLayout | null }>("/layout").then((r) => r.layout);
 export const saveLayout = (layout: DashboardLayout) => api("/layout", { method: "PUT", body: layout });
 export const getPoints = () => api<PointsSummary>("/points");
+export const setTodayPoints = (points: number) => api("/points/today", { method: "PUT", body: { points } });
 export const moveTask = (id: string, placement: TaskPlacement) => api(`/tasks/${id}/move`, { body: placement });
 export const deleteTask = (id: string) => api(`/tasks/${id}`, { method: "DELETE" });
 export const restoreTask = (id: string) => api(`/tasks/${id}/restore`, { method: "POST" });

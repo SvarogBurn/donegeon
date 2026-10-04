@@ -2,8 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#ffffff" />
+    <script>
+      // iOS zooms the page into any field whose text is under 16px, which is all of them in the pixel font.
+      // A maximum scale stops that there and still lets you pinch to zoom; other phones would lose the pinch.
+      if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+        document.querySelector('meta[name="viewport"]').content += ", maximum-scale=1";
+      }
+    </script>
     <title>Donegeon</title>
   </head>
   <body>

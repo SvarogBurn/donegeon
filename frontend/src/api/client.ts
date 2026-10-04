@@ -9,21 +9,19 @@ export class ApiError extends Error {
   }
 }
 
-function realLocalDate(): string {
-  const now = new Date();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${now.getFullYear()}-${m}-${d}`;
-}
+const TIME_OFFSET_KEY = "donegeon.devTimeOffset";
 
-/** Dev-only "pretend it's this day" override, for testing date-driven features. */
-export function getDevDate(): string | null {
-  if (!import.meta.env.DEV) return null;
+function read(key: string): string | null {
   try {
-    return localStorage.getItem(DEV_DATE_KEY);
+    return localStorage.getItem(key);
   } catch {
     return null;
   }
+}
+
+/** "Pretend it's this day": set from the clock in the task bar, by anyone. Stays put until reset; it does not roll over at midnight. */
+export function getDevDate(): string | null {
+  return read(DEV_DATE_KEY);
 }
 
 export function setDevDate(date: string | null) {
@@ -31,9 +29,31 @@ export function setDevDate(date: string | null) {
   else localStorage.removeItem(DEV_DATE_KEY);
 }
 
+/** Minutes the app's clock runs ahead of (or behind) the device's; 0 unless the time was changed from the task bar. */
+export function getTimeOffset(): number {
+  return Number(read(TIME_OFFSET_KEY)) || 0;
+}
+
+export function setTimeOffset(minutes: number) {
+  if (minutes) localStorage.setItem(TIME_OFFSET_KEY, String(minutes));
+  else localStorage.removeItem(TIME_OFFSET_KEY);
+}
+
+/** The moment the app treats as "now": the device's clock plus the chosen offset. */
+export function clockNow(): Date {
+  return new Date(Date.now() + getTimeOffset() * 60_000);
+}
+
+function clockDate(): string {
+  const now = clockNow();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${m}-${d}`;
+}
+
 /** The day the app treats as "today", sent to the backend with every request. */
 export function localDate(): string {
-  return getDevDate() ?? realLocalDate();
+  return getDevDate() ?? clockDate();
 }
 
 export async function api<T = void>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {

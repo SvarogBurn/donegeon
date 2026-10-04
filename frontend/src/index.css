@@ -98,7 +98,7 @@
   }
   .tile-title {
     @apply min-w-0 flex-1 self-center truncate leading-none font-normal;
-    font-size: max(9px, calc(3.5 * var(--u)));
+    font-size: max(12px, calc(4.5 * var(--u)));
     /* The pixel font's T and I start a pixel left of their box; without this the clip for long titles eats it. */
     padding-left: var(--u);
   }
@@ -137,8 +137,38 @@
       0 2px #212529;
     margin: 2px;
   }
+  /* The Donegeon wordmark (123x21 art pixels); give it a height that is a whole multiple of 21px. */
+  .logo {
+    @apply block flex-none;
+    aspect-ratio: 123 / 21;
+    background: url("../../assets/buttons/123x21ogo_v1.svg") 0 0 / 100% 100% no-repeat;
+    image-rendering: pixelated;
+  }
+  /*
+   * Icon of a task bar tab. The art is 21 art pixels wide and less tall, so it
+   * is fitted into the square whole, never stretched: 2px per art pixel, 1px on a phone.
+   */
+  .tab-icon {
+    @apply block size-[21px] sm:size-[42px];
+    background: center / contain no-repeat;
+    image-rendering: pixelated;
+  }
+  .tab-icon-tasks {
+    background-image: url("../../assets/21x21task_icon_v2.svg");
+  }
+  .tab-icon-done {
+    background-image: url("../../assets/21x21done_icon_v1.svg");
+  }
+  /* This one is 15x15 art pixels: kept at the same pixel size as the others, so it sits smaller in its square. */
+  .tab-icon-user {
+    @apply bg-size-[15px] sm:bg-size-[30px];
+    background-image: url("../../assets/21x21user_icon_v2.svg");
+  }
   .tile-button-x {
     background-image: url("../../assets/buttons/7x7x_blue_v1.svg");
+  }
+  .tile-button-min {
+    background-image: url("../../assets/buttons/7x7minimize_blue_v1.svg");
   }
   .tile-button-pin {
     background-image: url("../../assets/buttons/7x7pin_blue_v1.svg");
@@ -168,43 +198,34 @@
     background-color: #212529;
   }
   /*
-   * Tasks / Rewards switch of a list: a track with a knob, on the left in the
-   * frame's blue for tasks, on the right in its orange for rewards. Both are
-   * cut to stepped pixel-art corners on a 2px grid, and the knob moves in steps.
+   * Tasks / Rewards switch of a list, from the 20x10 slider art at 2px per art
+   * pixel: a blue track for tasks, an orange one for rewards, and the knob as
+   * its own picture on top. The knob is drawn at the right (rewards); for
+   * tasks it sits 12 art pixels to the left, and it moves between the two in steps.
    */
   .kind-switch {
     @apply relative flex-none cursor-pointer;
-    width: 36px;
+    width: 40px;
     height: 20px;
-    background-color: #5b6ee1;
-    clip-path: polygon(
-      4px 0, calc(100% - 4px) 0, calc(100% - 4px) 2px, calc(100% - 2px) 2px, calc(100% - 2px) 4px, 100% 4px,
-      100% calc(100% - 4px), calc(100% - 2px) calc(100% - 4px), calc(100% - 2px) calc(100% - 2px),
-      calc(100% - 4px) calc(100% - 2px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 2px), 2px calc(100% - 2px),
-      2px calc(100% - 4px), 0 calc(100% - 4px), 0 4px, 2px 4px, 2px 2px, 4px 2px
-    );
+    background: url("../../assets/buttons/20x10slider_blue_v1.svg") 0 0 / 100% 100% no-repeat;
+    image-rendering: pixelated;
   }
   .kind-switch[data-kind="reward"] {
-    background-color: #df7126;
+    background-image: url("../../assets/buttons/20x10slider_orange_v1.svg");
   }
-  /* An outline would be cut off with the corners. */
   .kind-switch:focus-visible {
-    filter: brightness(1.2);
+    outline: 2px solid #3f3f74;
+    outline-offset: 2px;
   }
   .kind-switch > span {
-    @apply absolute bg-white;
-    top: 4px;
-    left: 4px;
-    width: 12px;
-    height: 12px;
-    clip-path: polygon(
-      2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px),
-      calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px), 0 2px, 2px 2px
-    );
+    @apply absolute inset-0;
+    background: url("../../assets/buttons/20x10slider_circle_v1.svg") 0 0 / 100% 100% no-repeat;
+    image-rendering: pixelated;
+    transform: translateX(-24px);
     transition: transform 120ms steps(4);
   }
   .kind-switch[data-kind="reward"] > span {
-    transform: translateX(16px);
+    transform: none;
   }
   /* A compact NES button, for switches inside menus: "nes-btn btn-small". */
   .btn-small {
@@ -256,6 +277,13 @@
     font-family: ui-sans-serif, system-ui, sans-serif;
     font-size: 16px;
     line-height: 1;
+  }
+  /* Finger-sized on touch screens. */
+  @media (pointer: coarse) {
+    .btn-quiet.glyph {
+      min-width: 32px;
+      min-height: 32px;
+    }
   }
   .btn-quiet {
     @apply rounded px-1.5 py-1 text-xs text-stone-500 hover:bg-stone-200 hover:text-stone-900 disabled:opacity-30 disabled:hover:bg-transparent dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100;
