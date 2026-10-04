@@ -8,12 +8,13 @@ const column = z.array(key).max(200);
 
 /**
  * The dashboard's arrangement. Tiles are named by key ("today", "goals",
- * "list:<id>", ...). One arrangement is kept per number of columns that fit
- * the screen, so rearranging on a phone doesn't undo the desktop layout.
+ * "list:<id>", ...). Two arrangements are kept, "wide" and "phone", so
+ * rearranging on a phone doesn't undo the desktop layout. (Older saves used
+ * "1".."4"; the frontend converts those.)
  */
 const layoutSchema = z.object({
   pinned: column,
-  byColumns: z.partialRecord(z.enum(["1", "2", "3", "4"]), z.array(column).max(4)),
+  byColumns: z.record(z.string().min(1).max(10), z.array(column).max(4)).refine((r) => Object.keys(r).length <= 8),
 });
 
 export const layoutRouter = Router();

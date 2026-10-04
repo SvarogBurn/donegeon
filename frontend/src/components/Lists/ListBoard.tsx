@@ -7,9 +7,10 @@ import type { List, ListKind, TaskTreeNode } from "../../types";
 import { TaskForm } from "../TaskTree/TaskForm";
 import { TaskTree } from "../TaskTree/TaskNode";
 import { useTree } from "../TaskTree/TreeContext";
+import { TileFrame } from "../Tiles/TileFrame";
 
-const SMALL_FIELD =
-  "rounded-md border border-stone-300 bg-white px-2 py-1 text-xs outline-none focus:border-emerald-600 dark:border-stone-700 dark:bg-stone-900";
+/** The compact NES fields of a list's header and the new-list form. */
+const SMALL_FIELD = "nes-input is-dark input-small input-dark";
 
 interface KindFieldsProps {
   kind: ListKind;
@@ -20,23 +21,37 @@ interface KindFieldsProps {
   onPointsDone?: () => void;
 }
 
-/** Task list or reward list, and what each item in it is worth. */
+const KINDS: { kind: ListKind; label: string }[] = [
+  { kind: "task", label: "Tasks" },
+  { kind: "reward", label: "Rewards" },
+];
+
+/** Task list or reward list (a two-sided switch), and what each item in it is worth. */
 function KindFields({ kind, points, onKind, onPoints, onPointsDone }: KindFieldsProps) {
   return (
     <>
-      <select
-        className={SMALL_FIELD}
-        value={kind}
-        onChange={(e) => onKind(e.target.value as ListKind)}
+      <div
+        className="kind-toggle pixel-chip"
+        role="group"
         aria-label="Kind of list"
+        data-kind={kind}
         title="A task list adds points when an item is done; a reward list takes them."
       >
-        <option value="task">Tasks: add points</option>
-        <option value="reward">Rewards: cost points</option>
-      </select>
+        {KINDS.map((option) => (
+          <button
+            key={option.kind}
+            type="button"
+            data-kind={option.kind}
+            aria-pressed={kind === option.kind}
+            onClick={() => kind !== option.kind && onKind(option.kind)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
       <label className="flex items-center gap-1 text-xs text-stone-500">
         <input
-          className={`${SMALL_FIELD} w-16 text-stone-900 tabular-nums dark:text-stone-100`}
+          className={`${SMALL_FIELD} !w-16 tabular-nums`}
           type="number"
           min={0}
           step={1}
@@ -90,25 +105,36 @@ export function ListCard({ list, tasks }: { list: List; tasks: TaskTreeNode[] })
   }
 
   return (
-    <section
+    <TileFrame
       data-drop-list={list.id}
       data-list-kind={list.kind}
-      className={`card space-y-3 ${isReward ? "!border-amber-400 dark:!border-amber-600" : ""} ${isDropTarget ? "ring-2 ring-emerald-600" : ""}`}
-    >
-      <header className="flex flex-wrap items-center justify-between gap-2">
-
+      className={isDropTarget ? "ring-2 ring-emerald-600" : ""}
+      actions={
+        <button
+          type="button"
+          className="tile-button tile-button-x"
+          aria-label={`Delete list "${list.name}"`}
+          title="Delete this list and its tasks (Ctrl+Z to undo)"
+          onClick={() => deleteList(list)}
+        />
+      }
+      tone={isReward ? "reward" : "blue"}
+      title={
         <input
-          className="min-w-32 flex-1 rounded bg-transparent px-1 font-semibold outline-none focus:ring-2 focus:ring-emerald-600/30"
+          className="w-full bg-transparent outline-none focus:ring-2 focus:ring-white/50"
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={saveName}
           onKeyDown={(e) => {
             if (e.key === "Enter") e.currentTarget.blur();
             if (e.key === "Escape") setName(list.name);
-            // Same rule as tasks: with the caret at the end, Delete removes the whole thing.
+            // Same rule as tasks: with the caret at the end, Delete removes the whole thing. Not while the
+            // name is being edited, though, nor from a held-down key: shortening a name with Delete ends
+            // with the caret at the end, and the next press must not take the list with it.
             const el = e.currentTarget;
             const atEnd = el.selectionStart === el.value.length && el.selectionEnd === el.value.length;
-            if (e.key === "Delete" && atEnd && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+            const untouched = el.value === list.name && !e.repeat;
+            if (e.key === "Delete" && atEnd && untouched && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
               e.preventDefault();
               deleteList(list);
             }
@@ -116,6 +142,9 @@ export function ListCard({ list, tasks }: { list: List; tasks: TaskTreeNode[] })
           aria-label="List name"
           maxLength={200}
         />
+      }
+    >
+      <header className="flex flex-wrap items-center justify-end gap-2">
         <KindFields
           kind={list.kind}
           points={points}
@@ -123,20 +152,11 @@ export function ListCard({ list, tasks }: { list: List; tasks: TaskTreeNode[] })
           onPoints={setPoints}
           onPointsDone={savePoints}
         />
-        <button
-          type="button"
-          className="btn-quiet shrink-0 text-lg leading-none"
-          aria-label={`Delete list "${list.name}"`}
-          title="Delete this list and its tasks (Ctrl+Z to undo)"
-          onClick={() => deleteList(list)}
-        >
-          ×
-        </button>
       </header>
       {update.error && <p className="text-xs text-red-600">{update.error.message}</p>}
       <TaskTree nodes={tasks} parentId={null} listId={list.id} />
       <TaskForm listId={list.id} placeholder={isReward ? "Add a reward, then press Enter" : "Add a task, then press Enter"} />
-    </section>
+    </TileFrame>
   );
 }
 
@@ -163,23 +183,25 @@ export function ListForm() {
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-wrap items-center gap-2">
-      <input
-        className="input min-w-40 flex-1 border-dashed"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="New list, then press Enter"
-        aria-label="New list name"
-        enterKeyHint="done"
-        maxLength={200}
-      />
-      <KindFields kind={kind} points={points} onKind={setKind} onPoints={setPoints} />
-      {/* With several fields, Enter only submits a form that has a submit button. */}
-      <button type="submit" className="sr-only">
-        Add list
-      </button>
-      {createList.error && <p className="w-full text-xs text-red-600">{createList.error.message}</p>}
-    </form>
+    <TileFrame title="New list" tone="setup">
+      <form onSubmit={submit} className="flex flex-wrap items-center gap-2">
+        <input
+          className="nes-input input min-w-40 flex-1"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="New list, then press Enter"
+          aria-label="New list name"
+          enterKeyHint="done"
+          maxLength={200}
+        />
+        <KindFields kind={kind} points={points} onKind={setKind} onPoints={setPoints} />
+        {/* With several fields, Enter only submits a form that has a submit button. */}
+        <button type="submit" className="sr-only">
+          Add list
+        </button>
+        {createList.error && <p className="w-full text-xs text-red-600">{createList.error.message}</p>}
+      </form>
+    </TileFrame>
   );
 }
 

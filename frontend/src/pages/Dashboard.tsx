@@ -23,7 +23,7 @@ import {
   useTaskTrees,
 } from "../hooks/useTasks";
 import { countLabels, isFiltering, NO_FILTER, toggleId, type LabelFilter } from "../lib/labels";
-import { EMPTY_LAYOUT, NEW_LIST_TILE } from "../lib/tileLayout";
+import { NEW_LIST_TILE, normalizeLayout } from "../lib/tileLayout";
 
 export function Dashboard() {
   const goals = useGoals();
@@ -123,7 +123,7 @@ export function Dashboard() {
         )}
         <TileGrid
           tiles={tiles.filter((tile): tile is Tile => tile !== false)}
-          layout={layout.data ?? EMPTY_LAYOUT}
+          layout={normalizeLayout(layout.data)}
           onChange={(next) => saveLayout.mutate(next)}
         />
         {saveLayout.error && <p className="text-center text-sm text-red-600">Couldn't save the layout: {saveLayout.error.message}</p>}

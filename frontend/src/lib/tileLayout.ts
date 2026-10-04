@@ -1,8 +1,14 @@
 /**
  * How the dashboard's tiles are arranged. Tiles are named by key ("today",
  * "goals", "list:<id>", ...). Pinned tiles sit in a band at the top; the rest
- * are stacked in columns. One arrangement is kept per number of columns that
- * fit the screen, so rearranging on a phone doesn't undo the desktop layout.
+ * are stacked in columns.
+ *
+ * Two arrangements are kept: "wide" for any screen that fits two or more
+ * columns, and "phone" for a single column. A wide screen that fits fewer
+ * columns than "wide" has stacks the extra ones under the first, so the same
+ * arrangement is recognisable at every window size. (Earlier versions kept a
+ * separate arrangement per column count, which made the tiles jump to a
+ * different arrangement whenever the window width crossed a threshold.)
  */
 export interface DashboardLayout {
   pinned: string[];
@@ -29,25 +35,41 @@ function fold(columns: string[][], n: number): string[][] {
   return folded;
 }
 
-/** The arrangement saved for `n` columns, else the nearest wider one folded down, else the nearest narrower one. */
+/**
+ * A layout as stored by an earlier version (one arrangement per column count,
+ * "2" / "3" / "4") brought to today's shape: the one with the most columns in
+ * use becomes "wide", and "1" becomes "phone".
+ */
+export function normalizeLayout(layout: DashboardLayout | null | undefined): DashboardLayout {
+  if (!layout) return EMPTY_LAYOUT;
+  const { phone, wide, ...legacy } = layout.byColumns;
+  const used = (columns: string[][]) => columns.filter((column) => column.length > 0).length;
+  const legacyWide: string[][] | undefined = ["4", "3", "2"]
+    .flatMap((n) => (legacy[n] ? [legacy[n]] : []))
+    .sort((a, b) => used(b) - used(a))[0];
+  const byColumns: Record<string, string[][]> = {};
+  if (wide ?? legacyWide) byColumns.wide = (wide ?? legacyWide)!;
+  if (phone ?? legacy["1"]) byColumns.phone = (phone ?? legacy["1"])!;
+  return { pinned: layout.pinned, byColumns };
+}
+
+/** The saved arrangement for a screen that fits `n` columns, if there is one to go by. */
 function savedFor(layout: DashboardLayout, n: number): string[][] | null {
-  for (let wider = n; wider <= MAX_COLUMNS; wider++) {
-    const columns = layout.byColumns[wider];
-    if (columns) return fold(columns, n);
-  }
-  for (let narrower = n - 1; narrower >= 1; narrower--) {
-    const columns = layout.byColumns[narrower];
-    if (columns) return columns.map((column) => [...column]);
-  }
-  return null;
+  const { phone, wide } = layout.byColumns;
+  if (n === 1) return phone ? fold(phone, 1) : wide ? fold(wide, 1) : null;
+  return wide ? fold(wide, n) : phone ? phone.map((column) => [...column]) : null;
 }
 
 /**
  * Every tile's place on a screen that fits `n` columns. `keys` are the tiles
  * that exist right now, in their default order; one the layout doesn't know
  * yet is added: a new list just above the "New list" field, anything else at
- * the end of the first column. Tiles not in `keys` (a list hidden by a filter)
- * keep their place for when they come back.
+ * the end of the first column. Tiles not in `keys` (a list hidden by a filter,
+ * the deadline boxes while there is no deadline) keep their place for when
+ * they come back — except that a column holding nothing but such tiles is
+ * merged into its neighbour: it isn't on screen, yet it would still count as a
+ * column, and a tile dragged out to "a new column" would then be one too many
+ * and get stacked back under the first.
  */
 export function arrange(layout: DashboardLayout, n: number, keys: string[]): Arrangement {
   const pinned = [...new Set(layout.pinned)];
@@ -64,7 +86,17 @@ export function arrange(layout: DashboardLayout, n: number, keys: string[]): Arr
     if (formColumn) formColumn.splice(formColumn.indexOf(NEW_LIST_TILE), 0, key);
     else columns[0].push(key);
   }
-  return { pinned, columns };
+
+  const shown = new Set(keys);
+  const merged: string[][] = [];
+  let orphans: string[] = [];
+  for (const column of columns) {
+    if (column.some((key) => shown.has(key))) merged.push([...orphans, ...column]), (orphans = []);
+    else if (merged.length > 0) merged[merged.length - 1].push(...column);
+    else orphans.push(...column);
+  }
+  if (merged.length === 0) merged.push(orphans);
+  return { pinned, columns: merged };
 }
 
 /** `key` taken from where it is and put in `zone`, before `beforeKey` (null = at the end). */
@@ -84,10 +116,11 @@ export function togglePin(arrangement: Arrangement, key: string): Arrangement {
     : moveTile(arrangement, key, "pinned", null);
 }
 
-/** The layout with this arrangement saved for screens that fit `n` columns. */
+/** The layout with this arrangement saved: as the phone order on a one-column screen, as the wide arrangement otherwise. */
 export function withArrangement(layout: DashboardLayout, n: number, arrangement: Arrangement): DashboardLayout {
+  const columns = fold(arrangement.columns, Math.min(Math.max(n, 1), MAX_COLUMNS));
   return {
     pinned: arrangement.pinned,
-    byColumns: { ...layout.byColumns, [n]: fold(arrangement.columns, Math.max(n, 1)) },
+    byColumns: { ...layout.byColumns, [n === 1 ? "phone" : "wide"]: columns },
   };
 }

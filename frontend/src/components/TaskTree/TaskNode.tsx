@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from "react";
+import { PixelCheckbox } from "../PixelCheckbox";
 import { useNavigate } from "react-router";
 import { useCreateTask, useGoals, useTags, useToggleTask, useUpdateTask } from "../../hooks/useTasks";
 import { localDate } from "../../api/client";
@@ -23,7 +24,7 @@ function LabelChips({ node }: { node: TaskTreeNode }) {
         .map((goal) => (
           <span
             key={goal.id}
-            className="max-w-32 truncate rounded-full bg-stone-200 px-2 py-0.5 text-xs text-stone-700 dark:bg-stone-700 dark:text-stone-200"
+            className="pixel-chip max-w-32 truncate bg-stone-200 px-2 py-0.5 text-xs text-stone-700 dark:bg-stone-700 dark:text-stone-200"
             title={`Goal: ${goal.name}`}
           >
             {goal.name}
@@ -34,7 +35,7 @@ function LabelChips({ node }: { node: TaskTreeNode }) {
         .map((tag) => (
           <span
             key={tag.id}
-            className="max-w-32 truncate rounded-full border border-stone-300 px-2 py-0.5 text-xs text-stone-600 dark:border-stone-600 dark:text-stone-300"
+            className="pixel-chip max-w-32 truncate bg-white px-2 py-0.5 text-xs text-stone-600 dark:bg-stone-900 dark:text-stone-300"
             title={`Tag: ${tag.name}`}
           >
             #{tag.name}
@@ -99,6 +100,9 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
       // deletes the task (and its subtasks); Ctrl+Z undoes it. Mid-title it still edits text.
       const el = e.currentTarget;
       if (el.selectionStart !== el.value.length || el.selectionEnd !== el.value.length) return;
+      // Not while the title is being edited, nor from a held-down key: shortening a title with
+      // Delete ends with the caret at the end, and the next press must not take the task with it.
+      if (e.repeat || el.value !== node.title) return;
       e.preventDefault();
       // Focus stays in the same box (list, Today or task page) rather than jumping to the one above.
       const box = el.closest("section");
@@ -140,7 +144,7 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
         {isPersistent ? (
           <button
             type="button"
-            className="mt-1.5 flex size-5 items-center justify-center rounded-full border border-emerald-700 text-xs leading-none text-emerald-700 hover:bg-emerald-700 hover:text-white dark:border-emerald-400 dark:text-emerald-400"
+            className="mt-1.5 flex size-5 items-center justify-center border border-emerald-700 text-xs leading-none text-emerald-700 hover:bg-emerald-700 hover:text-white dark:border-emerald-400 dark:text-emerald-400"
             onClick={() => tree.pressTask(node)}
             aria-label={`Done "${node.title}" once more`}
             title="Done it. Stays here for next time (Ctrl+Z to undo)"
@@ -148,9 +152,8 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
             ↻
           </button>
         ) : (
-          <input
-            type="checkbox"
-            className="mt-2 size-4 accent-emerald-700"
+          <PixelCheckbox
+            className="mt-1.5"
             checked={node.isComplete}
             disabled={toggle.isPending}
             // Ticking a main task finishes it: it is in the Done tab, and leaves its list a few days later. With an undo.
@@ -189,7 +192,7 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
           <TaskMenu node={node} depth={depth} onAddSubtask={addSubtask} />
           <button
             type="button"
-            className="btn-quiet cursor-grab touch-none text-base leading-none select-none active:cursor-grabbing"
+            className="btn-quiet cursor-grab touch-none glyph select-none active:cursor-grabbing"
             onPointerDown={(e) => tree.startDrag(e, node)}
             aria-label="Drag to move this task"
             title="Drag to move, or onto the Today box to do it today. Keyboard: Alt+↑ / Alt+↓ in the task"

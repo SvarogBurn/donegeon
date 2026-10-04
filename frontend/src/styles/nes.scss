@@ -1,0 +1,13 @@
+// NES.css (https://nostalgic-css.github.io/NES.css/), components only.
+// Its Bootstrap "reboot" reset and page-wide rules are left out: Tailwind's
+// own reset is in charge. Everything sits in the "nes" cascade layer (ordered
+// in index.css between Tailwind's base and its components), so the app's
+// classes and utilities can adjust a NES component.
+@layer nes {
+  @import "nes.css/scss/base/color-palette.scss";
+  @import "nes.css/scss/base/variables.scss";
+  @import "nes.css/scss/utilities/_index.scss";
+  @import "nes.css/scss/helpers/_index.scss";
+  @import "nes.css/scss/elements/_index.scss";
+  @import "nes.css/scss/form/_index.scss";
+}

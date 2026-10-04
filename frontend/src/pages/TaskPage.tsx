@@ -5,6 +5,7 @@ import { DeadlineFields } from "../components/TaskTree/DeadlineFields";
 import { TaskForm } from "../components/TaskTree/TaskForm";
 import { TaskTree } from "../components/TaskTree/TaskNode";
 import { TreeProvider } from "../components/TaskTree/TreeContext";
+import { TileFrame } from "../components/Tiles/TileFrame";
 import { TreeError, UndoBar } from "../components/TaskTree/TreeStatus";
 import { useCountdown, useTaskTrees } from "../hooks/useTasks";
 import { hasTaskPage } from "../lib/taskPage";
@@ -78,11 +79,11 @@ export function TaskPage() {
                   <p className="text-sm text-stone-500">Loading…</p>
                 )}
               </section>
-              <section className="card space-y-3" aria-label="Tasks">
+              <TileFrame title="Tasks" aria-label="Tasks">
                 <TreeError />
                 <TaskTree nodes={[found.node]} parentId={found.node.parentId} listId={found.node.listId} depth={found.depth} />
                 <TaskForm parentId={found.node.id} placeholder="Add a subtask, then press Enter" />
-              </section>
+              </TileFrame>
             </div>
           </>
         )}

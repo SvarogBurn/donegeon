@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { TileFrame } from "../Tiles/TileFrame";
 
 interface Props {
   title: string;
@@ -32,8 +33,7 @@ export function LabelsPanel({ title, noun, items, counts, selected, onToggle, on
   }
 
   return (
-    <section className="card space-y-3" aria-label={title}>
-      <h2 className="font-semibold">{title}</h2>
+    <TileFrame title={title} tone="setup" aria-label={title}>
       {items.length === 0 ? (
         <p className="text-sm text-stone-500">
           No {noun}s yet. Add one, put it on tasks from their ⋯ menu, then click it here to filter.
@@ -45,7 +45,7 @@ export function LabelsPanel({ title, noun, items, counts, selected, onToggle, on
             return (
               <li
                 key={item.id}
-                className={`flex items-center rounded-full text-sm ${isSelected ? "bg-emerald-700 text-white" : "bg-stone-200 dark:bg-stone-700"}`}
+                className={`pixel-chip flex items-center text-sm ${isSelected ? "bg-emerald-700 text-white" : "bg-stone-200 dark:bg-stone-700"}`}
               >
                 <button
                   type="button"
@@ -59,7 +59,7 @@ export function LabelsPanel({ title, noun, items, counts, selected, onToggle, on
                 </button>
                 <button
                   type="button"
-                  className="rounded-full px-2 py-1 leading-none opacity-60 hover:opacity-100"
+                  className="px-2 py-1 leading-none opacity-60 hover:opacity-100"
                   aria-label={`Delete ${noun} "${item.name}"`}
                   title={`Delete this ${noun} (its tasks stay)`}
                   disabled={isBusy}
@@ -74,7 +74,7 @@ export function LabelsPanel({ title, noun, items, counts, selected, onToggle, on
       )}
       <form onSubmit={submit}>
         <input
-          className="input"
+          className="nes-input input"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={`New ${noun}, then press Enter`}
@@ -84,6 +84,6 @@ export function LabelsPanel({ title, noun, items, counts, selected, onToggle, on
         />
       </form>
       {error && <p className="text-xs text-red-600">{error.message}</p>}
-    </section>
+    </TileFrame>
   );
 }

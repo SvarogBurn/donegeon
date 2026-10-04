@@ -9,6 +9,7 @@ import {
   type DashboardLayout,
   type Zone,
 } from "../../lib/tileLayout";
+import { TileControlsContext } from "./TileFrame";
 
 export interface Tile {
   key: string;
@@ -64,9 +65,9 @@ function dropAt(x: number, y: number, draggedKey: string): DropAt | null {
 }
 
 /**
- * The dashboard as a responsive grid of tiles. Each tile has a ⠿ handle to drag
- * it above or below another, into another column, or into a new column at the
- * right; and a pin that keeps it in a band across the top. As many columns as
+ * The dashboard as a responsive grid of tiles. Each tile's frame has a tab
+ * button to drag it above or below another, into another column, or into a new
+ * column at the right; and a pin that keeps it in a band across the top. As many columns as
  * fit the screen are offered, down to one on a phone.
  */
 export function TileGrid({ tiles, layout, onChange }: Props) {
@@ -146,30 +147,19 @@ export function TileGrid({ tiles, layout, onChange }: Props) {
         key={tile.key}
         data-tile={tile.key}
         data-pinned={isPinned || undefined}
-        className={`min-w-0 rounded-lg ${draggingKey === tile.key ? "opacity-40" : ""} ${mark}`}
+        className={`min-w-0 ${draggingKey === tile.key ? "opacity-40" : ""} ${mark}`}
       >
-        <div className="flex items-center justify-between px-1 text-stone-400">
-          <button
-            type="button"
-            className="btn-quiet cursor-grab touch-none !py-0 text-base leading-none select-none active:cursor-grabbing"
-            onPointerDown={(e) => startDrag(e, tile.key)}
-            aria-label={`Drag to move ${tile.name}`}
-            title="Drag to move: above or below another tile, or into another column"
-          >
-            ⠿
-          </button>
-          <button
-            type="button"
-            className={`btn-quiet !py-0 ${isPinned ? "!text-emerald-700 dark:!text-emerald-400" : ""}`}
-            aria-pressed={isPinned}
-            aria-label={`${isPinned ? "Unpin" : "Pin"} ${tile.name}`}
-            title={isPinned ? "Unpin: back into the columns" : "Pin to the top of the page"}
-            onClick={() => save(togglePin(arrangement, tile.key))}
-          >
-            {isPinned ? "Pinned" : "Pin"}
-          </button>
-        </div>
-        {tile.node}
+        {/* The tile's own TileFrame draws the pin and tab buttons on its border. */}
+        <TileControlsContext.Provider
+          value={{
+            name: tile.name,
+            isPinned,
+            onTogglePin: () => save(togglePin(arrangement, tile.key)),
+            onDragStart: (e) => startDrag(e, tile.key),
+          }}
+        >
+          {tile.node}
+        </TileControlsContext.Provider>
       </div>
     );
   }

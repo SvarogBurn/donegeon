@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate } from "react-router";
+import { TileFrame } from "../components/Tiles/TileFrame";
 import { useLogin, useMe } from "../hooks/useAuth";
 
 export function AuthPage({ mode }: { mode: "login" | "signup" }) {
@@ -18,13 +19,13 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
 
   return (
     <main className="mx-auto max-w-sm px-4 py-16">
-      <h1 className="mb-6 text-2xl font-bold tracking-tight text-emerald-800 dark:text-emerald-400">Donegeon</h1>
-      <form onSubmit={submit} className="card space-y-4">
-        <h2 className="font-semibold">{isSignup ? "Create an account" : "Log in"}</h2>
+      <h1 className="mb-6 font-pixel text-xl text-emerald-800 dark:text-emerald-400">Donegeon</h1>
+      <TileFrame title={isSignup ? "Create an account" : "Log in"}>
+      <form onSubmit={submit} className="space-y-4">
         <label className="block space-y-1 text-sm">
           <span>Username</span>
           <input
-            className="input"
+            className="nes-input input"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             autoComplete="username"
@@ -36,7 +37,7 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
         <label className="block space-y-1 text-sm">
           <span>Password</span>
           <input
-            className="input"
+            className="nes-input input"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -47,10 +48,11 @@ export function AuthPage({ mode }: { mode: "login" | "signup" }) {
           {isSignup && <span className="text-xs text-stone-500">At least 8 characters.</span>}
         </label>
         {submitCredentials.error && <p className="text-sm text-red-600">{submitCredentials.error.message}</p>}
-        <button className="btn w-full" disabled={submitCredentials.isPending}>
+        <button className="nes-btn is-primary btn w-full" disabled={submitCredentials.isPending}>
           {isSignup ? "Sign up" : "Log in"}
         </button>
       </form>
+      </TileFrame>
       <p className="mt-4 text-center text-sm text-stone-500">
         {isSignup ? "Already have an account? " : "New here? "}
         <Link className="text-emerald-700 underline dark:text-emerald-400" to={isSignup ? "/login" : "/signup"}>

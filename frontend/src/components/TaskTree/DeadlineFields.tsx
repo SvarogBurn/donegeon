@@ -41,7 +41,7 @@ function DateField({ value, onChange }: DateFieldProps) {
   return (
     <div className="relative min-w-0 flex-1">
       <input
-        className={`input pr-9 tabular-nums ${isInvalid ? "!border-red-600" : ""}`}
+        className={`nes-input input pr-9 tabular-nums ${isInvalid ? "is-error" : ""}`}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onBlur={commit}
@@ -57,7 +57,7 @@ function DateField({ value, onChange }: DateFieldProps) {
       />
       <button
         type="button"
-        className="btn-quiet absolute top-1/2 right-1 -translate-y-1/2"
+        className="btn-quiet glyph absolute top-1/2 right-1 -translate-y-1/2"
         aria-label="Pick the date from a calendar"
         onClick={() => picker.current?.showPicker()}
       >
@@ -105,7 +105,7 @@ export function DeadlineFields({ task }: { task: Pick<Task, "id" | "deadlineDate
             title={option.hint}
             aria-pressed={type === option.value}
             onClick={() => save({ deadlineType: option.value })}
-            className={`flex-1 rounded-md border px-2 py-1 text-xs ${type === option.value ? "border-emerald-700 bg-emerald-700 text-white" : "border-stone-300 dark:border-stone-700"}`}
+            className={`nes-btn btn-small flex-1 ${type === option.value ? "is-primary" : ""}`}
           >
             {option.label}
           </button>

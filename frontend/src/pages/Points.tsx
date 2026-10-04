@@ -1,3 +1,4 @@
+import { TileFrame } from "../components/Tiles/TileFrame";
 import { usePoints } from "../hooks/useTasks";
 import { formatAmount } from "../lib/points";
 import type { PointsSummary } from "../types";
@@ -23,14 +24,15 @@ export function PointsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <section className="card" aria-label="Balance">
+      <TileFrame title="Balance" aria-label="Balance">
+        <p>
         <span className="text-3xl font-bold tabular-nums" data-balance={balance}>
           {balance}
         </span>{" "}
         <span className="text-sm text-stone-500">{balance === 1 ? "point" : "points"} to spend</span>
-      </section>
-      <section className="card space-y-3" aria-label="History">
-        <h2 className="font-semibold">History</h2>
+        </p>
+      </TileFrame>
+      <TileFrame title="History" aria-label="History">
         {transactions.length === 0 ? (
           <p className="text-sm text-stone-500">Nothing yet. Tick a main task in a task list to earn its points.</p>
         ) : (
@@ -51,7 +53,7 @@ export function PointsPage() {
             </tbody>
           </table>
         )}
-      </section>
+      </TileFrame>
     </div>
   );
 }

@@ -1,4 +1,6 @@
 import { ValueChip } from "../components/Points/ValueChip";
+import { TileFrame } from "../components/Tiles/TileFrame";
+import { PixelCheckbox } from "../components/PixelCheckbox";
 import { localDate } from "../api/client";
 import { useLists, useTaskTrees, useToggleTask } from "../hooks/useTasks";
 import { addDays, formatDay } from "../lib/dates";
@@ -26,9 +28,7 @@ function FinishedTask({ node, listName }: { node: TaskTreeNode; listName: string
   return (
     <li data-finished={node.id}>
       <div className="flex flex-wrap items-start gap-x-2 gap-y-1 text-sm">
-        <input
-          type="checkbox"
-          className="mt-0.5 size-4 accent-emerald-700"
+        <PixelCheckbox
           checked
           disabled={toggle.isPending}
           onChange={() => toggle.mutate(node.id)}
@@ -78,17 +78,17 @@ export function DonePage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <h1 className="text-xl font-bold">Done</h1>
+      <h1 className="font-pixel text-base">Done</h1>
       {days.length === 0 && (
         <p className="card text-sm text-stone-500">Nothing finished yet. Tick a main task and it shows up here.</p>
       )}
       {days.map((day) => (
-        <section key={day} className="card space-y-2" data-done-on={day}>
-          <h2 className="text-sm font-semibold tabular-nums">
-            {formatDay(day, true)}/{day.slice(0, 4)}
-            {day === today && <span className="font-normal text-stone-500"> · Today</span>}
-            {day === addDays(today, -1) && <span className="font-normal text-stone-500"> · Yesterday</span>}
-          </h2>
+        <TileFrame
+          key={day}
+          tone="record"
+          data-done-on={day}
+          title={`${formatDay(day, true)}/${day.slice(0, 4)}${day === today ? " · Today" : day === addDays(today, -1) ? " · Yesterday" : ""}`}
+        >
           <ul className="space-y-1.5">
             {finished
               .filter((task) => task.completedOn === day)
@@ -96,7 +96,7 @@ export function DonePage() {
                 <FinishedTask key={task.id} node={task} listName={listName(task.listId)} />
               ))}
           </ul>
-        </section>
+        </TileFrame>
       ))}
     </div>
   );

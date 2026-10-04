@@ -1,22 +1,248 @@
+/* NES.css components (styles/nes.scss) rank above Tailwind's reset and below the app's own classes and utilities. */
+@layer theme, base, nes, components, utilities;
 @import "tailwindcss";
 
+/*
+ * The whole app is set in the pixel font NES.css is designed around. It is
+ * much wider than an ordinary font, so every text size is stepped down, and
+ * corners are square everywhere.
+ */
+@theme {
+  --font-pixel: "Press Start 2P", ui-monospace, monospace;
+  --font-sans: "Press Start 2P", ui-monospace, monospace;
+
+  --text-xs: 8px;
+  --text-xs--line-height: 1.75;
+  --text-sm: 10px;
+  --text-sm--line-height: 1.8;
+  --text-base: 12px;
+  --text-base--line-height: 1.75;
+  --text-lg: 14px;
+  --text-lg--line-height: 1.6;
+  --text-xl: 16px;
+  --text-xl--line-height: 1.5;
+  --text-2xl: 20px;
+  --text-2xl--line-height: 1.4;
+  --text-3xl: 24px;
+  --text-3xl--line-height: 1.3;
+
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --radius-3xl: 0;
+  --radius-4xl: 0;
+}
+
 @layer base {
+  /* Room for the scrollbar is always kept, so the page doesn't change width (and the grid its column count) when its height changes. */
+  html {
+    scrollbar-gutter: stable;
+  }
   body {
-    @apply bg-stone-100 text-stone-900 antialiased dark:bg-stone-950 dark:text-stone-100;
+    @apply bg-stone-100 text-sm text-stone-900 dark:bg-stone-950 dark:text-stone-100;
+    /* The pixel font has one weight; a faked bold smears its pixels. */
+    font-synthesis: none;
+    -webkit-font-smoothing: none;
+  }
+}
+
+/*
+ * Pixel-art tile frame (assets/140x140border_blue_v2.svg). --u is the size of
+ * one art pixel; the frame, its title band and its 7x7 buttons are all sized
+ * in it, so they stay in proportion. In art pixels the frame is: 18 on top
+ * (the title band is rows 3-15, inset 3 from each side), 5 left, 4 right, 5 bottom.
+ *
+ * It is drawn as a nine-slice: the four corner pieces keep their size and the
+ * strips between them are stretched. Stretching would smear the art's
+ * dithering, so the corner pieces are cut large enough to hold all of it: the
+ * left ones are 89 art pixels wide (the band's and top edge's dither) and the
+ * bottom ones 52 tall (the left edge's dither). What is left to stretch is
+ * flat colour. The pieces reach in over the box's own area, where the art is
+ * transparent, and the box is never smaller than two corners.
+ */
+:root {
+  --u: 3px;
+}
+@media (max-width: 640px) {
+  :root {
+    --u: 2px;
   }
 }
 
 @layer components {
+  .tile-frame {
+    @apply relative bg-white bg-clip-padding dark:bg-stone-900;
+    border-style: solid;
+    border-width: calc(18 * var(--u)) calc(4 * var(--u)) calc(5 * var(--u)) calc(5 * var(--u));
+    /* The SVG is drawn at 140 units per art pixel: slices of 18, 4, 52 and 89 art pixels. */
+    border-image-source: var(--frame, url("../../assets/140x140border_blue_v2.svg"));
+    border-image-slice: 2520 560 7280 12460;
+    border-image-width: calc(18 * var(--u)) calc(4 * var(--u)) calc(52 * var(--u)) calc(89 * var(--u));
+    border-image-repeat: stretch;
+    image-rendering: pixelated;
+    min-height: calc(72 * var(--u));
+    min-width: calc(96 * var(--u));
+  }
+  /* The band sits exactly over the border's title strip. */
+  .tile-band {
+    @apply absolute flex items-start text-white;
+    top: calc(-15 * var(--u));
+    left: calc(-2 * var(--u));
+    right: calc(-1 * var(--u));
+    height: calc(12 * var(--u));
+    gap: calc(2 * var(--u));
+    padding: 0 calc(2 * var(--u));
+  }
+  .tile-title {
+    @apply min-w-0 flex-1 self-center truncate leading-none font-normal;
+    font-size: max(9px, calc(3.5 * var(--u)));
+    /* The pixel font's T and I start a pixel left of their box; without this the clip for long titles eats it. */
+    padding-left: var(--u);
+  }
+  .tile-button {
+    @apply flex-none cursor-pointer;
+    width: calc(7 * var(--u));
+    height: calc(7 * var(--u));
+    margin-top: calc(2 * var(--u));
+    background-size: 100% 100%;
+    image-rendering: pixelated;
+  }
+  .tile-button:focus-visible,
+  .tile-button[aria-pressed="true"] {
+    outline: var(--u) solid #3f3f74;
+  }
+  /*
+   * Tones: the same frame with its band recoloured (lib/frameTones.ts). Lists,
+   * Today and the deadline boxes keep the art's blue; reward lists are orange;
+   * goals, tags and new list green; done purple.
+   */
+  .tile-tone-reward {
+    --frame: var(--frame-reward);
+  }
+  .tile-tone-setup {
+    --frame: var(--frame-setup);
+  }
+  .tile-tone-record {
+    --frame: var(--frame-record);
+  }
+  /* A chip with the stepped corners of pixel art: a near-black edge one block thick on each side, none at the corners. */
+  .pixel-chip {
+    box-shadow:
+      -2px 0 #212529,
+      2px 0 #212529,
+      0 -2px #212529,
+      0 2px #212529;
+    margin: 2px;
+  }
+  .tile-button-x {
+    background-image: url("../../assets/buttons/7x7x_blue_v1.svg");
+  }
+  .tile-button-pin {
+    background-image: url("../../assets/buttons/7x7pin_blue_v1.svg");
+  }
+  .tile-button-tab {
+    @apply cursor-grab touch-none select-none active:cursor-grabbing;
+    background-image: url("../../assets/buttons/7x7tab_blue_v1.svg");
+  }
+  .tile-body {
+    padding: calc(3 * var(--u)) calc(4 * var(--u));
+  }
+
+  /* Used together with NES.css's own class: "nes-input input", "nes-btn is-primary btn". These only fit them to the app. */
   .input {
-    @apply w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 dark:border-stone-700 dark:bg-stone-900;
+    @apply w-full bg-white px-3 py-2 text-sm text-stone-900 outline-none focus:bg-sky-50;
+    margin: 2px;
+    width: calc(100% - 4px);
+  }
+  .input-small {
+    @apply bg-white px-2 py-1 text-xs text-stone-900 outline-none focus:bg-sky-50;
+    margin: 4px;
+  }
+  /* The points field of a list, light on near-black: "nes-input is-dark input-small input-dark". */
+  .input-dark {
+    @apply text-white focus:bg-stone-700;
+    background-color: #212529;
+  }
+  /*
+   * Tasks / Rewards switch of a list: two halves, the chosen one filled with
+   * its colour (the frame's blue for tasks, its orange for rewards).
+   */
+  .kind-toggle {
+    @apply inline-flex bg-white text-xs;
+  }
+  .kind-toggle > button {
+    @apply cursor-pointer px-2 py-1 text-stone-500;
+  }
+  .kind-toggle > button[aria-pressed="true"] {
+    @apply text-white;
+  }
+  .kind-toggle > button[data-kind="task"][aria-pressed="true"] {
+    background-color: #5b6ee1;
+  }
+  .kind-toggle > button[data-kind="reward"][aria-pressed="true"] {
+    background-color: #df7126;
+  }
+  /* A compact NES button, for switches inside menus: "nes-btn btn-small". */
+  .btn-small {
+    @apply px-2 py-1 text-xs;
+    margin: 4px;
   }
   .btn {
-    @apply inline-flex items-center justify-center rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50;
+    @apply text-xs disabled:opacity-50;
+    margin: 4px;
+    width: calc(100% - 8px);
+  }
+  /*
+   * NES.css checkbox with the real input laid over the drawn box (see
+   * PixelCheckbox.tsx). The box is drawn by the span from 2px blocks, 2px in
+   * from the wrapper's corner.
+   */
+  .pixel-check {
+    @apply relative inline-block flex-none align-middle;
+    width: 20px;
+    height: 20px;
+  }
+  .pixel-check > .nes-checkbox {
+    @apply absolute inset-0 z-10 m-0 size-full cursor-pointer opacity-0 disabled:cursor-default;
+    clip: auto;
+    clip-path: none;
+  }
+  .pixel-check > .nes-checkbox + span {
+    @apply pointer-events-none absolute;
+    top: 3px;
+    left: 28px;
+  }
+  /* NES draws the box in near-black; on the dark theme it needs to be light. */
+  @media (prefers-color-scheme: dark) {
+    .pixel-check > .nes-checkbox + span::before {
+      color: #e7e5e4;
+    }
+  }
+  .pixel-check-small {
+    width: 14px;
+    height: 14px;
+  }
+  .pixel-check-small > .nes-checkbox + span {
+    transform: scale(0.7);
+    transform-origin: -28px -3px;
+  }
+  /* Symbols the pixel font doesn't have (⋯ ⠿ × ▦ ‹ ›): the system font, at a size that reads. */
+  .glyph,
+  .btn-quiet.glyph {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1;
   }
   .btn-quiet {
     @apply rounded px-1.5 py-1 text-xs text-stone-500 hover:bg-stone-200 hover:text-stone-900 disabled:opacity-30 disabled:hover:bg-transparent dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100;
   }
+  /* Small boxes without a title band (the task menu, notices): a plain pixel border in the frame's blues. */
   .card {
-    @apply rounded-lg border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900;
+    @apply bg-white p-4 dark:bg-stone-900;
+    border: var(--u) solid #5b6ee1;
+    outline: var(--u) solid #cbdbfc;
   }
 }

@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { localDate } from "../../api/client";
 import { addDays, formatDay } from "../../lib/dates";
 import type { TaskTreeNode } from "../../types";
+import { TileFrame } from "../Tiles/TileFrame";
 
 interface DoneTask {
   id: string;
@@ -47,7 +48,7 @@ export function DoneLog({ tasks }: { tasks: TaskTreeNode[] }) {
   const label = day === today ? "Today" : day === addDays(today, -1) ? "Yesterday" : null;
 
   return (
-    <section className="card space-y-3" aria-label="Done">
+    <TileFrame title="Done" tone="record" aria-label="Done">
       <div
         className="flex items-center gap-1"
         onKeyDown={(e) => {
@@ -55,8 +56,7 @@ export function DoneLog({ tasks }: { tasks: TaskTreeNode[] }) {
           if (e.key === "ArrowRight") show(addDays(day, 1));
         }}
       >
-        <h2 className="mr-auto font-semibold">Done</h2>
-        <button type="button" className="btn-quiet" aria-label="Previous day" onClick={() => show(addDays(day, -1))}>
+        <button type="button" className="btn-quiet glyph ml-auto" aria-label="Previous day" onClick={() => show(addDays(day, -1))}>
           ‹
         </button>
         <p className="min-w-36 text-center text-sm tabular-nums" data-done-day={day} aria-live="polite">
@@ -65,7 +65,7 @@ export function DoneLog({ tasks }: { tasks: TaskTreeNode[] }) {
         </p>
         <button
           type="button"
-          className="btn-quiet"
+          className="btn-quiet glyph"
           aria-label="Next day"
           disabled={day === today}
           onClick={() => show(addDays(day, 1))}
@@ -75,7 +75,7 @@ export function DoneLog({ tasks }: { tasks: TaskTreeNode[] }) {
         <div className="relative">
           <button
             type="button"
-            className="btn-quiet"
+            className="btn-quiet glyph"
             aria-label="Pick the day from a calendar"
             onClick={() => picker.current?.showPicker()}
           >
@@ -107,6 +107,6 @@ export function DoneLog({ tasks }: { tasks: TaskTreeNode[] }) {
           ))}
         </ul>
       )}
-    </section>
+    </TileFrame>
   );
 }

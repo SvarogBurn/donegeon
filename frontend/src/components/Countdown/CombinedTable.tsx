@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { useCombinedCountdown } from "../../hooks/useTasks";
 import { formatPace } from "../../lib/dates";
+import { TileFrame } from "../Tiles/TileFrame";
 import { pressureColor } from "./pressureColor";
 import { CELL, DayCells, dayRow, PaceCell, SheetTable, SummaryCells } from "./sheet";
 
@@ -19,8 +20,7 @@ export function CombinedTable() {
   const left = today?.remaining ?? countdown.totalTasks;
 
   return (
-    <section className="card space-y-3" aria-label="All deadlines">
-      <h2 className="font-semibold">All deadlines</h2>
+    <TileFrame title="All deadlines" aria-label="All deadlines">
       <SummaryCells
         cells={[
           ["Tasks", countdown.totalTasks],
@@ -67,6 +67,6 @@ export function CombinedTable() {
           );
         })}
       </SheetTable>
-    </section>
+    </TileFrame>
   );
 }

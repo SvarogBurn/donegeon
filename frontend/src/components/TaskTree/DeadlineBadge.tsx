@@ -16,7 +16,7 @@ export function DeadlineBadge({ task }: { task: Pick<TaskTreeNode, "deadlineDate
     <span
       title={`${kind} · ${pace}`}
       style={fill ? { backgroundColor: fill } : undefined}
-      className={`rounded-full px-2 py-0.5 text-xs whitespace-nowrap tabular-nums ${fill ? "text-stone-900" : "bg-stone-200 text-stone-600 dark:bg-stone-700 dark:text-stone-300"}`}
+      className={`pixel-chip px-2 py-0.5 text-xs whitespace-nowrap tabular-nums ${fill ? "text-stone-900" : "bg-stone-200 text-stone-600 dark:bg-stone-700 dark:text-stone-300"}`}
     >
       {formatDay(task.deadlineDate)}
     </span>

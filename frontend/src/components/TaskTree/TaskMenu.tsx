@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { PixelCheckbox } from "../PixelCheckbox";
 import { useGoals, useLists, useSetToday, useTags, useUpdateTask } from "../../hooks/useTasks";
 import { toggleId } from "../../lib/labels";
 import type { TaskTreeNode } from "../../types";
@@ -31,9 +32,8 @@ function LabelPicker({ title, items, selected, onChange, emptyHint }: LabelPicke
         <div className="max-h-32 space-y-0.5 overflow-y-auto">
           {items.map((item) => (
             <label key={item.id} className="flex items-center gap-2 rounded px-1 py-0.5 hover:bg-stone-100 dark:hover:bg-stone-800">
-              <input
-                type="checkbox"
-                className="accent-emerald-700"
+              <PixelCheckbox
+                small
                 checked={selected.includes(item.id)}
                 onChange={() => onChange(toggleId(selected, item.id))}
               />
@@ -98,9 +98,8 @@ function Doing({ node }: { node: TaskTreeNode }) {
       {/* A task written straight into Today has no list to go back to, so it can't be taken out. */}
       {(node.parentId || node.listId) && (
         <label className={CHECK_ROW}>
-          <input
-            type="checkbox"
-            className="accent-emerald-700"
+          <PixelCheckbox
+            small
             checked={node.todaySince !== null}
             onChange={(e) => setToday.mutate({ id: node.id, today: e.target.checked })}
           />
@@ -110,9 +109,8 @@ function Doing({ node }: { node: TaskTreeNode }) {
       {!node.parentId && (
         <>
           <label className={CHECK_ROW} title="Stays in its list and can be done again and again; each time counts its points.">
-            <input
-              type="checkbox"
-              className="accent-emerald-700"
+            <PixelCheckbox
+              small
               checked={node.isPersistent}
               onChange={(e) => save({ isPersistent: e.target.checked })}
             />
@@ -121,7 +119,7 @@ function Doing({ node }: { node: TaskTreeNode }) {
           <label className="flex items-center gap-2 px-1 text-xs">
             <span className="shrink-0">{isReward ? "Costs" : "Points"}</span>
             <input
-              className="input !w-20 !px-2 !py-1 tabular-nums"
+              className="nes-input input !w-20 !px-2 !py-1 tabular-nums"
               type="number"
               min={0}
               step={1}
@@ -172,7 +170,7 @@ export function TaskMenu({ node, depth, onAddSubtask }: Props) {
     <span ref={ref} className="relative">
       <button
         type="button"
-        className="btn-quiet text-base leading-none"
+        className="btn-quiet glyph"
         aria-label="Task options"
         aria-expanded={isOpen}
         onClick={() => setIsOpen(!isOpen)}

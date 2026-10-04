@@ -1,4 +1,5 @@
 import { localDate } from "../../api/client";
+import { PixelCheckbox } from "../PixelCheckbox";
 import { useSetToday, useToggleTask } from "../../hooks/useTasks";
 import { daysBetween } from "../../lib/dates";
 import type { TaskTreeNode } from "../../types";
@@ -6,6 +7,7 @@ import { ValueChip } from "../Points/ValueChip";
 import { TaskForm } from "../TaskTree/TaskForm";
 import { TaskTree } from "../TaskTree/TaskNode";
 import { useTree } from "../TaskTree/TreeContext";
+import { TileFrame } from "../Tiles/TileFrame";
 
 interface TodayItem {
   node: TaskTreeNode;
@@ -52,16 +54,14 @@ function TodayRow({ node, path, today }: TodayItem & { today: string }) {
         {isPersistent ? (
           <button
             type="button"
-            className="flex size-5 items-center justify-center rounded-full border border-emerald-700 text-xs leading-none text-emerald-700 hover:bg-emerald-700 hover:text-white dark:border-emerald-400 dark:text-emerald-400"
+            className="flex size-5 items-center justify-center border border-emerald-700 text-xs leading-none text-emerald-700 hover:bg-emerald-700 hover:text-white dark:border-emerald-400 dark:text-emerald-400"
             onClick={() => tree.pressTask(node)}
             aria-label={`Done "${node.title}" once more`}
           >
             ↻
           </button>
         ) : (
-          <input
-            type="checkbox"
-            className="size-4 accent-emerald-700"
+          <PixelCheckbox
             checked={node.isComplete}
             disabled={toggle.isPending}
             onChange={() => (!node.parentId && !node.isComplete ? tree.finishTask(node) : toggle.mutate(node.id))}
@@ -75,7 +75,7 @@ function TodayRow({ node, path, today }: TodayItem & { today: string }) {
           {carried > 0 && !node.isComplete && (
             <span
               data-carried={carried}
-              className="rounded-full bg-amber-100 px-2 py-0.5 text-xs whitespace-nowrap text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+              className="pixel-chip bg-amber-100 px-2 py-0.5 text-xs whitespace-nowrap text-amber-800 dark:bg-amber-950 dark:text-amber-300"
             >
               carried over {carried} {carried === 1 ? "day" : "days"}
             </span>
@@ -83,7 +83,7 @@ function TodayRow({ node, path, today }: TodayItem & { today: string }) {
           <ValueChip node={node} />
           <button
             type="button"
-            className="btn-quiet text-lg leading-none"
+            className="btn-quiet glyph"
             aria-label={`Take "${firstLine(node.title)}" out of Today`}
             title="Take out of Today (the task itself stays where it is)"
             onClick={() => setToday.mutate({ id: node.id, today: false })}
@@ -110,15 +110,13 @@ export function TodayBox({ tasks }: { tasks: TaskTreeNode[] }) {
   const left = [...items.map((item) => item.node), ...own].filter((node) => !node.isComplete && !node.isPersistent).length;
 
   return (
-    <section
+    <TileFrame
+      title="Today"
       data-drop-today
-      className={`card space-y-3 !border-emerald-600 dark:!border-emerald-500 ${dropTarget?.kind === "today" ? "ring-2 ring-emerald-600" : ""}`}
+      className={dropTarget?.kind === "today" ? "ring-2 ring-emerald-600" : ""}
       aria-label="Today"
     >
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="px-1 font-semibold">Today</h2>
-        {items.length + own.length > 0 && <span className="text-xs text-stone-500 tabular-nums">{left} left</span>}
-      </header>
+      {items.length + own.length > 0 && <p className="text-right text-xs text-stone-500 tabular-nums">{left} left</p>}
       {items.length + own.length === 0 && (
         <p className="px-1 text-sm text-stone-500">
           Nothing picked for today. Drag a task here by its ⠿ handle, or choose “Do today” in its ⋯ menu; it stays in its list.
@@ -135,6 +133,6 @@ export function TodayBox({ tasks }: { tasks: TaskTreeNode[] }) {
         <TaskTree nodes={own} parentId={null} listId={null} />
       </div>
       <TaskForm editorId="today-add" placeholder="Add a task just for today, then press Enter" />
-    </section>
+    </TileFrame>
   );
 }
