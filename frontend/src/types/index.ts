@@ -56,6 +56,8 @@ export interface Task {
   /** Top-level tasks only: done again and again with a button instead of ticked once. */
   isPersistent: boolean;
   position: number;
+  /** The moment it was written down. */
+  createdAt: string;
 }
 
 /** One press of a persistent task's "done it" button. */

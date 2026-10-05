@@ -64,6 +64,20 @@ In a task:
 - The balance in the task bar at the bottom opens the points history.
 - The Today box also has its own field: a task typed there lives only in Today until you drag it into a list. It is worth what the "N each" field at the top of the Today box says (2 to start with) unless you give it its own amount; once dragged into a list it follows that list.
 
+## Stats
+
+Click your name in the task bar: under the Account box are your stats. They cover tasks and subtasks, never rewards.
+
+- **Done**: done today / this week (from Monday) / this month / ever, the current and longest streak of days with something done, and a dot per day for the last year (stronger = more done).
+- **Written down**: at which weekday and hour tasks get written down.
+- **Deadlines**: how often hard and soft deadlines were met, and how many days early or late tasks were finished.
+- **Time to finish**: median days from written down to done, and how far ahead deadlines are set. The bars group tasks by how long they took, in buckets that follow your data (six at most, the last one "Longer").
+- **By list / goal / tag**: how much was done in each, how often on time, how long it took, and each one's share over time.
+- **Points**: the balance day by day.
+- **Unorganized**: open main tasks with no deadline, goal or tag.
+
+The filter at the top (dates, list, goal, tag, deadline type, repeating) narrows all of them at once. A subtask counts under its main task's list, goals and tags.
+
 ## Arranging the dashboard
 
 Every box has a drag handle and a Pin button on its title band. Drag a box above or below another, into another column, or onto the strip at the right edge for a new column; Pin keeps it in a band across the top. The arrangement is saved per account, separately for each screen width.

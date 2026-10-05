@@ -72,6 +72,54 @@
   }
 }
 
+/*
+ * Colours of the stats charts (components/Stats). One blue for plain bars and,
+ * in five steps, for "more is stronger" dots: darker on the light theme, whiter
+ * on the dark one. Red is for late. --series-1 to 7 tell lists, goals or tags
+ * apart; the order matters (neighbours stay distinct for colour-blind eyes), so
+ * keep it when changing a colour.
+ */
+:root {
+  --chart: #2a78d6;
+  --chart-late: #e34948;
+  --chart-track: #e7e5e4;
+  --heat-0: #e7e5e4;
+  --heat-1: #b7d3f6;
+  --heat-2: #6da7ec;
+  --heat-3: #2a78d6;
+  --heat-4: #104281;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-other: #78716c;
+  --series-none: #a8a29e;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --chart: #3987e5;
+    --chart-late: #e66767;
+    --chart-track: #292524;
+    --heat-0: #292524;
+    --heat-1: #104281;
+    --heat-2: #256abf;
+    --heat-3: #6da7ec;
+    --heat-4: #cde2fb;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-other: #a8a29e;
+    --series-none: #57534e;
+  }
+}
+
 @layer components {
   .tile-frame {
     @apply relative bg-white bg-clip-padding dark:bg-stone-900;

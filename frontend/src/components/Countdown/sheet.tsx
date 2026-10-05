@@ -21,7 +21,7 @@ export const CELL = `border-r border-b ${LINE} px-1 py-0.5 sm:px-2`;
 const WEEK_END = "!border-b-2 !border-b-stone-700 dark:!border-b-stone-300";
 
 /** Little labelled sheet cells above a table, e.g. Tasks / Done / Left. */
-export function SummaryCells({ cells }: { cells: readonly (readonly [label: string, value: number])[] }) {
+export function SummaryCells({ cells }: { cells: readonly (readonly [label: string, value: number | string])[] }) {
   return (
     <dl className="flex flex-wrap gap-2 text-sm tabular-nums">
       {cells.map(([label, value]) => (

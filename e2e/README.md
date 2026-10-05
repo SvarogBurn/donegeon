@@ -18,6 +18,7 @@ per check. They are scripts, not a test runner suite.
 | `tiles.mjs` | the tile arrangement survives deleting a list (and its undo), window resizes and a reload |
 | `hide.mjs` | hiding boxes with the minimize button, the Hidden row that brings them back, surviving a reload |
 | `logout.mjs` | log out lands on the login page, stays logged out, works again after logging back in |
+| `stats.mjs` | the stats on the user's page: done counts, streaks, dots, deadlines, time to finish, per list / goal, the filter, phone width |
 
 ## Run
 
