@@ -1,4 +1,5 @@
 import { appNow, localDate } from "../api/client";
+import type { TaskTreeNode, TickedTasks } from "../types";
 import { daysBetween } from "./dates";
 
 /** How long something ticked stays where it was, shown as done, so it can still be taken back. */
@@ -14,4 +15,14 @@ export function isRecent(day: string, at: string | null): boolean {
   if (daysAgo <= 0) return true;
   if (daysAgo >= 2 || !at) return daysAgo < 2;
   return appNow().getTime() - new Date(at).getTime() < KEPT_WHEN_DONE_MS;
+}
+
+/**
+ * Whether a list shows the task. A ticked one, main or subtask, stays for 24 hours, so it can be unticked;
+ * after that only the Done tab has it. If the user chose to hide ticked tasks, it goes at once.
+ */
+export function isShown(task: TaskTreeNode, ticked: TickedTasks): boolean {
+  if (!task.isComplete) return true;
+  if (ticked === "hide") return false;
+  return !task.completedOn || isRecent(task.completedOn, task.completedAt);
 }

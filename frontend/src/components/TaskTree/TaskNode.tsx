@@ -78,6 +78,8 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
   const today = localDate();
   const pressedToday = node.completions.filter((press) => press.day === today).length;
   const hasChildren = node.children.length > 0;
+  // A task is ticked last: everything beneath it first.
+  const hasOpenSubtasks = !node.isComplete && node.descendantDoneCount < node.descendantCount;
   const hasDraftChild = tree.draft?.parentId === node.id;
   const drop = tree.dropTarget?.kind === "task" && tree.dropTarget.id === node.id ? tree.dropTarget.zone : null;
 
@@ -157,11 +159,13 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
           />
         ) : (
           <PixelCheckbox
-            className="mt-1.5"
+            className={`mt-1.5 ${hasOpenSubtasks ? "opacity-40" : ""}`}
             checked={node.isComplete}
-            disabled={toggle.isPending}
-            // Ticking a main task finishes it: it is in the Done tab, and leaves its list 24 hours later. With an undo.
-            onChange={() => (!node.parentId && !node.isComplete ? tree.finishTask(node) : toggle.mutate(node.id))}
+            disabled={toggle.isPending || hasOpenSubtasks}
+            title={hasOpenSubtasks ? "Tick its subtasks first" : undefined}
+            // Ticking a main task finishes it: it is in the Done tab, and leaves its list 24 hours later. With an undo,
+            // as for any task that leaves its list the moment it is ticked.
+            onChange={() => (!node.isComplete && (!node.parentId || tree.ticked === "hide") ? tree.finishTask(node) : toggle.mutate(node.id))}
             aria-label={`Mark "${node.title}" ${node.isComplete ? "not done" : "done"}`}
           />
         )}
@@ -323,13 +327,14 @@ interface TaskTreeProps {
 const tickedLast = (nodes: TaskTreeNode[]) => [...nodes.filter((n) => !n.isComplete), ...nodes.filter((n) => n.isComplete)];
 
 export function TaskTree({ nodes, parentId, listId, depth = 0 }: TaskTreeProps) {
-  const { draft } = useTree();
+  const { draft, ticked } = useTree();
   const draftIsHere = draft !== null && draft.parentId === parentId && (parentId !== null || draft.listId === listId);
 
   return (
     <ul>
       {draftIsHere && draft.afterId === null && <DraftRow />}
-      {tickedLast(nodes).map((node) => (
+      {/* Unless the user chose otherwise: then every task keeps its place, ticked or not. */}
+      {(ticked === "bottom" ? tickedLast(nodes) : nodes).map((node) => (
         <Fragment key={node.id}>
           <TaskNode node={node} depth={depth} />
           {draftIsHere && draft.afterId === node.id && <DraftRow />}

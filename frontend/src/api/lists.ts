@@ -7,12 +7,11 @@ export interface ListChanges {
   defaultPoints?: number;
   /** "#rrggbb"; null = back to the kind's own colour. */
   color?: string | null;
-  /** null = on the Tasks page. */
-  folderId?: string | null;
 }
 
 export const listLists = () => api<{ lists: List[] }>("/lists").then((r) => r.lists);
-export const createList = (body: ListChanges & { name: string }) =>
+/** `folderId`: a folder that shows the new list straight away. */
+export const createList = (body: ListChanges & { name: string; folderId?: string | null }) =>
   api<{ list: List }>("/lists", { body }).then((r) => r.list);
 export const updateList = (id: string, body: ListChanges) =>
   api<{ list: List }>(`/lists/${id}`, { method: "PATCH", body }).then((r) => r.list);

@@ -3,8 +3,8 @@ import { createPortal } from "react-dom";
 import { useCreateList, useUpdateList } from "../../hooks/useTasks";
 import { frameIn, isLight, KIND_COLORS, listColor, sliderIn } from "../../lib/frameTones";
 import { filterTree, isFiltering, type LabelFilter } from "../../lib/labels";
-import { isRecent } from "../../lib/recent";
-import type { List, ListKind, TaskTreeNode } from "../../types";
+import { isShown } from "../../lib/recent";
+import type { List, ListKind, TaskTreeNode, TickedTasks } from "../../types";
 import { ColorChoices } from "../ColorChoices";
 import { TaskForm } from "../TaskTree/TaskForm";
 import { TaskTree } from "../TaskTree/TaskNode";
@@ -323,22 +323,20 @@ export function ListForm({ folderId = null }: { folderId?: string | null }) {
   );
 }
 
-/** A ticked task, main or subtask, stays where it is for 24 hours, so it can be unticked; after that only the Done tab has it. */
-const isShown = (task: TaskTreeNode) => !task.isComplete || !task.completedOn || isRecent(task.completedOn, task.completedAt);
-const withoutOldTicks = (task: TaskTreeNode): TaskTreeNode => ({ ...task, children: task.children.filter(isShown).map(withoutOldTicks) });
-
 /**
  * Each list with the tasks shown in it. A ticked task (a finished main task, or
  * a subtask) stays in its list, ticked, for 24 hours and is in the Done tab
- * from the start. While a goal/tag filter is on, only matching tasks and the
- * lists holding them are kept.
+ * from the start; with `ticked` "hide" it leaves its list the moment it is ticked.
+ * While a goal/tag filter is on, only matching tasks and the lists holding them are kept.
  */
-export function listCards(lists: List[], tasks: TaskTreeNode[], filter: LabelFilter) {
+export function listCards(lists: List[], tasks: TaskTreeNode[], filter: LabelFilter, ticked: TickedTasks) {
   const filtering = isFiltering(filter);
+  const shown = (nodes: TaskTreeNode[]): TaskTreeNode[] =>
+    nodes.filter((task) => isShown(task, ticked)).map((task) => ({ ...task, children: shown(task.children) }));
   return lists
     .map((list) => {
       const own = tasks.filter((t) => t.listId === list.id);
-      return { list, taskCount: own.length, tasks: filterTree(own.filter(isShown).map(withoutOldTicks), filter) };
+      return { list, taskCount: own.length, tasks: filterTree(shown(own), filter) };
     })
     .filter((card) => !filtering || card.tasks.length > 0);
 }

@@ -1,6 +1,7 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { localDate } from "../../api/client";
-import { useGoals, useLayout, useLists, usePoints, useSaveLayout, useTags, useTaskTrees } from "../../hooks/useTasks";
+import { useDropOnTab, useGoals, useLayout, useLists, usePoints, useSaveLayout, useTags, useTaskTrees } from "../../hooks/useTasks";
+import { statView } from "../../lib/folders";
 import {
   DAY_PARTS,
   NO_GROUP,
@@ -26,7 +27,7 @@ import {
 } from "../../lib/stats";
 import { daysBetween } from "../../lib/dates";
 import { SummaryCells } from "../Countdown/sheet";
-import { normalizeLayout, withHidden } from "../../lib/tileLayout";
+import { normalizeLayout, withHidden, type DashboardLayout } from "../../lib/tileLayout";
 import { HiddenRow } from "../Tiles/HiddenRow";
 import { TileFrame } from "../Tiles/TileFrame";
 import { TileGrid } from "../Tiles/TileGrid";
@@ -67,28 +68,61 @@ function Pick({ label, value, onChange, children }: { label: string; value: stri
   );
 }
 
+/** A box of the user's page: a tile of its grid. */
+export interface PageBox {
+  key: string;
+  /** Its name on the buttons, and in the Hidden row. */
+  label: string;
+  node: ReactNode;
+  /** A small box: half a column wide where there is room (see Tile). */
+  half?: boolean;
+  /** What it is called as a folder's view, if it can be copied into a folder (see Tile). */
+  view?: string;
+}
+
+const FILTER_BOX = "filter";
+
+/** An arrangement saved before `top` were tiles of the grid: they go where they were, above everything else. */
+function withTopBoxes(layout: DashboardLayout, top: string[]): DashboardLayout {
+  const placed = new Set([...layout.pinned, ...Object.values(layout.byColumns).flat(2)]);
+  const missing = top.filter((key) => !placed.has(key));
+  if (missing.length === 0) return layout;
+  const byColumns = Object.fromEntries(
+    Object.entries(layout.byColumns).map(([n, columns]) => [n, columns.map((column, i) => (i === 0 ? [...missing, ...column] : column))]),
+  );
+  return { ...layout, byColumns };
+}
+
+/** The boxes of the stats, by name, with what each is called on its buttons. The filter is one of them. */
+export const STAT_BOXES: Record<string, string> = {
+  [FILTER_BOX]: "Stats filter",
+  done: "Done",
+  written: "Written down",
+  deadlines: "Deadlines",
+  time: "Time to finish",
+  groups: "By list, goal or tag",
+  points: "Points",
+  unorganized: "Unorganized",
+};
+
 /**
- * The stats on the user's page: what got done and when, how deadlines went,
- * how long tasks take, and the point balance. One filter at the top narrows
- * every box below it; the boxes can be moved, pinned and hidden like the
- * dashboard's, with an arrangement of their own. Tasks only: reward lists are left out.
+ * The stats as boxes: what got done and when, how deadlines went, how long tasks take, and the point
+ * balance, plus the filter box that narrows the others. Tasks only: reward lists are left out.
+ * `boxes` is null until everything they need has loaded. Each use has a filter of its own.
  */
-export function StatsPanel() {
+export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null } {
   const trees = useTaskTrees();
   const lists = useLists();
   const goals = useGoals();
   const tags = useTags();
   const points = usePoints();
-  const layout = useLayout("stats");
-  const saveLayout = useSaveLayout("stats");
   const [filter, setFilter] = useState(NO_STAT_FILTER);
   const [groupKey, setGroupKey] = useState<GroupKey>("list");
   const all = useMemo(() => collectStats(trees.data ?? [], lists.data ?? []), [trees.data, lists.data]);
 
   const error = trees.error ?? lists.error ?? goals.error ?? tags.error ?? points.error;
-  if (error) return <p className="text-sm text-red-600">Couldn't load your stats: {error.message}</p>;
-  // The layout is waited for (not required), so the boxes don't jump once it arrives.
-  if (!trees.data || !lists.data || !goals.data || !tags.data || !points.data || layout.isLoading) return <p className="text-sm text-stone-500">Loading…</p>;
+  if (error) return { boxes: null, error };
+  if (!trees.data || !lists.data || !goals.data || !tags.data || !points.data) return { boxes: null, error: null };
 
   const today = localDate();
   const from = rangeStart(today, filter.range);
@@ -150,8 +184,70 @@ export function StatsPanel() {
 
   const balance = balanceSeries(points.data, from, today);
 
-  // Every stats box is a tile of a grid like the dashboard's: dragged by its tab button, pinned, or minimized away.
-  const boxes = [
+  const filterBox: PageBox = {
+    key: FILTER_BOX,
+    label: STAT_BOXES[FILTER_BOX],
+    node: (
+      <TileFrame title="Stats" aria-label="Stats">
+        <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
+          <Pick label="Dates" value={filter.range} onChange={(range) => set({ range: range as StatFilter["range"] })}>
+            {RANGES.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </Pick>
+          <Pick label="List" value={filter.listId} onChange={(listId) => set({ listId })}>
+            <option value="">All lists</option>
+            {taskLists.map((list) => (
+              <option key={list.id} value={list.id}>
+                {list.name}
+              </option>
+            ))}
+          </Pick>
+          <Pick label="Goal" value={filter.goalId} onChange={(goalId) => set({ goalId })}>
+            <option value="">Any goal</option>
+            {goals.data.map((goal) => (
+              <option key={goal.id} value={goal.id}>
+                {goal.name}
+              </option>
+            ))}
+          </Pick>
+          <Pick label="Tag" value={filter.tagId} onChange={(tagId) => set({ tagId })}>
+            <option value="">Any tag</option>
+            {tags.data.map((tag) => (
+              <option key={tag.id} value={tag.id}>
+                {tag.name}
+              </option>
+            ))}
+          </Pick>
+          <Pick label="Deadline" value={filter.deadline} onChange={(deadline) => set({ deadline: deadline as StatFilter["deadline"] })}>
+            <option value="">Any</option>
+            <option value="hard">Hard</option>
+            <option value="soft">Soft</option>
+            <option value="none">None</option>
+          </Pick>
+          <Pick label="Repeating" value={filter.repeating} onChange={(repeating) => set({ repeating: repeating as StatFilter["repeating"] })}>
+            <option value="">Any</option>
+            <option value="no">One-off</option>
+            <option value="yes">Persistent</option>
+          </Pick>
+          {filter !== NO_STAT_FILTER && (
+            <button type="button" className="btn-quiet" onClick={() => setFilter(NO_STAT_FILTER)}>
+              Clear
+            </button>
+          )}
+        </div>
+        <Note>
+          Tasks and subtasks, not rewards. A subtask counts under its main task's list, goals and tags. Dates narrow everything except
+          the counts, streaks and dots in Done and the Unorganized box.
+        </Note>
+      </TileFrame>
+    ),
+  };
+
+  const boxes: PageBox[] = [
+    filterBox,
     {
       key: "done",
       label: "Done",
@@ -330,72 +426,64 @@ export function StatsPanel() {
       ),
     },
   ];
-  const saved = normalizeLayout(layout.data);
+  return { boxes, error: null };
+}
+
+const StatBoxesContext = createContext<ReturnType<typeof useStatBoxes> | null>(null);
+
+/** Around a folder's page that shows boxes of the stats: works them out once, for every StatBoxView inside. */
+export function StatBoxesProvider({ children }: { children: ReactNode }) {
+  return <StatBoxesContext.Provider value={useStatBoxes()}>{children}</StatBoxesContext.Provider>;
+}
+
+/** One box of the stats, by its name in STAT_BOXES: a folder's copy of it. */
+export function StatBoxView({ name }: { name: string }) {
+  const stats = useContext(StatBoxesContext);
+  const box = stats?.boxes?.find((other) => other.key === name);
+  if (box) return box.node;
+  return (
+    <TileFrame title={STAT_BOXES[name] ?? "Stats"}>
+      {stats?.error ? <p className="text-sm text-red-600">Couldn't load your stats: {stats.error.message}</p> : <p className="text-sm text-stone-500">Loading…</p>}
+    </TileFrame>
+  );
+}
+
+/**
+ * The user's page: the boxes it is given (`before`: the account's), then the stats. All of them, the
+ * filter too, are tiles of one grid: moved, pinned and hidden like the dashboard's, over as many columns
+ * as fit, with an arrangement of their own. A stats box dropped on a folder's tab is shown in that folder too.
+ */
+export function StatsPanel({ before = [] }: { before?: PageBox[] }) {
+  const stats = useStatBoxes();
+  const layout = useLayout("stats");
+  const saveLayout = useSaveLayout("stats");
+  const drop = useDropOnTab();
+
+  // Without the stats, the account's boxes are still there (logging out, above all).
+  const alone = (message: ReactNode) => (
+    <div className="mx-auto max-w-3xl space-y-4">
+      {before.map((box) => (
+        <div key={box.key}>{box.node}</div>
+      ))}
+      {message}
+    </div>
+  );
+  if (stats.error) return alone(<p className="text-sm text-red-600">Couldn't load your stats: {stats.error.message}</p>);
+  // The layout is waited for (not required), so the boxes don't jump once it arrives.
+  if (!stats.boxes || layout.isLoading) return alone(<p className="text-sm text-stone-500">Loading…</p>);
+
+  // Every box is a tile of a grid like the dashboard's: dragged by its tab button, pinned, or minimized away.
+  const boxes = [...before, ...stats.boxes.map((box) => ({ ...box, view: statView(box.key) }))];
+  const saved = withTopBoxes(normalizeLayout(layout.data), [...before.map((box) => box.key), FILTER_BOX]);
   const isHidden = (key: string) => (saved.hidden ?? []).includes(key);
-  const tiles = boxes.filter((box) => !isHidden(box.key)).map((box) => ({ key: box.key, name: box.label, node: box.node, canHide: true }));
+  const tiles = boxes.filter((box) => !isHidden(box.key)).map((box) => ({ key: box.key, name: box.label, node: box.node, half: box.half, view: box.view, canHide: true }));
 
   return (
     <>
-      <div className="mx-auto max-w-3xl">
-        <TileFrame title="Stats" aria-label="Stats">
-          <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
-            <Pick label="Dates" value={filter.range} onChange={(range) => set({ range: range as StatFilter["range"] })}>
-              {RANGES.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </Pick>
-            <Pick label="List" value={filter.listId} onChange={(listId) => set({ listId })}>
-              <option value="">All lists</option>
-              {taskLists.map((list) => (
-                <option key={list.id} value={list.id}>
-                  {list.name}
-                </option>
-              ))}
-            </Pick>
-            <Pick label="Goal" value={filter.goalId} onChange={(goalId) => set({ goalId })}>
-              <option value="">Any goal</option>
-              {goals.data.map((goal) => (
-                <option key={goal.id} value={goal.id}>
-                  {goal.name}
-                </option>
-              ))}
-            </Pick>
-            <Pick label="Tag" value={filter.tagId} onChange={(tagId) => set({ tagId })}>
-              <option value="">Any tag</option>
-              {tags.data.map((tag) => (
-                <option key={tag.id} value={tag.id}>
-                  {tag.name}
-                </option>
-              ))}
-            </Pick>
-            <Pick label="Deadline" value={filter.deadline} onChange={(deadline) => set({ deadline: deadline as StatFilter["deadline"] })}>
-              <option value="">Any</option>
-              <option value="hard">Hard</option>
-              <option value="soft">Soft</option>
-              <option value="none">None</option>
-            </Pick>
-            <Pick label="Repeating" value={filter.repeating} onChange={(repeating) => set({ repeating: repeating as StatFilter["repeating"] })}>
-              <option value="">Any</option>
-              <option value="no">One-off</option>
-              <option value="yes">Persistent</option>
-            </Pick>
-            {filter !== NO_STAT_FILTER && (
-              <button type="button" className="btn-quiet" onClick={() => setFilter(NO_STAT_FILTER)}>
-                Clear
-              </button>
-            )}
-          </div>
-          <Note>
-            Tasks and subtasks, not rewards. A subtask counts under its main task's list, goals and tags. Dates narrow everything except
-            the counts, streaks and dots in Done and the Unorganized box.
-          </Note>
-        </TileFrame>
-      </div>
-      <TileGrid tiles={tiles} order={boxes.map((box) => box.key)} layout={saved} onChange={(next) => saveLayout.mutate(next)} />
+      <TileGrid tiles={tiles} order={boxes.map((box) => box.key)} layout={saved} onChange={(next) => saveLayout.mutate(next)} onDropOnTab={drop.dropOnTab} />
       <HiddenRow tiles={boxes.filter((box) => isHidden(box.key))} onShow={(key) => saveLayout.mutate(withHidden(saved, key, false))} />
       {saveLayout.error && <p className="text-center text-sm text-red-600">Couldn't save the layout: {saveLayout.error.message}</p>}
+      {drop.error && <p className="text-center text-sm text-red-600">Couldn't change the folder: {drop.error.message}</p>}
     </>
   );
 }

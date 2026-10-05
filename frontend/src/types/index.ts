@@ -1,9 +1,13 @@
 // Hand-mirrored from the backend's Prisma models (see PLAN.md: no shared package in v1).
 import type { DashboardLayout } from "../lib/tileLayout";
 
+/** What the lists do with a ticked task: put it under the open ones, leave it where it is, or take it out of sight. */
+export type TickedTasks = "bottom" | "stay" | "hide";
+
 export interface User {
   id: string;
   username: string;
+  tickedTasks: TickedTasks;
 }
 
 export interface Goal {
@@ -33,18 +37,18 @@ export interface List {
   defaultPoints: number;
   /** The colour picked for its box, "#rrggbb"; null = the kind's own (blue for tasks, orange for rewards). */
   color: string | null;
-  /** The folder (a tab of its own in the task bar) it was moved to; null = on the Tasks page. */
-  folderId: string | null;
 }
 
-/** A tab of the user's own in the task bar, holding lists. */
+/** A tab of the user's own in the task bar: a page of views, copies of boxes that live elsewhere. */
 export interface Folder {
   id: string;
   name: string;
   /** The colour of its icon, "#rrggbb"; null = the icon as drawn. */
   color: string | null;
-  /** How its page arranges its lists. */
+  /** How its page arranges its boxes. */
   layout: DashboardLayout | null;
+  /** The boxes it shows, by key: "list:<id>" (the list stays on the Tasks page too) or "stat:<name>" (a box of the stats). */
+  views: string[];
 }
 
 export type RepeatUnit = "day" | "week" | "month";

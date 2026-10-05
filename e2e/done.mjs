@@ -62,7 +62,8 @@ out("the main task itself is not there: it isn't finished", (await p.locator("[d
 await p.locator(`[data-done-on="${day(-1)}"] input[type=checkbox]`).click(); await wait(600);
 out("unticking one there takes it off, and its day with it", (await p.locator(`[data-done-on="${day(-1)}"]`).count()) === 0 && (await p.locator("[data-done-subtask]").count()) === 2);
 await p.click('nav [aria-label="Tasks"]'); await p.waitForSelector("section[data-drop-list]"); await wait(); await expandAll();
-await tick("Exam"); await wait(500);
+// A task is ticked last: the subtask unticked above goes first.
+await tick("Ch 2"); await tick("Exam"); await wait(500);
 await p.click('nav [aria-label="Done"]'); await p.waitForSelector("[data-done-on]"); await wait();
 out("finishing the main task adds it under today; earlier subtasks keep their own days", (await p.locator(`[data-done-on="${day(0)}"] [data-finished]`).count()) === 1 && (await onDay(-2)).startsWith("Ch 1 Exam"), await onDay(-2));
 await p.screenshot({ path: "done-tab.png", fullPage: true });

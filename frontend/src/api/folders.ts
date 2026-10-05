@@ -7,13 +7,15 @@ export interface FolderChanges {
   /** "#rrggbb"; null = the icon as drawn. */
   color?: string | null;
   layout?: DashboardLayout;
+  /** The full set of boxes it shows. */
+  views?: string[];
 }
 
 export const listFolders = () => api<{ folders: Folder[] }>("/folders").then((r) => r.folders);
-/** `listIds`: lists to put in it straight away. */
-export const createFolder = (body: { name?: string; listIds?: string[] }) =>
+/** `views`: boxes it shows straight away. */
+export const createFolder = (body: { name?: string; views?: string[] }) =>
   api<{ folder: Folder }>("/folders", { body }).then((r) => r.folder);
 export const updateFolder = (id: string, body: FolderChanges) =>
   api<{ folder: Folder }>(`/folders/${id}`, { method: "PATCH", body }).then((r) => r.folder);
-/** Its lists go back to the Tasks page. */
+/** Only the tab goes: what it showed lives elsewhere. */
 export const deleteFolder = (id: string) => api(`/folders/${id}`, { method: "DELETE" });

@@ -36,6 +36,13 @@ enum ListKind {
   reward
 }
 
+// Where a ticked task goes in its list: under the open ones, nowhere (it stays put), or out of sight.
+enum TickedTasks {
+  bottom
+  stay
+  hide
+}
+
 model User {
   id              String   @id @default(uuid())
   username        String   @unique
@@ -47,6 +54,8 @@ model User {
   statsLayout     Json?
   // What a task written straight into Today (so in no list) is worth, unless it has its own amount.
   todayPoints     Int      @default(2)
+  // What the lists do with a ticked task.
+  tickedTasks     TickedTasks @default(bottom)
 
   goals             Goal[]
   tags              Tag[]
@@ -149,8 +158,6 @@ model List {
   kind          ListKind  @default(task)
   // The colour of the list's box, "#rrggbb", picked by the user. Null = the kind's own: blue for tasks, orange for rewards.
   color         String?
-  // The folder (a tab of its own in the task bar) the list was moved to. Null = on the Tasks page.
-  folderId      String?
   // What a top-level task in this list is worth unless it has its own amount.
   defaultPoints Int       @default(1)
   isArchived    Boolean   @default(false)
@@ -158,15 +165,13 @@ model List {
   deletedAt     DateTime?
   createdAt     DateTime  @default(now())
 
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  folder Folder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
-  tasks  Task[]
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks Task[]
 
   @@index([userId])
-  @@index([folderId])
 }
 
-// A tab of the user's own in the task bar, holding lists. Removing it puts its lists back on the Tasks page.
+// A tab of the user's own in the task bar: a page of views. Removing it removes nothing else.
 model Folder {
   id        String   @id @default(uuid())
   userId    String
@@ -174,12 +179,14 @@ model Folder {
   // The colour of its icon, "#rrggbb"; null = the icon as drawn.
   color     String?
   position  Int      @default(0)
-  // How the folder's page arranges its lists; the same shape as User.dashboardLayout.
+  // How the folder's page arranges its boxes; the same shape as User.dashboardLayout.
   layout    Json?
+  // The boxes it shows, by key: "list:<id>" (a list, which stays on the Tasks page too) or "stat:<name>"
+  // (a box of the stats). A key whose list is gone shows nothing.
+  views     Json     @default("[]")
   createdAt DateTime @default(now())
 
-  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lists List[]
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }

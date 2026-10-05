@@ -12,6 +12,8 @@ import {
 import type { TaskPlacement } from "../../api/tasks";
 import { edgeScroller } from "../../lib/edgeScroll";
 import { NO_FILTER, type LabelFilter } from "../../lib/labels";
+import { isShown } from "../../lib/recent";
+import { useTickedTasks } from "../../hooks/useAuth";
 import {
   useDeleteList,
   useDeleteTask,
@@ -23,7 +25,7 @@ import {
   useToggleTask,
   useUndoPress,
 } from "../../hooks/useTasks";
-import type { List, TaskTreeNode } from "../../types";
+import type { List, TaskTreeNode, TickedTasks } from "../../types";
 import { focusTaskEditor } from "./TitleEditor";
 
 /** The not-yet-saved task row opened by Enter / Ctrl+Enter. */
@@ -52,6 +54,8 @@ interface TreeContextValue {
   newTaskLabels: LabelFilter;
   /** On a task's own page: that task. Enter on it adds a subtask, since a new main task wouldn't show on the page. */
   rootId: string | null;
+  /** What the lists do with a ticked task: the user's choice on their page. */
+  ticked: TickedTasks;
   draggingId: string | null;
   dropTarget: DropTarget | null;
   /** Call from the drag handle's onPointerDown. Works for mouse and touch. */
@@ -62,7 +66,7 @@ interface TreeContextValue {
   deleteTask: (node: TaskTreeNode) => void;
   /** Deletes the list with all its tasks; undoable the same way. */
   deleteList: (list: List) => void;
-  /** Ticks a main task, which sends it to the Done tab; undoable, so a slip doesn't mean a trip there. */
+  /** Ticks a task and offers the undo: for a main task, which goes to the Done tab, so a slip doesn't mean a trip there. */
   finishTask: (node: TaskTreeNode) => void;
   /** One press of a persistent task's "done it" button; undoable. */
   pressTask: (node: TaskTreeNode) => void;
@@ -125,6 +129,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [undoable, setUndoable] = useState<Undoable[]>([]);
+  const ticked = useTickedTasks();
   const move = useMoveTask();
   const toggle = useToggleTask();
   const press = usePressTask();
@@ -333,15 +338,18 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
   const moveBy = useCallback(
     (node: TaskTreeNode, direction: -1 | 1) => {
       const siblings = siblingsOf(node);
-      // Ticked tasks are shown under the open ones, so step over siblings of the other kind: the swap is with the row next to it on screen.
+      // The swap is with the row next to it on screen. Ticked tasks shown under the open ones: step over siblings of
+      // the other kind. Otherwise rows are in their own order, and a list leaves out the ticked ones it no longer shows.
+      const steppedOver = (sibling: TaskTreeNode) =>
+        ticked === "bottom" ? sibling.isComplete !== node.isComplete : rootId === null && !isShown(sibling, ticked);
       let index = siblings.findIndex((s) => s.id === node.id) + direction;
-      while (siblings[index] && siblings[index].isComplete !== node.isComplete) index += direction;
+      while (siblings[index] && steppedOver(siblings[index])) index += direction;
       if (index < 0 || index >= siblings.length) return;
       const placement = { parentId: node.parentId, listId: node.parentId ? null : node.listId, index };
       // The row is re-inserted in the DOM, which drops focus; put it back.
       move.mutateAsync({ id: node.id, placement }).then(() => focusTaskEditor(node.id), () => {});
     },
-    [move, siblingsOf],
+    [move, siblingsOf, ticked, rootId],
   );
 
   const value: TreeContextValue = {
@@ -352,6 +360,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
     draftPlacement,
     newTaskLabels,
     rootId,
+    ticked,
     draggingId,
     dropTarget,
     startDrag,

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as authApi from "../api/auth";
 import { ApiError } from "../api/client";
+import type { TickedTasks, User } from "../types";
 
 const ME = ["me"];
 
@@ -17,6 +18,24 @@ export function useMe() {
     staleTime: Infinity,
   });
   return { user: query.data, isLoading: query.isLoading, error: query.error };
+}
+
+/** What the lists do with a ticked task; under the open ones unless the user chose otherwise on their page. */
+export function useTickedTasks(): TickedTasks {
+  return useMe().user?.tickedTasks ?? "bottom";
+}
+
+/** A setting of the account's: shows at once and is saved in the background. */
+export function useUpdateMe() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: authApi.updateMe,
+    onMutate: (changes) => {
+      queryClient.setQueryData<User | null>(ME, (user) => user && { ...user, ...changes });
+    },
+    onSuccess: (user) => queryClient.setQueryData(ME, user),
+    onError: () => queryClient.invalidateQueries({ queryKey: ME }),
+  });
 }
 
 export function useLogin(mode: "login" | "signup") {

@@ -4,7 +4,7 @@ import { PixelCheckbox } from "../PixelCheckbox";
 import { usePoints, useSetToday, useSetTodayPoints, useToggleTask } from "../../hooks/useTasks";
 import { daysBetween } from "../../lib/dates";
 import { isDue } from "../../lib/repeat";
-import type { TaskTreeNode } from "../../types";
+import type { TaskTreeNode, TickedTasks } from "../../types";
 import { ValueChip } from "../Points/ValueChip";
 import { PressCopies } from "../TaskTree/PressCopies";
 import { TaskForm } from "../TaskTree/TaskForm";
@@ -29,22 +29,23 @@ const since = (node: TaskTreeNode) => node.todaySince ?? node.nextDue!;
 /**
  * Everything from the lists that is marked for Today, at any depth, plus the main tasks on a
  * schedule that are due: those come in by themselves and leave when done. Open items stay from day to day;
- * a ticked one stays for the rest of the day it was ticked on. Subtasks left
- * open inside a finished main task went to the Done tab with it.
+ * a ticked one stays for the rest of the day it was ticked on (or goes at once, if the user chose to hide
+ * ticked tasks). Subtasks left open inside a finished main task went to the Done tab with it.
  */
-function todayItems(trees: TaskTreeNode[], today: string): TodayItem[] {
+function todayItems(trees: TaskTreeNode[], today: string, ticked: TickedTasks): TodayItem[] {
   const found: TodayItem[] = [];
   const visit = (nodes: TaskTreeNode[], path: string[], rootFinished: boolean) => {
     for (const node of nodes) {
-      const shown = node.isComplete ? node.completedOn === today : !rootFinished;
+      const shown = node.isComplete ? ticked !== "hide" && node.completedOn === today : !rootFinished;
       const isIn = node.todaySince !== null || (path.length === 0 && isDue(node, today));
       if (isIn && shown && !livesInToday(node)) found.push({ node, path });
       visit(node.children, [...path, firstLine(node.title)], rootFinished || (path.length === 0 && node.isComplete));
     }
   };
   visit(trees, [], false);
-  // Open ones first, ticked ones under them; longest-waiting first in each.
-  return found.sort((a, b) => Number(a.node.isComplete) - Number(b.node.isComplete) || since(a.node).localeCompare(since(b.node)));
+  // Longest-waiting first; ticked ones under the open ones, unless the user chose to leave them where they are.
+  const tickedLast = (item: TodayItem) => Number(ticked === "bottom" && item.node.isComplete);
+  return found.sort((a, b) => tickedLast(a) - tickedLast(b) || since(a.node).localeCompare(since(b.node)));
 }
 
 function TodayRow({ node, path, today }: TodayItem & { today: string }) {
@@ -55,6 +56,7 @@ function TodayRow({ node, path, today }: TodayItem & { today: string }) {
   const isPersistent = node.isPersistent && !node.parentId;
   const pressedToday = node.completions.filter((press) => press.day === today).length;
   const error = toggle.error ?? setToday.error;
+  const hasOpenSubtasks = !node.isComplete && node.descendantDoneCount < node.descendantCount;
 
   return (
     <li data-today-item={node.id}>
@@ -68,9 +70,11 @@ function TodayRow({ node, path, today }: TodayItem & { today: string }) {
           />
         ) : (
           <PixelCheckbox
+            className={hasOpenSubtasks ? "opacity-40" : ""}
             checked={node.isComplete}
-            disabled={toggle.isPending}
-            onChange={() => (!node.parentId && !node.isComplete ? tree.finishTask(node) : toggle.mutate(node.id))}
+            disabled={toggle.isPending || hasOpenSubtasks}
+            title={hasOpenSubtasks ? "Tick its subtasks first" : undefined}
+            onChange={() => (!node.isComplete && (!node.parentId || tree.ticked === "hide") ? tree.finishTask(node) : toggle.mutate(node.id))}
             aria-label={`Mark "${node.title}" ${node.isComplete ? "not done" : "done"}`}
           />
         )}
@@ -147,10 +151,10 @@ function TodayPoints() {
  * into the field at the bottom live here alone, until they are dragged to a list.
  */
 export function TodayBox({ tasks }: { tasks: TaskTreeNode[] }) {
-  const { dropTarget } = useTree();
+  const { dropTarget, ticked } = useTree();
   const today = localDate();
-  const items = todayItems(tasks, today);
-  const own = tasks.filter((task) => livesInToday(task) && (!task.isComplete || task.completedOn === today));
+  const items = todayItems(tasks, today, ticked);
+  const own = tasks.filter((task) => livesInToday(task) && (!task.isComplete || (ticked !== "hide" && task.completedOn === today)));
   const left = [...items.map((item) => item.node), ...own].filter((node) => !node.isComplete && !node.isPersistent).length;
 
   return (

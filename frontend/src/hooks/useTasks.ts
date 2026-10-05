@@ -6,6 +6,7 @@ import * as tagsApi from "../api/tags";
 import * as tasksApi from "../api/tasks";
 import { localDate } from "../api/client";
 import { findNode, toggleInCountdown, toggleInTrees, type CompletionChange } from "../lib/optimisticToggle";
+import { NAME_FOLDER_EVENT } from "../lib/folders";
 import type { DashboardLayout } from "../lib/tileLayout";
 import type { Countdown, Folder, TaskTreeNode } from "../types";
 
@@ -140,9 +141,9 @@ export const useDeleteGoal = () => useInvalidating(goalsApi.deleteGoal, [GOALS, 
 export const useCreateTag = () => useInvalidating(tagsApi.createTag, [TAGS]);
 export const useDeleteTag = () => useInvalidating(tagsApi.deleteTag, [TAGS, TASKS]);
 
-// A folder made by dropping a list on "New" takes that list with it.
-export const useCreateFolder = () => useInvalidating(foldersApi.createFolder, [FOLDERS, LISTS]);
-/** Name, colour or arrangement: shows at once and is saved in the background. */
+// A folder made by dropping a box on "New" shows that box.
+export const useCreateFolder = () => useInvalidating(foldersApi.createFolder, [FOLDERS]);
+/** Name, colour, arrangement or views: shows at once and is saved in the background. */
 export function useUpdateFolder() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -153,10 +154,34 @@ export function useUpdateFolder() {
     onError: () => queryClient.invalidateQueries({ queryKey: FOLDERS }),
   });
 }
-// Removing a folder puts its lists back on the Tasks page.
-export const useDeleteFolder = () => useInvalidating(foldersApi.deleteFolder, [FOLDERS, LISTS]);
+// Removing a folder removes its tab only.
+export const useDeleteFolder = () => useInvalidating(foldersApi.deleteFolder, [FOLDERS]);
 
-export const useCreateList = () => useInvalidating(listsApi.createList, [LISTS]);
+/**
+ * What a box dropped on a tab of the task bar does (TileGrid's onDropOnTab). On a folder's tab: the folder shows
+ * it too, a copy, the box stays where it is. On "New": a folder is made that shows it, and asks for its name.
+ * On "Tasks", from a folder's own page (`openFolderId`): that folder stops showing it.
+ */
+export function useDropOnTab(openFolderId: string | null = null) {
+  const { data: folders = [] } = useFolders();
+  const createFolder = useCreateFolder();
+  const updateFolder = useUpdateFolder();
+  function dropOnTab(view: string, tab: string) {
+    if (tab === "new") {
+      createFolder.mutate({ views: [view] }, { onSuccess: (made) => window.dispatchEvent(new CustomEvent(NAME_FOLDER_EVENT, { detail: made.id })) });
+      return;
+    }
+    const folder = folders.find((f) => f.id === (tab === "main" ? openFolderId : tab));
+    if (!folder) return;
+    const shows = folder.views.includes(view);
+    if (tab === "main") updateFolder.mutate({ id: folder.id, changes: { views: folder.views.filter((other) => other !== view) } });
+    else if (!shows) updateFolder.mutate({ id: folder.id, changes: { views: [...folder.views, view] } });
+  }
+  return { dropOnTab, error: createFolder.error ?? updateFolder.error };
+}
+
+// A list made on a folder's page is shown by that folder.
+export const useCreateList = () => useInvalidating(listsApi.createList, [LISTS, FOLDERS]);
 // A list's kind and default decide what its tasks are worth.
 export const useUpdateList = () =>
   useInvalidating(

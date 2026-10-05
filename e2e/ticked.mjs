@@ -27,18 +27,47 @@ await tick("a2");
 out("ticked subtasks keep their own order", (await order()) === "A a3 a1 a2 B C", await order());
 await tick("a1");
 out("unticked: back in its place", (await order()) === "A a1 a3 a2 B C", await order());
+// A task is ticked last: everything beneath it first.
+const box = (title) => row(title).locator("input[type=checkbox]");
+out("a task with open subtasks can't be ticked", await box("A").isDisabled() && (await box("A").getAttribute("title")) === "Tick its subtasks first");
+const idOfA = await row("A").getAttribute("data-task-row");
+const refused = await p.evaluate(async (id) => { const r = await fetch(`/api/tasks/${id}/toggle`, { method: "PATCH", headers: { "X-Local-Date": new Date().toISOString().slice(0, 10) } }); return `${r.status} ${(await r.json()).error}`; }, idOfA);
+out("nor behind the page's back", refused === "400 Tick its subtasks first", refused);
+await tick("a1"); await tick("a3");
+out("all subtasks ticked: the task can be", (await box("A").isEnabled()) && (await order()) === "A a1 a2 a3 B C", await order());
 await tick("A");
-out("a ticked main task goes under the open main tasks", (await order()) === "B C A a1 a3 a2", await order());
+out("a ticked main task goes under the open main tasks", (await order()) === "B C A a1 a2 a3", await order());
 await p.reload(); await p.waitForSelector("[data-task-row]"); await wait(); await expandAll();
-out("the same after a reload", (await order()) === "B C A a1 a3 a2", await order());
+out("the same after a reload", (await order()) === "B C A a1 a2 a3", await order());
 await tick("A");
-out("unticked main task: back on top", (await order()) === "A a1 a3 a2 B C", await order());
+out("unticked main task: back on top", (await order()) === "A a1 a2 a3 B C", await order());
 
 // Alt+arrows swap with the row next to it on screen, stepping over the ticked one in between.
 await tick("B");
-out("B ticked", (await order()) === "A a1 a3 a2 C B", await order());
+out("B ticked", (await order()) === "A a1 a2 a3 C B", await order());
 await row("C").locator("textarea").click(); await p.keyboard.press("Alt+ArrowUp"); await wait();
-out("Alt+Up moves C above A", (await order()) === "C A a1 a3 a2 B", await order());
+out("Alt+Up moves C above A", (await order()) === "C A a1 a2 a3 B", await order());
 await p.keyboard.press("Alt+ArrowDown"); await wait();
-out("Alt+Down moves it back under A", (await order()) === "A a1 a3 a2 C B", await order());
+out("Alt+Down moves it back under A", (await order()) === "A a1 a2 a3 C B", await order());
+
+// The user's page says what the lists do with ticked tasks.
+const choose = async (value) => { await p.goto("http://localhost:5173/user"); await p.selectOption("[data-ticked-tasks]", value); await wait(); await p.goto("http://localhost:5173/"); await p.waitForSelector("[data-task-row]"); await wait(); await expandAll(); };
+await tick("B"); await row("B").locator("textarea").click(); await p.keyboard.press("Alt+ArrowUp"); await wait(); await tick("B"); await tick("a1");
+out("B back between A and C, ticked; a1 unticked", (await order()) === "A a1 a2 a3 C B", await order());
+await choose("stay");
+out("stay: ticked tasks keep their place", (await order()) === "A a1 a2 a3 B C", await order());
+await tick("a1");
+out("stay: nothing moves on a tick", (await order()) === "A a1 a2 a3 B C", await order());
+await row("C").locator("textarea").click(); await p.keyboard.press("Alt+ArrowUp"); await wait();
+out("stay: Alt+Up swaps with the ticked row above", (await order()) === "A a1 a2 a3 C B", await order());
+await choose("hide");
+out("hide: ticked tasks and subtasks are gone", (await order()) === "A C", await order());
+await tick("C");
+out("hide: a task goes the moment it is ticked", (await order()) === "A", await order());
+await p.keyboard.press("Control+z"); await wait(600);
+out("hide: Ctrl+Z brings it back", (await order()) === "A C", await order());
+await p.reload(); await p.waitForSelector("[data-task-row]"); await wait(); await expandAll();
+out("hide: kept after a reload", (await order()) === "A C", await order());
+await choose("bottom");
+out("bottom again", (await order()) === "A a1 a2 a3 C B", await order());
 await b.close();

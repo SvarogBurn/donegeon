@@ -36,7 +36,11 @@ out("merged 'Essay deadline' row just above its day", l[3] === "Essay deadline" 
 out("'Exam deadline' row closes the table; the empty 0-per-day day after it is hidden", l.at(-1) === "Exam deadline" && l.at(-2).includes(short(6)), l.slice(-2).join(" / "));
 out("summary: 13 tasks, 0 done, 13 left, 2 deadlines", JSON.stringify(await table.locator("[data-summary]").allInnerTexts()) === '["13","0","13","2"]');
 
-// finish the essay by ticking the main task: its open subtasks count as done with it, and only the exam's 1 per day is left
+// finish the essay: its subtasks first (a task can't be ticked before them), then the main task; only the exam's 1 per day is left
+{ const essay = p.locator(`li:has(> [data-task-row] textarea:text-is("Essay"))`).first();
+  if ((await essay.locator('> [data-task-row] [aria-label="Expand subtasks"]').count()) > 0) await essay.locator('> [data-task-row] [aria-label="Expand subtasks"]').click();
+  const open = essay.locator("ul input[type=checkbox]:not(:checked)");
+  while ((await open.count()) > 0) { await open.first().click(); await wait(350); } }
 await row("Essay").locator("input[type=checkbox]").click(); await wait(250);
 await wait(800); l = await lines();
 out("essay done today: 6 done, exam alone at 1 per day", l[0].endsWith("|6|7|1") && l[4].endsWith("|7|1"), `${l[0]} / ${l[4]}`);

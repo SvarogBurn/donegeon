@@ -35,17 +35,18 @@ out("to start with: no folders, and the New tab out of sight", (await tabs()) ==
 const lit = await drop("Work", p.locator('nav [aria-label="New folder"]'));
 out("a list dragged over the New tab lights it up", lit);
 out("the New tab went away with the drag", !(await newTab.isVisible()));
-out("dropped: a folder with its name open for typing; the list has left the Tasks page", (await tabs()) === "Folder" && await editor.locator('[aria-label="Folder name"]').evaluate((el) => el === document.activeElement) && (await names()) === "List,Home,Garden", `${await tabs()} / ${await names()}`);
+out("dropped: a folder with its name open for typing; the list stays on the Tasks page too", (await tabs()) === "Folder" && await editor.locator('[aria-label="Folder name"]').evaluate((el) => el === document.activeElement) && (await names()) === "List,Work,Home,Garden", `${await tabs()} / ${await names()}`);
 await p.keyboard.type("Job"); await p.keyboard.press("Enter"); await wait();
 out("named", (await tabs()) === "Job" && await editor.count() === 0, await tabs());
 
 // More lists into the same folder; the folder's page.
 await drop("Home", tab("Job"));
-out("another list dropped on the folder's tab goes in too", (await names()) === "List,Garden", await names());
+out("another list dropped on the folder's tab: still on Tasks", (await names()) === "List,Work,Home,Garden", await names());
+await drop("Home", tab("Job"));
 await tab("Job").click(); await p.waitForSelector("[data-folder-title]"); await wait();
-out("the folder's page shows its lists, with their tasks, and a new-list field", (await names()) === "Work,Home" && await p.locator("[data-folder-title]").innerText() === "Job" && await p.locator('[data-task-row]:has(textarea:text-is("Report"))').count() === 1 && await p.locator("[data-tile]").count() === 3, await names());
+out("the folder's page shows each list once (dropped twice or not), with their tasks, and a new-list field", (await names()) === "Work,Home" && await p.locator("[data-folder-title]").innerText() === "Job" && await p.locator('[data-task-row]:has(textarea:text-is("Report"))').count() === 1 && await p.locator("[data-tile]").count() === 3, await names());
 await p.fill('[aria-label="New list name"]', "Inbox"); await p.locator('[aria-label="New list name"]').press("Enter"); await wait(700);
-out("a list made on the folder's page belongs to the folder", (await names()) === "Work,Home,Inbox", await names());
+out("a list made on the folder's page is shown in the folder", (await names()) === "Work,Home,Inbox", await names());
 
 // Name and colour: by clicking the open tab, by right-click, by holding.
 await tab("Job").click(); await wait(300);
@@ -75,18 +76,39 @@ out("once used it is out of sight again", !(await newTab.isVisible()));
 await p.keyboard.type("Later"); await p.keyboard.press("Enter"); await wait();
 out("the New tab makes an empty folder by a click", (await tabs()) === "Career,Later", await tabs());
 await drop("Inbox", tab("Later"));
-out("a list can be dragged from one folder to another", (await names()) === "Work,Home", await names());
+out("a list dragged from one folder's page to another folder stays in the first", (await names()) === "Work,Home,Inbox", await names());
 await drop("Home", p.locator('nav [aria-label="Tasks"]'));
-out("and back out, onto Tasks", (await names()) === "Work", await names());
+out("dragged onto Tasks, it is no longer shown in this folder", (await names()) === "Work,Inbox", await names());
 await p.reload(); await p.waitForSelector("[data-folder-title]"); await wait();
-out("all of it is kept after a reload", (await tabs()) === "Career,Later" && (await names()) === "Work", `${await tabs()} / ${await names()}`);
+out("all of it is kept after a reload", (await tabs()) === "Career,Later" && (await names()) === "Work,Inbox", `${await tabs()} / ${await names()}`);
+await tab("Later").click(); await wait(700);
+out("the other folder shows the list copied into it", (await names()) === "Inbox", await names());
+
+// Boxes of the stats can be copied into a folder too.
+await p.goto("http://localhost:5173/user"); await p.waitForSelector('section[aria-label="Done stats"]'); await wait();
+const dropStat = async (key, target) => {
+  await p.locator(`[data-tile="${key}"] .tile-band`).evaluate((el) => el.scrollIntoView({ block: "center" })); await wait(200);
+  const h = await p.locator(`[data-tile="${key}"] .tile-button-tab`).boundingBox();
+  await p.mouse.move(h.x + h.width / 2, h.y + h.height / 2); await p.mouse.down(); await p.mouse.move(h.x + 40, h.y + 60, { steps: 4 }); await wait(150);
+  const t = await target.boundingBox(); await p.mouse.move(t.x + t.width / 2, t.y + t.height / 2, { steps: 10 }); await wait(200); await p.mouse.up(); await wait(800);
+};
+await dropStat("done", tab("Later")); await dropStat("filter", tab("Later"));
+out("a stats box dropped on a folder stays on the user's page", await p.locator('[data-tile="done"]').count() === 1 && await p.locator('[data-tile="account"] .tile-button-tab').count() === 1);
+await tab("Later").click(); await p.waitForSelector("[data-folder-title]"); await wait(700);
+const tileKeys = () => p.locator("[data-tile]").evaluateAll((els) => els.map((e) => e.dataset.tile.replace(/^list:.*/, "list")).join(","));
+out("and shows in the folder, after its list", (await tileKeys()) === "list,stat:done,stat:filter,newList" && await p.locator('section[aria-label="Done stats"]').count() === 1, await tileKeys());
+await p.locator('section[aria-label="Stats"] label:has-text("Deadline") select').selectOption({ label: "Hard" }); await wait(300);
+out("the folder's copy of the filter works on the folder's stats", await p.locator('section[aria-label="Stats"] button:text-is("Clear")').count() === 1);
+await dropStat("stat:filter", p.locator('nav [aria-label="Tasks"]'));
+out("dragged onto Tasks, a stats box leaves the folder", (await tileKeys()) === "list,stat:done,newList", await tileKeys());
+await tab("Career").click(); await wait(700);
 await p.locator('nav [aria-label="Tasks"]').click(); await p.waitForSelector('section[aria-label="Today"]'); await wait();
-out("the Tasks page has the lists that are in no folder", (await names()).split(",").sort().join() === "Garden,Home,List", await names());
+out("the Tasks page has every list, in a folder or not", (await names()).split(",").sort().join() === "Garden,Home,Inbox,List,Work", await names());
 
 // Removing a folder keeps its lists.
 await tab("Later").click({ button: "right" }); await wait(300);
 await editor.locator('button:text-is("Remove folder")').click(); await wait(800);
-out("removing a folder puts its lists back on Tasks", (await tabs()) === "Career" && (await names()).split(",").sort().join() === "Garden,Home,Inbox,List", `${await tabs()} / ${await names()}`);
+out("removing a folder removes no list", (await tabs()) === "Career" && (await names()).split(",").sort().join() === "Garden,Home,Inbox,List,Work", `${await tabs()} / ${await names()}`);
 await p.goto("http://localhost:5173/folders/00000000-0000-4000-8000-000000000000"); await wait(900);
 out("a folder that doesn't exist leads back to Tasks", new URL(p.url()).pathname === "/");
 await p.screenshot({ path: "folders.png" });

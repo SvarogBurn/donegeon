@@ -273,11 +273,19 @@ tasksRouter.patch("/:id", async (req, res) => {
 });
 
 // Flips completion for this one node only; parents and children are untouched.
-// Ticking a task that is worth something books its points (a reward's cost, in
-// a reward list); un-ticking reverses exactly that booking.
+// A task can only be ticked once everything beneath it is. Ticking a task that
+// is worth something books its points (a reward's cost, in a reward list);
+// un-ticking reverses exactly that booking.
 tasksRouter.patch("/:id/toggle", async (req, res) => {
   const task = await ownTask(req, req.params.id);
   if (task.isPersistent) throw new HttpError(400, "A persistent task is done with its “done it” button");
+  if (!task.isComplete) {
+    const all = await liveTasks(task.userId);
+    const below = new Set(subtreeIds(all, task.id));
+    if (all.some((t) => below.has(t.id) && t.id !== task.id && !t.isComplete)) {
+      throw new HttpError(400, "Tick its subtasks first");
+    }
+  }
   const updated = await prisma.$transaction(async (tx) => {
     if (task.isComplete) await reverseTaskBooking(tx, task);
     else await bookTask(tx, task);

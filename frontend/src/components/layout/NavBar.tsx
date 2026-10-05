@@ -68,7 +68,7 @@ export function NavBar({ user }: { user: User }) {
       <div className="flex items-center justify-between gap-x-2 px-2 py-1.5 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:gap-x-4 sm:px-3">
         {/* With folders there can be many tabs: they wrap onto more rows, or on a phone scroll sideways in one. */}
         <nav className="flex min-w-0 items-center gap-1 max-sm:overflow-x-auto sm:flex-wrap" aria-label="Pages">
-          {/* A list dropped on Tasks leaves its folder (see FolderTabs). */}
+          {/* A box dragged from a folder's page and dropped on Tasks is no longer shown in that folder (see useDropOnTab). */}
           <NavLink to="/" end className={tab} aria-label="Tasks" data-tab-drop="main">
             <span className="tab-icon tab-icon-tasks" aria-hidden />
             Tasks

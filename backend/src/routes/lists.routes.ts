@@ -18,22 +18,15 @@ export const color = z
   .transform((hex) => hex.toLowerCase())
   .nullable();
 
-/** The folder the list sits in; null = the Tasks page. */
-const folderId = z.string().uuid().nullable();
-
-const listInput = z.object({
+const listFields = z.object({
   name,
   kind: kind.optional(),
   defaultPoints: defaultPoints.optional(),
   color: color.optional(),
-  folderId: folderId.optional(),
 });
-const listPatch = listInput.partial();
-
-async function assertOwnFolder(req: Request, id: string | null | undefined) {
-  if (!id) return;
-  if (!(await prisma.folder.findFirst({ where: { id, userId: userId(req) } }))) throw notFound("Folder");
-}
+/** `folderId`: a folder that shows the new list straight away (it was made on that folder's page). */
+const listInput = listFields.extend({ folderId: z.string().uuid().nullish() });
+const listPatch = listFields.partial();
 
 async function ownList(req: Request, id: string) {
   const list = await prisma.list.findFirst({ where: { id, userId: userId(req), deletedAt: null } });
@@ -62,12 +55,20 @@ listsRouter.get("/", async (req, res) => {
 });
 
 listsRouter.post("/", async (req, res) => {
-  const input = listInput.parse(req.body);
+  const { folderId, ...input } = listInput.parse(req.body);
   const owner = userId(req);
-  await assertOwnFolder(req, input.folderId);
+  const folder = folderId ? await prisma.folder.findFirst({ where: { id: folderId, userId: owner } }) : null;
+  if (folderId && !folder) throw notFound("Folder");
   const last = await prisma.list.aggregate({ where: { userId: owner }, _max: { position: true } });
-  const list = await prisma.list.create({
-    data: { userId: owner, ...input, position: (last._max.position ?? -1) + 1 },
+  const list = await prisma.$transaction(async (tx) => {
+    const created = await tx.list.create({
+      data: { userId: owner, ...input, position: (last._max.position ?? -1) + 1 },
+    });
+    if (folder) {
+      const views = z.array(z.string()).catch([]).parse(folder.views);
+      await tx.folder.update({ where: { id: folder.id }, data: { views: [...views, `list:${created.id}`] } });
+    }
+    return created;
   });
   res.status(201).json({ list });
 });
@@ -76,7 +77,6 @@ listsRouter.patch("/:id", async (req, res) => {
   // Changing kind or default only affects what gets booked from now on; the ledger stays as it is.
   const input = listPatch.parse(req.body);
   await ownList(req, req.params.id);
-  await assertOwnFolder(req, input.folderId);
   res.json({ list: await prisma.list.update({ where: { id: req.params.id }, data: input }) });
 });
 

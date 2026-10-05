@@ -69,7 +69,7 @@ function FolderEditor({ folder, onClose }: { folder: Folder; onClose: () => void
       <button
         type="button"
         className="btn-quiet !text-red-600"
-        title="Removes the tab only: its lists go back to the Tasks page"
+        title="Removes the tab only: the lists it shows stay on the Tasks page"
         onClick={() => {
           onClose();
           remove.mutate(folder.id, { onSuccess: () => isOpenPage && navigate("/") });
@@ -115,7 +115,7 @@ function FolderTab({ folder, tab, isEditing, onEdit }: { folder: Folder; tab: (s
         data-tab-drop={folder.id}
         data-folder-tab={folder.name}
         aria-label={`Folder ${folder.name}`}
-        title={`${folder.name}. Hold or right-click for its name and colour; drop a list here to put it in.`}
+        title={`${folder.name}. Hold or right-click for its name and colour; drop a list or a stats box here to show it in the folder.`}
         // A held touch must not turn into a text selection or the browser's own menu.
         style={{ WebkitTouchCallout: "none", userSelect: "none" }}
         draggable={false}
@@ -148,9 +148,9 @@ interface Props {
 
 /**
  * The user's folders as tabs of the task bar, after Tasks and Done, and the
- * "New" tab that makes one: by a click, or by dropping a list on it (TileGrid
- * looks for data-tab-drop under a dragged list). "New" is out of sight until it
- * is called up, or a list is being dragged (.new-folder-slot in index.css).
+ * "New" tab that makes one: by a click, or by dropping a list or a stats box on it (TileGrid
+ * looks for data-tab-drop under a dragged tile that has a view). "New" is out of sight until it
+ * is called up, or such a tile is being dragged (.new-folder-slot in index.css).
  * A new folder opens its name for typing.
  */
 export function FolderTabs({ tab, isNewShown, onNewUsed }: Props) {
@@ -175,7 +175,7 @@ export function FolderTabs({ tab, isNewShown, onNewUsed }: Props) {
           className={`${tab({ isActive: false })} flex-none cursor-pointer`}
           data-tab-drop="new"
           aria-label="New folder"
-          title="A new folder: a tab of its own for some of your lists. Drop a list here to start one with it."
+          title="A new folder: a tab of its own showing some of your lists and stats. Drop a list or a stats box here to start one with it."
           disabled={create.isPending}
           onClick={() => {
             onNewUsed();

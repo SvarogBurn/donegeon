@@ -68,10 +68,10 @@ out("points: balance chart ends on the balance", await p.locator(`[data-balance-
 // The boxes are tiles like the dashboard's: moved by their tab button, minimized, with their own saved arrangement.
 const tiles = () => p.locator("[data-tile]").evaluateAll((els) => els.map((e) => e.dataset.tile).join(","));
 const hiddenRow = p.locator('[aria-label="Hidden boxes"]');
-out("seven stats boxes, each with a move and a hide button; Account and the filter have none", (await tiles()) === "done,written,deadlines,time,groups,points,unorganized" && await p.locator('[data-tile] [aria-label^="Drag to move"]').count() === 7 && await p.locator('[aria-label^="Hide "]').count() === 7, await tiles());
+out("ten boxes, Account, Settings and the filter among them, each with a pin, a move and a hide button", (await tiles()) === "account,settings,filter,done,written,deadlines,time,groups,points,unorganized" && await p.locator('[data-tile] [aria-label^="Drag to move"]').count() === 10 && await p.locator('[aria-label^="Hide "]').count() === 10 && await p.locator('[data-tile] [aria-label^="Pin "]').count() === 10, await tiles());
 await p.click('[aria-label="Hide Written down"]'); await wait();
 await p.click('[aria-label="Hide Points"]'); await wait();
-out("hidden boxes leave the page for the Hidden row", (await tiles()) === "done,deadlines,time,groups,unorganized" && (await hiddenRow.innerText()).replace(/\s+/g, " ") === "Hidden: Written down Points", `${await tiles()} / ${await hiddenRow.innerText()}`);
+out("hidden boxes leave the page for the Hidden row", (await tiles()) === "account,settings,filter,done,deadlines,time,groups,unorganized" && (await hiddenRow.innerText()).replace(/\s+/g, " ") === "Hidden: Written down Points", `${await tiles()} / ${await hiddenRow.innerText()}`);
 { // Drag "Unorganized" above "Done".
   await p.locator('[data-tile="unorganized"] .tile-band').evaluate((el) => el.scrollIntoView({ block: "center" })); await wait(200);
   const h = await p.locator('[data-tile="unorganized"] [aria-label^="Drag to move"]').boundingBox();
@@ -80,12 +80,12 @@ out("hidden boxes leave the page for the Hidden row", (await tiles()) === "done,
   const t = await p.locator('[data-tile="done"]').boundingBox();
   await p.mouse.move(t.x + t.width / 2, Math.max(t.y + 8, 8), { steps: 8 }); await wait(200); await p.mouse.up(); await wait(600);
 }
-out("a box can be dragged to another place", (await tiles()) === "unorganized,done,deadlines,time,groups", await tiles());
+out("a box can be dragged to another place", (await tiles()) === "account,settings,filter,unorganized,done,deadlines,time,groups", await tiles());
 await p.reload(); await p.waitForSelector('section[aria-label="Done stats"]'); await wait();
-out("arrangement and hidden boxes survive a reload", (await tiles()) === "unorganized,done,deadlines,time,groups" && await hiddenRow.locator("button").count() === 2, await tiles());
+out("arrangement and hidden boxes survive a reload", (await tiles()) === "account,settings,filter,unorganized,done,deadlines,time,groups" && await hiddenRow.locator("button").count() === 2, await tiles());
 await hiddenRow.locator('button:text-is("Points")').click(); await wait();
 await hiddenRow.locator('button:text-is("Written down")').click(); await wait();
-out("brought back where they were", (await tiles()) === "unorganized,done,written,deadlines,time,groups,points" && await hiddenRow.count() === 0, await tiles());
+out("brought back where they were", (await tiles()) === "account,settings,filter,unorganized,done,written,deadlines,time,groups,points" && await hiddenRow.count() === 0, await tiles());
 await p.goto("http://localhost:5173/"); await p.waitForSelector("section[data-drop-list]"); await wait();
 const home = await p.locator("[data-tile]").evaluateAll((els) => els.map((e) => e.dataset.tile.replace(/^list:.*/, "list")).join(","));
 out("the dashboard keeps its own arrangement", home.endsWith("goals,today,list,newList,tags,done") && !home.includes("unorganized") && await hiddenRow.count() === 0, home);
@@ -101,6 +101,22 @@ await pick("Goal", "Degree");
 out("goal filter keeps them, drops the loose end", await cell("Done stats", "All time") === "4" && await cell("Unorganized", "Open tasks") === "0");
 await p.locator('section[aria-label="Stats"] button:text-is("Clear")').click(); await wait(200);
 out("clear brings everything back", await cell("Unorganized", "Open tasks") === "1" && await p.locator('section[aria-label="Stats"] button:text-is("Clear")').count() === 0);
+
+// Account and the filter are tiles too: pinned across the top, or out into a column of their own.
+await p.click('[aria-label="Pin Account"]'); await wait();
+out("Account can be pinned", await p.locator('[data-zone="pinned"] [data-tile="account"]').count() === 1 && await p.locator("[data-username]").isVisible());
+await p.click('[aria-label="Unpin Account"]'); await wait();
+{ // Drag the filter out to a new column at the right.
+  await p.locator('[data-tile="filter"]').evaluate((el) => el.scrollIntoView({ block: "center" })); await wait(200);
+  const h = await p.locator('[data-tile="filter"] [aria-label^="Drag to move"]').boundingBox();
+  await p.mouse.move(h.x + h.width / 2, h.y + h.height / 2); await p.mouse.down(); await p.mouse.move(h.x + 20, h.y + 10, { steps: 4 }); await wait(200);
+  const z = await p.locator('[data-zone="new"]').boundingBox();
+  await p.mouse.move(z.x + z.width / 2, Math.max(z.y, 0) + 60, { steps: 8 }); await wait(200); await p.mouse.up(); await wait(600);
+}
+out("the filter can go in a second column", await p.locator('[data-zone="1"] [data-tile="filter"]').count() === 1 && await p.locator('[data-zone="0"] [data-tile="account"]').count() === 1);
+await p.click('[aria-label="Hide Stats filter"]'); await wait();
+out("and be minimized, back from the Hidden row", (await hiddenRow.innerText()).includes("Stats filter") && await p.locator('section[aria-label="Stats"]').count() === 0);
+await hiddenRow.locator('button:text-is("Stats filter")').click(); await wait();
 await p.screenshot({ path: "stats.png", fullPage: true });
 await p.setViewportSize({ width: 390, height: 800 }); await wait(400);
 out("phone: no sideways scrolling", await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), await p.evaluate(() => `${document.documentElement.scrollWidth} / ${document.documentElement.clientWidth}`));

@@ -1,8 +1,10 @@
+import type { User } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { Router, type Request } from "express";
 import { z } from "zod";
 import { HttpError } from "../lib/httpError.js";
 import { prisma } from "../lib/prisma.js";
+import { requireAuth, userId } from "../middleware/requireAuth.js";
 
 const credentials = z.object({
   username: z
@@ -26,6 +28,11 @@ function startSession(req: Request, userId: string): Promise<void> {
   });
 }
 
+/** What the app is told about the account: never the password hash. */
+const publicUser = (user: User) => ({ id: user.id, username: user.username, tickedTasks: user.tickedTasks });
+
+const settings = z.object({ tickedTasks: z.enum(["bottom", "stay", "hide"]) });
+
 export const authRouter = Router();
 
 authRouter.post("/signup", async (req, res) => {
@@ -42,7 +49,7 @@ authRouter.post("/signup", async (req, res) => {
     },
   });
   await startSession(req, user.id);
-  res.status(201).json({ user: { id: user.id, username: user.username } });
+  res.status(201).json({ user: publicUser(user) });
 });
 
 authRouter.post("/login", async (req, res) => {
@@ -54,7 +61,7 @@ authRouter.post("/login", async (req, res) => {
     throw new HttpError(401, "Wrong username or password");
   }
   await startSession(req, user.id);
-  res.json({ user: { id: user.id, username: user.username } });
+  res.json({ user: publicUser(user) });
 });
 
 authRouter.post("/logout", (req, res, next) => {
@@ -69,5 +76,11 @@ authRouter.get("/me", async (req, res) => {
   const id = req.session.userId;
   const user = id ? await prisma.user.findUnique({ where: { id } }) : null;
   if (!user) throw new HttpError(401, "Not logged in");
-  res.json({ user: { id: user.id, username: user.username } });
+  res.json({ user: publicUser(user) });
+});
+
+// The account's own settings, from the user's page.
+authRouter.patch("/me", requireAuth, async (req, res) => {
+  const data = settings.parse(req.body);
+  res.json({ user: publicUser(await prisma.user.update({ where: { id: userId(req) }, data })) });
 });

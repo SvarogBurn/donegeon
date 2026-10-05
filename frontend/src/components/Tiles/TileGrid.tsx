@@ -19,6 +19,13 @@ export interface Tile {
   node: ReactNode;
   /** Whether its frame gets a minimize button. */
   canHide?: boolean;
+  /**
+   * Set on a tile that can be copied into a folder: what it is called as a folder's view ("list:<id>",
+   * "stat:<name>"). Such a tile can be dropped on a tab of the task bar.
+   */
+  view?: string;
+  /** A small box: half its column's width, so two of them in a row sit side by side where the column has room for two frames. */
+  half?: boolean;
 }
 
 interface Props {
@@ -29,10 +36,10 @@ interface Props {
   layout: DashboardLayout;
   onChange: (layout: DashboardLayout) => void;
   /**
-   * A list's tile was dropped on a tab of the task bar (an element with data-tab-drop):
+   * A tile with a `view` was dropped on a tab of the task bar (an element with data-tab-drop):
    * `tab` is that attribute's value. Other tiles can't be dropped there.
    */
-  onDropOnTab?: (key: string, tab: string) => void;
+  onDropOnTab?: (view: string, tab: string) => void;
 }
 
 /** A column is never narrower than this; fewer fit on a narrower screen. */
@@ -118,8 +125,9 @@ export function TileGrid({ tiles, order, layout, onChange, onDropOnTab }: Props)
     e.preventDefault();
     const handle = e.currentTarget;
     let target: DropAt | null = null;
-    // Lists can also be dropped on a tab of the task bar: into a folder, a new folder, or back to Tasks.
-    const takesTabs = key.startsWith("list:") && Boolean(onDropOnTab);
+    // Some tiles can also be dropped on a tab of the task bar: to show in a folder, in a new folder, or (on Tasks) no longer in this one.
+    const view = byKey.get(key)?.view;
+    const takesTabs = view !== undefined && Boolean(onDropOnTab);
     let tab: HTMLElement | null = null;
     const hoverTab = (next: HTMLElement | null) => {
       if (next === tab) return;
@@ -152,7 +160,7 @@ export function TileGrid({ tiles, order, layout, onChange, onDropOnTab }: Props)
       setDrop(null);
       const droppedOn = tab?.dataset.tabDrop;
       hoverTab(null);
-      if (dropped && droppedOn !== undefined) return latest.current.onDropOnTab?.(key, droppedOn);
+      if (dropped && droppedOn !== undefined && view !== undefined) return latest.current.onDropOnTab?.(view, droppedOn);
       if (!dropped || !target) return;
       const { arrangement, save } = latest.current;
       let beforeKey = target.key;
@@ -179,7 +187,7 @@ export function TileGrid({ tiles, order, layout, onChange, onDropOnTab }: Props)
         key={tile.key}
         data-tile={tile.key}
         data-pinned={isPinned || undefined}
-        className={`min-w-0 ${draggingKey === tile.key ? "opacity-40" : ""} ${mark}`}
+        className={`min-w-0 ${tile.half && !isPinned ? "" : "col-span-full"} ${draggingKey === tile.key ? "opacity-40" : ""} ${mark}`}
       >
         {/* The tile's own TileFrame draws the pin and tab buttons on its border. */}
         <TileControlsContext.Provider
@@ -221,7 +229,10 @@ export function TileGrid({ tiles, order, layout, onChange, onDropOnTab }: Props)
           <div
             key={column.index}
             data-zone={column.index}
-            className={`min-w-0 space-y-4 rounded-lg pb-8 ${drop?.zone === column.index && drop.key === null ? "ring-2 ring-emerald-600" : ""}`}
+            // Tracks for the half-width tiles: as many as fit at a frame's smallest width (two, or one where the
+            // column is too narrow for two frames). Every other tile spans them all.
+            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, calc(96 * var(--u))), 1fr))" }}
+            className={`grid min-w-0 items-start gap-4 rounded-lg pb-8 ${drop?.zone === column.index && drop.key === null ? "ring-2 ring-emerald-600" : ""}`}
           >
             {column.tiles.map((tile) => renderTile(tile, false))}
           </div>
