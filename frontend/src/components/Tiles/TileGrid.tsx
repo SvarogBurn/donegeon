@@ -17,13 +17,15 @@ export interface Tile {
   /** For the handle's and pin's labels: "Today", "list Chores". */
   name: string;
   node: ReactNode;
-  /** Whether its frame gets a minimize button (every box except the lists, which are deleted instead). */
+  /** Whether its frame gets a minimize button. */
   canHide?: boolean;
 }
 
 interface Props {
   /** The tiles that exist right now, in their default order. */
   tiles: Tile[];
+  /** Keys of `tiles` and of the minimized ones among them, in their default order, so those keep a place too. */
+  order?: string[];
   layout: DashboardLayout;
   onChange: (layout: DashboardLayout) => void;
 }
@@ -73,7 +75,7 @@ function dropAt(x: number, y: number, draggedKey: string): DropAt | null {
  * column at the right; and a pin that keeps it in a band across the top. As many columns as
  * fit the screen are offered, down to one on a phone.
  */
-export function TileGrid({ tiles, layout, onChange }: Props) {
+export function TileGrid({ tiles, order, layout, onChange }: Props) {
   const wrapper = useRef<HTMLDivElement>(null);
   const [fits, setFits] = useState(1);
   useLayoutEffect(() => {
@@ -90,7 +92,7 @@ export function TileGrid({ tiles, layout, onChange }: Props) {
   const [drop, setDrop] = useState<DropAt | null>(null);
 
   const byKey = new Map(tiles.map((tile) => [tile.key, tile]));
-  const arrangement = arrange(layout, fits, tiles.map((tile) => tile.key));
+  const arrangement = arrange(layout, fits, tiles.map((tile) => tile.key), order);
   const shown = (keys: string[]) => keys.flatMap((key) => byKey.get(key) ?? []);
   const pinned = shown(arrangement.pinned);
   // Columns keep their index in the full arrangement, which also holds tiles that aren't shown right now.

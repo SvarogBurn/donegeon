@@ -4,6 +4,7 @@ import { PressureSummary } from "../components/Countdown/PressureSummary";
 import { DoneLog } from "../components/Done/DoneLog";
 import { LabelsPanel } from "../components/Labels/LabelsPanel";
 import { ListCard, ListForm, listCards } from "../components/Lists/ListBoard";
+import { HiddenRow } from "../components/Tiles/HiddenRow";
 import { TileGrid, type Tile } from "../components/Tiles/TileGrid";
 import { TreeProvider } from "../components/TaskTree/TreeContext";
 import { TreeError, UndoBar } from "../components/TaskTree/TreeStatus";
@@ -61,7 +62,7 @@ export function Dashboard() {
   const filtering = isFiltering(filter);
   const cards = listCards(lists.data, tasks.data, filter);
   // The two deadline boxes only exist once there is a deadline.
-  const tiles: (Tile | false)[] = [
+  const tiles: ((Tile & { label?: string }) | false)[] = [
     Boolean(pressure.data?.items.length) && { key: "pressure", name: "deadline pressure", node: <PressureSummary /> },
     Boolean(combined.data?.items.length) && { key: "deadlines", name: "All deadlines", node: <CombinedTable /> },
     {
@@ -86,6 +87,7 @@ export function Dashboard() {
     ...cards.map((card) => ({
       key: `list:${card.list.id}`,
       name: `list "${card.list.name}"`,
+      label: card.list.name,
       node: <ListCard list={card.list} tasks={card.tasks} taskCount={card.taskCount} />,
     })),
     !filtering && { key: NEW_LIST_TILE, name: "the new-list field", node: <ListForm /> },
@@ -110,14 +112,12 @@ export function Dashboard() {
     { key: "done", name: "Done", node: <DoneLog tasks={tasks.data} /> },
   ];
 
-  // Every box but the lists can be minimized away; the hidden ones are offered again in a row under the grid.
+  // Every box, the lists too, can be minimized away; the hidden ones are offered again in a row under the grid.
   const saved = normalizeLayout(layout.data);
-  const isHidden = (tile: Tile) => !tile.key.startsWith("list:") && (saved.hidden ?? []).includes(tile.key);
-  const allTiles = tiles
-    .filter((tile): tile is Tile => tile !== false)
-    .map((tile) => ({ ...tile, canHide: !tile.key.startsWith("list:") }));
+  const isHidden = (tile: Tile) => (saved.hidden ?? []).includes(tile.key);
+  const allTiles = tiles.flatMap((tile) => (tile ? [{ ...tile, canHide: true }] : []));
   const shownTiles = allTiles.filter((tile) => !isHidden(tile));
-  const hiddenTiles = allTiles.filter(isHidden).map((tile) => ({ key: tile.key, label: LABELS[tile.key] ?? tile.name }));
+  const hiddenTiles = allTiles.filter(isHidden).map((tile) => ({ key: tile.key, label: tile.label ?? LABELS[tile.key] ?? tile.name }));
 
   return (
     <TreeProvider tasks={tasks.data} newTaskLabels={filter}>
@@ -137,23 +137,8 @@ export function Dashboard() {
             </button>
           </p>
         )}
-        <TileGrid tiles={shownTiles} layout={saved} onChange={(next) => saveLayout.mutate(next)} />
-        {hiddenTiles.length > 0 && (
-          <div className="flex flex-wrap items-center justify-center gap-2 text-xs" role="group" aria-label="Hidden boxes">
-            <span className="text-stone-500">Hidden:</span>
-            {hiddenTiles.map((tile) => (
-              <button
-                key={tile.key}
-                type="button"
-                className="pixel-chip cursor-pointer bg-stone-200 px-2 py-1 hover:bg-white dark:bg-stone-700 dark:hover:bg-stone-600"
-                title="Show this box again, where it was"
-                onClick={() => saveLayout.mutate(withHidden(saved, tile.key, false))}
-              >
-                {tile.label}
-              </button>
-            ))}
-          </div>
-        )}
+        <TileGrid tiles={shownTiles} order={allTiles.map((tile) => tile.key)} layout={saved} onChange={(next) => saveLayout.mutate(next)} />
+        <HiddenRow tiles={hiddenTiles} onShow={(key) => saveLayout.mutate(withHidden(saved, key, false))} />
         {saveLayout.error && <p className="text-center text-sm text-red-600">Couldn't save the layout: {saveLayout.error.message}</p>}
         <UndoBar />
       </div>

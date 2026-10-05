@@ -23,16 +23,17 @@ export const useGoals = () => useQuery({ queryKey: GOALS, queryFn: goalsApi.list
 export const useTags = () => useQuery({ queryKey: TAGS, queryFn: tagsApi.listTags });
 export const useLists = () => useQuery({ queryKey: LISTS, queryFn: listsApi.listLists });
 const LAYOUT = ["layout"];
-export const useLayout = () => useQuery({ queryKey: LAYOUT, queryFn: tasksApi.getLayout });
+export const useLayout = (page: tasksApi.LayoutPage = "dashboard") =>
+  useQuery({ queryKey: [...LAYOUT, page], queryFn: () => tasksApi.getLayout(page) });
 /** The new arrangement shows at once and is saved in the background. */
-export function useSaveLayout() {
+export function useSaveLayout(page: tasksApi.LayoutPage = "dashboard") {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: tasksApi.saveLayout,
+    mutationFn: (layout: DashboardLayout) => tasksApi.saveLayout(page, layout),
     onMutate: (layout: DashboardLayout) => {
-      queryClient.setQueryData(LAYOUT, layout);
+      queryClient.setQueryData([...LAYOUT, page], layout);
     },
-    onError: () => queryClient.invalidateQueries({ queryKey: LAYOUT }),
+    onError: () => queryClient.invalidateQueries({ queryKey: [...LAYOUT, page] }),
   });
 }
 export const usePoints = () => useQuery({ queryKey: POINTS, queryFn: tasksApi.getPoints });

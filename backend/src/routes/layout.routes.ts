@@ -7,7 +7,7 @@ const key = z.string().min(1).max(60);
 const column = z.array(key).max(200);
 
 /**
- * The dashboard's arrangement. Tiles are named by key ("today", "goals",
+ * A page's arrangement of boxes: the dashboard's, and the stats boxes' on the user's page. Tiles are named by key ("today", "goals",
  * "list:<id>", ...). Two arrangements are kept, "wide" and "phone", so
  * rearranging on a phone doesn't undo the desktop layout. (Older saves used
  * "1".."4"; the frontend converts those.) `hidden` are the tiles the user has
@@ -21,14 +21,20 @@ const layoutSchema = z.object({
 
 export const layoutRouter = Router();
 
-layoutRouter.get("/", async (req, res) => {
-  const user = await prisma.user.findUnique({ where: { id: userId(req) }, select: { dashboardLayout: true } });
-  const saved = layoutSchema.safeParse(user?.dashboardLayout);
-  res.json({ layout: saved.success ? saved.data : null });
-});
+// "/" is the dashboard's, "/stats" the stats boxes'.
+for (const [path, field] of [
+  ["/", "dashboardLayout"],
+  ["/stats", "statsLayout"],
+] as const) {
+  layoutRouter.get(path, async (req, res) => {
+    const user = await prisma.user.findUnique({ where: { id: userId(req) } });
+    const saved = layoutSchema.safeParse(user?.[field]);
+    res.json({ layout: saved.success ? saved.data : null });
+  });
 
-layoutRouter.put("/", async (req, res) => {
-  const layout = layoutSchema.parse(req.body);
-  await prisma.user.update({ where: { id: userId(req) }, data: { dashboardLayout: layout } });
-  res.json({ layout });
-});
+  layoutRouter.put(path, async (req, res) => {
+    const layout = layoutSchema.parse(req.body);
+    await prisma.user.update({ where: { id: userId(req) }, data: { [field]: layout } });
+    res.json({ layout });
+  });
+}

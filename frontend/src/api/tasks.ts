@@ -50,8 +50,11 @@ export const pressTask = (id: string) =>
   api<{ completion: { id: string; day: string } }>(`/tasks/${id}/completions`, { method: "POST" }).then((r) => r.completion);
 export const undoPress = (id: string, completionId: string) =>
   api(`/tasks/${id}/completions/${completionId}`, { method: "DELETE" });
-export const getLayout = () => api<{ layout: DashboardLayout | null }>("/layout").then((r) => r.layout);
-export const saveLayout = (layout: DashboardLayout) => api("/layout", { method: "PUT", body: layout });
+/** Which page's boxes: the dashboard's, or the stats boxes on the user's page. */
+export type LayoutPage = "dashboard" | "stats";
+const layoutPath = (page: LayoutPage) => (page === "stats" ? "/layout/stats" : "/layout");
+export const getLayout = (page: LayoutPage) => api<{ layout: DashboardLayout | null }>(layoutPath(page)).then((r) => r.layout);
+export const saveLayout = (page: LayoutPage, layout: DashboardLayout) => api(layoutPath(page), { method: "PUT", body: layout });
 export const getPoints = () => api<PointsSummary>("/points");
 export const setTodayPoints = (points: number) => api("/points/today", { method: "PUT", body: { points } });
 export const moveTask = (id: string, placement: TaskPlacement) => api(`/tasks/${id}/move`, { body: placement });

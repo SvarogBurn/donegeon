@@ -80,13 +80,15 @@ Click your name in the task bar: under the Account box are your stats. They cove
 - **Points**: the balance day by day.
 - **Unorganized**: open main tasks with no deadline, goal or tag.
 
-The filter at the top (dates, list, goal, tag, deadline type, repeating) narrows all of them at once. A subtask counts under its main task's list, goals and tags.
+The filter at the top (dates, list, goal, tag, deadline type, repeating) narrows all of them at once. Each stats box can be dragged, pinned and minimized like the boxes of the dashboard. A subtask counts under its main task's list, goals and tags.
 
 ## Arranging the dashboard
 
 Every box has a drag handle and a Pin button on its title band. Drag a box above or below another, into another column, or onto the strip at the right edge for a new column; Pin keeps it in a band across the top. The arrangement is saved per account, separately for each screen width.
 
-Every box except the lists also has a minimize button at the far right of its band, which hides it. Hidden boxes are listed in a "Hidden" row under the boxes; click one to bring it back where it was. Which boxes are hidden is saved per account.
+Every box also has a minimize button on its band, which hides it; on a list it sits between the drag handle and the delete button. Hidden boxes are listed in a "Hidden" row under the boxes; click one to bring it back where it was. Which boxes are hidden is saved per account. A hidden list keeps its tasks: they still count for Today, the deadlines and the stats.
+
+The stats boxes on your own page work the same way (drag, pin, minimize), with an arrangement of their own.
 
 ## On a phone
 

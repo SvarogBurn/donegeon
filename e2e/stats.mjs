@@ -65,6 +65,32 @@ await p.locator('section[aria-label="By list, goal or tag"] button:text-is("Goal
 out("by goal: subtasks count under the exam's goal", await group("Degree") === "4", await group("Degree"));
 out("points: balance chart ends on the balance", await p.locator(`[data-balance-day="${day(0)}"]`).getAttribute("data-balance") === "1");
 
+// The boxes are tiles like the dashboard's: moved by their tab button, minimized, with their own saved arrangement.
+const tiles = () => p.locator("[data-tile]").evaluateAll((els) => els.map((e) => e.dataset.tile).join(","));
+const hiddenRow = p.locator('[aria-label="Hidden boxes"]');
+out("seven stats boxes, each with a move and a hide button; Account and the filter have none", (await tiles()) === "done,written,deadlines,time,groups,points,unorganized" && await p.locator('[data-tile] [aria-label^="Drag to move"]').count() === 7 && await p.locator('[aria-label^="Hide "]').count() === 7, await tiles());
+await p.click('[aria-label="Hide Written down"]'); await wait();
+await p.click('[aria-label="Hide Points"]'); await wait();
+out("hidden boxes leave the page for the Hidden row", (await tiles()) === "done,deadlines,time,groups,unorganized" && (await hiddenRow.innerText()).replace(/\s+/g, " ") === "Hidden: Written down Points", `${await tiles()} / ${await hiddenRow.innerText()}`);
+{ // Drag "Unorganized" above "Done".
+  await p.locator('[data-tile="unorganized"] .tile-band').evaluate((el) => el.scrollIntoView({ block: "center" })); await wait(200);
+  const h = await p.locator('[data-tile="unorganized"] [aria-label^="Drag to move"]').boundingBox();
+  await p.mouse.move(h.x + h.width / 2, h.y + h.height / 2); await p.mouse.down(); await p.mouse.move(h.x, h.y - 30, { steps: 4 });
+  await p.locator('[data-tile="done"]').evaluate((el) => el.scrollIntoView({ block: "start" })); await wait(300);
+  const t = await p.locator('[data-tile="done"]').boundingBox();
+  await p.mouse.move(t.x + t.width / 2, Math.max(t.y + 8, 8), { steps: 8 }); await wait(200); await p.mouse.up(); await wait(600);
+}
+out("a box can be dragged to another place", (await tiles()) === "unorganized,done,deadlines,time,groups", await tiles());
+await p.reload(); await p.waitForSelector('section[aria-label="Done stats"]'); await wait();
+out("arrangement and hidden boxes survive a reload", (await tiles()) === "unorganized,done,deadlines,time,groups" && await hiddenRow.locator("button").count() === 2, await tiles());
+await hiddenRow.locator('button:text-is("Points")').click(); await wait();
+await hiddenRow.locator('button:text-is("Written down")').click(); await wait();
+out("brought back where they were", (await tiles()) === "unorganized,done,written,deadlines,time,groups,points" && await hiddenRow.count() === 0, await tiles());
+await p.goto("http://localhost:5173/"); await p.waitForSelector("section[data-drop-list]"); await wait();
+const home = await p.locator("[data-tile]").evaluateAll((els) => els.map((e) => e.dataset.tile.replace(/^list:.*/, "list")).join(","));
+out("the dashboard keeps its own arrangement", home.endsWith("goals,today,list,newList,tags,done") && !home.includes("unorganized") && await hiddenRow.count() === 0, home);
+await p.goto("http://localhost:5173/user"); await p.waitForSelector('section[aria-label="Done stats"]'); await wait();
+
 // Filters.
 const pick = async (label, value) => { await p.locator(`section[aria-label="Stats"] label:has-text("${label}") select`).selectOption({ label: value }); await wait(200); };
 await pick("Deadline", "None");

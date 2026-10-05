@@ -7,7 +7,7 @@ export interface TileControls {
   isPinned: boolean;
   onTogglePin: () => void;
   onDragStart: (e: ReactPointerEvent<HTMLElement>) => void;
-  /** Minimizes the tile away (it can be brought back from the dashboard's "Hidden" row); absent on tiles that can't be hidden. */
+  /** Minimizes the tile away (it can be brought back from the "Hidden" row under the grid); absent on tiles that can't be hidden. */
   onHide?: () => void;
 }
 
@@ -28,8 +28,8 @@ export type TileTone = "blue" | "reward" | "setup" | "record";
 /**
  * The pixel-art border around a dashboard box. The title sits on the border's
  * darker band; on the same line at the right are the pin button and the tab
- * button, which drags the tile, and on tiles that can be hidden the minimize
- * button. Sizes all follow --u (see index.css). Outside
+ * button, which drags the tile, then the minimize button, then the tile's own
+ * buttons (a list's delete). Sizes all follow --u (see index.css). Outside
  * the grid there is nothing to pin or drag, and the buttons are left out.
  */
 export function TileFrame({ title, actions, tone = "blue", className = "", children, ...rest }: Props) {

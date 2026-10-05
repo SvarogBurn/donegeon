@@ -72,8 +72,12 @@ function savedFor(layout: DashboardLayout, n: number): string[][] | null {
  * merged into its neighbour: it isn't on screen, yet it would still count as a
  * column, and a tile dragged out to "a new column" would then be one too many
  * and get stacked back under the first.
+ *
+ * `known` is `keys` plus the tiles that exist but are minimized, in the same
+ * default order: they get a place too, so one hidden before anything was
+ * arranged comes back where it was rather than at the end.
  */
-export function arrange(layout: DashboardLayout, n: number, keys: string[]): Arrangement {
+export function arrange(layout: DashboardLayout, n: number, keys: string[], known: string[] = keys): Arrangement {
   const pinned = [...new Set(layout.pinned)];
   const seen = new Set(pinned);
   const columns = (savedFor(layout, n) ?? [[]]).map((column) =>
@@ -81,7 +85,7 @@ export function arrange(layout: DashboardLayout, n: number, keys: string[]): Arr
   );
   if (columns.length === 0) columns.push([]);
 
-  for (const key of keys) {
+  for (const key of known) {
     if (seen.has(key)) continue;
     seen.add(key);
     const formColumn = key.startsWith("list:") ? columns.find((column) => column.includes(NEW_LIST_TILE)) : undefined;
