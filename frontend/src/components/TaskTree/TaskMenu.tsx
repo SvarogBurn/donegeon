@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { PixelCheckbox } from "../PixelCheckbox";
 import { useGoals, useLists, useSetToday, useTags, useUpdateTask } from "../../hooks/useTasks";
 import { toggleId } from "../../lib/labels";
-import type { TaskTreeNode } from "../../types";
-import { DeadlineFields } from "./DeadlineFields";
+import { REPEAT_UNITS } from "../../lib/repeat";
+import type { RepeatUnit, TaskTreeNode } from "../../types";
+import { DateField, DeadlineFields } from "./DeadlineFields";
 import { useTree } from "./TreeContext";
 
 interface Props {
@@ -142,8 +143,95 @@ function Doing({ node }: { node: TaskTreeNode }) {
   );
 }
 
+const REPEAT_FROM = [
+  { afterDone: false, label: "Planned days", hint: "Keeps to its days: done late, the next round still comes on the planned day." },
+  { afterDone: true, label: "After done", hint: "The next round is counted from the day you did it." },
+];
+
 /**
- * The "⋯" on each row: today / persistent / points, goals and tags (any task,
+ * Persistent tasks: a schedule. With a number in "Every" the task is due again
+ * every so many days, weeks or months; empty = no schedule, done whenever.
+ */
+function Repeat({ node }: { node: TaskTreeNode }) {
+  const update = useUpdateTask();
+  const [every, setEvery] = useState(node.repeatEvery === null ? "" : String(node.repeatEvery));
+  const [unit, setUnit] = useState(node.repeatUnit);
+  useEffect(() => setEvery(node.repeatEvery === null ? "" : String(node.repeatEvery)), [node.repeatEvery]);
+  useEffect(() => setUnit(node.repeatUnit), [node.repeatUnit]);
+  const isOn = node.repeatEvery !== null;
+  const save = (changes: { repeatEvery?: number | null; repeatUnit?: RepeatUnit; repeatAfterDone?: boolean; nextDue?: string }) =>
+    update.mutate({ id: node.id, changes });
+
+  function saveEvery() {
+    const next = every.trim() === "" ? null : Math.max(1, Number(every));
+    if (next !== node.repeatEvery) save({ repeatEvery: next, repeatUnit: unit });
+  }
+
+  return (
+    <div className="space-y-2 text-xs">
+      <div className="flex items-center gap-2 px-1">
+        <span className="shrink-0">Every</span>
+        <input
+          className="points-field !w-10 tabular-nums placeholder:text-stone-400"
+          type="text"
+          inputMode="numeric"
+          maxLength={3}
+          value={every}
+          onChange={(e) => setEvery(e.target.value.replace(/\D/g, ""))}
+          onBlur={saveEvery}
+          onKeyDown={(e) => e.key === "Enter" && saveEvery()}
+          placeholder="-"
+          aria-label="Repeat every so many (empty = no schedule)"
+        />
+        <select
+          className="min-w-0 flex-1 border-2 border-stone-300 bg-white px-1 py-1 text-xs text-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
+          value={unit}
+          onChange={(e) => {
+            const next = e.target.value as RepeatUnit;
+            setUnit(next);
+            if (isOn) save({ repeatUnit: next });
+          }}
+          aria-label="Days, weeks or months"
+        >
+          {REPEAT_UNITS.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
+      {isOn ? (
+        <>
+          <div className="flex items-center gap-2 px-1">
+            <span className="shrink-0">Next</span>
+            <DateField value={node.nextDue} label="Next due date" onChange={(nextDue) => nextDue && save({ nextDue })} />
+          </div>
+          <div className="flex gap-1" role="group" aria-label="What the next round is counted from">
+            {REPEAT_FROM.map((option) => (
+              <button
+                key={option.label}
+                type="button"
+                title={option.hint}
+                aria-pressed={node.repeatAfterDone === option.afterDone}
+                onClick={() => save({ repeatAfterDone: option.afterDone })}
+                className={`nes-btn btn-small flex-1 ${node.repeatAfterDone === option.afterDone ? "is-primary" : ""}`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-stone-500">{REPEAT_FROM.find((option) => option.afterDone === node.repeatAfterDone)!.hint}</p>
+        </>
+      ) : (
+        <p className="px-1 text-stone-500">Fill in a number to make it come back on a schedule.</p>
+      )}
+      {update.error && <p className="text-red-600">{update.error.message}</p>}
+    </div>
+  );
+}
+
+/**
+ * The "⋯" on each row: today / persistent / points, a schedule, goals and tags (any task,
  * none by default), deadline (main tasks and their direct subtasks), and the
  * touch-friendly equivalents of Ctrl+Enter and Delete.
  */
@@ -186,6 +274,13 @@ export function TaskMenu({ node, depth, onAddSubtask }: Props) {
           aria-label="Task options"
         >
           <Doing node={node} />
+          {/* A schedule is for tasks done again and again, so it is offered once Persistent is ticked. */}
+          {!node.parentId && node.isPersistent && (
+            <div className="space-y-1 text-xs">
+              <span className="font-medium">Repeat</span>
+              <Repeat node={node} />
+            </div>
+          )}
           <Labels node={node} />
           {depth <= 1 && !node.isPersistent && (
             <div className="space-y-1 text-xs">

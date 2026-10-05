@@ -7,6 +7,8 @@ const out = (n, ok, d = "") => console.log(ok ? "PASS" : "FAIL", n, d === "" ? "
 const wait = (ms = 500) => p.waitForTimeout(ms);
 const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const row = (title) => p.locator(`[data-task-row]:has(textarea:text-is("${title}"))`).first();
+// Tasks start with their subtasks hidden; this opens them all (without moving the focus).
+const expandAll = async () => { while (await p.evaluate(() => { const closed = [...document.querySelectorAll('[aria-label="Expand subtasks"]:enabled')]; closed.forEach((b) => b.click()); return closed.length; })) await p.waitForTimeout(50); };
 const card = (name) => p.locator(`section[data-drop-list]:has(input[aria-label="List name"][value="${name}"])`);
 const cardOf = async (name) => { const n = await p.locator("section[data-drop-list]").count(); for (let i = 0; i < n; i++) { const c = p.locator("section[data-drop-list]").nth(i); if ((await c.locator('input[aria-label="List name"]').inputValue()) === name) return c; } };
 const balance = async () => Number(await p.locator("[data-nav-balance]").getAttribute("data-nav-balance"));
@@ -14,7 +16,7 @@ const chip = (title) => row(title).locator("[data-value-chip]").innerText();
 const titles = async (c) => c.locator("[data-task-row] textarea").evaluateAll((els) => els.map((e) => e.value).join(","));
 const add = async (c, title) => { await c.locator('[data-task-editor^="add:"]').click(); await p.keyboard.type(title); await p.keyboard.press("Enter"); await wait(); };
 const menu = async (title) => { await row(title).locator('[aria-label="Task options"]').click(); return row(title).locator("[role=dialog]"); };
-const pretend = async (n) => { await p.evaluate((d) => d ? localStorage.setItem("donegeon.devDate", d) : localStorage.removeItem("donegeon.devDate"), n === 0 ? null : day(n)); await p.reload(); await p.waitForSelector("section[data-drop-list]"); await wait(); };
+const pretend = async (n) => { await p.evaluate((d) => d ? localStorage.setItem("donegeon.devDate", d) : localStorage.removeItem("donegeon.devDate"), n === 0 ? null : day(n)); await p.reload(); await p.waitForSelector("section[data-drop-list]"); await wait(); await expandAll(); };
 const today = p.locator('[aria-label="Today"]');
 
 await p.goto("http://localhost:5173/signup"); await p.fill('input[autocomplete="username"]', user); await p.fill('input[type="password"]', "hunter2hunter2");
@@ -128,7 +130,7 @@ out("a task typed into Today lives only there", (await titles(own)) === "Call mu
 out("a task typed into Today is worth 2 points by default", (await own.locator('[data-task-row]:has(textarea:text-is("Call mum")) [data-value-chip]').innerText()) === "+2");
 await today.locator('[aria-label="Points per task added in Today"]').fill("4"); await p.keyboard.press("Enter"); await wait(700);
 out("Today's own amount can be changed in the Today box", (await own.locator('[data-task-row]:has(textarea:text-is("Call mum")) [data-value-chip]').innerText()) === "+4");
-await p.reload(); await p.waitForSelector("section[data-drop-list]"); await wait();
+await p.reload(); await p.waitForSelector("section[data-drop-list]"); await wait(); await expandAll();
 out("and is still there after a reload", (await titles(own)) === "Call mum,Buy milk", await titles(own));
 await drag("Buy milk", await cardOf("List"));
 out("dragged to a list: now in the list, still shown in Today", (await titles(await cardOf("List"))).includes("Buy milk") && (await titles(own)) === "Call mum" && (await todayText()).includes("Buy milk"), `${await titles(await cardOf("List"))} / ${await todayText()}`);
@@ -157,7 +159,7 @@ out("another tile can join that column, below it", (await at("done")).x === (awa
 await tile("today").locator('[aria-label="Pin Today"]').click(); await wait(600);
 out("pinning puts a tile above everything", (await at("today")).y < (await at(choresKey)).y && (await at("today")).y < (await at(funKey)).y && (await tile("today").getAttribute("data-pinned")) !== null);
 const saved = JSON.stringify([await at("today"), await at(funKey), await at("done"), await at(choresKey)]);
-await p.reload(); await p.waitForSelector("section[data-drop-list]"); await wait();
+await p.reload(); await p.waitForSelector("section[data-drop-list]"); await wait(); await expandAll();
 out("the arrangement is kept after a reload", JSON.stringify([await at("today"), await at(funKey), await at("done"), await at(choresKey)]) === saved);
 await p.screenshot({ path: "m3-grid.png", fullPage: true });
 await p.setViewportSize({ width: 390, height: 800 }); await wait(600);

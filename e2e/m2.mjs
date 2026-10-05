@@ -8,6 +8,8 @@ const wait = (ms = 450) => p.waitForTimeout(ms);
 const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const dmy = (n) => day(n).split("-").reverse().join("/");
 const outline = (scope = "body") => p.evaluate((scope) => [...document.querySelector(scope).querySelectorAll("[data-task-row]")].map(row => { let d = 0; for (let el = row.parentElement; el; el = el.parentElement) if (el.tagName === "UL") d++; return "-".repeat(d - 1) + row.querySelector("textarea").value; }).join(","), scope);
+// Tasks start with their subtasks hidden; this opens them all (without moving the focus).
+const expandAll = async () => { while (await p.evaluate(() => { const closed = [...document.querySelectorAll('[aria-label="Expand subtasks"]:enabled')]; closed.forEach((b) => b.click()); return closed.length; })) await p.waitForTimeout(50); };
 const card = (name) => p.locator(`section[data-drop-list]:has(input[aria-label="List name"])`).filter({ has: p.locator(`input[aria-label="List name"]`).and(p.locator(`[value]`)) }).filter({ hasText: "" }).locator("xpath=.").filter({ has: p.locator(`xpath=.//input[@aria-label="List name"]`) });
 const listCard = async (name) => { const cards = p.locator("section[data-drop-list]"); for (let i = 0; i < await cards.count(); i++) if (await cards.nth(i).locator('input[aria-label="List name"]').inputValue() === name) return cards.nth(i); throw new Error("no list " + name); };
 const row = (title) => p.locator(`[data-task-row]:has(textarea:text-is("${title}"))`).first();
@@ -26,7 +28,7 @@ out("no pressure card without hard deadlines", (await p.locator('[aria-label="De
 await p.fill('[aria-label="New list name"]', "School"); await p.keyboard.press("Enter"); await wait();
 const nameInput = (await listCard("List")).locator('input[aria-label="List name"]');
 await nameInput.fill("Home"); await nameInput.press("Enter"); await wait();
-await p.reload(); await p.waitForSelector("section[data-drop-list]");
+await p.reload(); await p.waitForSelector("section[data-drop-list]"); await expandAll();
 const names = await p.locator('input[aria-label="List name"]').evaluateAll(els => els.map(e => e.value).join(","));
 out("user-made lists: create + rename persist", names === "Home,School", names);
 
@@ -78,7 +80,7 @@ await p.locator('main header button:text-is("Hard")').click(); await p.locator('
 await p.screenshot({ path: "countdown.png", fullPage: true });
 
 // back on dashboard
-await p.click("text=← All tasks"); await p.waitForSelector("section[data-drop-list]"); await wait(800);
+await p.click("text=← All tasks"); await p.waitForSelector("section[data-drop-list]"); await wait(800); await expandAll();
 out("pressure reflects the tick: 4 outstanding, 0.8 per day", (await pressure.innerText()).replace(/\s+/g, " ").includes("0.8 tasks to do today 4 outstanding"), (await pressure.innerText()).replace(/\s+/g, " "));
 // soft deadline on another task: reminder only
 const home = await listCard("Home");

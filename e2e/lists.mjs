@@ -6,6 +6,8 @@ const out = (n, ok, d = "") => console.log(ok ? "PASS" : "FAIL", n, d === "" ? "
 const wait = (ms = 450) => p.waitForTimeout(ms);
 const names = () => p.locator('input[aria-label="List name"]').evaluateAll(els => els.map(e => e.value).join(","));
 const outline = () => p.evaluate(() => [...document.querySelectorAll("[data-task-row]")].map(row => { let d = 0; for (let el = row.parentElement; el; el = el.parentElement) if (el.tagName === "UL") d++; return "-".repeat(d - 1) + row.querySelector("textarea").value; }).join(","));
+// Tasks start with their subtasks hidden; this opens them all (without moving the focus).
+const expandAll = async () => { while (await p.evaluate(() => { const closed = [...document.querySelectorAll('[aria-label="Expand subtasks"]:enabled')]; closed.forEach((b) => b.click()); return closed.length; })) await p.waitForTimeout(50); };
 const row = (t) => p.locator(`[data-task-row]:has(textarea:text-is("${t}"))`).first();
 await p.goto("http://localhost:5173/"); await p.waitForSelector("text=Create an account");
 await p.click("text=Create an account"); await p.waitForSelector('button:text-is("Sign up")');
@@ -31,7 +33,7 @@ out("cancelled: list still there", (await names()) === "List" && (await p.locato
 await p.locator('[aria-label=\'Delete list "List"\']').click(); await wait();
 await p.locator('[role=alertdialog] button:text-is("Delete")').click(); await wait(600);
 out("button deletes the list and its tasks", (await names()) === "" && (await outline()) === "" && await p.locator("text=Deleted list “List”").isVisible(), `${await names()} / ${await outline()}`);
-await p.keyboard.press("Control+z"); await wait(700);
+await p.keyboard.press("Control+z"); await wait(700); await expandAll();
 out("Ctrl+Z brings the list and its tasks back (goal tag kept)", (await names()) === "List" && (await outline()) === "Big,-Small" && await row("Small").locator('[title="Goal: Fitness"]').isVisible(), `${await names()} / ${await outline()}`);
 // second list, delete with the Delete key while its name is selected
 await p.fill('[aria-label="New list name"]', "Second"); await p.keyboard.press("Enter"); await wait();
@@ -43,7 +45,7 @@ out("undo button restores it", (await names()) === "List,Second", await names())
 await second.click(); await p.keyboard.press("Home"); await p.keyboard.press("Delete"); await wait(400);
 out("Delete mid-name only edits the name", (await names()).startsWith("List,") && (await p.locator('input[aria-label="List name"]').count()) === 2 && (await second.inputValue()) === "econd", await second.inputValue());
 await p.keyboard.press("Escape");
-await p.reload(); await p.waitForSelector("section[data-drop-list]");
+await p.reload(); await p.waitForSelector("section[data-drop-list]"); await expandAll();
 out("state after reload", (await names()) === "List,Second" && (await outline()) === "Big,-Small", `${await names()} / ${await outline()}`);
 await p.screenshot({ path: "lists.png", fullPage: true });
 await b.close();

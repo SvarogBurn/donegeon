@@ -7,6 +7,7 @@ import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
 import { countdownForTask, todayPace } from "../services/countdown.service.js";
 import { bookTask, reverseBooking, reverseTaskBooking, taskValue } from "../services/points.service.js";
+import { dueAfter } from "../services/repeat.service.js";
 import {
   buildTree,
   completionPatch,
@@ -48,6 +49,13 @@ const taskPatch = z.object({
   today: z.boolean().optional(),
   /** Main tasks only: done again and again instead of once. */
   isPersistent: z.boolean().optional(),
+  /** Main tasks only: due again every so many days, weeks or months (which makes it persistent); null = no schedule. */
+  repeatEvery: z.number().int().min(1, "Repeat every 1 or more").max(999).nullable().optional(),
+  repeatUnit: z.enum(["day", "week", "month"]).optional(),
+  /** Count the next round from the day it was done instead of keeping to the planned days. */
+  repeatAfterDone: z.boolean().optional(),
+  /** The day the next round is due; today when a schedule is first set. */
+  nextDue: localDate.optional(),
 });
 
 /** Subtasks a press unticked, as stored on the TaskCompletion. */
@@ -220,15 +228,26 @@ tasksRouter.patch("/:id", async (req, res) => {
   }
   if (input.today !== undefined) data.todaySince = input.today ? (task.todaySince ?? req.localDate) : null;
 
-  const isPersistent = input.isPersistent ?? task.isPersistent;
-  if (input.isPersistent) {
+  // A schedule only makes sense on a task that is done again and again, so setting one makes the task persistent.
+  const isPersistent = input.isPersistent ?? (input.repeatEvery ? true : task.isPersistent);
+  if (isPersistent && !task.isPersistent) {
     if (task.parentId) throw new HttpError(400, "Only main tasks can be persistent");
     if (task.isComplete) throw new HttpError(400, "Untick it first");
   }
   if (isPersistent && (input.deadlineDate === undefined ? task.deadlineDate : input.deadlineDate)) {
     throw new HttpError(400, "A persistent task is never finished, so it can't have a deadline. Remove one or the other.");
   }
-  data.isPersistent = input.isPersistent;
+  data.isPersistent = isPersistent;
+  const repeatEvery = input.repeatEvery === undefined ? task.repeatEvery : input.repeatEvery;
+  if (!isPersistent || !repeatEvery) {
+    data.repeatEvery = null;
+    data.nextDue = null;
+  } else {
+    data.repeatEvery = repeatEvery;
+    data.repeatUnit = input.repeatUnit;
+    data.repeatAfterDone = input.repeatAfterDone;
+    data.nextDue = input.nextDue ?? task.nextDue ?? req.localDate;
+  }
 
   if (input.deadlineDate !== undefined) {
     if (input.deadlineDate && depthOf(await liveTasks(task.userId), task.id) > MAX_DEADLINE_DEPTH) {
@@ -260,7 +279,8 @@ tasksRouter.patch("/:id/toggle", async (req, res) => {
 });
 
 // One press of a persistent task's "done it" button: logs it, books the points
-// and unticks its subtasks for the next round. The task itself stays open.
+// and unticks its subtasks for the next round. The task itself stays open; on a
+// schedule, it is due again one interval on.
 tasksRouter.post("/:id/completions", async (req, res) => {
   const task = await ownTask(req, req.params.id);
   if (!task.isPersistent || task.parentId) throw new HttpError(400, "Only persistent tasks can be done again and again");
@@ -268,8 +288,17 @@ tasksRouter.post("/:id/completions", async (req, res) => {
   const below = new Set(subtreeIds(all, task.id));
   const ticked = all.filter((t) => below.has(t.id) && t.id !== task.id && t.completedAt && t.completedOn);
 
+  const { repeatEvery, nextDue } = task;
+  const dueBefore = repeatEvery && nextDue ? nextDue : null;
+
   const completion = await prisma.$transaction(async (tx) => {
     const booked = await bookTask(tx, task);
+    if (repeatEvery && nextDue) {
+      await tx.task.update({
+        where: { id: task.id },
+        data: { nextDue: dueAfter({ ...task, repeatEvery, nextDue }, req.localDate) },
+      });
+    }
     await tx.task.updateMany({
       where: { id: { in: ticked.map((t) => t.id) } },
       data: { isComplete: false, completedAt: null, completedOn: null },
@@ -280,6 +309,7 @@ tasksRouter.post("/:id/completions", async (req, res) => {
         taskId: task.id,
         day: req.localDate,
         pointTransactionId: booked?.id ?? null,
+        dueBefore,
         unticked: ticked.map((t) => ({ id: t.id, completedAt: t.completedAt!.toISOString(), completedOn: t.completedOn! })),
       },
     });
@@ -287,8 +317,8 @@ tasksRouter.post("/:id/completions", async (req, res) => {
   res.status(201).json({ completion: { id: completion.id, day: completion.day } });
 });
 
-// Undo of a press: the log entry goes, its points are reversed and the
-// subtasks it unticked get their ticks back.
+// Undo of a press: the log entry goes, its points are reversed, the subtasks
+// it unticked get their ticks back and a scheduled task is due when it was before.
 tasksRouter.delete("/:id/completions/:completionId", async (req, res) => {
   const task = await ownTask(req, req.params.id);
   const completion = await prisma.taskCompletion.findFirst({
@@ -307,6 +337,9 @@ tasksRouter.delete("/:id/completions/:completionId", async (req, res) => {
         where: { id: sub.id, userId: task.userId, isComplete: false },
         data: { isComplete: true, completedAt: new Date(sub.completedAt), completedOn: sub.completedOn },
       });
+    }
+    if (completion.dueBefore && task.repeatEvery) {
+      await tx.task.update({ where: { id: task.id }, data: { nextDue: completion.dueBefore } });
     }
     await tx.taskCompletion.delete({ where: { id: completion.id } });
   });

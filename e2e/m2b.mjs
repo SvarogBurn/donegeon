@@ -120,5 +120,9 @@ await p.goto(`http://localhost:5173/tasks/${smallId}`); await wait(800);
 out("its URL sends you back to the dashboard", path() === "/", path());
 
 await p.goto("http://localhost:5173/"); await p.waitForSelector("section[data-drop-list]"); await wait(500);
+// Subtasks start hidden on the dashboard, until the row's arrow is clicked.
+const hidden = (await row("Exam").count()) === 1 && (await row("S1").count()) === 0;
+await row("Exam").locator('[aria-label="Expand subtasks"]').click(); await wait(200);
+out("subtasks start collapsed; the arrow shows them", hidden && (await row("S1").count()) === 1);
 await p.screenshot({ path: "m2b-dashboard.png", fullPage: true });
 await b.close();

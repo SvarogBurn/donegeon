@@ -12,13 +12,15 @@ interface DateFieldProps {
   /** "YYYY-MM-DD" or null. */
   value: string | null;
   onChange: (value: string | null) => void;
+  /** What the date is, for screen readers. */
+  label?: string;
 }
 
 /**
  * A date typed day-first as dd/mm/yyyy, whatever the browser's own language
  * would show. The calendar button opens the browser's picker for the same value.
  */
-function DateField({ value, onChange }: DateFieldProps) {
+export function DateField({ value, onChange, label = "Deadline date" }: DateFieldProps) {
   const [text, setText] = useState(value ? formatFullDay(value) : "");
   const [isInvalid, setIsInvalid] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
@@ -51,7 +53,7 @@ function DateField({ value, onChange }: DateFieldProps) {
           if (e.key === "Escape") setText(value ? formatFullDay(value) : "");
         }}
         placeholder="dd/mm/yyyy"
-        aria-label="Deadline date (dd/mm/yyyy)"
+        aria-label={`${label} (dd/mm/yyyy)`}
         aria-invalid={isInvalid}
         inputMode="numeric"
       />

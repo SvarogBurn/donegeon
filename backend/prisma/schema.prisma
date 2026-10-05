@@ -23,6 +23,13 @@ enum PointTransactionType {
   reversal
 }
 
+// What a repeating task's interval is counted in.
+enum RepeatUnit {
+  day
+  week
+  month
+}
+
 // A task list adds points when an item is ticked; a reward list subtracts them.
 enum ListKind {
   task
@@ -98,6 +105,13 @@ model Task {
   todaySince   String?
   // Top-level tasks only. Done again and again: never complete, each press is a TaskCompletion.
   isPersistent Boolean       @default(false)
+  // A persistent task on a schedule: due again every repeatEvery units. Null = no schedule, done whenever.
+  repeatEvery     Int?
+  repeatUnit      RepeatUnit    @default(week)
+  // false: the next round keeps to the planned days. true: it is counted from the day the task was done.
+  repeatAfterDone Boolean       @default(false)
+  // The day the next round is due; set while repeatEvery is.
+  nextDue         String?
   // Soft delete, so a delete can be undone. Set on the whole deleted subtree
   // with one shared timestamp; every query must filter on deletedAt = null.
   deletedAt    DateTime?
@@ -172,6 +186,8 @@ model TaskCompletion {
   pointTransactionId String?
   // Subtasks the press unticked for the next round, with their stamps, so undo can put them back.
   unticked           Json     @default("[]")
+  // What the task's nextDue was before this press moved it on, so undo can put it back.
+  dueBefore          String?
   createdAt          DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

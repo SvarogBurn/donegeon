@@ -3,6 +3,9 @@ import { PixelCheckbox } from "../PixelCheckbox";
 import { useNavigate } from "react-router";
 import { useCreateTask, useGoals, useTags, useToggleTask, useUpdateTask } from "../../hooks/useTasks";
 import { localDate } from "../../api/client";
+import { formatDay } from "../../lib/dates";
+import { isFiltering } from "../../lib/labels";
+import { isDue, isWaiting, repeatLabel } from "../../lib/repeat";
 import { hasTaskPage } from "../../lib/taskPage";
 import type { TaskTreeNode } from "../../types";
 import { ValueChip } from "../Points/ValueChip";
@@ -59,7 +62,10 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
   const navigate = useNavigate();
   // A drag starts on the handle but can end on the row's empty space, which the browser reports as a click there.
   const pressedControl = useRef(false);
-  const [isOpen, setIsOpen] = useState(true);
+  // Subtasks start hidden behind the row's arrow, so a list reads as its main tasks. They show from the start on a
+  // task's own page, and while a filter is on (a matching subtask must not hide in its parent), until the arrow says otherwise.
+  const [opened, setOpened] = useState<boolean | null>(null);
+  const isOpen = opened ?? (tree.rootId !== null || isFiltering(tree.newTaskLabels));
   const [title, setTitle] = useState(node.title);
   useEffect(() => setTitle(node.title), [node.title]);
 
@@ -81,7 +87,7 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
   }
 
   function addSubtask() {
-    setIsOpen(true);
+    setOpened(true);
     tree.setDraft({ parentId: node.id, listId: null, afterId: node.children.at(-1)?.id ?? null });
   }
 
@@ -90,7 +96,7 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
       saveTitle();
       if (e.ctrlKey || e.metaKey) addSubtask();
       else if (node.id === tree.rootId) {
-        setIsOpen(true);
+        setOpened(true);
         tree.setDraft({ parentId: node.id, listId: null, afterId: null });
       } else tree.setDraft({ parentId: node.parentId, listId: node.parentId ? null : node.listId, afterId: node.id });
     } else if (e.key === "Escape") {
@@ -133,24 +139,21 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
       >
         <button
           type="button"
-          className="mt-1.5 w-4 text-xs text-stone-400 disabled:invisible"
-          onClick={() => setIsOpen(!isOpen)}
+          className="task-arrow mt-1.5"
+          onClick={() => setOpened(!isOpen)}
           disabled={!hasChildren}
+          aria-expanded={isOpen}
           aria-label={isOpen ? "Collapse subtasks" : "Expand subtasks"}
-        >
-          {isOpen ? "▾" : "▸"}
-        </button>
+        />
 
         {isPersistent ? (
           <button
             type="button"
-            className="mt-1.5 flex size-5 items-center justify-center border border-emerald-700 text-xs leading-none text-emerald-700 hover:bg-emerald-700 hover:text-white dark:border-emerald-400 dark:text-emerald-400"
+            className="repeat-button mt-1.5"
             onClick={() => tree.pressTask(node)}
             aria-label={`Done "${node.title}" once more`}
             title="Done it. Stays here for next time (Ctrl+Z to undo)"
-          >
-            ↻
-          </button>
+          />
         ) : (
           <PixelCheckbox
             className="mt-1.5"
@@ -171,7 +174,8 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
             onKeyDown={onKeyDown}
             onBlur={saveTitle}
             aria-label="Task title"
-            className={node.isComplete ? "text-stone-400 line-through" : ""}
+            // A scheduled task that is done for now is greyed until its next day.
+            className={node.isComplete ? "text-stone-400 line-through" : isWaiting(node, today) ? "text-stone-400" : ""}
           />
         </div>
 
@@ -180,6 +184,16 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
           {isPersistent && pressedToday > 0 && (
             <span className="text-xs text-stone-500 tabular-nums" data-pressed-today={pressedToday}>
               ×{pressedToday} today
+            </span>
+          )}
+          {node.nextDue && (
+            <span
+              data-next-due={node.nextDue}
+              data-due={isDue(node, today) ? "" : undefined}
+              title={`Repeats ${repeatLabel(node)}`}
+              className={`pixel-chip px-2 py-0.5 text-xs whitespace-nowrap ${isDue(node, today) ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" : "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400"}`}
+            >
+              {node.nextDue === today ? "due today" : `${isDue(node, today) ? "due since" : "next"} ${formatDay(node.nextDue)}`}
             </span>
           )}
           <DeadlineBadge task={node} />

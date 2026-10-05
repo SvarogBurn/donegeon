@@ -202,15 +202,37 @@
     image-rendering: pixelated;
   }
   .tab-icon-tasks {
-    background-image: url("../../assets/21x21task_icon_v2.svg");
+    background-image: url("../../assets/icons/21x21task_icon_v2.svg");
   }
   .tab-icon-done {
-    background-image: url("../../assets/21x21done_icon_v1.svg");
+    background-image: url("../../assets/icons/21x21done_icon_v1.svg");
   }
   /* This one is 15x15 art pixels: kept at the same pixel size as the others, so it sits smaller in its square. */
   .tab-icon-user {
     @apply bg-size-[15px] sm:bg-size-[30px];
-    background-image: url("../../assets/21x21user_icon_v2.svg");
+    background-image: url("../../assets/icons/21x21user_icon_v2.svg");
+  }
+  /*
+   * The arrow that shows or hides a task's subtasks (5x5 art pixels, 2px each).
+   * The art points down, for shown; turned a quarter it points right, for hidden.
+   */
+  .task-arrow {
+    @apply size-4 flex-none cursor-pointer disabled:invisible;
+    background: url("../../assets/5x5dropdown_v1.svg") center / 10px 10px no-repeat;
+    image-rendering: pixelated;
+  }
+  .task-arrow[aria-expanded="false"] {
+    transform: rotate(-90deg);
+  }
+  /*
+   * The button of a task that repeats, in place of a checkbox: each press is one
+   * more time done. The art (7x7 art pixels, 2px each) is light blue on nothing,
+   * so it sits on the frame's dark blue to read on both themes.
+   */
+  .repeat-button {
+    @apply size-5 flex-none cursor-pointer hover:brightness-125;
+    background: #3f3f74 url("../../assets/7x7repeating_task_v1.svg") center / 14px 14px no-repeat;
+    image-rendering: pixelated;
   }
   .tile-button-x {
     background-image: url("../../assets/buttons/7x7x_blue_v1.svg");

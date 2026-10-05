@@ -7,11 +7,13 @@ const out = (n, ok, d = "") => console.log(ok ? "PASS" : "FAIL", n, d === "" ? "
 const wait = (ms = 450) => p.waitForTimeout(ms);
 const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const row = (title) => p.locator(`[data-task-row]:has(textarea:text-is("${title}"))`).first();
+// Tasks start with their subtasks hidden; this opens them all (without moving the focus).
+const expandAll = async () => { while (await p.evaluate(() => { const closed = [...document.querySelectorAll('[aria-label="Expand subtasks"]:enabled')]; closed.forEach((b) => b.click()); return closed.length; })) await p.waitForTimeout(50); };
 const box = p.locator('section[aria-label="Done"]');
 const shown = () => box.locator("[data-done-day]").getAttribute("data-done-day");
 const items = () => box.locator("li").allInnerTexts().then((t) => t.map((x) => x.replace(/\s+/g, " ").trim()));
 // The dev-date override: the app treats this day as today.
-const pretend = async (n) => { await p.evaluate((d) => d ? localStorage.setItem("donegeon.devDate", d) : localStorage.removeItem("donegeon.devDate"), n === 0 ? null : day(n)); await p.reload(); await p.waitForSelector('section[aria-label="Done"]'); await wait(); };
+const pretend = async (n) => { await p.evaluate((d) => d ? localStorage.setItem("donegeon.devDate", d) : localStorage.removeItem("donegeon.devDate"), n === 0 ? null : day(n)); await p.reload(); await p.waitForSelector('section[aria-label="Done"]'); await wait(); await expandAll(); };
 const tick = async (title) => { await row(title).locator("input[type=checkbox]").click(); await wait(350); };
 
 await p.goto("http://localhost:5173/signup"); await p.fill('input[autocomplete="username"]', user); await p.fill('input[type="password"]', "hunter2hunter2");

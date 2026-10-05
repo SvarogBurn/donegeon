@@ -9,8 +9,10 @@ const wait = (ms = 450) => p.waitForTimeout(ms);
 const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const ddmmyyyy = (n) => day(n).split("-").reverse().join("/");
 const row = (title) => p.locator(`[data-task-row]:has(textarea:text-is("${title}"))`).first();
+// Tasks start with their subtasks hidden; this opens them all (without moving the focus).
+const expandAll = async () => { while (await p.evaluate(() => { const closed = [...document.querySelectorAll('[aria-label="Expand subtasks"]:enabled')]; closed.forEach((b) => b.click()); return closed.length; })) await p.waitForTimeout(50); };
 // The dev-date override: the app treats this day as today.
-const pretend = async (n) => { await p.evaluate((d) => d ? localStorage.setItem("donegeon.devDate", d) : localStorage.removeItem("donegeon.devDate"), n === 0 ? null : day(n)); await p.reload(); await p.waitForSelector("h2:text-is('Goals')"); await wait(); };
+const pretend = async (n) => { await p.evaluate((d) => d ? localStorage.setItem("donegeon.devDate", d) : localStorage.removeItem("donegeon.devDate"), n === 0 ? null : day(n)); await p.reload(); await p.waitForSelector("h2:text-is('Goals')"); await wait(); await expandAll(); };
 const tick = async (title) => { await row(title).locator("input[type=checkbox]").click(); await wait(350); };
 const api = (path, method, body) => p.evaluate(async ([path, method, body, date]) => {
   const r = await fetch("/api" + path, { method, headers: { "Content-Type": "application/json", "X-Local-Date": date }, body: body && JSON.stringify(body) });
@@ -33,7 +35,7 @@ const exam = trees.tasks.find((t) => t.title === "Exam");
 await api(`/tasks/${exam.id}`, "PATCH", { deadlineDate: day(-1), deadlineType: "hard" });
 const goal = (await api("/goals", "POST", { name: "Degree" })).goal;
 await api(`/tasks/${exam.id}`, "PATCH", { goalIds: [goal.id] });
-await p.reload(); await p.waitForSelector("h2:text-is('Goals')"); await wait();
+await p.reload(); await p.waitForSelector("h2:text-is('Goals')"); await wait(); await expandAll();
 await tick("Ch 1");
 // Nothing two days ago; one chapter yesterday; the last one and the exam itself today, a day late.
 await pretend(-1); await tick("Ch 2");

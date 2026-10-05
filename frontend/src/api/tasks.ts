@@ -1,4 +1,4 @@
-import type { CombinedCountdown, Countdown, PointsSummary, PressureSummary, Task, TaskTreeNode } from "../types";
+import type { CombinedCountdown, Countdown, PointsSummary, PressureSummary, RepeatUnit, Task, TaskTreeNode } from "../types";
 import type { DashboardLayout } from "../lib/tileLayout";
 import { api } from "./client";
 
@@ -22,6 +22,11 @@ export interface TaskChanges {
   points?: number | null;
   today?: boolean;
   isPersistent?: boolean;
+  /** null = no schedule. A number also makes the task persistent. */
+  repeatEvery?: number | null;
+  repeatUnit?: RepeatUnit;
+  repeatAfterDone?: boolean;
+  nextDue?: string;
 }
 
 export const listTaskTrees = () => api<{ tasks: TaskTreeNode[] }>("/tasks").then((r) => r.tasks);

@@ -3,6 +3,7 @@ import { localDate } from "../../api/client";
 import { PixelCheckbox } from "../PixelCheckbox";
 import { usePoints, useSetToday, useSetTodayPoints, useToggleTask } from "../../hooks/useTasks";
 import { daysBetween } from "../../lib/dates";
+import { isDue } from "../../lib/repeat";
 import type { TaskTreeNode } from "../../types";
 import { ValueChip } from "../Points/ValueChip";
 import { TaskForm } from "../TaskTree/TaskForm";
@@ -21,8 +22,12 @@ const firstLine = (title: string) => title.split("\n")[0];
 /** Written straight into Today: a main task with no list. It is shown here as a full, editable task. */
 const livesInToday = (node: TaskTreeNode) => !node.parentId && !node.listId;
 
+/** The day an item came into Today: marked for it, or (a task on a schedule) due. */
+const since = (node: TaskTreeNode) => node.todaySince ?? node.nextDue!;
+
 /**
- * Everything from the lists that is marked for Today, at any depth. Open items stay from day to day;
+ * Everything from the lists that is marked for Today, at any depth, plus the main tasks on a
+ * schedule that are due: those come in by themselves and leave when done. Open items stay from day to day;
  * a ticked one stays for the rest of the day it was ticked on. Subtasks left
  * open inside a finished main task went to the Done tab with it.
  */
@@ -31,20 +36,21 @@ function todayItems(trees: TaskTreeNode[], today: string): TodayItem[] {
   const visit = (nodes: TaskTreeNode[], path: string[], rootFinished: boolean) => {
     for (const node of nodes) {
       const shown = node.isComplete ? node.completedOn === today : !rootFinished;
-      if (node.todaySince && shown && !livesInToday(node)) found.push({ node, path });
+      const isIn = node.todaySince !== null || (path.length === 0 && isDue(node, today));
+      if (isIn && shown && !livesInToday(node)) found.push({ node, path });
       visit(node.children, [...path, firstLine(node.title)], rootFinished || (path.length === 0 && node.isComplete));
     }
   };
   visit(trees, [], false);
   // Longest-waiting first.
-  return found.sort((a, b) => a.node.todaySince!.localeCompare(b.node.todaySince!));
+  return found.sort((a, b) => since(a.node).localeCompare(since(b.node)));
 }
 
 function TodayRow({ node, path, today }: TodayItem & { today: string }) {
   const tree = useTree();
   const toggle = useToggleTask();
   const setToday = useSetToday();
-  const carried = daysBetween(node.todaySince!, today);
+  const carried = daysBetween(since(node), today);
   const isPersistent = node.isPersistent && !node.parentId;
   const pressedToday = node.completions.filter((press) => press.day === today).length;
   const error = toggle.error ?? setToday.error;
@@ -55,12 +61,10 @@ function TodayRow({ node, path, today }: TodayItem & { today: string }) {
         {isPersistent ? (
           <button
             type="button"
-            className="flex size-5 items-center justify-center border border-emerald-700 text-xs leading-none text-emerald-700 hover:bg-emerald-700 hover:text-white dark:border-emerald-400 dark:text-emerald-400"
+            className="repeat-button"
             onClick={() => tree.pressTask(node)}
             aria-label={`Done "${node.title}" once more`}
-          >
-            ↻
-          </button>
+          />
         ) : (
           <PixelCheckbox
             checked={node.isComplete}
@@ -82,9 +86,11 @@ function TodayRow({ node, path, today }: TodayItem & { today: string }) {
             </span>
           )}
           <ValueChip node={node} />
+          {/* A task that is here because it is due leaves by being done, not by hand. */}
           <button
             type="button"
-            className="btn-quiet glyph"
+            className="btn-quiet glyph disabled:invisible"
+            disabled={node.todaySince === null}
             aria-label={`Take "${firstLine(node.title)}" out of Today`}
             title="Take out of Today (the task itself stays where it is)"
             onClick={() => setToday.mutate({ id: node.id, today: false })}

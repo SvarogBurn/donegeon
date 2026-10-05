@@ -32,6 +32,8 @@ export interface List {
   defaultPoints: number;
 }
 
+export type RepeatUnit = "day" | "week" | "month";
+
 export interface Task {
   id: string;
   parentId: string | null;
@@ -55,6 +57,13 @@ export interface Task {
   todaySince: string | null;
   /** Top-level tasks only: done again and again with a button instead of ticked once. */
   isPersistent: boolean;
+  /** A persistent task on a schedule: due again every so many units. null = no schedule. */
+  repeatEvery: number | null;
+  repeatUnit: RepeatUnit;
+  /** The next round is counted from the day it was done, instead of keeping to the planned days. */
+  repeatAfterDone: boolean;
+  /** The day the next round is due, "YYYY-MM-DD"; set while repeatEvery is. */
+  nextDue: string | null;
   position: number;
   /** The moment it was written down. */
   createdAt: string;

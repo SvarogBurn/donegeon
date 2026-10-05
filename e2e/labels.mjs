@@ -6,6 +6,8 @@ const out = (n, ok, d = "") => console.log(ok ? "PASS" : "FAIL", n, d === "" ? "
 const wait = (ms = 450) => p.waitForTimeout(ms);
 const names = () => p.locator('input[aria-label="List name"]').evaluateAll(els => els.map(e => e.value).join(","));
 const outline = () => p.evaluate(() => [...document.querySelectorAll("[data-task-row]")].map(row => { let d = 0; for (let el = row.parentElement; el; el = el.parentElement) if (el.tagName === "UL") d++; return "-".repeat(d - 1) + row.querySelector("textarea").value; }).join(","));
+// Tasks start with their subtasks hidden; this opens them all (without moving the focus).
+const expandAll = async () => { while (await p.evaluate(() => { const closed = [...document.querySelectorAll('[aria-label="Expand subtasks"]:enabled')]; closed.forEach((b) => b.click()); return closed.length; })) await p.waitForTimeout(50); };
 const row = (t) => p.locator(`[data-task-row]:has(textarea:text-is("${t}"))`).first();
 const label = async (task, name) => { await row(task).locator('[aria-label="Task options"]').click(); await row(task).locator(`[role=dialog] label:has-text("${name}") input`).click(); await wait(); await p.keyboard.press("Escape"); };
 const pill = (box, name) => p.locator(`[aria-label="${box}"] li:has-text("${name}") button[aria-pressed]`);
@@ -41,13 +43,13 @@ out("filter by a tag alone", (await outline()) === "Shop", await outline());
 await add(0).click(); await p.keyboard.type("Post office"); await p.keyboard.press("Enter"); await wait();
 out("task added while filtering gets the filter's tag", (await outline()) === "Shop,Post office" && (await row("Post office").locator('[title="Tag: errand"]').count()) === 1, await outline());
 await row("Shop").locator("textarea").focus(); await p.keyboard.press("Enter"); await p.keyboard.type("Bank"); await p.keyboard.press("Enter"); await wait(); await p.keyboard.press("Escape");
-await p.click("text=Clear filter"); await wait(200);
+await p.click("text=Clear filter"); await wait(200); await expandAll();
 out("clear filter shows everything; Enter-added task landed right below", (await outline()) === "Run,Thesis,-Chapter 1,-Chapter 2,Shop,Bank,Post office,Gym bag", await outline());
 // delete a tag in use
 await pill("Tags", "errand").click(); await wait(200);
 await p.locator('[aria-label=\'Delete tag "errand"\']').click(); await wait();
 out("deleting a filtered tag clears the filter and keeps the tasks", (await p.locator("text=Clear filter").count()) === 0 && (await row("Shop").count()) === 1 && (await p.locator('[title="Tag: errand"]').count()) === 0);
-await p.reload(); await p.waitForSelector("[data-task-row]");
+await p.reload(); await p.waitForSelector("[data-task-row]"); await expandAll();
 out("labels persist after reload", (await row("Run").locator('[title^="Goal:"]').count()) === 2 && (await row("Chapter 2").locator('[title="Tag: urgent"]').count()) === 1);
 await row("Run").locator('[aria-label="Task options"]').click(); await wait(200);
 await p.screenshot({ path: "labels.png", fullPage: true });
