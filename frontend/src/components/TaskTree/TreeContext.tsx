@@ -66,6 +66,8 @@ interface TreeContextValue {
   finishTask: (node: TaskTreeNode) => void;
   /** One press of a persistent task's "done it" button; undoable. */
   pressTask: (node: TaskTreeNode) => void;
+  /** Takes one press back: unticking a persistent task that shows as done. */
+  takeBackPress: (node: TaskTreeNode, completionId: string) => void;
   /** What Ctrl+Z / the undo bar can still take back, oldest first. */
   undoable: Undoable[];
   undo: () => void;
@@ -192,6 +194,15 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       );
     },
     [press],
+  );
+
+  const takeBackPress = useCallback(
+    (node: TaskTreeNode, completionId: string) => {
+      // It is no longer there for Ctrl+Z to take back a second time.
+      setUndoable((stack) => stack.filter((item) => !(item.kind === "press" && item.completionId === completionId)));
+      undoPress.mutate({ id: node.id, completionId });
+    },
+    [undoPress],
   );
 
   const undo = useCallback(() => {
@@ -347,6 +358,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
     deleteList,
     finishTask,
     pressTask,
+    takeBackPress,
     undoable,
     undo,
     error:

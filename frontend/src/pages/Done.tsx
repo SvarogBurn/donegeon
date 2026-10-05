@@ -109,7 +109,7 @@ function tickedEntries(trees: TaskTreeNode[]): Entry[] {
  * What was done, newest day first: finished main tasks (and bought one-off
  * rewards), and every subtask on the day it was ticked, whether or not its
  * main task is finished yet. Finished main tasks also stay in their lists for
- * a few days. Unticking anything here makes it open again.
+ * 24 hours. Unticking anything here makes it open again.
  */
 export function DonePage() {
   const tasks = useTaskTrees();

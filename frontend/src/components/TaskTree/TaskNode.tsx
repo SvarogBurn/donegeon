@@ -10,6 +10,7 @@ import { hasTaskPage } from "../../lib/taskPage";
 import type { TaskTreeNode } from "../../types";
 import { ValueChip } from "../Points/ValueChip";
 import { DeadlineBadge } from "./DeadlineBadge";
+import { PressCopies } from "./PressCopies";
 import { TaskMenu } from "./TaskMenu";
 import { focusNeighbor, TitleEditor } from "./TitleEditor";
 import { useTree } from "./TreeContext";
@@ -152,14 +153,14 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
             className="repeat-button mt-1.5"
             onClick={() => tree.pressTask(node)}
             aria-label={`Done "${node.title}" once more`}
-            title="Done it. Stays here for next time (Ctrl+Z to undo)"
+            title="Done it. Stays here for next time; a ticked copy underneath can be unticked to take it back"
           />
         ) : (
           <PixelCheckbox
             className="mt-1.5"
             checked={node.isComplete}
             disabled={toggle.isPending}
-            // Ticking a main task finishes it: it is in the Done tab, and leaves its list a few days later. With an undo.
+            // Ticking a main task finishes it: it is in the Done tab, and leaves its list 24 hours later. With an undo.
             onChange={() => (!node.parentId && !node.isComplete ? tree.finishTask(node) : toggle.mutate(node.id))}
             aria-label={`Mark "${node.title}" ${node.isComplete ? "not done" : "done"}`}
           />
@@ -217,6 +218,9 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
       </div>
 
       {error && <p className="ml-7 text-xs text-red-600">{error.message}</p>}
+
+      {/* Each time a persistent task was done lately, as a ticked copy in line with it (past the arrow's place). */}
+      <PressCopies node={node} className="ml-[22px]" />
 
       {((hasChildren && isOpen) || hasDraftChild) && (
         <div className="ml-3 border-l border-stone-200 pl-3 dark:border-stone-800">

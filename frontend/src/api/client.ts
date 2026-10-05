@@ -44,6 +44,18 @@ export function clockNow(): Date {
   return new Date(Date.now() + getTimeOffset() * 60_000);
 }
 
+/**
+ * "Now" on the day the app treats as today: the clock's time of day, on the
+ * pretended date if there is one. For "how long ago was this".
+ */
+export function appNow(): Date {
+  const now = clockNow();
+  const day = getDevDate();
+  if (!day) return now;
+  const [year, month, date] = day.split("-").map(Number);
+  return new Date(year, month - 1, date, now.getHours(), now.getMinutes(), now.getSeconds());
+}
+
 function clockDate(): string {
   const now = clockNow();
   const m = String(now.getMonth() + 1).padStart(2, "0");

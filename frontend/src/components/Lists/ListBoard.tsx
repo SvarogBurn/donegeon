@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { localDate } from "../../api/client";
 import { useCreateList, useUpdateList } from "../../hooks/useTasks";
-import { daysBetween } from "../../lib/dates";
 import { frameIn, isLight, KIND_COLORS, listColor, sliderIn } from "../../lib/frameTones";
 import { filterTree, isFiltering, type LabelFilter } from "../../lib/labels";
+import { isRecent } from "../../lib/recent";
 import type { List, ListKind, TaskTreeNode } from "../../types";
 import { ColorChoices } from "../ColorChoices";
 import { TaskForm } from "../TaskTree/TaskForm";
@@ -324,24 +323,22 @@ export function ListForm({ folderId = null }: { folderId?: string | null }) {
   );
 }
 
-/** How long a ticked main task stays in its list: ticked on Monday, gone on Thursday. */
-const DAYS_KEPT_WHEN_DONE = 3;
+/** A ticked task, main or subtask, stays where it is for 24 hours, so it can be unticked; after that only the Done tab has it. */
+const isShown = (task: TaskTreeNode) => !task.isComplete || !task.completedOn || isRecent(task.completedOn, task.completedAt);
+const withoutOldTicks = (task: TaskTreeNode): TaskTreeNode => ({ ...task, children: task.children.filter(isShown).map(withoutOldTicks) });
 
 /**
- * Each list with the top-level tasks shown in it. A finished task stays in its
- * list, ticked, for DAYS_KEPT_WHEN_DONE days (and is in the Done tab from the
- * start). While a goal/tag filter is on, only matching tasks and the lists
- * holding them are kept.
+ * Each list with the tasks shown in it. A ticked task (a finished main task, or
+ * a subtask) stays in its list, ticked, for 24 hours and is in the Done tab
+ * from the start. While a goal/tag filter is on, only matching tasks and the
+ * lists holding them are kept.
  */
 export function listCards(lists: List[], tasks: TaskTreeNode[], filter: LabelFilter) {
   const filtering = isFiltering(filter);
-  const today = localDate();
-  const inList = (task: TaskTreeNode) =>
-    !task.isComplete || !task.completedOn || daysBetween(task.completedOn, today) < DAYS_KEPT_WHEN_DONE;
   return lists
     .map((list) => {
       const own = tasks.filter((t) => t.listId === list.id);
-      return { list, taskCount: own.length, tasks: filterTree(own.filter(inList), filter) };
+      return { list, taskCount: own.length, tasks: filterTree(own.filter(isShown).map(withoutOldTicks), filter) };
     })
     .filter((card) => !filtering || card.tasks.length > 0);
 }

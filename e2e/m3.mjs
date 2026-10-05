@@ -76,13 +76,20 @@ out("list kind can be changed later; balance untouched", (await chip("Plain")) =
 m = await menu("Cake"); await m.locator('label:has-text("Persistent") input').click(); await wait(); await p.keyboard.press("Escape");
 m = await menu("Cake"); await m.locator('[aria-label^="Points for this task"]').fill("1"); await p.keyboard.press("Enter"); await wait(); await p.keyboard.press("Escape");
 const press = row("Cake").locator('button[aria-label^="Done"]');
+// The ticked copies under a persistent task: one for every time it was done in the last 24 hours.
+const copies = p.locator('section[data-drop-list] [data-press-copy]');
 out("persistent item has a button instead of a checkbox", (await press.count()) === 1 && (await row("Cake").locator("input[type=checkbox]").count()) === 0);
 await press.click(); await wait(700); await press.click(); await wait(700);
+out("each press leaves a ticked, crossed-off copy underneath; the task itself stays open", (await copies.count()) === 2 && await copies.first().locator("input[type=checkbox]").isChecked() && (await copies.first().locator(".line-through").innerText()) === "Cake" && (await row("Cake").locator("input[type=checkbox]").count()) === 0 && (await row("Cake").locator("textarea.line-through").count()) === 0, await copies.count());
 out("two presses: −2, still in its list, counted", (await balance()) === 1 && (await row("Cake").locator("[data-pressed-today]").getAttribute("data-pressed-today")) === "2", await balance());
 await p.keyboard.press("Control+z"); await wait(700);
 out("Ctrl+Z takes one press back", (await balance()) === 2 && (await row("Cake").locator("[data-pressed-today]").getAttribute("data-pressed-today")) === "1", await balance());
 await press.click(); await wait(700); await press.click(); await wait(700); await press.click(); await wait(700);
 out("a persistent reward you can't afford is refused too", (await balance()) === 0 && (await row("Cake").locator("[data-pressed-today]").getAttribute("data-pressed-today")) === "3", await balance());
+out("three presses, three copies", (await copies.count()) === 3);
+await copies.first().locator("input[type=checkbox]").click(); await wait(700);
+out("unticking a copy takes that press back", (await balance()) === 1 && (await row("Cake").locator("[data-pressed-today]").getAttribute("data-pressed-today")) === "2" && (await copies.count()) === 2, await balance());
+await press.click(); await wait(700);
 out("Done box shows the presses", (await p.locator('section[aria-label="Done"]').innerText()).replace(/\s+/g, " ").includes("Cake ×3"));
 
 // --- points history
@@ -112,10 +119,14 @@ await pretend(1);
 out("next day: unticked one carried over 1 day, ticked one gone", (await today.locator("[data-today-item]").count()) === 1 && (await today.locator("[data-carried]").getAttribute("data-carried")) === "1", await todayText());
 await today.locator('[aria-label^="Take"]').click(); await wait(700);
 out("taking it out of Today leaves the task in its list", (await today.locator("[data-today-item]").count()) === 0 && (await titles(await cardOf("List"))).includes("Body"));
-await pretend(2);
-out("two days on: ticked main tasks are still in their lists", (await row("Essay").count()) === 1 && (await row("Movie").count()) === 1);
-await pretend(3);
-out("three days on: they have left their lists", (await row("Essay").count()) === 0 && (await row("Movie").count()) === 0 && (await row("Plain").count()) === 1);
+// The clock's own offset (in minutes), as set from the task bar: 23 hours on is still within the 24.
+const ahead = async (minutes) => { await p.evaluate((m) => m ? localStorage.setItem("donegeon.devTimeOffset", String(m)) : localStorage.removeItem("donegeon.devTimeOffset"), minutes); await p.reload(); await p.waitForSelector("section[data-drop-list]"); await wait(); };
+await ahead(23 * 60);
+out("23 hours on: ticked main tasks are still in their lists", (await row("Essay").count()) === 1 && (await row("Movie").count()) === 1);
+out("and the persistent task's copies are still there", (await copies.count()) === 3, await copies.count());
+await ahead(0); await pretend(2);
+out("two days on: they have left their lists", (await row("Essay").count()) === 0 && (await row("Movie").count()) === 0 && (await row("Plain").count()) === 1);
+out("and the copies have gone; the persistent task itself stays", (await copies.count()) === 0 && (await row("Cake").locator('button[aria-label^="Done"]').count()) === 1);
 await p.click('nav [aria-label="Done"]'); await wait();
 out("and are still in the Done tab", (await p.locator("[data-finished]").allInnerTexts()).join().includes("Essay"));
 await p.click('nav [aria-label="Tasks"]'); await p.waitForSelector("section[data-drop-list]"); await wait();

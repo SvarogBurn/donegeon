@@ -6,6 +6,7 @@ import { daysBetween } from "../../lib/dates";
 import { isDue } from "../../lib/repeat";
 import type { TaskTreeNode } from "../../types";
 import { ValueChip } from "../Points/ValueChip";
+import { PressCopies } from "../TaskTree/PressCopies";
 import { TaskForm } from "../TaskTree/TaskForm";
 import { TaskTree } from "../TaskTree/TaskNode";
 import { useTree } from "../TaskTree/TreeContext";
@@ -100,6 +101,7 @@ function TodayRow({ node, path, today }: TodayItem & { today: string }) {
         </span>
       </div>
       {error && <p className="text-xs text-red-600">{error.message}</p>}
+      <PressCopies node={node} />
     </li>
   );
 }
