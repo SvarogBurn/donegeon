@@ -57,9 +57,59 @@ function FinishedTask({ node, listName }: { node: TaskTreeNode; listName: string
   );
 }
 
+/** A subtask ticked on its own, shown on the day it was ticked with the tasks it sits under. */
+function TickedSubtask({ node, path, listName }: { node: TaskTreeNode; path: string[]; listName: string | undefined }) {
+  const toggle = useToggleTask();
+
+  return (
+    <li data-done-subtask={node.id}>
+      <div className="flex flex-wrap items-start gap-x-2 gap-y-1 text-sm">
+        <PixelCheckbox
+          checked
+          disabled={toggle.isPending}
+          onChange={() => toggle.mutate(node.id)}
+          aria-label={`Mark "${node.title}" not done`}
+          title="Untick to make it open again"
+        />
+        <span className="min-w-0 flex-1 break-words">
+          <span className="whitespace-pre-line">{node.title}</span> <span className="text-xs text-stone-500">{path.join(" › ")}</span>
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-stone-500">
+          {listName && <span className="max-w-40 truncate">{listName}</span>}
+          <ValueChip node={node} />
+        </span>
+      </div>
+      {toggle.error && <p className="text-xs text-red-600">{toggle.error.message}</p>}
+    </li>
+  );
+}
+
+interface Entry {
+  node: TaskTreeNode;
+  /** Titles of the tasks a subtask sits under, outermost first; empty for a main task. */
+  path: string[];
+  listId: string | null;
+}
+
+/** Everything ticked: main tasks, and subtasks at any depth, each with the day of its own tick. */
+function tickedEntries(trees: TaskTreeNode[]): Entry[] {
+  const entries: Entry[] = [];
+  const visit = (nodes: TaskTreeNode[], path: string[], listId: string | null) => {
+    for (const node of nodes) {
+      const inList = path.length === 0 ? node.listId : listId;
+      if (node.isComplete && node.completedOn) entries.push({ node, path, listId: inList });
+      visit(node.children, [...path, node.title.split("\n")[0]], inList);
+    }
+  };
+  visit(trees, [], null);
+  return entries;
+}
+
 /**
- * Finished main tasks (and bought one-off rewards), newest day first. They
- * also stay in their lists for a few days. Unticking one makes it open again.
+ * What was done, newest day first: finished main tasks (and bought one-off
+ * rewards), and every subtask on the day it was ticked, whether or not its
+ * main task is finished yet. Finished main tasks also stay in their lists for
+ * a few days. Unticking anything here makes it open again.
  */
 export function DonePage() {
   const tasks = useTaskTrees();
@@ -69,18 +119,17 @@ export function DonePage() {
   if (!tasks.data || !lists.data) return <p className="text-sm text-stone-500">Loading…</p>;
 
   const today = localDate();
-  const finished = tasks.data
-    .filter((task) => task.isComplete && task.completedOn)
+  const finished = tickedEntries(tasks.data)
     // A task ticked a moment ago has no server time yet; it goes first.
-    .sort((a, b) => (b.completedAt ?? "9").localeCompare(a.completedAt ?? "9"));
-  const days = [...new Set(finished.map((task) => task.completedOn!))].sort().reverse();
+    .sort((a, b) => (b.node.completedAt ?? "9").localeCompare(a.node.completedAt ?? "9"));
+  const days = [...new Set(finished.map(({ node }) => node.completedOn!))].sort().reverse();
   const listName = (id: string | null) => lists.data.find((list) => list.id === id)?.name;
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <h1 className="font-pixel text-base">Done</h1>
       {days.length === 0 && (
-        <p className="card text-sm text-stone-500">Nothing finished yet. Tick a main task and it shows up here.</p>
+        <p className="card text-sm text-stone-500">Nothing done yet. Tick a task or a subtask and it shows up here.</p>
       )}
       {days.map((day) => (
         <TileFrame
@@ -91,10 +140,14 @@ export function DonePage() {
         >
           <ul className="space-y-1.5">
             {finished
-              .filter((task) => task.completedOn === day)
-              .map((task) => (
-                <FinishedTask key={task.id} node={task} listName={listName(task.listId)} />
-              ))}
+              .filter(({ node }) => node.completedOn === day)
+              .map(({ node, path, listId }) =>
+                path.length === 0 ? (
+                  <FinishedTask key={node.id} node={node} listName={listName(listId)} />
+                ) : (
+                  <TickedSubtask key={node.id} node={node} path={path} listName={listName(listId)} />
+                ),
+              )}
           </ul>
         </TileFrame>
       ))}

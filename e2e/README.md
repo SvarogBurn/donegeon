@@ -8,7 +8,7 @@ per check. They are scripts, not a test runner suite.
 | `m2.mjs` | lists, goals, deadlines, countdown table, dashboard pressure, drag rules |
 | `m2b.mjs` | deadline pill colours, row click → detail page, summary cells, weekday table, instant tick |
 | `combined.mjs` | dashboard "All deadlines" table: paces added up, deadline marker rows |
-| `done.mjs` | dashboard "Done" box: stepping day by day, calendar pick, no future days |
+| `done.mjs` | dashboard "Done" box: stepping day by day, calendar pick, no future days; Done tab: subtasks under the day they were ticked |
 | `labels.mjs` | several goals and tags per task, filtering |
 | `lists.mjs` | default list, deleting lists with undo, goal tags on subtasks |
 | `del.mjs` | Delete key on tasks |
