@@ -98,9 +98,12 @@ model Task {
   // Stamp-once: set on completion, cleared on un-toggle.
   completedAt  DateTime?
   completedOn  String?
-  // Top-level tasks only. Null = worth the list's defaultPoints; a number is a
-  // hand-set amount that travels with the task. The list's kind decides add or subtract.
+  // A number is a hand-set amount that travels with the task. Null on a top-level task = worth the
+  // list's defaultPoints; null on a subtask = worth nothing, or what its main task is worth if that
+  // one has pointsToSubtasks. The list's kind decides add or subtract.
   points       Int?
+  // Top-level tasks only: subtasks without an amount of their own are worth what this task is.
+  pointsToSubtasks Boolean   @default(false)
   // The day the task was marked for Today; null = not in Today.
   todaySince   String?
   // Top-level tasks only. Done again and again: never complete, each press is a TaskCompletion.

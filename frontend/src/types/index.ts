@@ -51,8 +51,10 @@ export interface Task {
   completedAt: string | null;
   /** The user's calendar day the task was completed on, "YYYY-MM-DD". */
   completedOn: string | null;
-  /** Top-level tasks only: a hand-set amount; null = the list's default. */
+  /** A hand-set amount; null = the list's default (a main task), or what its main task hands down, if anything (a subtask). */
   points: number | null;
+  /** Top-level tasks only: subtasks without their own amount are worth what this task is. */
+  pointsToSubtasks: boolean;
   /** The day it was marked for Today; null = not in Today. */
   todaySince: string | null;
   /** Top-level tasks only: done again and again with a button instead of ticked once. */
@@ -99,8 +101,10 @@ export interface TaskTreeNode extends Task {
   descendantDoneCount: number;
   /** Today's pace, for tasks with a deadline (hard or soft). */
   pace: Pace | null;
-  /** What a top-level task is worth right now; null for subtasks. */
-  value: number | null;
+  /** What the task is worth right now; 0 = nothing, as for a subtask that was given no points. */
+  value: number;
+  /** Whether that is earned or spent: the kind of the list its main task is in. */
+  valueKind: ListKind;
   /** Presses of a persistent task, oldest first. */
   completions: TaskPress[];
 }

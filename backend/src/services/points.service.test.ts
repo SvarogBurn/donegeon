@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookingFor, openBooking, taskValue } from "./points.service.js";
+import { bookingFor, openBooking, subtaskValue, taskValue } from "./points.service.js";
 
 describe("taskValue", () => {
   it("uses the list's default until the task has its own amount", () => {
@@ -16,6 +16,19 @@ describe("taskValue", () => {
     expect(taskValue({ points: null }, null, 6)).toBe(6);
     expect(taskValue({ points: 7 }, null, 2)).toBe(7);
     expect(taskValue({ points: 0 }, null, 2)).toBe(0);
+  });
+});
+
+describe("subtaskValue", () => {
+  it("is nothing unless the subtask has its own amount", () => {
+    expect(subtaskValue({ points: null }, { pointsToSubtasks: false }, 5)).toBe(0);
+    expect(subtaskValue({ points: 3 }, { pointsToSubtasks: false }, 5)).toBe(3);
+  });
+
+  it("takes the main task's value when that one passes it down, unless it has its own", () => {
+    expect(subtaskValue({ points: null }, { pointsToSubtasks: true }, 5)).toBe(5);
+    expect(subtaskValue({ points: 3 }, { pointsToSubtasks: true }, 5)).toBe(3);
+    expect(subtaskValue({ points: 0 }, { pointsToSubtasks: true }, 5)).toBe(0);
   });
 });
 

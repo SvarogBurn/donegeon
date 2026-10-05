@@ -18,8 +18,10 @@ export interface TaskChanges {
   tagIds?: string[];
   deadlineDate?: string | null;
   deadlineType?: "hard" | "soft";
-  /** null = back to the list's default. */
+  /** null = back to the default: the list's amount, or for a subtask what its main task hands down. */
   points?: number | null;
+  /** Main tasks only. */
+  pointsToSubtasks?: boolean;
   today?: boolean;
   isPersistent?: boolean;
   /** null = no schedule. A number also makes the task persistent. */

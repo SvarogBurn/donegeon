@@ -61,7 +61,8 @@ On the dashboard a task's subtasks start hidden: click the arrow at the left of 
 ## Points, rewards, Today
 
 - Every list is a **task list** (its items add points) or a **reward list** (its items cost points), with a points-per-item amount. Both are set when the list is created and can be changed in the list's header.
-- Ticking a main task books its points and moves it to the **Done** tab; unticking it there puts it back and reverses the points. Subtasks carry no points.
+- Ticking a main task books its points and moves it to the **Done** tab; unticking it there puts it back and reverses the points.
+- Subtasks are worth nothing unless you say so. Give one its own amount in its ⋯ menu, or tick **Subtasks earn this too** in the main task's ⋯ menu: every subtask without an amount of its own is then worth what the main task is (as a main task takes its list's amount). Ticking a subtask books its points, unticking takes them back.
 - In a task's ⋯ menu: **Do today** (shows it in the Today box until it is done), **Persistent** (a repeat button instead of a checkbox: can be done or bought again and again), and its own point amount (empty = the list's amount).
 - **Repeat**, in the ⋯ menu once Persistent is ticked: put a number in "Every" and pick days, weeks or months ("every 3 weeks"). The task is then due on its day: it shows "due today" in its list and comes into the Today box by itself. Press its repeat button when it is done; it greys out and shows the next day until then. "Next" sets the next day by hand. **Planned days** keeps the rhythm even when you are late; **After done** counts the next round from the day you did it. Empty the number to take the schedule off.
 - The balance in the task bar at the bottom opens the points history.

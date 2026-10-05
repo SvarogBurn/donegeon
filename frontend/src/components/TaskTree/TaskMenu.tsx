@@ -75,16 +75,17 @@ function Labels({ node }: { node: TaskTreeNode }) {
 
 const CHECK_ROW = "flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-stone-100 dark:hover:bg-stone-800";
 
-/** Today (any task), and for main tasks: its own point amount and whether it is persistent. */
+/** Today and its own point amount (any task), and for main tasks: whether it is persistent and whether its subtasks get its points. */
 function Doing({ node }: { node: TaskTreeNode }) {
   const { data: lists = [] } = useLists();
   const update = useUpdateTask();
   const setToday = useSetToday();
   const list = lists.find((l) => l.id === node.listId);
-  const isReward = list?.kind === "reward";
+  const isReward = node.valueKind === "reward";
+  const isSubtask = node.parentId !== null;
   const [points, setPoints] = useState(node.points === null ? "" : String(node.points));
   useEffect(() => setPoints(node.points === null ? "" : String(node.points)), [node.points]);
-  const save = (changes: { points?: number | null; isPersistent?: boolean }) =>
+  const save = (changes: { points?: number | null; isPersistent?: boolean; pointsToSubtasks?: boolean }) =>
     update.mutate({ id: node.id, changes });
 
   function savePoints() {
@@ -117,24 +118,32 @@ function Doing({ node }: { node: TaskTreeNode }) {
             />
             {isReward ? "Persistent (can be bought again)" : "Persistent (can be done again)"}
           </label>
-          <label className="flex items-center gap-2 px-1 text-xs">
-            <span className="shrink-0">{isReward ? "Costs" : "Points"}</span>
-            {/* The same dark field as a list's "N each". */}
-            <input
-              className="points-field !w-10 tabular-nums placeholder:text-stone-400"
-              type="text"
-              inputMode="numeric"
-              maxLength={3}
-              value={points}
-              onChange={(e) => setPoints(e.target.value.replace(/\D/g, ""))}
-              onBlur={savePoints}
-              onKeyDown={(e) => e.key === "Enter" && savePoints()}
-              placeholder={String(list?.defaultPoints ?? (node.points === null ? (node.value ?? "") : ""))}
-              aria-label={`Points for this task (empty = ${list ? "the list's" : "Today's"} amount)`}
-            />
-            <span className="text-stone-500">{node.points !== null ? "its own amount" : list ? "the list's amount" : "Today's amount"}</span>
-          </label>
         </>
+      )}
+      <label className="flex items-center gap-2 px-1 text-xs">
+        <span className="shrink-0">{isReward ? "Costs" : "Points"}</span>
+        {/* The same dark field as a list's "N each". */}
+        <input
+          className="points-field !w-10 tabular-nums placeholder:text-stone-400"
+          type="text"
+          inputMode="numeric"
+          maxLength={3}
+          value={points}
+          onChange={(e) => setPoints(e.target.value.replace(/\D/g, ""))}
+          onBlur={savePoints}
+          onKeyDown={(e) => e.key === "Enter" && savePoints()}
+          placeholder={String(isSubtask ? (node.points === null ? node.value : "") : (list?.defaultPoints ?? (node.points === null ? node.value : "")))}
+          aria-label={`Points for this task (empty = ${isSubtask ? "what its main task hands down" : list ? "the list's amount" : "Today's amount"})`}
+        />
+        <span className="text-stone-500">
+          {node.points !== null ? "its own amount" : isSubtask ? (node.value ? "its main task's amount" : "no points") : list ? "the list's amount" : "Today's amount"}
+        </span>
+      </label>
+      {!isSubtask && (
+        <label className={CHECK_ROW} title="Every subtask without an amount of its own is worth what this task is, each time one is ticked.">
+          <PixelCheckbox small checked={node.pointsToSubtasks} onChange={(e) => save({ pointsToSubtasks: e.target.checked })} />
+          {isReward ? "Subtasks cost this too" : "Subtasks earn this too"}
+        </label>
       )}
       {(update.error ?? setToday.error) && (
         <p className="text-xs text-red-600">{(update.error ?? setToday.error)!.message}</p>

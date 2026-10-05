@@ -6,7 +6,7 @@ import { isLocalDate } from "../lib/localDate.js";
 import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
 import { countdownForTask, todayPace } from "../services/countdown.service.js";
-import { bookTask, reverseBooking, reverseTaskBooking, taskValue } from "../services/points.service.js";
+import { bookTask, reverseBooking, reverseTaskBooking, subtaskValue, taskValue } from "../services/points.service.js";
 import { dueAfter } from "../services/repeat.service.js";
 import {
   buildTree,
@@ -43,8 +43,10 @@ const taskPatch = z.object({
   startDate: localDate.optional(),
   deadlineDate: localDate.nullable().optional(),
   deadlineType: z.enum(["hard", "soft"]).optional(),
-  /** Main tasks only: its own amount, or null to go back to the list's default. */
+  /** Its own amount, or null to go back to what it gets by default: the list's amount (a main task), or what its main task hands down (a subtask). */
   points: z.number().int().min(0, "Points can't be negative").max(100_000).nullable().optional(),
+  /** Main tasks only: subtasks without their own amount are worth what this task is. */
+  pointsToSubtasks: z.boolean().optional(),
   /** In or out of the Today box. */
   today: z.boolean().optional(),
   /** Main tasks only: done again and again instead of once. */
@@ -122,7 +124,7 @@ export const tasksRouter = Router();
 
 // All of the user's tasks as nested trees of top-level tasks. Tasks with a
 // deadline (hard or soft) carry today's pace, which colours their deadline pill;
-// top-level tasks carry what they are worth, persistent ones their presses.
+// every task carries what it is worth (and whether that is earned or spent), persistent ones their presses.
 tasksRouter.get("/", async (req, res) => {
   const owner = userId(req);
   // Deleted tasks stay restorable for a while, then are removed for good.
@@ -142,14 +144,22 @@ tasksRouter.get("/", async (req, res) => {
     prisma.user.findUniqueOrThrow({ where: { id: owner }, select: { todayPoints: true } }),
   ]);
   const listById = new Map(lists.map((list) => [list.id, list]));
+  const taskById = new Map(tasks.map((task) => [task.id, task]));
   const forPace = withFinishedRoots(tasks).tasks;
-  const flat = tasks.map(({ goals, tags, ...task }) => ({
-    ...task,
-    goalIds: goals.map((g) => g.id),
-    tagIds: tags.map((t) => t.id),
-    value: task.parentId ? null : taskValue(task, listById.get(task.listId ?? "") ?? null, todayPoints),
-    pace: task.deadlineDate ? todayPace(forPace, task, req.localDate) : null,
-  }));
+  const flat = tasks.map(({ goals, tags, ...task }) => {
+    let root = task;
+    while (root.parentId && taskById.has(root.parentId)) root = taskById.get(root.parentId)!;
+    const list = listById.get(root.listId ?? "") ?? null;
+    const rootValue = taskValue(root, list, todayPoints);
+    return {
+      ...task,
+      goalIds: goals.map((g) => g.id),
+      tagIds: tags.map((t) => t.id),
+      value: task.parentId ? subtaskValue(task, root, rootValue) : rootValue,
+      valueKind: list?.kind ?? "task",
+      pace: task.deadlineDate ? todayPace(forPace, task, req.localDate) : null,
+    };
+  });
   res.json({ tasks: buildTree(flat) });
 });
 
@@ -219,9 +229,10 @@ tasksRouter.patch("/:id", async (req, res) => {
   // Hard/soft is the user's own choice and can be picked before there is a
   // date; it only has an effect once a date is set.
   if (input.deadlineType) data.deadlineType = input.deadlineType;
-  if (input.points !== undefined) {
-    if (task.parentId) throw new HttpError(400, "Only main tasks carry points");
-    data.points = input.points;
+  data.points = input.points;
+  if (input.pointsToSubtasks !== undefined) {
+    if (task.parentId) throw new HttpError(400, "Only a main task can hand its points down to its subtasks");
+    data.pointsToSubtasks = input.pointsToSubtasks;
   }
   if (input.today === false && !task.parentId && !task.listId) {
     throw new HttpError(400, "This task only lives in Today. Move it to a list first, or delete it.");
@@ -262,8 +273,8 @@ tasksRouter.patch("/:id", async (req, res) => {
 });
 
 // Flips completion for this one node only; parents and children are untouched.
-// Ticking a main task books its points (a reward's cost, in a reward list);
-// un-ticking reverses exactly that booking.
+// Ticking a task that is worth something books its points (a reward's cost, in
+// a reward list); un-ticking reverses exactly that booking.
 tasksRouter.patch("/:id/toggle", async (req, res) => {
   const task = await ownTask(req, req.params.id);
   if (task.isPersistent) throw new HttpError(400, "A persistent task is done with its “done it” button");

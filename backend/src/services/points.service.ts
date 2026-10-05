@@ -10,6 +10,14 @@ export function taskValue(task: Pick<Task, "points">, list: Pick<List, "defaultP
   return task.points ?? (list ? list.defaultPoints : todayPoints);
 }
 
+/**
+ * What a subtask (at any depth) is worth: its own amount if it has one, else
+ * what its main task is worth if that one passes its amount down, else nothing.
+ */
+export function subtaskValue(task: Pick<Task, "points">, root: Pick<Task, "pointsToSubtasks">, rootValue: number): number {
+  return task.points ?? (root.pointsToSubtasks ? rootValue : 0);
+}
+
 export type Booking =
   | { ok: true; row: { type: "earned" | "redeemed"; amount: number } | null }
   | { ok: false; short: number };
@@ -43,13 +51,20 @@ export async function balanceOf(tx: Prisma.TransactionClient, userId: string): P
   return sum._sum.amount ?? 0;
 }
 
-/** Books a top-level task being done (ticked, or pressed if persistent). Returns the row, or null if it is worth nothing. */
+/**
+ * Books a task being done (ticked, or pressed if persistent). A subtask is booked
+ * in its main task's list: that list's kind decides add or subtract.
+ * Returns the row, or null if the task is worth nothing.
+ */
 export async function bookTask(tx: Prisma.TransactionClient, task: Task) {
-  if (task.parentId) return null;
+  let root = task;
+  while (root.parentId) root = await tx.task.findUniqueOrThrow({ where: { id: root.parentId } });
   // A task that lives only in Today has no list: it earns its own amount, or the user's amount for Today.
-  const list = task.listId ? await tx.list.findUnique({ where: { id: task.listId } }) : null;
+  const list = root.listId ? await tx.list.findUnique({ where: { id: root.listId } }) : null;
   const { todayPoints } = await tx.user.findUniqueOrThrow({ where: { id: task.userId }, select: { todayPoints: true } });
-  const booking = bookingFor(list?.kind ?? "task", taskValue(task, list, todayPoints), await balanceOf(tx, task.userId));
+  const rootValue = taskValue(root, list, todayPoints);
+  const value = task.parentId ? subtaskValue(task, root, rootValue) : rootValue;
+  const booking = bookingFor(list?.kind ?? "task", value, await balanceOf(tx, task.userId));
   if (!booking.ok) throw new HttpError(400, `Not enough points: you need ${booking.short} more`);
   if (!booking.row) return null;
   return tx.pointTransaction.create({
