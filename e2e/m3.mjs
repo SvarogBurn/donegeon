@@ -96,6 +96,12 @@ out("Done box shows the presses", (await p.locator('section[aria-label="Done"]')
 await p.click("[data-nav-balance]"); await p.waitForSelector('[aria-label="History"]');
 const history = (await p.locator('[aria-label="History"]').innerText()).replace(/\s+/g, " ");
 out("history has earned, spent and taken-back rows", ["Earned", "Spent", "Taken back"].every((w) => history.includes(w)) && (await p.locator("[data-balance]").getAttribute("data-balance")) === "0");
+{ // On a phone the history must stay inside its box.
+  const size = p.viewportSize(); await p.setViewportSize({ width: 390, height: 800 }); await wait(400);
+  const past = await p.evaluate(() => { const box = document.querySelector('[aria-label="History"] .tile-body').getBoundingClientRect(); return Math.max(...[...document.querySelectorAll('[aria-label="History"] .tile-body *')].map((el) => el.getBoundingClientRect().right - box.right)); });
+  out("phone: the history stays inside its box, no sideways scrolling", past <= 0 && await p.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), past);
+  await p.setViewportSize(size); await wait(400);
+}
 await p.click('nav [aria-label="Tasks"]'); await p.waitForSelector("section[data-drop-list]"); await wait();
 
 // --- Today

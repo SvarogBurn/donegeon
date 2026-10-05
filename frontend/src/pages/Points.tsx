@@ -36,22 +36,26 @@ export function PointsPage() {
         {transactions.length === 0 ? (
           <p className="text-sm text-stone-500">Nothing yet. Tick a main task in a task list to earn its points.</p>
         ) : (
-          <table className="w-full text-sm">
-            <tbody>
-              {transactions.map((row) => (
-                <tr key={row.id} className="border-t border-stone-200 first:border-t-0 dark:border-stone-800">
-                  <td className="py-1 pr-3 whitespace-nowrap text-stone-500 tabular-nums">{when(row.createdAt)}</td>
-                  <td className="w-full py-1 pr-3">{row.title.split("\n")[0]}</td>
-                  <td className="py-1 pr-3 whitespace-nowrap text-stone-500">{WHAT[row.type]}</td>
-                  <td
-                    className={`py-1 text-right font-medium whitespace-nowrap tabular-nums ${row.amount < 0 ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400"}`}
-                  >
-                    {formatAmount(row.amount)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          // One line per row on a wide screen: when, what for, what happened, how much. A phone has no
+          // room for that: there the title and the amount share a line, with when and what happened under them.
+          <ul className="text-sm">
+            {transactions.map((row) => (
+              <li
+                key={row.id}
+                data-history-row
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 border-t border-stone-200 py-1 first:border-t-0 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] dark:border-stone-800"
+              >
+                <span className="text-xs whitespace-nowrap text-stone-500 tabular-nums max-sm:order-3 sm:text-sm">{when(row.createdAt)}</span>
+                <span className="break-words max-sm:order-1">{row.title.split("\n")[0]}</span>
+                <span className="text-xs whitespace-nowrap text-stone-500 max-sm:order-4 max-sm:text-right sm:text-sm">{WHAT[row.type]}</span>
+                <span
+                  className={`text-right font-medium whitespace-nowrap tabular-nums max-sm:order-2 ${row.amount < 0 ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400"}`}
+                >
+                  {formatAmount(row.amount)}
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </TileFrame>
     </div>
