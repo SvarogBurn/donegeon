@@ -23,6 +23,7 @@ per check. They are scripts, not a test runner suite.
 | `colors.mjs` | a list's own colour: the band and the switch take it, light colours get a dark title, any other colour, back to the kind's own |
 | `folders.mjs` | folders as tabs of the task bar: dropping lists on New / a folder / Tasks, the folder's page, name and colour by click, right-click and hold, removing a folder |
 | `stats.mjs` | the stats on the user's page: done counts, streaks, dots, deadlines, time to finish, per list / goal, moving and hiding the boxes, the filter, phone width |
+| `ticked.mjs` | ticked tasks sit under the open ones: subtasks within their task, main tasks within their list, back in place when unticked, Alt+↑ / Alt+↓ stepping over them |
 
 ## Run
 

@@ -43,8 +43,8 @@ function todayItems(trees: TaskTreeNode[], today: string): TodayItem[] {
     }
   };
   visit(trees, [], false);
-  // Longest-waiting first.
-  return found.sort((a, b) => since(a.node).localeCompare(since(b.node)));
+  // Open ones first, ticked ones under them; longest-waiting first in each.
+  return found.sort((a, b) => Number(a.node.isComplete) - Number(b.node.isComplete) || since(a.node).localeCompare(since(b.node)));
 }
 
 function TodayRow({ node, path, today }: TodayItem & { today: string }) {

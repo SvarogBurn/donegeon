@@ -319,6 +319,9 @@ interface TaskTreeProps {
   depth?: number;
 }
 
+/** Ticked tasks sit under the open ones; each group keeps the user's own order. Shown that way only: nothing is moved. */
+const tickedLast = (nodes: TaskTreeNode[]) => [...nodes.filter((n) => !n.isComplete), ...nodes.filter((n) => n.isComplete)];
+
 export function TaskTree({ nodes, parentId, listId, depth = 0 }: TaskTreeProps) {
   const { draft } = useTree();
   const draftIsHere = draft !== null && draft.parentId === parentId && (parentId !== null || draft.listId === listId);
@@ -326,7 +329,7 @@ export function TaskTree({ nodes, parentId, listId, depth = 0 }: TaskTreeProps) 
   return (
     <ul>
       {draftIsHere && draft.afterId === null && <DraftRow />}
-      {nodes.map((node) => (
+      {tickedLast(nodes).map((node) => (
         <Fragment key={node.id}>
           <TaskNode node={node} depth={depth} />
           {draftIsHere && draft.afterId === node.id && <DraftRow />}

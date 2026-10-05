@@ -333,7 +333,9 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
   const moveBy = useCallback(
     (node: TaskTreeNode, direction: -1 | 1) => {
       const siblings = siblingsOf(node);
-      const index = siblings.findIndex((s) => s.id === node.id) + direction;
+      // Ticked tasks are shown under the open ones, so step over siblings of the other kind: the swap is with the row next to it on screen.
+      let index = siblings.findIndex((s) => s.id === node.id) + direction;
+      while (siblings[index] && siblings[index].isComplete !== node.isComplete) index += direction;
       if (index < 0 || index >= siblings.length) return;
       const placement = { parentId: node.parentId, listId: node.parentId ? null : node.listId, index };
       // The row is re-inserted in the DOM, which drops focus; put it back.
