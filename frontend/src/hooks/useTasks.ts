@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as foldersApi from "../api/folders";
 import * as goalsApi from "../api/goals";
 import * as listsApi from "../api/lists";
 import * as tagsApi from "../api/tags";
@@ -6,12 +7,13 @@ import * as tasksApi from "../api/tasks";
 import { localDate } from "../api/client";
 import { findNode, toggleInCountdown, toggleInTrees, type CompletionChange } from "../lib/optimisticToggle";
 import type { DashboardLayout } from "../lib/tileLayout";
-import type { Countdown, TaskTreeNode } from "../types";
+import type { Countdown, Folder, TaskTreeNode } from "../types";
 
 const TASKS = ["tasks"];
 const GOALS = ["goals"];
 const TAGS = ["tags"];
 const LISTS = ["lists"];
+const FOLDERS = ["folders"];
 const COUNTDOWN = ["countdown"];
 const PRESSURE = ["pressure"];
 const POINTS = ["points"];
@@ -22,6 +24,7 @@ export const useTaskTrees = () => useQuery({ queryKey: TASKS, queryFn: tasksApi.
 export const useGoals = () => useQuery({ queryKey: GOALS, queryFn: goalsApi.listGoals });
 export const useTags = () => useQuery({ queryKey: TAGS, queryFn: tagsApi.listTags });
 export const useLists = () => useQuery({ queryKey: LISTS, queryFn: listsApi.listLists });
+export const useFolders = () => useQuery({ queryKey: FOLDERS, queryFn: foldersApi.listFolders });
 const LAYOUT = ["layout"];
 export const useLayout = (page: tasksApi.LayoutPage = "dashboard") =>
   useQuery({ queryKey: [...LAYOUT, page], queryFn: () => tasksApi.getLayout(page) });
@@ -136,6 +139,22 @@ export const useDeleteGoal = () => useInvalidating(goalsApi.deleteGoal, [GOALS, 
 
 export const useCreateTag = () => useInvalidating(tagsApi.createTag, [TAGS]);
 export const useDeleteTag = () => useInvalidating(tagsApi.deleteTag, [TAGS, TASKS]);
+
+// A folder made by dropping a list on "New" takes that list with it.
+export const useCreateFolder = () => useInvalidating(foldersApi.createFolder, [FOLDERS, LISTS]);
+/** Name, colour or arrangement: shows at once and is saved in the background. */
+export function useUpdateFolder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, changes }: { id: string; changes: foldersApi.FolderChanges }) => foldersApi.updateFolder(id, changes),
+    onMutate: ({ id, changes }) => {
+      queryClient.setQueryData<Folder[]>(FOLDERS, (folders) => folders?.map((folder) => (folder.id === id ? { ...folder, ...changes } : folder)));
+    },
+    onError: () => queryClient.invalidateQueries({ queryKey: FOLDERS }),
+  });
+}
+// Removing a folder puts its lists back on the Tasks page.
+export const useDeleteFolder = () => useInvalidating(foldersApi.deleteFolder, [FOLDERS, LISTS]);
 
 export const useCreateList = () => useInvalidating(listsApi.createList, [LISTS]);
 // A list's kind and default decide what its tasks are worth.

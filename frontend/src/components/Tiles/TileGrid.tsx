@@ -28,6 +28,11 @@ interface Props {
   order?: string[];
   layout: DashboardLayout;
   onChange: (layout: DashboardLayout) => void;
+  /**
+   * A list's tile was dropped on a tab of the task bar (an element with data-tab-drop):
+   * `tab` is that attribute's value. Other tiles can't be dropped there.
+   */
+  onDropOnTab?: (key: string, tab: string) => void;
 }
 
 /** A column is never narrower than this; fewer fit on a narrower screen. */
@@ -75,7 +80,12 @@ function dropAt(x: number, y: number, draggedKey: string): DropAt | null {
  * column at the right; and a pin that keeps it in a band across the top. As many columns as
  * fit the screen are offered, down to one on a phone.
  */
-export function TileGrid({ tiles, order, layout, onChange }: Props) {
+/** The tab of the task bar under the pointer, if it takes dropped lists. */
+function tabAt(x: number, y: number) {
+  return document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-tab-drop]") ?? null;
+}
+
+export function TileGrid({ tiles, order, layout, onChange, onDropOnTab }: Props) {
   const wrapper = useRef<HTMLDivElement>(null);
   const [fits, setFits] = useState(1);
   useLayoutEffect(() => {
@@ -100,21 +110,32 @@ export function TileGrid({ tiles, order, layout, onChange }: Props) {
   const save = (next: typeof arrangement) => onChange(withArrangement(layout, fits, next));
 
   // Read by drag listeners that outlive the render they were created in.
-  const latest = useRef({ arrangement, save });
-  latest.current = { arrangement, save };
+  const latest = useRef({ arrangement, save, onDropOnTab });
+  latest.current = { arrangement, save, onDropOnTab };
 
   function startDrag(e: ReactPointerEvent<HTMLElement>, key: string) {
     if (e.button !== 0) return;
     e.preventDefault();
     const handle = e.currentTarget;
     let target: DropAt | null = null;
+    // Lists can also be dropped on a tab of the task bar: into a folder, a new folder, or back to Tasks.
+    const takesTabs = key.startsWith("list:") && Boolean(onDropOnTab);
+    let tab: HTMLElement | null = null;
+    const hoverTab = (next: HTMLElement | null) => {
+      if (next === tab) return;
+      tab?.removeAttribute("data-drop-hover");
+      next?.setAttribute("data-drop-hover", "");
+      tab = next;
+    };
     const scroller = edgeScroller();
     handle.setPointerCapture(e.pointerId);
     setDraggingKey(key);
 
     const onMove = (ev: PointerEvent) => {
-      scroller.update(ev.clientY);
-      const next = dropAt(ev.clientX, ev.clientY, key);
+      hoverTab(takesTabs ? tabAt(ev.clientX, ev.clientY) : null);
+      // The task bar lies along the bottom edge: over a tab, the page must not scroll away underneath.
+      scroller.update(tab ? window.innerHeight / 2 : ev.clientY);
+      const next = tab ? null : dropAt(ev.clientX, ev.clientY, key);
       if (JSON.stringify(next) === JSON.stringify(target)) return;
       target = next;
       setDrop(next);
@@ -126,6 +147,9 @@ export function TileGrid({ tiles, order, layout, onChange }: Props) {
       handle.removeEventListener("pointercancel", onCancel);
       setDraggingKey(null);
       setDrop(null);
+      const droppedOn = tab?.dataset.tabDrop;
+      hoverTab(null);
+      if (dropped && droppedOn !== undefined) return latest.current.onDropOnTab?.(key, droppedOn);
       if (!dropped || !target) return;
       const { arrangement, save } = latest.current;
       let beforeKey = target.key;

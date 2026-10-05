@@ -13,7 +13,7 @@ const column = z.array(key).max(200);
  * "1".."4"; the frontend converts those.) `hidden` are the tiles the user has
  * minimized away; they keep their place for when they are brought back.
  */
-const layoutSchema = z.object({
+export const layoutSchema = z.object({
   pinned: column,
   hidden: column.optional(),
   byColumns: z.record(z.string().min(1).max(10), z.array(column).max(4)).refine((r) => Object.keys(r).length <= 8),

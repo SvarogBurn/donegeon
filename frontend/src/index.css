@@ -206,6 +206,15 @@
   .tab-icon-tasks {
     background-image: url("../../assets/icons/21x21task_icon_v2.svg");
   }
+  /* A folder of the user's own; one with a picked colour gets the recoloured art as an inline style. */
+  .tab-icon-folder {
+    background-image: url("../../assets/icons/21x21folder_icon_v1.svg");
+  }
+  /* A tab a dragged list would be dropped on. */
+  [data-tab-drop][data-drop-hover] {
+    outline: 2px solid var(--color-emerald-600);
+    outline-offset: -2px;
+  }
   .tab-icon-done {
     background-image: url("../../assets/icons/21x21done_icon_v1.svg");
   }

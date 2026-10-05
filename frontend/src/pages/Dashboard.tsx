@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Navigate } from "react-router";
 import { CombinedTable } from "../components/Countdown/CombinedTable";
 import { PressureSummary } from "../components/Countdown/PressureSummary";
 import { DoneLog } from "../components/Done/DoneLog";
@@ -15,6 +16,8 @@ import {
   useDeleteGoal,
   useDeleteTag,
   useCombinedCountdown,
+  useCreateFolder,
+  useFolders,
   useGoals,
   useLayout,
   useLists,
@@ -22,9 +25,12 @@ import {
   useSaveLayout,
   useTags,
   useTaskTrees,
+  useUpdateFolder,
+  useUpdateList,
 } from "../hooks/useTasks";
 import { countLabels, isFiltering, NO_FILTER, toggleId, type LabelFilter } from "../lib/labels";
-import { NEW_LIST_TILE, normalizeLayout, withHidden } from "../lib/tileLayout";
+import { NAME_FOLDER_EVENT } from "../lib/folders";
+import { NEW_LIST_TILE, normalizeLayout, withHidden, type DashboardLayout } from "../lib/tileLayout";
 
 /** What a hidden box is called on its button in the "Hidden" row. */
 const LABELS: Record<string, string> = {
@@ -33,8 +39,17 @@ const LABELS: Record<string, string> = {
   [NEW_LIST_TILE]: "New list",
 };
 
-export function Dashboard() {
+/**
+ * The Tasks page: every box, and the lists that are in no folder. With `folderId`
+ * it is that folder's page instead: its lists and the new-list field, arranged on their own.
+ * A list is moved between the two by dragging its tile onto a tab of the task bar.
+ */
+export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   const goals = useGoals();
+  const folders = useFolders();
+  const createFolder = useCreateFolder();
+  const updateFolder = useUpdateFolder();
+  const updateList = useUpdateList();
   const tags = useTags();
   const lists = useLists();
   const tasks = useTaskTrees();
@@ -48,10 +63,13 @@ export function Dashboard() {
   const saveLayout = useSaveLayout();
   const [picked, setPicked] = useState<LabelFilter>(NO_FILTER);
 
-  const error = goals.error ?? tags.error ?? lists.error ?? tasks.error;
+  const error = goals.error ?? tags.error ?? lists.error ?? tasks.error ?? folders.error;
   if (error) return <p className="text-sm text-red-600">Couldn't load your tasks: {error.message}</p>;
   // The layout is waited for (not required), so the tiles don't jump once it arrives.
-  if (!goals.data || !tags.data || !lists.data || !tasks.data || layout.isLoading) return <p className="text-sm text-stone-500">Loading…</p>;
+  if (!goals.data || !tags.data || !lists.data || !tasks.data || !folders.data || layout.isLoading) return <p className="text-sm text-stone-500">Loading…</p>;
+  const folder = folderId ? folders.data.find((f) => f.id === folderId) : null;
+  // A folder that was removed (or never was): back to the Tasks page.
+  if (folderId && !folder) return <Navigate to="/" replace />;
 
   // Ignore picks whose goal or tag has since been deleted.
   const filter: LabelFilter = {
@@ -60,9 +78,16 @@ export function Dashboard() {
   };
 
   const filtering = isFiltering(filter);
-  const cards = listCards(lists.data, tasks.data, filter);
+  const cards = listCards(lists.data.filter((list) => list.folderId === folderId), tasks.data, filter);
+  const listTiles = cards.map((card) => ({
+    key: `list:${card.list.id}`,
+    name: `list "${card.list.name}"`,
+    label: card.list.name,
+    node: <ListCard list={card.list} tasks={card.tasks} taskCount={card.taskCount} />,
+  }));
+  const newListTile = !filtering && { key: NEW_LIST_TILE, name: "the new-list field", node: <ListForm folderId={folderId} /> };
   // The two deadline boxes only exist once there is a deadline.
-  const tiles: ((Tile & { label?: string }) | false)[] = [
+  const mainTiles: ((Tile & { label?: string }) | false)[] = [
     Boolean(pressure.data?.items.length) && { key: "pressure", name: "deadline pressure", node: <PressureSummary /> },
     Boolean(combined.data?.items.length) && { key: "deadlines", name: "All deadlines", node: <CombinedTable /> },
     {
@@ -84,13 +109,8 @@ export function Dashboard() {
       ),
     },
     { key: "today", name: "Today", node: <TodayBox tasks={tasks.data} /> },
-    ...cards.map((card) => ({
-      key: `list:${card.list.id}`,
-      name: `list "${card.list.name}"`,
-      label: card.list.name,
-      node: <ListCard list={card.list} tasks={card.tasks} taskCount={card.taskCount} />,
-    })),
-    !filtering && { key: NEW_LIST_TILE, name: "the new-list field", node: <ListForm /> },
+    ...listTiles,
+    newListTile,
     {
       key: "tags",
       name: "Tags",
@@ -111,9 +131,25 @@ export function Dashboard() {
     },
     { key: "done", name: "Done", node: <DoneLog tasks={tasks.data} /> },
   ];
+  const tiles: ((Tile & { label?: string }) | false)[] = folder ? [...listTiles, newListTile] : mainTiles;
 
   // Every box, the lists too, can be minimized away; the hidden ones are offered again in a row under the grid.
-  const saved = normalizeLayout(layout.data);
+  // A folder's page has an arrangement of its own, kept with the folder.
+  const saved = normalizeLayout(folder ? folder.layout : layout.data);
+  const save = (next: DashboardLayout) => (folder ? updateFolder.mutate({ id: folder.id, changes: { layout: next } }) : saveLayout.mutate(next));
+  const layoutError = saveLayout.error ?? updateFolder.error;
+
+  // A list's tile dropped on a tab: into that folder, into a new one, or (on "Tasks") out of its folder.
+  function moveList(key: string, tab: string) {
+    const id = key.slice("list:".length);
+    if (tab === "new") {
+      createFolder.mutate({ listIds: [id] }, { onSuccess: (made) => window.dispatchEvent(new CustomEvent(NAME_FOLDER_EVENT, { detail: made.id })) });
+      return;
+    }
+    const to = tab === "main" ? null : tab;
+    if (to !== folderId) updateList.mutate({ id, changes: { folderId: to } });
+  }
+  const moveError = createFolder.error ?? updateList.error;
   const isHidden = (tile: Tile) => (saved.hidden ?? []).includes(tile.key);
   const allTiles = tiles.flatMap((tile) => (tile ? [{ ...tile, canHide: true }] : []));
   const shownTiles = allTiles.filter((tile) => !isHidden(tile));
@@ -137,9 +173,15 @@ export function Dashboard() {
             </button>
           </p>
         )}
-        <TileGrid tiles={shownTiles} order={allTiles.map((tile) => tile.key)} layout={saved} onChange={(next) => saveLayout.mutate(next)} />
-        <HiddenRow tiles={hiddenTiles} onShow={(key) => saveLayout.mutate(withHidden(saved, key, false))} />
-        {saveLayout.error && <p className="text-center text-sm text-red-600">Couldn't save the layout: {saveLayout.error.message}</p>}
+        {folder && (
+          <h1 className="text-center text-sm" data-folder-title>
+            {folder.name}
+          </h1>
+        )}
+        <TileGrid tiles={shownTiles} order={allTiles.map((tile) => tile.key)} layout={saved} onChange={save} onDropOnTab={moveList} />
+        <HiddenRow tiles={hiddenTiles} onShow={(key) => save(withHidden(saved, key, false))} />
+        {layoutError && <p className="text-center text-sm text-red-600">Couldn't save the layout: {layoutError.message}</p>}
+        {moveError && <p className="text-center text-sm text-red-600">Couldn't move the list: {moveError.message}</p>}
         <UndoBar />
       </div>
     </TreeProvider>

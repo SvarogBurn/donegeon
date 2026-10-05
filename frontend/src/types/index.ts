@@ -1,4 +1,5 @@
 // Hand-mirrored from the backend's Prisma models (see PLAN.md: no shared package in v1).
+import type { DashboardLayout } from "../lib/tileLayout";
 
 export interface User {
   id: string;
@@ -32,6 +33,18 @@ export interface List {
   defaultPoints: number;
   /** The colour picked for its box, "#rrggbb"; null = the kind's own (blue for tasks, orange for rewards). */
   color: string | null;
+  /** The folder (a tab of its own in the task bar) it was moved to; null = on the Tasks page. */
+  folderId: string | null;
+}
+
+/** A tab of the user's own in the task bar, holding lists. */
+export interface Folder {
+  id: string;
+  name: string;
+  /** The colour of its icon, "#rrggbb"; null = the icon as drawn. */
+  color: string | null;
+  /** How its page arranges its lists. */
+  layout: DashboardLayout | null;
 }
 
 export type RepeatUnit = "day" | "week" | "month";

@@ -3,9 +3,10 @@ import { createPortal } from "react-dom";
 import { localDate } from "../../api/client";
 import { useCreateList, useUpdateList } from "../../hooks/useTasks";
 import { daysBetween } from "../../lib/dates";
-import { frameIn, isLight, KIND_COLORS, LIST_COLORS, listColor, sliderIn } from "../../lib/frameTones";
+import { frameIn, isLight, KIND_COLORS, listColor, sliderIn } from "../../lib/frameTones";
 import { filterTree, isFiltering, type LabelFilter } from "../../lib/labels";
 import type { List, ListKind, TaskTreeNode } from "../../types";
+import { ColorChoices } from "../ColorChoices";
 import { TaskForm } from "../TaskTree/TaskForm";
 import { TaskTree } from "../TaskTree/TaskNode";
 import { useTree } from "../TaskTree/TreeContext";
@@ -86,12 +87,7 @@ function KindFields({ kind, points, onKind, onPoints, onPointsDone, inCorner = f
 function ColorPicker({ list, onPick }: { list: List; onPick: (color: string | null) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
-  const other = useRef<HTMLInputElement>(null);
   const current = listColor(list);
-  // The kind's own colour is "no colour picked", so the list follows its kind again.
-  const pick = (hex: string | null) => onPick(hex === KIND_COLORS[list.kind] ? null : hex);
-  const latestPick = useRef(pick);
-  latestPick.current = pick;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -99,23 +95,13 @@ function ColorPicker({ list, onPick }: { list: List; onPick: (color: string | nu
       if (!ref.current?.contains(e.target as Node)) setIsOpen(false);
     };
     const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && setIsOpen(false);
-    // The browser's picker reports every colour passed over; only the one it is closed on is saved.
-    const input = other.current;
-    const onChosen = () => input && latestPick.current(input.value);
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
-    input?.addEventListener("change", onChosen);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
-      input?.removeEventListener("change", onChosen);
     };
   }, [isOpen]);
-
-  // Uncontrolled, so the browser's picker isn't interrupted; it starts from the list's colour.
-  useEffect(() => {
-    if (other.current) other.current.value = current;
-  }, [current, isOpen]);
 
   return (
     <span ref={ref} className="relative flex">
@@ -129,30 +115,13 @@ function ColorPicker({ list, onPick }: { list: List; onPick: (color: string | nu
         onClick={() => setIsOpen(!isOpen)}
       />
       {isOpen && (
-        <div className="card absolute top-full left-0 z-40 mt-2 w-44 space-y-2 !p-2 shadow-lg max-sm:right-0 max-sm:left-auto" role="dialog" aria-label="List colour">
-          <div className="grid grid-cols-5 gap-1.5">
-            {LIST_COLORS.map(([name, hex]) => (
-              <button
-                key={hex}
-                type="button"
-                className={`size-6 cursor-pointer border-2 ${current === hex ? "border-stone-900 dark:border-white" : "border-transparent"}`}
-                style={{ backgroundColor: hex }}
-                aria-label={name}
-                aria-pressed={current === hex}
-                title={name}
-                onClick={() => pick(hex)}
-              />
-            ))}
-          </div>
-          <label className="flex items-center gap-2 text-xs">
-            Other
-            <input ref={other} type="color" className="h-6 w-10 cursor-pointer" defaultValue={current} aria-label="Any other colour" />
-          </label>
-          {list.color && (
-            <button type="button" className="btn-quiet" onClick={() => pick(null)}>
-              Back to {list.kind === "reward" ? "orange" : "blue"}
-            </button>
-          )}
+        <div className="card absolute top-full left-0 z-40 mt-2 w-44 !p-2 shadow-lg max-sm:right-0 max-sm:left-auto" role="dialog" aria-label="List colour">
+          <ColorChoices
+            current={current}
+            // The kind's own colour is "no colour picked", so the list follows its kind again.
+            onPick={(hex) => onPick(hex === KIND_COLORS[list.kind] ? null : hex)}
+            reset={list.color ? { label: `Back to ${list.kind === "reward" ? "orange" : "blue"}`, onReset: () => onPick(null) } : undefined}
+          />
         </div>
       )}
     </span>
@@ -307,8 +276,11 @@ export function ListCard({ list, tasks, taskCount }: ListCardProps) {
   );
 }
 
-/** A new list: its name, whether its items add or cost points, and how many. Enter in the name creates it. */
-export function ListForm() {
+/**
+ * A new list: its name, whether its items add or cost points, and how many. Enter in the name creates it,
+ * in the folder whose page this is (null = the Tasks page).
+ */
+export function ListForm({ folderId = null }: { folderId?: string | null }) {
   const [name, setName] = useState("");
   const [kind, setKind] = useState<ListKind>("task");
   const [points, setPoints] = useState("1");
@@ -318,7 +290,7 @@ export function ListForm() {
     e.preventDefault();
     if (!name.trim() || createList.isPending) return;
     createList.mutate(
-      { name, kind, defaultPoints: parsePoints(points) ?? 1 },
+      { name, kind, defaultPoints: parsePoints(points) ?? 1, folderId },
       {
         onSuccess: () => {
           setName("");

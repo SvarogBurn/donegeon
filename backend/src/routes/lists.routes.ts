@@ -12,14 +12,28 @@ const kind = z.enum(["task", "reward"]);
 const defaultPoints = z.number().int().min(0, "Points can't be negative").max(100_000);
 
 /** "#rrggbb", or null for the kind's own colour. */
-const color = z
+export const color = z
   .string()
   .regex(/^#[0-9a-f]{6}$/i, "A colour looks like #5b6ee1")
   .transform((hex) => hex.toLowerCase())
   .nullable();
 
-const listInput = z.object({ name, kind: kind.optional(), defaultPoints: defaultPoints.optional(), color: color.optional() });
-const listPatch = z.object({ name: name.optional(), kind: kind.optional(), defaultPoints: defaultPoints.optional(), color: color.optional() });
+/** The folder the list sits in; null = the Tasks page. */
+const folderId = z.string().uuid().nullable();
+
+const listInput = z.object({
+  name,
+  kind: kind.optional(),
+  defaultPoints: defaultPoints.optional(),
+  color: color.optional(),
+  folderId: folderId.optional(),
+});
+const listPatch = listInput.partial();
+
+async function assertOwnFolder(req: Request, id: string | null | undefined) {
+  if (!id) return;
+  if (!(await prisma.folder.findFirst({ where: { id, userId: userId(req) } }))) throw notFound("Folder");
+}
 
 async function ownList(req: Request, id: string) {
   const list = await prisma.list.findFirst({ where: { id, userId: userId(req), deletedAt: null } });
@@ -50,6 +64,7 @@ listsRouter.get("/", async (req, res) => {
 listsRouter.post("/", async (req, res) => {
   const input = listInput.parse(req.body);
   const owner = userId(req);
+  await assertOwnFolder(req, input.folderId);
   const last = await prisma.list.aggregate({ where: { userId: owner }, _max: { position: true } });
   const list = await prisma.list.create({
     data: { userId: owner, ...input, position: (last._max.position ?? -1) + 1 },
@@ -61,6 +76,7 @@ listsRouter.patch("/:id", async (req, res) => {
   // Changing kind or default only affects what gets booked from now on; the ledger stays as it is.
   const input = listPatch.parse(req.body);
   await ownList(req, req.params.id);
+  await assertOwnFolder(req, input.folderId);
   res.json({ list: await prisma.list.update({ where: { id: req.params.id }, data: input }) });
 });
 

@@ -83,6 +83,16 @@ Click your name in the task bar: under the Account box are your stats. They cove
 
 The filter at the top (dates, list, goal, tag, deadline type, repeating) narrows all of them at once. Each stats box can be dragged, pinned and minimized like the boxes of the dashboard. A subtask counts under its main task's list, goals and tags.
 
+## Folders
+
+A folder is a tab of your own in the task bar, next to Tasks and Done, holding some of your lists.
+
+- Drag a list by the handle on its title band onto **+ New** in the task bar: that makes a folder with the list in it and asks for its name. A click on **+ New** makes an empty one.
+- Drag more lists onto the folder's tab to add them, onto another folder's tab to move them there, and onto **Tasks** to take them back out.
+- Click a folder's tab to open its page: its lists, and a field for new lists that go straight into the folder.
+- To change a folder's name or colour, right-click its tab, press and hold it, or click it while its page is open. "Remove folder" there removes the tab only: its lists go back to the Tasks page.
+- Tasks in a folder's lists still count everywhere: Today, the deadline boxes, Done and the stats.
+
 ## Arranging the dashboard
 
 Every box has a drag handle and a Pin button on its title band. Drag a box above or below another, into another column, or onto the strip at the right edge for a new column; Pin keeps it in a band across the top. The arrangement is saved per account, separately for each screen width.

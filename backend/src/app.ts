@@ -9,6 +9,7 @@ import { localDateMiddleware } from "./lib/localDate.js";
 import { requireAuth } from "./middleware/requireAuth.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { dashboardRouter } from "./routes/dashboard.routes.js";
+import { foldersRouter } from "./routes/folders.routes.js";
 import { goalsRouter } from "./routes/goals.routes.js";
 import { layoutRouter } from "./routes/layout.routes.js";
 import { listsRouter } from "./routes/lists.routes.js";
@@ -52,6 +53,7 @@ export function createApp() {
   api.use("/goals", requireAuth, goalsRouter);
   api.use("/tags", requireAuth, tagsRouter);
   api.use("/lists", requireAuth, listsRouter);
+  api.use("/folders", requireAuth, foldersRouter);
   api.use("/tasks", requireAuth, tasksRouter);
   api.use("/dashboard", requireAuth, dashboardRouter);
   api.use("/points", requireAuth, pointsRouter);

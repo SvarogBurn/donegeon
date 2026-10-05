@@ -7,6 +7,8 @@ export interface ListChanges {
   defaultPoints?: number;
   /** "#rrggbb"; null = back to the kind's own colour. */
   color?: string | null;
+  /** null = on the Tasks page. */
+  folderId?: string | null;
 }
 
 export const listLists = () => api<{ lists: List[] }>("/lists").then((r) => r.lists);

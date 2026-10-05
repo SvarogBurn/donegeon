@@ -52,6 +52,7 @@ model User {
   tags              Tag[]
   tasks             Task[]
   lists             List[]
+  folders           Folder[]
   pointTransactions PointTransaction[]
   taskCompletions   TaskCompletion[]
 }
@@ -148,6 +149,8 @@ model List {
   kind          ListKind  @default(task)
   // The colour of the list's box, "#rrggbb", picked by the user. Null = the kind's own: blue for tasks, orange for rewards.
   color         String?
+  // The folder (a tab of its own in the task bar) the list was moved to. Null = on the Tasks page.
+  folderId      String?
   // What a top-level task in this list is worth unless it has its own amount.
   defaultPoints Int       @default(1)
   isArchived    Boolean   @default(false)
@@ -155,8 +158,28 @@ model List {
   deletedAt     DateTime?
   createdAt     DateTime  @default(now())
 
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder Folder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  tasks  Task[]
+
+  @@index([userId])
+  @@index([folderId])
+}
+
+// A tab of the user's own in the task bar, holding lists. Removing it puts its lists back on the Tasks page.
+model Folder {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  // The colour of its icon, "#rrggbb"; null = the icon as drawn.
+  color     String?
+  position  Int      @default(0)
+  // How the folder's page arranges its lists; the same shape as User.dashboardLayout.
+  layout    Json?
+  createdAt DateTime @default(now())
+
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tasks Task[]
+  lists List[]
 
   @@index([userId])
 }

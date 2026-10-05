@@ -1,5 +1,6 @@
 import frameSvg from "../../../assets/140x140border_blue_v3.svg?raw";
 import sliderSvg from "../../../assets/buttons/20x10slider_blue_v1.svg?raw";
+import folderSvg from "../../../assets/icons/21x21folder_icon_v1.svg?raw";
 import type { List } from "../types";
 
 /**
@@ -56,11 +57,15 @@ export function isLight(hex: string) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.4;
 }
 
+/** A folder's icon is drawn in a gold and a darker gold. */
+export const FOLDER_COLOR = "#e7b946";
+const FOLDER_DARK = "#B89232";
+
 const recoloured = new Map<string, string>();
-function recolour(art: string, artDark: string, bright: string, name: string) {
+function recolour(art: string, artDark: string, bright: string, name: string, artBright = BAND_BRIGHT) {
   const key = `${name}:${bright}`;
   if (!recoloured.has(key)) {
-    const svg = art.replaceAll(BAND_BRIGHT, bright).replaceAll(artDark, darker(bright));
+    const svg = art.replaceAll(artBright, bright).replaceAll(artDark, darker(bright));
     recoloured.set(key, `url("${URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }))}")`);
   }
   return recoloured.get(key)!;
@@ -70,6 +75,9 @@ function recolour(art: string, artDark: string, bright: string, name: string) {
 export const frameIn = (hex: string) => recolour(frameSvg, BAND_DARK, hex, "frame");
 /** The Task / Reward switch's track in any colour. */
 export const sliderIn = (hex: string) => recolour(sliderSvg, SLIDER_DARK, hex, "slider");
+
+/** A folder's icon in any colour. */
+export const folderIn = (hex: string) => recolour(folderSvg, FOLDER_DARK, hex, "folder", FOLDER_COLOR.toUpperCase());
 
 /** Sets --frame-<tone> on the page for each tone; index.css picks them up. Blue needs none: it is the file itself. */
 export function installFrameTones() {

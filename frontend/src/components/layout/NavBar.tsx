@@ -3,6 +3,7 @@ import { Link, NavLink } from "react-router";
 import { usePoints } from "../../hooks/useTasks";
 import type { User } from "../../types";
 import { Clock } from "./Clock";
+import { FolderTabs } from "./FolderTabs";
 
 // The label under each icon: near-black, and the frame's blue on the page that is open.
 const tab = ({ isActive }: { isActive: boolean }) =>
@@ -36,8 +37,10 @@ export function NavBar({ user }: { user: User }) {
         A phone has no room for the logo: there it is just the two ends.
       */}
       <div className="flex items-center justify-between gap-x-2 px-2 py-1.5 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:gap-x-4 sm:px-3">
-        <nav className="flex items-center gap-1" aria-label="Pages">
-          <NavLink to="/" end className={tab} aria-label="Tasks">
+        {/* With folders there can be many tabs: they wrap onto more rows, or on a phone scroll sideways in one. */}
+        <nav className="flex min-w-0 items-center gap-1 max-sm:overflow-x-auto sm:flex-wrap" aria-label="Pages">
+          {/* A list dropped on Tasks leaves its folder (see FolderTabs). */}
+          <NavLink to="/" end className={tab} aria-label="Tasks" data-tab-drop="main">
             <span className="tab-icon tab-icon-tasks" aria-hidden />
             Tasks
           </NavLink>
@@ -45,9 +48,10 @@ export function NavBar({ user }: { user: User }) {
             <span className="tab-icon tab-icon-done" aria-hidden />
             Done
           </NavLink>
+          <FolderTabs tab={tab} />
         </nav>
         <Link to="/" className="logo h-[42px] max-sm:hidden" aria-label="Donegeon" />
-        <div className="flex items-center justify-end gap-x-2 text-sm sm:gap-x-3">
+        <div className="flex flex-none items-center justify-end gap-x-2 text-sm sm:gap-x-3">
           {/* The balance, laid out like a tab: a big number where the icon would be, "pts" underneath. */}
           {points && (
             <NavLink to="/points" className={tab} data-nav-balance={points.balance} aria-label="Points" title="Your points: earned minus spent. Click for the history.">
