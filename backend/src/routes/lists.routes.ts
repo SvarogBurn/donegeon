@@ -50,8 +50,10 @@ listsRouter.get("/", async (req, res) => {
   const lists = await prisma.list.findMany({
     where: { userId: owner, deletedAt: null },
     orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+    // Its main tasks, finished long ago or not: the task trees only hold the open and the just ticked.
+    include: { _count: { select: { tasks: { where: { deletedAt: null } } } } },
   });
-  res.json({ lists });
+  res.json({ lists: lists.map(({ _count, ...list }) => ({ ...list, taskCount: _count.tasks })) });
 });
 
 listsRouter.post("/", async (req, res) => {

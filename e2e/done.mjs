@@ -35,10 +35,11 @@ await pretend(0); await tick("Ch 3");
 out("today: Ch 3 with its parent", JSON.stringify(await items()) === '["Ch 3 Exam"]', (await items()).join(" / "));
 await box.locator('[aria-label="Previous day"]').click();
 out("back one day: Ch 2", (await shown()) === day(-1) && JSON.stringify(await items()) === '["Ch 2 Exam"]', `${await shown()} ${(await items()).join(" / ")}`);
-await p.keyboard.press("ArrowLeft");
+// A day before yesterday is loaded when it is shown.
+await p.keyboard.press("ArrowLeft"); await wait();
 out("left arrow key: Ch 1 two days ago", (await shown()) === day(-2) && JSON.stringify(await items()) === '["Ch 1 Exam"]', `${await shown()} ${(await items()).join(" / ")}`);
-await box.locator('[aria-label="Previous day"]').click();
-out("three days ago: nothing", (await shown()) === day(-3) && (await items()).length === 0);
+await box.locator('[aria-label="Previous day"]').click(); await wait();
+out("three days ago: nothing", (await shown()) === day(-3) && (await box.innerText()).includes("Nothing ticked off"));
 await box.locator("input[type=date]").fill(day(-1), { force: true });
 out("calendar pick jumps to that day", (await shown()) === day(-1) && JSON.stringify(await items()) === '["Ch 2 Exam"]', await shown());
 out("calendar can't pick a future day", (await box.locator('input[type=date]').getAttribute("max")) === day(0));

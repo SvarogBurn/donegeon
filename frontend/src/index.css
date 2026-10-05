@@ -97,9 +97,34 @@
   --series-7: #4a3aa7;
   --series-other: #78716c;
   --series-none: #a8a29e;
+  --heat-far: #000;
+}
+/*
+ * A stats box with a colour of its own (data-chart, with --chart set on it): its bars take that colour,
+ * and the five steps of its dots are mixed from it, towards the track for "less" and towards --heat-far for "most".
+ */
+[data-chart] {
+  --heat-1: color-mix(in srgb, var(--chart) 30%, var(--chart-track));
+  --heat-2: color-mix(in srgb, var(--chart) 62%, var(--chart-track));
+  --heat-3: var(--chart);
+  --heat-4: color-mix(in srgb, var(--chart) 58%, var(--heat-far));
+}
+/* ...and so does its pressed choice (NES's primary button, blue as drawn), with the same darker edge. */
+[data-chart] .nes-btn.is-primary {
+  background-color: var(--chart);
+}
+[data-chart] .nes-btn.is-primary::after {
+  box-shadow: inset -4px -4px color-mix(in srgb, var(--chart) 70%, #000);
+}
+[data-chart] .nes-btn.is-primary:hover {
+  background-color: color-mix(in srgb, var(--chart) 88%, #000);
+}
+[data-chart] .nes-btn.is-primary:hover::after {
+  box-shadow: inset -6px -6px color-mix(in srgb, var(--chart) 70%, #000);
 }
 @media (prefers-color-scheme: dark) {
   :root {
+    --heat-far: #fff;
     --chart: #3987e5;
     --chart-late: #e66767;
     --chart-track: #292524;

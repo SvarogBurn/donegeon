@@ -5,7 +5,7 @@ import { HttpError, notFound } from "../lib/httpError.js";
 import { isLocalDate } from "../lib/localDate.js";
 import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
-import { countdownForTask, todayPace } from "../services/countdown.service.js";
+import { addDays, countdownForTask, todayPace } from "../services/countdown.service.js";
 import { bookTask, reverseBooking, reverseTaskBooking, subtaskValue, taskValue } from "../services/points.service.js";
 import { dueAfter } from "../services/repeat.service.js";
 import {
@@ -64,6 +64,10 @@ const taskPatch = z.object({
 const untickedSchema = z.array(z.object({ id: z.string(), completedAt: z.string(), completedOn: z.string() }));
 
 const DELETED_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+/** A ticked task stays in its list for 24 hours (the frontend's isRecent), so yesterday's ticks still go to the lists. */
+const KEPT_WHEN_DONE_DAYS = 1;
+/** How many days of ticks the Done tab gets at a time. */
+const DONE_PAGE_DAYS = 5;
 /** Deadlines are allowed on top-level tasks (depth 0) and their direct subtasks (depth 1). */
 const MAX_DEADLINE_DEPTH = 1;
 
@@ -92,7 +96,8 @@ async function assertOwnList(req: Request, listId: string) {
   if (!list) throw notFound("List");
 }
 
-const liveTasks = (owner: string) => prisma.task.findMany({ where: { userId: owner, deletedAt: null } });
+const live = (owner: string) => ({ userId: owner, deletedAt: null });
+const liveTasks = (owner: string) => prisma.task.findMany({ where: live(owner) });
 
 /**
  * Puts `taskId` at `at` among the tasks sharing its place in the tree and
@@ -120,26 +125,54 @@ async function placeAmongSiblings(
   await Promise.all(order.map((id, position) => tx.task.update({ where: { id }, data: { position } })));
 }
 
-export const tasksRouter = Router();
+/** What a task is read with for the trees: its goals and tags, and those of its presses that match `presses`. */
+const treeInclude = (presses: Prisma.TaskCompletionWhereInput) =>
+  ({
+    goals: { select: { id: true } },
+    tags: { select: { id: true } },
+    completions: { where: presses, select: { id: true, day: true, createdAt: true }, orderBy: { createdAt: "asc" } },
+  }) satisfies Prisma.TaskInclude;
 
-// All of the user's tasks as nested trees of top-level tasks. Tasks with a
-// deadline (hard or soft) carry today's pace, which colours their deadline pill;
-// every task carries what it is worth (and whether that is earned or spent), persistent ones their presses.
-tasksRouter.get("/", async (req, res) => {
-  const owner = userId(req);
-  // Deleted tasks stay restorable for a while, then are removed for good.
-  await prisma.task.deleteMany({
-    where: { userId: owner, deletedAt: { lt: new Date(Date.now() - DELETED_RETENTION_MS) } },
-  });
-  const [tasks, lists, { todayPoints }] = await Promise.all([
-    prisma.task.findMany({
-      where: { userId: owner, deletedAt: null },
-      include: {
-        goals: { select: { id: true } },
-        tags: { select: { id: true } },
-        completions: { select: { id: true, day: true, createdAt: true }, orderBy: { createdAt: "asc" } },
-      },
-    }),
+type TreeRow = Prisma.TaskGetPayload<{ include: ReturnType<typeof treeInclude> }>;
+
+/**
+ * The tasks matching `where`, each with the whole tree it sits in: up to its main task, then everything
+ * beneath that. The rest of the user's tasks are never read, however many there are.
+ */
+async function wholeTrees(owner: string, where: Prisma.TaskWhereInput, presses: Prisma.TaskCompletionWhereInput) {
+  const rootIds = new Set<string>();
+  const asked = new Set<string>();
+  let level = await prisma.task.findMany({ where: { ...live(owner), ...where }, select: { id: true, parentId: true } });
+  while (level.length > 0) {
+    const parentIds: string[] = [];
+    for (const task of level) {
+      if (!task.parentId) rootIds.add(task.id);
+      else if (!asked.has(task.parentId)) parentIds.push(task.parentId);
+      if (task.parentId) asked.add(task.parentId);
+    }
+    level =
+      parentIds.length > 0
+        ? await prisma.task.findMany({ where: { ...live(owner), id: { in: parentIds } }, select: { id: true, parentId: true } })
+        : [];
+  }
+
+  const include = treeInclude(presses);
+  const tasks: TreeRow[] = [];
+  let row = await prisma.task.findMany({ where: { ...live(owner), id: { in: [...rootIds] } }, include });
+  while (row.length > 0) {
+    tasks.push(...row);
+    row = await prisma.task.findMany({ where: { ...live(owner), parentId: { in: row.map((task) => task.id) } }, include });
+  }
+  return tasks;
+}
+
+/**
+ * Whole trees (see wholeTrees) nested under their main tasks. Tasks with a
+ * deadline (hard or soft) carry today's pace, which colours their deadline pill;
+ * every task carries what it is worth (and whether that is earned or spent), persistent ones their presses.
+ */
+async function asTrees(owner: string, tasks: TreeRow[], today: string) {
+  const [lists, { todayPoints }] = await Promise.all([
     prisma.list.findMany({ where: { userId: owner } }),
     prisma.user.findUniqueOrThrow({ where: { id: owner }, select: { todayPoints: true } }),
   ]);
@@ -157,10 +190,90 @@ tasksRouter.get("/", async (req, res) => {
       tagIds: tags.map((t) => t.id),
       value: task.parentId ? subtaskValue(task, root, rootValue) : rootValue,
       valueKind: list?.kind ?? "task",
-      pace: task.deadlineDate ? todayPace(forPace, task, req.localDate) : null,
+      pace: task.deadlineDate ? todayPace(forPace, task, today) : null,
     };
   });
-  res.json({ tasks: buildTree(flat) });
+  return buildTree(flat);
+}
+
+export const tasksRouter = Router();
+
+// The tasks the lists work with, as nested trees of top-level tasks: every main task still open, and
+// anything ticked since yesterday (which the lists keep showing for 24 hours), each with its whole tree.
+// Presses come along from yesterday on. What was finished before that is read by the Done tab (/done),
+// the dashboard's Done box (/done/:day) and the stats (/stats), so this stays small as the history grows.
+tasksRouter.get("/", async (req, res) => {
+  const owner = userId(req);
+  // Deleted tasks stay restorable for a while, then are removed for good.
+  await prisma.task.deleteMany({
+    where: { userId: owner, deletedAt: { lt: new Date(Date.now() - DELETED_RETENTION_MS) } },
+  });
+  const since = addDays(req.localDate, -KEPT_WHEN_DONE_DAYS);
+  const tasks = await wholeTrees(
+    owner,
+    { OR: [{ parentId: null, isComplete: false }, { completedOn: { gte: since } }] },
+    { day: { gte: since } },
+  );
+  res.json({ tasks: await asTrees(owner, tasks, req.localDate) });
+});
+
+// The Done tab, a few days at a time, newest first: the days on which something was ticked (before `before`,
+// if given), and the trees holding what was ticked on them. `next` is the `before` of the days after these.
+tasksRouter.get("/done", async (req, res) => {
+  const before = localDate.optional().parse(req.query.before);
+  const owner = userId(req);
+  const found = await prisma.task.groupBy({
+    by: ["completedOn"],
+    where: { ...live(owner), isComplete: true, completedOn: { not: null, lt: before } },
+    orderBy: { completedOn: "desc" },
+    take: DONE_PAGE_DAYS + 1,
+  });
+  const days = found.slice(0, DONE_PAGE_DAYS).map((group) => group.completedOn!);
+  const tasks = days.length > 0 ? await wholeTrees(owner, { isComplete: true, completedOn: { in: days } }, { day: { in: days } }) : [];
+  res.json({
+    days,
+    tasks: await asTrees(owner, tasks, req.localDate),
+    next: found.length > DONE_PAGE_DAYS ? days.at(-1) : null,
+  });
+});
+
+// Everything ticked or pressed on one day, for the dashboard's Done box; of the presses, only that day's.
+tasksRouter.get("/done/:day", async (req, res) => {
+  const day = localDate.parse(req.params.day);
+  const owner = userId(req);
+  const tasks = await wholeTrees(owner, { OR: [{ completedOn: day }, { completions: { some: { day } } }] }, { day });
+  res.json({ tasks: await asTrees(owner, tasks, req.localDate) });
+});
+
+// Every task there is, cut down to what the stats count with: one small flat row each.
+tasksRouter.get("/stats", async (req, res) => {
+  const tasks = await prisma.task.findMany({
+    where: live(userId(req)),
+    select: {
+      id: true,
+      parentId: true,
+      listId: true,
+      title: true,
+      startDate: true,
+      deadlineDate: true,
+      deadlineType: true,
+      isComplete: true,
+      completedOn: true,
+      isPersistent: true,
+      createdAt: true,
+      goals: { select: { id: true } },
+      tags: { select: { id: true } },
+      completions: { select: { day: true } },
+    },
+  });
+  res.json({
+    tasks: tasks.map(({ goals, tags, completions, ...task }) => ({
+      ...task,
+      goalIds: goals.map((g) => g.id),
+      tagIds: tags.map((t) => t.id),
+      pressDays: completions.map((press) => press.day),
+    })),
+  });
 });
 
 tasksRouter.get("/:id", async (req, res) => {

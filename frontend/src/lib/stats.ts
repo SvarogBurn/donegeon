@@ -1,8 +1,9 @@
-import type { List, PointsSummary, TaskTreeNode } from "../types";
+import type { List, PointsSummary, StatRow } from "../types";
 import { addDays, daysBetween, formatDay } from "./dates";
 
 // The numbers behind the stats on the user's page. Everything is worked out
-// in the browser from the task trees and the points history it already has.
+// in the browser from every task there is (cut down to a small row each, see
+// StatRow) and the points history it already has.
 // Reward lists are left out: these are stats about tasks.
 
 /** A task as the stats see it, at any depth. */
@@ -44,25 +45,33 @@ export type RangeKey = "all" | "7" | "30" | "90" | "365";
 export interface StatFilter {
   range: RangeKey;
   listId: string;
+  /** Only the lists this folder shows. */
+  folderId: string;
   goalId: string;
   tagId: string;
   deadline: "" | "hard" | "soft" | "none";
   repeating: "" | "yes" | "no";
 }
 
-export const NO_STAT_FILTER: StatFilter = { range: "all", listId: "", goalId: "", tagId: "", deadline: "", repeating: "" };
+export const NO_STAT_FILTER: StatFilter = { range: "all", listId: "", folderId: "", goalId: "", tagId: "", deadline: "", repeating: "" };
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const localDay = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 /** 0 = Monday ... 6 = Sunday. */
 export const weekdayIndex = (day: string) => (new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7;
 
-export function collectStats(trees: TaskTreeNode[], lists: List[]): { tasks: StatTask[]; completions: Completion[] } {
+export function collectStats(rows: StatRow[], lists: List[]): { tasks: StatTask[]; completions: Completion[] } {
   const rewardLists = new Set(lists.filter((list) => list.kind === "reward").map((list) => list.id));
   const tasks: StatTask[] = [];
   const completions: Completion[] = [];
+  const childrenOf = new Map<string, StatRow[]>();
+  for (const row of rows) {
+    if (!row.parentId) continue;
+    if (!childrenOf.has(row.parentId)) childrenOf.set(row.parentId, []);
+    childrenOf.get(row.parentId)!.push(row);
+  }
 
-  const visit = (node: TaskTreeNode, root: TaskTreeNode, above: StatTask | null, insideFinished: boolean) => {
+  const visit = (node: StatRow, root: StatRow, above: StatTask | null, insideFinished: boolean) => {
     const createdAt = new Date(node.createdAt);
     const ownKind = node.deadlineDate ? (node.deadlineType ?? "hard") : null;
     const task: StatTask = {
@@ -83,19 +92,21 @@ export function collectStats(trees: TaskTreeNode[], lists: List[]): { tasks: Sta
     };
     tasks.push(task);
     if (node.completedOn) completions.push({ day: node.completedOn, task });
-    for (const press of node.completions) completions.push({ day: press.day, task });
-    for (const child of node.children) visit(child, root, task, insideFinished || node.isComplete);
+    for (const day of node.pressDays) completions.push({ day, task });
+    for (const child of childrenOf.get(node.id) ?? []) visit(child, root, task, insideFinished || node.isComplete);
   };
-  for (const root of trees) {
-    if (!rewardLists.has(root.listId ?? "")) visit(root, root, null, false);
+  for (const root of rows) {
+    if (!root.parentId && !rewardLists.has(root.listId ?? "")) visit(root, root, null, false);
   }
   return { tasks, completions };
 }
 
 /** Everything in the filter except the date range, which each section applies to its own date. */
-export function matchesFilter(task: StatTask, filter: StatFilter) {
+/** `folderLists`: the lists shown by the filter's folder; null = no folder picked. */
+export function matchesFilter(task: StatTask, filter: StatFilter, folderLists: Set<string> | null = null) {
   return (
     (!filter.listId || task.listId === filter.listId) &&
+    (!folderLists || (task.listId !== null && folderLists.has(task.listId))) &&
     (!filter.goalId || task.goalIds.includes(filter.goalId)) &&
     (!filter.tagId || task.tagIds.includes(filter.tagId)) &&
     (!filter.deadline || (task.deadlineKind ?? "none") === filter.deadline) &&
@@ -292,7 +303,8 @@ export interface SharePeriod {
   parts: Map<string, number>;
 }
 
-const MAX_PERIODS = 12;
+// Few enough rows to take in at a glance.
+const MAX_PERIODS = 6;
 
 /**
  * What was done per day, week or month (whichever suits the span), split by
@@ -301,7 +313,8 @@ const MAX_PERIODS = 12;
 export function shareOverTime(key: GroupKey, completions: Completion[], from: string | null, today: string) {
   const first = from ?? completions.reduce((min, c) => (c.day < min ? c.day : min), today);
   const span = Math.max(0, daysBetween(first, today)) + 1;
-  const unit = span <= 14 ? "day" : span <= 98 ? "week" : "month";
+  // A week of days at most, then weeks, then months: the rows never pile up.
+  const unit = span <= 7 ? "day" : span <= 7 * MAX_PERIODS ? "week" : "month";
   const periodOf = (day: string) => (unit === "day" ? day : unit === "week" ? addDays(day, -weekdayIndex(day)) : day.slice(0, 7));
   const labelOf = (period: string) => (unit === "month" ? `${period.slice(5)}/${period.slice(2, 4)}` : formatDay(period));
 

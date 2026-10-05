@@ -1,8 +1,9 @@
+import { useEffect, useRef } from "react";
 import { ValueChip } from "../components/Points/ValueChip";
 import { TileFrame } from "../components/Tiles/TileFrame";
 import { PixelCheckbox } from "../components/PixelCheckbox";
 import { localDate } from "../api/client";
-import { useLists, useTaskTrees, useToggleTask } from "../hooks/useTasks";
+import { useDonePages, useLists, useToggleTask } from "../hooks/useTasks";
 import { addDays, formatDay } from "../lib/dates";
 import type { TaskTreeNode } from "../types";
 
@@ -109,17 +110,31 @@ function tickedEntries(trees: TaskTreeNode[]): Entry[] {
  * What was done, newest day first: finished main tasks (and bought one-off
  * rewards), and every subtask on the day it was ticked, whether or not its
  * main task is finished yet. Finished main tasks also stay in their lists for
- * 24 hours. Unticking anything here makes it open again.
+ * 24 hours. Unticking anything here makes it open again. The newest few days
+ * are loaded first; the days before them come as the page is scrolled down.
  */
 export function DonePage() {
-  const tasks = useTaskTrees();
+  const done = useDonePages();
   const lists = useLists();
-  const error = tasks.error ?? lists.error;
-  if (error) return <p className="text-sm text-red-600">Couldn't load your tasks: {error.message}</p>;
-  if (!tasks.data || !lists.data) return <p className="text-sm text-stone-500">Loading…</p>;
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = done;
+  const more = useRef<HTMLButtonElement>(null);
+  // Reaching the end of the page asks for the days before; the button does the same by hand.
+  useEffect(() => {
+    const button = more.current;
+    if (!button || !hasNextPage || isFetchingNextPage) return;
+    const seen = new IntersectionObserver(([entry]) => entry.isIntersecting && fetchNextPage(), { rootMargin: "400px" });
+    seen.observe(button);
+    return () => seen.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage, done.data?.pages.length]);
+
+  const error = done.error ?? lists.error;
+  if (error && !done.data) return <p className="text-sm text-red-600">Couldn't load your tasks: {error.message}</p>;
+  if (!done.data || !lists.data) return <p className="text-sm text-stone-500">Loading…</p>;
 
   const today = localDate();
-  const finished = tickedEntries(tasks.data)
+  // A page's trees also hold ticks of other days, which belong to the page those days are in.
+  const finished = done.data.pages
+    .flatMap((page) => tickedEntries(page.tasks).filter(({ node }) => page.days.includes(node.completedOn!)))
     // A task ticked a moment ago has no server time yet; it goes first.
     .sort((a, b) => (b.node.completedAt ?? "9").localeCompare(a.node.completedAt ?? "9"));
   const days = [...new Set(finished.map(({ node }) => node.completedOn!))].sort().reverse();
@@ -151,6 +166,12 @@ export function DonePage() {
           </ul>
         </TileFrame>
       ))}
+      {hasNextPage && (
+        <button ref={more} type="button" className="btn-quiet mx-auto block text-sm" disabled={isFetchingNextPage} onClick={() => fetchNextPage()}>
+          {isFetchingNextPage ? "Loading…" : "Show earlier days"}
+        </button>
+      )}
+      {done.error && <p className="text-sm text-red-600">Couldn't load earlier days: {done.error.message}</p>}
     </div>
   );
 }

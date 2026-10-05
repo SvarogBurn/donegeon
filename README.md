@@ -84,7 +84,7 @@ Click your name in the task bar: with the Account and Settings boxes are your st
 - **Points**: the balance day by day.
 - **Unorganized**: open main tasks with no deadline, goal or tag.
 
-The Stats box's filter (dates, list, goal, tag, deadline type, repeating) narrows all of them at once. Every box on the page (Account, Settings and the filter too) can be dragged, pinned and minimized like the boxes of the dashboard, and dragged out to the right for another column, up to four. A subtask counts under its main task's list, goals and tags.
+The Stats box's filter (dates, list, folder, goal, tag, deadline type, repeating) narrows all of them at once; Folder, there once you have a folder, keeps only the lists that folder shows. Each box has a colour of its own, on its band and in its bars and dots: Done is purple like the Done box, Deadlines stays blue so that red can mean late. Every box on the page (Account, Settings and the filter too) can be dragged, pinned and minimized like the boxes of the dashboard, and dragged out to the right for another column, up to four. A subtask counts under its main task's list, goals and tags.
 
 ## Folders
 

@@ -1,4 +1,4 @@
-import type { CombinedCountdown, Countdown, PointsSummary, PressureSummary, RepeatUnit, Task, TaskTreeNode } from "../types";
+import type { CombinedCountdown, Countdown, DonePage, PointsSummary, PressureSummary, RepeatUnit, StatRow, Task, TaskTreeNode } from "../types";
 import type { DashboardLayout } from "../lib/tileLayout";
 import { api } from "./client";
 
@@ -31,7 +31,13 @@ export interface TaskChanges {
   nextDue?: string;
 }
 
+/** The open main tasks and whatever was ticked since yesterday, each with its whole tree. */
 export const listTaskTrees = () => api<{ tasks: TaskTreeNode[] }>("/tasks").then((r) => r.tasks);
+/** The Done tab's days before `before`; null = from the newest. */
+export const listDone = (before: string | null) => api<DonePage>(before ? `/tasks/done?before=${before}` : "/tasks/done");
+/** The trees holding what was ticked or pressed on `day`. */
+export const listDoneOn = (day: string) => api<{ tasks: TaskTreeNode[] }>(`/tasks/done/${day}`).then((r) => r.tasks);
+export const listStatRows = () => api<{ tasks: StatRow[] }>("/tasks/stats").then((r) => r.tasks);
 export const createTask = (body: {
   title: string;
   parentId?: string | null;

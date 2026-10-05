@@ -10,3 +10,6 @@ export const statView = (name: string) => `stat:${name}`;
 const STAT_PREFIX = "stat:";
 /** The stats box a view shows, or null for any other view. */
 export const statOfView = (view: string) => (view.startsWith(STAT_PREFIX) ? view.slice(STAT_PREFIX.length) : null);
+const LIST_PREFIX = "list:";
+/** The list a view shows, or null for any other view. */
+export const listOfView = (view: string) => (view.startsWith(LIST_PREFIX) ? view.slice(LIST_PREFIX.length) : null);

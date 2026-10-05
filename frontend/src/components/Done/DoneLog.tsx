@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { localDate } from "../../api/client";
+import { useDoneOn } from "../../hooks/useTasks";
 import { addDays, formatDay } from "../../lib/dates";
 import type { TaskTreeNode } from "../../types";
 import { TileFrame } from "../Tiles/TileFrame";
@@ -35,14 +36,19 @@ function doneOn(trees: TaskTreeNode[], day: string): DoneTask[] {
   return found.sort((a, b) => (a.completedAt ?? "9").localeCompare(b.completedAt ?? "9"));
 }
 
-/** What was done on one day; step back and forth a day at a time, or pick a day from the calendar. */
+/**
+ * What was done on one day; step back and forth a day at a time, or pick a day from the calendar.
+ * `tasks`, the task trees, have today and yesterday; a day before that is loaded when it is shown.
+ */
 export function DoneLog({ tasks }: { tasks: TaskTreeNode[] }) {
   const today = localDate();
   // null follows today, so the box rolls over with the day.
   const [picked, setPicked] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
   const day = picked && picked < today ? picked : today;
-  const done = doneOn(tasks, day);
+  const earlier = day < addDays(today, -1);
+  const loaded = useDoneOn(day, earlier);
+  const done = doneOn(earlier ? (loaded.data ?? []) : tasks, day);
 
   const show = (next: string) => setPicked(next >= today ? null : next);
   const label = day === today ? "Today" : day === addDays(today, -1) ? "Yesterday" : null;
@@ -95,7 +101,13 @@ export function DoneLog({ tasks }: { tasks: TaskTreeNode[] }) {
           />
         </div>
       </div>
-      {done.length === 0 ? (
+      {earlier && !loaded.data ? (
+        loaded.error ? (
+          <p className="text-sm text-red-600">Couldn't load that day: {loaded.error.message}</p>
+        ) : (
+          <p className="text-sm text-stone-500">Loading…</p>
+        )
+      ) : done.length === 0 ? (
         <p className="text-sm text-stone-500">Nothing ticked off.</p>
       ) : (
         <ul className="space-y-1 text-sm">

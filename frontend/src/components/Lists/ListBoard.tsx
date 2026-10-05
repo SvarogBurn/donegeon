@@ -336,7 +336,8 @@ export function listCards(lists: List[], tasks: TaskTreeNode[], filter: LabelFil
   return lists
     .map((list) => {
       const own = tasks.filter((t) => t.listId === list.id);
-      return { list, taskCount: own.length, tasks: filterTree(shown(own), filter) };
+      // The list's own count is as old as the last load of the lists; a task added since is in `own`.
+      return { list, taskCount: Math.max(own.length, list.taskCount), tasks: filterTree(shown(own), filter) };
     })
     .filter((card) => !filtering || card.tasks.length > 0);
 }

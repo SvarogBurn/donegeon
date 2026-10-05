@@ -92,6 +92,11 @@ const dropStat = async (key, target) => {
   await p.mouse.move(h.x + h.width / 2, h.y + h.height / 2); await p.mouse.down(); await p.mouse.move(h.x + 40, h.y + 60, { steps: 4 }); await wait(150);
   const t = await target.boundingBox(); await p.mouse.move(t.x + t.width / 2, t.y + t.height / 2, { steps: 10 }); await wait(200); await p.mouse.up(); await wait(800);
 };
+// The stats can be narrowed to the lists a folder shows.
+const loose = () => p.locator('section[aria-label="Unorganized"] [data-summary]').first().innerText();
+const pickFolder = async (name) => { await p.locator('section[aria-label="Stats"] label:has-text("Folder") select').selectOption({ label: name }); await wait(300); };
+const all = await loose(); await pickFolder("Career"); const career = await loose(); await pickFolder("Later"); const later = await loose(); await pickFolder("Any folder");
+out("stats filter by folder: only the tasks in the lists it shows", all === "1" && career === "1" && later === "0", `${all} / ${career} / ${later}`);
 await dropStat("done", tab("Later")); await dropStat("filter", tab("Later"));
 out("a stats box dropped on a folder stays on the user's page", await p.locator('[data-tile="done"]').count() === 1 && await p.locator('[data-tile="account"] .tile-button-tab').count() === 1);
 await tab("Later").click(); await p.waitForSelector("[data-folder-title]"); await wait(700);

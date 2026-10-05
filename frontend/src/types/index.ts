@@ -37,6 +37,8 @@ export interface List {
   defaultPoints: number;
   /** The colour picked for its box, "#rrggbb"; null = the kind's own (blue for tasks, orange for rewards). */
   color: string | null;
+  /** Its main tasks when the lists were loaded, those finished long ago too. */
+  taskCount: number;
 }
 
 /** A tab of the user's own in the task bar: a page of views, copies of boxes that live elsewhere. */
@@ -124,9 +126,40 @@ export interface TaskTreeNode extends Task {
   value: number;
   /** Whether that is earned or spent: the kind of the list its main task is in. */
   valueKind: ListKind;
-  /** Presses of a persistent task, oldest first. */
+  /** Presses of a persistent task, oldest first: those since yesterday, or of the day that was asked for. */
   completions: TaskPress[];
 }
+
+/** A few days of the Done tab, newest first. */
+export interface DonePage {
+  /** The days in it, on each of which something was ticked. */
+  days: string[];
+  /** The whole trees holding what was ticked on those days. */
+  tasks: TaskTreeNode[];
+  /** What to ask the days after these with; null = there are none. */
+  next: string | null;
+}
+
+/** A task as the server hands it to the stats: every task there is, each cut down to what they count with. */
+export type StatRow = Pick<
+  Task,
+  | "id"
+  | "parentId"
+  | "listId"
+  | "title"
+  | "startDate"
+  | "deadlineDate"
+  | "deadlineType"
+  | "isComplete"
+  | "completedOn"
+  | "isPersistent"
+  | "createdAt"
+  | "goalIds"
+  | "tagIds"
+> & {
+  /** The day of each press of a persistent task. */
+  pressDays: string[];
+};
 
 export interface CountdownRow extends Pace {
   date: string;

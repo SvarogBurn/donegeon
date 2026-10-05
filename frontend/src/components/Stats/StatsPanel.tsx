@@ -1,7 +1,8 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ComponentProps, type CSSProperties, type ReactNode } from "react";
 import { localDate } from "../../api/client";
-import { useDropOnTab, useGoals, useLayout, useLists, usePoints, useSaveLayout, useTags, useTaskTrees } from "../../hooks/useTasks";
-import { statView } from "../../lib/folders";
+import { useDropOnTab, useFolders, useGoals, useLayout, useLists, usePoints, useSaveLayout, useStatRows, useTags } from "../../hooks/useTasks";
+import { listOfView, statView } from "../../lib/folders";
+import { frameIn, isLight } from "../../lib/frameTones";
 import {
   DAY_PARTS,
   NO_GROUP,
@@ -93,6 +94,23 @@ function withTopBoxes(layout: DashboardLayout, top: string[]): DashboardLayout {
   return { ...layout, byColumns };
 }
 
+/**
+ * A stats box in a colour of its own, so the boxes can be told apart at a glance: its frame's band takes it,
+ * and so do its bars and dots (--chart; the dots' steps are mixed from it in index.css). Without `color` the frame
+ * keeps its tone's colour, and `chart` alone colours the bars and dots to go with it.
+ */
+function StatFrame({ color, chart = color, style: more, ...frame }: ComponentProps<typeof TileFrame> & { color?: string; chart?: string }) {
+  const style = {
+    ...more,
+    "--chart": chart,
+    ...(color ? { "--frame": frameIn(color), "--band-text": isLight(color) ? "#222034" : "#fff" } : {}),
+  } as CSSProperties;
+  return <TileFrame {...frame} data-chart="" style={style} />;
+}
+
+/** The colour of the Done tile's band (the "record" tone in frameTones). */
+const DONE_COLOR = "#ad61cb";
+
 /** The boxes of the stats, by name, with what each is called on its buttons. The filter is one of them. */
 export const STAT_BOXES: Record<string, string> = {
   [FILTER_BOX]: "Stats filter",
@@ -111,18 +129,19 @@ export const STAT_BOXES: Record<string, string> = {
  * `boxes` is null until everything they need has loaded. Each use has a filter of its own.
  */
 export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null } {
-  const trees = useTaskTrees();
+  const rows = useStatRows();
   const lists = useLists();
   const goals = useGoals();
   const tags = useTags();
   const points = usePoints();
+  const { data: folders = [] } = useFolders();
   const [filter, setFilter] = useState(NO_STAT_FILTER);
   const [groupKey, setGroupKey] = useState<GroupKey>("list");
-  const all = useMemo(() => collectStats(trees.data ?? [], lists.data ?? []), [trees.data, lists.data]);
+  const all = useMemo(() => collectStats(rows.data ?? [], lists.data ?? []), [rows.data, lists.data]);
 
-  const error = trees.error ?? lists.error ?? goals.error ?? tags.error ?? points.error;
+  const error = rows.error ?? lists.error ?? goals.error ?? tags.error ?? points.error;
   if (error) return { boxes: null, error };
-  if (!trees.data || !lists.data || !goals.data || !tags.data || !points.data) return { boxes: null, error: null };
+  if (!rows.data || !lists.data || !goals.data || !tags.data || !points.data) return { boxes: null, error: null };
 
   const today = localDate();
   const from = rangeStart(today, filter.range);
@@ -130,8 +149,11 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
   const set = (changes: Partial<StatFilter>) => setFilter({ ...filter, ...changes });
   const taskLists = lists.data.filter((list) => list.kind === "task");
 
-  const tasks = all.tasks.filter((task) => matchesFilter(task, filter));
-  const done = all.completions.filter(({ task }) => matchesFilter(task, filter));
+  // A folder narrows the stats to the lists it shows. One that has since been removed narrows nothing.
+  const folder = folders.find((f) => f.id === filter.folderId);
+  const folderLists = folder ? new Set(folder.views.flatMap((view) => listOfView(view) ?? [])) : null;
+  const tasks = all.tasks.filter((task) => matchesFilter(task, filter, folderLists));
+  const done = all.completions.filter(({ task }) => matchesFilter(task, filter, folderLists));
   const doneInRange = done.filter(({ day }) => inRange(day));
   /** One-off tasks ticked off in the range: the ones with a time to finish. */
   const finished = tasks.filter((task) => task.completedOn && !task.isPersistent && inRange(task.completedOn));
@@ -205,6 +227,16 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
               </option>
             ))}
           </Pick>
+          {folders.length > 0 && (
+            <Pick label="Folder" value={folder ? filter.folderId : ""} onChange={(folderId) => set({ folderId })}>
+              <option value="">Any folder</option>
+              {folders.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </Pick>
+          )}
           <Pick label="Goal" value={filter.goalId} onChange={(goalId) => set({ goalId })}>
             <option value="">Any goal</option>
             {goals.data.map((goal) => (
@@ -252,7 +284,7 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
       key: "done",
       label: "Done",
       node: (
-        <TileFrame title="Done" tone="record" aria-label="Done stats">
+        <StatFrame title="Done" tone="record" chart={DONE_COLOR} aria-label="Done stats">
           <SummaryCells
             cells={[
               ["Today", counts.today],
@@ -269,14 +301,14 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
           />
           <CalendarDots weeks={calendarWeeks(byDay, today, CALENDAR_WEEKS)} />
           <Note>A streak is days in a row with at least one task done. Each press of a persistent task counts as one.</Note>
-        </TileFrame>
+        </StatFrame>
       ),
     },
     {
       key: "written",
       label: "Written down",
       node: (
-        <TileFrame title="Written down" aria-label="Written down">
+        <StatFrame title="Written down" color="#2a9ba8" aria-label="Written down">
           {created.total === 0 ? (
             <Empty>No tasks written down in these dates.</Empty>
           ) : (
@@ -288,7 +320,7 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
               </Note>
             </>
           )}
-        </TileFrame>
+        </StatFrame>
       ),
     },
     {
@@ -315,7 +347,7 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
       key: "time",
       label: "Time to finish",
       node: (
-        <TileFrame title="Time to finish" aria-label="Time to finish">
+        <StatFrame title="Time to finish" color="#df7126" aria-label="Time to finish">
           {finished.length === 0 ? (
             <Empty>No finished tasks in these dates.</Empty>
           ) : (
@@ -334,14 +366,18 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
               </Note>
             </>
           )}
-        </TileFrame>
+        </StatFrame>
       ),
     },
     {
       key: "groups",
       label: "By list, goal or tag",
       node: (
-        <TileFrame title={`By ${groupTitle.toLowerCase().replace(/s$/, "")}`} aria-label="By list, goal or tag">
+        <StatFrame title={`By ${groupTitle.toLowerCase().replace(/s$/, "")}`} color="#d95f8c"
+          // The first list, goal or tag in the share bars takes the box's colour; the pink further down the row of colours becomes the blue it replaced.
+          style={{ "--series-1": "var(--chart)", "--series-5": "#2a78d6" } as CSSProperties}
+          aria-label="By list, goal or tag"
+        >
           <div className="flex flex-wrap gap-1">
             {GROUPS.map(([key, label]) => (
               <button key={key} type="button" className={`nes-btn btn-small ${key === groupKey ? "is-primary" : ""}`} aria-pressed={key === groupKey} onClick={() => setGroupKey(key)}>
@@ -390,17 +426,17 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
             On time: finished tasks with a deadline that made it. To done: median from written down to done. A low on-time share or a
             long time to done shows where things get put off.
           </Note>
-        </TileFrame>
+        </StatFrame>
       ),
     },
     {
       key: "points",
       label: "Points",
       node: (
-        <TileFrame title="Points" aria-label="Points over time">
+        <StatFrame title="Points" color="#e0b000" chart="#c98500" aria-label="Points over time">
           {balance.length === 0 ? <Empty>No points booked yet.</Empty> : <BalanceChart series={balance} />}
           <Note>The balance at the end of each day. Only the Dates filter applies here.</Note>
-        </TileFrame>
+        </StatFrame>
       ),
     },
     {

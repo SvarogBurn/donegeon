@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import * as foldersApi from "../api/folders";
 import * as goalsApi from "../api/goals";
 import * as listsApi from "../api/lists";
@@ -8,9 +8,12 @@ import { localDate } from "../api/client";
 import { findNode, toggleInCountdown, toggleInTrees, type CompletionChange } from "../lib/optimisticToggle";
 import { NAME_FOLDER_EVENT } from "../lib/folders";
 import type { DashboardLayout } from "../lib/tileLayout";
-import type { Countdown, Folder, TaskTreeNode } from "../types";
+import type { Countdown, DonePage, Folder, TaskTreeNode } from "../types";
 
 const TASKS = ["tasks"];
+// What was done before yesterday is loaded apart from the task trees. These sit under their key, so whatever refreshes the trees refreshes them.
+const DONE = [...TASKS, "done"];
+const STATS = [...TASKS, "stats"];
 const GOALS = ["goals"];
 const TAGS = ["tags"];
 const LISTS = ["lists"];
@@ -22,6 +25,19 @@ const POINTS = ["points"];
 const TASK_DATA = [TASKS, COUNTDOWN, PRESSURE, POINTS];
 
 export const useTaskTrees = () => useQuery({ queryKey: TASKS, queryFn: tasksApi.listTaskTrees });
+/** The Done tab: a few days of ticks at a time, newest first; fetchNextPage brings the days before. */
+export const useDonePages = () =>
+  useInfiniteQuery({
+    queryKey: DONE,
+    queryFn: ({ pageParam }) => tasksApi.listDone(pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.next,
+  });
+/** What was ticked or pressed on one day; pass `enabled` false for the days the task trees cover. */
+export const useDoneOn = (day: string, enabled = true) =>
+  useQuery({ queryKey: [...DONE, day], queryFn: () => tasksApi.listDoneOn(day), enabled });
+/** Every task, cut down for the stats. */
+export const useStatRows = () => useQuery({ queryKey: STATS, queryFn: tasksApi.listStatRows });
 export const useGoals = () => useQuery({ queryKey: GOALS, queryFn: goalsApi.listGoals });
 export const useTags = () => useQuery({ queryKey: TAGS, queryFn: tagsApi.listTags });
 export const useLists = () => useQuery({ queryKey: LISTS, queryFn: listsApi.listLists });
@@ -72,22 +88,29 @@ export function useToggleTask() {
     onMutate: async (id: string) => {
       await Promise.all([TASKS, COUNTDOWN, PRESSURE].map((queryKey) => queryClient.cancelQueries({ queryKey })));
       const trees = queryClient.getQueryData<TaskTreeNode[]>(TASKS);
-      const node = trees && findNode(trees, id);
-      if (!trees || !node) return;
+      // The Done tab unticks tasks finished long ago, which only its own pages hold.
+      const done = queryClient.getQueryData<InfiniteData<DonePage>>(DONE);
+      const node = findNode(trees ?? [], id) ?? findNode(done?.pages.flatMap((page) => page.tasks) ?? [], id);
+      if (!node) return;
 
       const today = localDate();
       const change: CompletionChange = { id, was: node.completedOn, now: node.isComplete ? null : today };
       const countdowns = queryClient.getQueriesData<Countdown>({ queryKey: COUNTDOWN });
-      queryClient.setQueryData(TASKS, toggleInTrees(trees, change, today));
+      if (trees) queryClient.setQueryData(TASKS, toggleInTrees(trees, change, today));
+      if (done) {
+        const pages = done.pages.map((page) => ({ ...page, tasks: toggleInTrees(page.tasks, change, today) }));
+        queryClient.setQueryData(DONE, { ...done, pages });
+      }
       for (const [queryKey, countdown] of countdowns) {
-        const owner = findNode(trees, String(queryKey[1]));
+        const owner = findNode(trees ?? [], String(queryKey[1]));
         if (countdown && owner && findNode([owner], id)) queryClient.setQueryData(queryKey, toggleInCountdown(countdown, change));
       }
-      return { trees, countdowns };
+      return { trees, done, countdowns };
     },
     onError: (_error, _id, saved) => {
       if (!saved) return;
-      queryClient.setQueryData(TASKS, saved.trees);
+      if (saved.trees) queryClient.setQueryData(TASKS, saved.trees);
+      if (saved.done) queryClient.setQueryData(DONE, saved.done);
       for (const [queryKey, countdown] of saved.countdowns) queryClient.setQueryData(queryKey, countdown);
     },
     onSettled: () => Promise.all(TASK_DATA.map((queryKey) => queryClient.invalidateQueries({ queryKey }))),

@@ -106,7 +106,8 @@ await p.click('nav [aria-label="Tasks"]'); await p.waitForSelector("section[data
 
 // --- Today
 out("Today box is there, empty, before anything is marked", (await today.count()) === 1 && (await today.locator("[data-today-item]").count()) === 0);
-await add(await cardOf("List"), "Report"); await p.keyboard.press("ArrowUp"); await p.keyboard.press("Control+Enter");
+// Ticked tasks sit under the open ones, so the row above the add line is a ticked one: click Report itself.
+await add(await cardOf("List"), "Report"); await row("Report").locator("textarea").click(); await p.keyboard.press("Control+Enter");
 for (const t of ["Intro", "Body"]) { await p.keyboard.type(t); await p.keyboard.press("Enter"); await wait(350); }
 await p.keyboard.press("Escape"); await wait();
 for (const t of ["Intro", "Body"]) { m = await menu(t); await m.locator('label:has-text("Do today") input').click(); await wait(); await p.keyboard.press("Escape"); }
