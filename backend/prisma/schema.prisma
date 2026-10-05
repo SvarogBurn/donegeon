@@ -146,6 +146,8 @@ model List {
   description   String?
   position      Int       @default(0)
   kind          ListKind  @default(task)
+  // The colour of the list's box, "#rrggbb", picked by the user. Null = the kind's own: blue for tasks, orange for rewards.
+  color         String?
   // What a top-level task in this list is worth unless it has its own amount.
   defaultPoints Int       @default(1)
   isArchived    Boolean   @default(false)

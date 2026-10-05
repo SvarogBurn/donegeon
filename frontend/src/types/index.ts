@@ -30,6 +30,8 @@ export interface List {
   kind: ListKind;
   /** What an item is worth unless it has its own amount. */
   defaultPoints: number;
+  /** The colour picked for its box, "#rrggbb"; null = the kind's own (blue for tasks, orange for rewards). */
+  color: string | null;
 }
 
 export type RepeatUnit = "day" | "week" | "month";

@@ -20,6 +20,7 @@ per check. They are scripts, not a test runner suite.
 | `logout.mjs` | log out lands on the login page, stays logged out, works again after logging back in |
 | `repeat.mjs` | tasks on a schedule: every N days / weeks / months, due today and in Today by itself, done and undone, late rounds, planned days vs after done, taking the schedule off |
 | `subpoints.mjs` | points on subtasks: their own amount, the main task's amount handed down, ticking and unticking, switching it off |
+| `colors.mjs` | a list's own colour: the band and the switch take it, light colours get a dark title, any other colour, back to the kind's own |
 | `stats.mjs` | the stats on the user's page: done counts, streaks, dots, deadlines, time to finish, per list / goal, moving and hiding the boxes, the filter, phone width |
 
 ## Run

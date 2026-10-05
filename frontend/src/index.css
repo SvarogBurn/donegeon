@@ -136,7 +136,9 @@
   }
   /* The band sits exactly over the border's title strip. */
   .tile-band {
-    @apply absolute flex items-start text-white;
+    @apply absolute flex items-start;
+    /* White, or dark on a list whose picked colour is a light one. */
+    color: var(--band-text, #fff);
     top: calc(-15 * var(--u));
     left: calc(-2 * var(--u));
     right: calc(-1 * var(--u));
@@ -300,6 +302,12 @@
   }
   .kind-label[data-active="true"] {
     font-size: 10px;
+    color: #222034;
+  }
+  /* On the same plate, after the switch: what each item is worth, in the plate's own dark and pale blues. */
+  .kind-points {
+    @apply ml-1 flex flex-none items-center gap-1 leading-none;
+    font-size: 8px;
     color: #222034;
   }
   .kind-switch {

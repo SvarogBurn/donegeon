@@ -11,8 +11,15 @@ const name = z.string().trim().min(1, "Name is required").max(200);
 const kind = z.enum(["task", "reward"]);
 const defaultPoints = z.number().int().min(0, "Points can't be negative").max(100_000);
 
-const listInput = z.object({ name, kind: kind.optional(), defaultPoints: defaultPoints.optional() });
-const listPatch = z.object({ name: name.optional(), kind: kind.optional(), defaultPoints: defaultPoints.optional() });
+/** "#rrggbb", or null for the kind's own colour. */
+const color = z
+  .string()
+  .regex(/^#[0-9a-f]{6}$/i, "A colour looks like #5b6ee1")
+  .transform((hex) => hex.toLowerCase())
+  .nullable();
+
+const listInput = z.object({ name, kind: kind.optional(), defaultPoints: defaultPoints.optional(), color: color.optional() });
+const listPatch = z.object({ name: name.optional(), kind: kind.optional(), defaultPoints: defaultPoints.optional(), color: color.optional() });
 
 async function ownList(req: Request, id: string) {
   const list = await prisma.list.findFirst({ where: { id, userId: userId(req), deletedAt: null } });
