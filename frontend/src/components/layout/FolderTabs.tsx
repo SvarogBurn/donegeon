@@ -138,12 +138,22 @@ function FolderTab({ folder, tab, isEditing, onEdit }: { folder: Folder; tab: (s
   );
 }
 
+interface Props {
+  tab: (state: { isActive: boolean }) => string;
+  /** Whether the "New" tab was called up (a click or a hold on the bar's empty space). */
+  isNewShown: boolean;
+  /** The "New" tab has done its job and goes away again. */
+  onNewUsed: () => void;
+}
+
 /**
  * The user's folders as tabs of the task bar, after Tasks and Done, and the
  * "New" tab that makes one: by a click, or by dropping a list on it (TileGrid
- * looks for data-tab-drop under a dragged list). A new folder opens its name for typing.
+ * looks for data-tab-drop under a dragged list). "New" is out of sight until it
+ * is called up, or a list is being dragged (.new-folder-slot in index.css).
+ * A new folder opens its name for typing.
  */
-export function FolderTabs({ tab }: { tab: (state: { isActive: boolean }) => string }) {
+export function FolderTabs({ tab, isNewShown, onNewUsed }: Props) {
   const { data: folders = [] } = useFolders();
   const create = useCreateFolder();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -159,18 +169,23 @@ export function FolderTabs({ tab }: { tab: (state: { isActive: boolean }) => str
       {folders.map((folder) => (
         <FolderTab key={folder.id} folder={folder} tab={tab} isEditing={editingId === folder.id} onEdit={setEditingId} />
       ))}
-      <button
-        type="button"
-        className={`${tab({ isActive: false })} flex-none cursor-pointer`}
-        data-tab-drop="new"
-        aria-label="New folder"
-        title="A new folder: a tab of its own for some of your lists. Drop a list here to start one with it."
-        disabled={create.isPending}
-        onClick={() => create.mutate({}, { onSuccess: (made) => setEditingId(made.id) })}
-      >
-        <span className="tab-icon tab-icon-folder opacity-50" aria-hidden />
-        + New
-      </button>
+      <span className="new-folder-slot" data-shown={isNewShown || undefined}>
+        <button
+          type="button"
+          className={`${tab({ isActive: false })} flex-none cursor-pointer`}
+          data-tab-drop="new"
+          aria-label="New folder"
+          title="A new folder: a tab of its own for some of your lists. Drop a list here to start one with it."
+          disabled={create.isPending}
+          onClick={() => {
+            onNewUsed();
+            create.mutate({}, { onSuccess: (made) => setEditingId(made.id) });
+          }}
+        >
+          <span className="tab-icon tab-icon-folder opacity-50" aria-hidden />
+          + New
+        </button>
+      </span>
     </>
   );
 }

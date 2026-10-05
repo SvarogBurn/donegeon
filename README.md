@@ -87,7 +87,8 @@ The filter at the top (dates, list, goal, tag, deadline type, repeating) narrows
 
 A folder is a tab of your own in the task bar, next to Tasks and Done, holding some of your lists.
 
-- Drag a list by the handle on its title band onto **+ New** in the task bar: that makes a folder with the list in it and asks for its name. A click on **+ New** makes an empty one.
+- The **+ New** tab is out of sight until it is needed. Start dragging a list by the handle on its title band and it appears in the task bar: drop the list on it to make a folder with the list in it, which then asks for its name.
+- For an empty folder, click the task bar's empty space (or right-click it, or press and hold it): **+ New** comes out; click it. Escape or a click elsewhere puts it away again.
 - Drag more lists onto the folder's tab to add them, onto another folder's tab to move them there, and onto **Tasks** to take them back out.
 - Click a folder's tab to open its page: its lists, and a field for new lists that go straight into the folder.
 - To change a folder's name or colour, right-click its tab, press and hold it, or click it while its page is open. "Remove folder" there removes the tab only: its lists go back to the Tasks page.

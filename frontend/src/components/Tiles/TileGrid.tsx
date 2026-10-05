@@ -127,6 +127,8 @@ export function TileGrid({ tiles, order, layout, onChange, onDropOnTab }: Props)
       next?.setAttribute("data-drop-hover", "");
       tab = next;
     };
+    // Brings out the bar's "New folder" tab for the length of the drag (index.css).
+    if (takesTabs) document.documentElement.dataset.draggingList = "";
     const scroller = edgeScroller();
     handle.setPointerCapture(e.pointerId);
     setDraggingKey(key);
@@ -141,6 +143,7 @@ export function TileGrid({ tiles, order, layout, onChange, onDropOnTab }: Props)
       setDrop(next);
     };
     const finish = (dropped: boolean) => {
+      delete document.documentElement.dataset.draggingList;
       scroller.stop();
       handle.removeEventListener("pointermove", onMove);
       handle.removeEventListener("pointerup", onUp);

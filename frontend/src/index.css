@@ -210,6 +210,15 @@
   .tab-icon-folder {
     background-image: url("../../assets/icons/21x21folder_icon_v1.svg");
   }
+  /* The "New folder" tab: there only when called up from the bar, or while a list is dragged (to be dropped on it). */
+  .new-folder-slot {
+    display: none;
+  }
+  .new-folder-slot[data-shown],
+  html[data-dragging-list] .new-folder-slot {
+    display: flex;
+    flex: none;
+  }
   /* A tab a dragged list would be dropped on. */
   [data-tab-drop][data-drop-hover] {
     outline: 2px solid var(--color-emerald-600);

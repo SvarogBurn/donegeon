@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import { Link, NavLink } from "react-router";
 import { usePoints } from "../../hooks/useTasks";
 import type { User } from "../../types";
@@ -29,9 +29,38 @@ export function NavBar({ user }: { user: User }) {
     };
   }, []);
 
+  // The "New folder" tab is out of sight until the bar's empty space is clicked, right-clicked or held;
+  // it goes away again once used, with Escape, or with a click anywhere else.
+  const [isNewShown, setIsNewShown] = useState(false);
+  const onEmptySpace = (e: MouseEvent) => !(e.target as Element).closest("a, button, input, [role=dialog]");
+  useEffect(() => {
+    if (!isNewShown) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!bar.current?.contains(e.target as Node)) setIsNewShown(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && setIsNewShown(false);
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isNewShown]);
+
   return (
     // A task bar: fixed along the bottom of the screen, 70% opaque, while the page scrolls above it (AppShell leaves room for it).
-    <header ref={bar} className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-stone-300 bg-white/70 pb-[env(safe-area-inset-bottom)] dark:border-stone-700 dark:bg-stone-900/70">
+    <header
+      ref={bar}
+      data-new-folder-shown={isNewShown || undefined}
+      onClick={(e) => onEmptySpace(e) && setIsNewShown(!isNewShown)}
+      // A hold on a touch screen arrives as this, as a right-click does.
+      onContextMenu={(e) => {
+        if (!onEmptySpace(e)) return;
+        e.preventDefault();
+        setIsNewShown(true);
+      }}
+      className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-stone-300 bg-white/70 pb-[env(safe-area-inset-bottom)] dark:border-stone-700 dark:bg-stone-900/70"
+    >
       {/*
         Tabs at the far left, the logo in the middle (equal side columns keep it centred), the rest at the right.
         A phone has no room for the logo: there it is just the two ends.
@@ -48,7 +77,7 @@ export function NavBar({ user }: { user: User }) {
             <span className="tab-icon tab-icon-done" aria-hidden />
             Done
           </NavLink>
-          <FolderTabs tab={tab} />
+          <FolderTabs tab={tab} isNewShown={isNewShown} onNewUsed={() => setIsNewShown(false)} />
         </nav>
         <Link to="/" className="logo h-[42px] max-sm:hidden" aria-label="Donegeon" />
         <div className="flex flex-none items-center justify-end gap-x-2 text-sm sm:gap-x-3">
