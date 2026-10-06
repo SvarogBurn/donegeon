@@ -85,7 +85,7 @@ await tab("Later").click(); await wait(700);
 out("the other folder shows the list copied into it", (await names()) === "Inbox", await names());
 
 // Boxes of the stats can be copied into a folder too.
-await p.goto("http://localhost:5173/user"); await p.waitForSelector('section[aria-label="Done stats"]'); await wait();
+await p.goto("http://localhost:5173/stats"); await p.waitForSelector('section[aria-label="Done stats"]'); await wait();
 const dropStat = async (key, target) => {
   await p.locator(`[data-tile="${key}"] .tile-band`).evaluate((el) => el.scrollIntoView({ block: "center" })); await wait(200);
   const h = await p.locator(`[data-tile="${key}"] .tile-button-tab`).boundingBox();
@@ -98,7 +98,7 @@ const pickFolder = async (name) => { await p.locator('section[aria-label="Stats"
 const all = await loose(); await pickFolder("Career"); const career = await loose(); await pickFolder("Later"); const later = await loose(); await pickFolder("Any folder");
 out("stats filter by folder: only the tasks in the lists it shows", all === "1" && career === "1" && later === "0", `${all} / ${career} / ${later}`);
 await dropStat("done", tab("Later")); await dropStat("filter", tab("Later"));
-out("a stats box dropped on a folder stays on the user's page", await p.locator('[data-tile="done"]').count() === 1 && await p.locator('[data-tile="account"] .tile-button-tab').count() === 1);
+out("a stats box dropped on a folder stays on the Stats page", await p.locator('[data-tile="done"]').count() === 1 && await p.locator('[data-tile="filter"]').count() === 1);
 await tab("Later").click(); await p.waitForSelector("[data-folder-title]"); await wait(700);
 const tileKeys = () => p.locator("[data-tile]").evaluateAll((els) => els.map((e) => e.dataset.tile.replace(/^list:.*/, "list")).join(","));
 out("and shows in the folder, after its list", (await tileKeys()) === "list,stat:done,stat:filter,newList" && await p.locator('section[aria-label="Done stats"]').count() === 1, await tileKeys());

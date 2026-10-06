@@ -51,21 +51,22 @@ const ys = [await p.locator('[aria-label="Tags"]').boundingBox(), await box.boun
 out("box sits below Tags", ys[1].y > ys[0].y);
 await p.screenshot({ path: "done.png", fullPage: true });
 
-// A ticked subtask stays in its list for 24 hours, then only the Done tab has it.
+// A ticked subtask stays in its list for 24 hours, then only the Done page has it.
 await tick("Ch 3");
 out("in the list: today's and yesterday's ticks still show, the one from two days ago has gone", (await row("Ch 3").count()) === 1 && (await row("Ch 2").count()) === 1 && (await row("Ch 1").count()) === 0 && (await row("Exam").innerText()).replace(/\s+/g, " ").includes("3/3 done"), (await row("Exam").innerText()).replace(/\s+/g, " "));
 
-// The Done tab: subtasks show on the day they were ticked, though the main task is still open.
-await p.click('nav [aria-label="Done"]'); await p.waitForSelector("[data-done-on]"); await wait();
+// The Done page: subtasks show on the day they were ticked, though the main task is still open.
+out("the task bar has no Done tab", (await p.locator('nav [aria-label="Done"]').count()) === 0);
+await box.locator(".tile-body").click({ position: { x: 5, y: 5 } }); await p.waitForSelector("[data-done-on]"); await wait();
 const onDay = (n) => p.locator(`[data-done-on="${day(n)}"] [data-done-subtask]`).allInnerTexts().then((t) => t.map((x) => x.replace(/\s+/g, " ").trim()).join(" / "));
-out("Done tab: each subtask under the day it was ticked, with its main task's name", (await onDay(0)).startsWith("Ch 3 Exam") && (await onDay(-1)).startsWith("Ch 2 Exam") && (await onDay(-2)).startsWith("Ch 1 Exam"), `${await onDay(0)} | ${await onDay(-1)} | ${await onDay(-2)}`);
+out("Done page: each subtask under the day it was ticked, with its main task's name", (await onDay(0)).startsWith("Ch 3 Exam") && (await onDay(-1)).startsWith("Ch 2 Exam") && (await onDay(-2)).startsWith("Ch 1 Exam"), `${await onDay(0)} | ${await onDay(-1)} | ${await onDay(-2)}`);
 out("the main task itself is not there: it isn't finished", (await p.locator("[data-finished]").count()) === 0);
 await p.locator(`[data-done-on="${day(-1)}"] input[type=checkbox]`).click(); await wait(600);
 out("unticking one there takes it off, and its day with it", (await p.locator(`[data-done-on="${day(-1)}"]`).count()) === 0 && (await p.locator("[data-done-subtask]").count()) === 2);
 await p.click('nav [aria-label="Tasks"]'); await p.waitForSelector("section[data-drop-list]"); await wait(); await expandAll();
 // A task is ticked last: the subtask unticked above goes first.
 await tick("Ch 2"); await tick("Exam"); await wait(500);
-await p.click('nav [aria-label="Done"]'); await p.waitForSelector("[data-done-on]"); await wait();
+await box.locator("[data-done-day]").click(); await p.waitForSelector("[data-done-on]"); await wait();
 out("finishing the main task adds it under today; earlier subtasks keep their own days", (await p.locator(`[data-done-on="${day(0)}"] [data-finished]`).count()) === 1 && (await onDay(-2)).startsWith("Ch 1 Exam"), await onDay(-2));
 await p.screenshot({ path: "done-tab.png", fullPage: true });
 await b.close();

@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Link, useNavigate } from "react-router";
 import { localDate } from "../../api/client";
 import { useDoneOn } from "../../hooks/useTasks";
 import { addDays, formatDay } from "../../lib/dates";
@@ -39,12 +40,14 @@ function doneOn(trees: TaskTreeNode[], day: string): DoneTask[] {
 /**
  * What was done on one day; step back and forth a day at a time, or pick a day from the calendar.
  * `tasks`, the task trees, have today and yesterday; a day before that is loaded when it is shown.
+ * A click anywhere on the box that isn't on one of its buttons opens the Done page, with every day.
  */
 export function DoneLog({ tasks }: { tasks: TaskTreeNode[] }) {
   const today = localDate();
   // null follows today, so the box rolls over with the day.
   const [picked, setPicked] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
   const day = picked && picked < today ? picked : today;
   const earlier = day < addDays(today, -1);
   const loaded = useDoneOn(day, earlier);
@@ -54,7 +57,14 @@ export function DoneLog({ tasks }: { tasks: TaskTreeNode[] }) {
   const label = day === today ? "Today" : day === addDays(today, -1) ? "Yesterday" : null;
 
   return (
-    <TileFrame title="Done" tone="record" aria-label="Done">
+    <TileFrame
+      // The title is a link, so the page can be reached from the keyboard too.
+      title={<Link to="/done">Done</Link>}
+      tone="record"
+      aria-label="Done"
+      className="cursor-pointer"
+      onClick={(e) => !(e.target as Element).closest("a, button, input") && navigate("/done")}
+    >
       {/* The day sits in the middle at a fixed width, so the arrows stay put under the pointer while stepping. */}
       <div
         className="relative flex items-center justify-center gap-1"

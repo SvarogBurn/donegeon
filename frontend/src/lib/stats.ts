@@ -1,7 +1,7 @@
 import type { List, PointsSummary, StatRow } from "../types";
 import { addDays, daysBetween, formatDay } from "./dates";
 
-// The numbers behind the stats on the user's page. Everything is worked out
+// The numbers behind the stats on the Stats page. Everything is worked out
 // in the browser from every task there is (cut down to a small row each, see
 // StatRow) and the points history it already has.
 // Reward lists are left out: these are stats about tasks.

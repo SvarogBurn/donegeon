@@ -130,7 +130,7 @@ export interface TaskTreeNode extends Task {
   completions: TaskPress[];
 }
 
-/** A few days of the Done tab, newest first. */
+/** A few days of the Done page, newest first. */
 export interface DonePage {
   /** The days in it, on each of which something was ticked. */
   days: string[];

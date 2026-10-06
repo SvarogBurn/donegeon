@@ -73,9 +73,9 @@ export function NavBar({ user }: { user: User }) {
             <span className="tab-icon tab-icon-tasks" aria-hidden />
             Tasks
           </NavLink>
-          <NavLink to="/done" className={tab} aria-label="Done">
-            <span className="tab-icon tab-icon-done" aria-hidden />
-            Done
+          <NavLink to="/stats" className={tab} aria-label="Stats">
+            <span className="tab-icon tab-icon-stats" aria-hidden />
+            Stats
           </NavLink>
           <FolderTabs tab={tab} isNewShown={isNewShown} onNewUsed={() => setIsNewShown(false)} />
         </nav>

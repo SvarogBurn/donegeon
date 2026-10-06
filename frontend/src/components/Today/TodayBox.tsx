@@ -30,7 +30,7 @@ const since = (node: TaskTreeNode) => node.todaySince ?? node.nextDue!;
  * Everything from the lists that is marked for Today, at any depth, plus the main tasks on a
  * schedule that are due: those come in by themselves and leave when done. Open items stay from day to day;
  * a ticked one stays for the rest of the day it was ticked on (or goes at once, if the user chose to hide
- * ticked tasks). Subtasks left open inside a finished main task went to the Done tab with it.
+ * ticked tasks). Subtasks left open inside a finished main task went to the Done page with it.
  */
 function todayItems(trees: TaskTreeNode[], today: string, ticked: TickedTasks): TodayItem[] {
   const found: TodayItem[] = [];

@@ -66,7 +66,7 @@ const untickedSchema = z.array(z.object({ id: z.string(), completedAt: z.string(
 const DELETED_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 /** A ticked task stays in its list for 24 hours (the frontend's isRecent), so yesterday's ticks still go to the lists. */
 const KEPT_WHEN_DONE_DAYS = 1;
-/** How many days of ticks the Done tab gets at a time. */
+/** How many days of ticks the Done page gets at a time. */
 const DONE_PAGE_DAYS = 5;
 /** Deadlines are allowed on top-level tasks (depth 0) and their direct subtasks (depth 1). */
 const MAX_DEADLINE_DEPTH = 1;
@@ -200,7 +200,7 @@ export const tasksRouter = Router();
 
 // The tasks the lists work with, as nested trees of top-level tasks: every main task still open, and
 // anything ticked since yesterday (which the lists keep showing for 24 hours), each with its whole tree.
-// Presses come along from yesterday on. What was finished before that is read by the Done tab (/done),
+// Presses come along from yesterday on. What was finished before that is read by the Done page (/done),
 // the dashboard's Done box (/done/:day) and the stats (/stats), so this stays small as the history grows.
 tasksRouter.get("/", async (req, res) => {
   const owner = userId(req);
@@ -217,7 +217,7 @@ tasksRouter.get("/", async (req, res) => {
   res.json({ tasks: await asTrees(owner, tasks, req.localDate) });
 });
 
-// The Done tab, a few days at a time, newest first: the days on which something was ticked (before `before`,
+// The Done page, a few days at a time, newest first: the days on which something was ticked (before `before`,
 // if given), and the trees holding what was ticked on them. `next` is the `before` of the days after these.
 tasksRouter.get("/done", async (req, res) => {
   const before = localDate.optional().parse(req.query.before);

@@ -62,7 +62,7 @@ export function subtreeIds(tasks: Pick<Task, "id" | "parentId">[], rootId: strin
 type FinishInput = Pick<Task, "id" | "parentId" | "isComplete" | "completedOn">;
 
 /**
- * Ticking a main task finishes the whole task: it moves to the Done tab, and
+ * Ticking a main task finishes the whole task: it moves to the Done page, and
  * for the deadline numbers everything still open beneath it counts as done
  * that day. Returns the tasks seen that way, plus the ids inside finished tasks.
  */

@@ -121,7 +121,7 @@ export interface PressureSummary {
 /**
  * "How much today" across every hard deadline. A subtask's hard deadline is
  * skipped when its parent has one too, so no task is counted twice. Deadlines
- * in `skip` (inside finished main tasks, which sit in the Done tab) are left out.
+ * in `skip` (inside finished main tasks, which sit in the Done page) are left out.
  */
 export function todayPressure(tasks: PressureTask[], today: string, skip = new Set<string>()): PressureSummary {
   const byId = new Map(tasks.map((t) => [t.id, t]));

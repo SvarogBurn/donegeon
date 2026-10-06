@@ -66,7 +66,7 @@ interface TreeContextValue {
   deleteTask: (node: TaskTreeNode) => void;
   /** Deletes the list with all its tasks; undoable the same way. */
   deleteList: (list: List) => void;
-  /** Ticks a task and offers the undo: for a main task, which goes to the Done tab, so a slip doesn't mean a trip there. */
+  /** Ticks a task and offers the undo: for a main task, which goes to the Done page, so a slip doesn't mean a trip there. */
   finishTask: (node: TaskTreeNode) => void;
   /** One press of a persistent task's "done it" button; undoable. */
   pressTask: (node: TaskTreeNode) => void;

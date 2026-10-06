@@ -33,7 +33,7 @@ export interface TaskChanges {
 
 /** The open main tasks and whatever was ticked since yesterday, each with its whole tree. */
 export const listTaskTrees = () => api<{ tasks: TaskTreeNode[] }>("/tasks").then((r) => r.tasks);
-/** The Done tab's days before `before`; null = from the newest. */
+/** The Done page's days before `before`; null = from the newest. */
 export const listDone = (before: string | null) => api<DonePage>(before ? `/tasks/done?before=${before}` : "/tasks/done");
 /** The trees holding what was ticked or pressed on `day`. */
 export const listDoneOn = (day: string) => api<{ tasks: TaskTreeNode[] }>(`/tasks/done/${day}`).then((r) => r.tasks);
@@ -56,7 +56,7 @@ export const pressTask = (id: string) =>
   api<{ completion: { id: string; day: string } }>(`/tasks/${id}/completions`, { method: "POST" }).then((r) => r.completion);
 export const undoPress = (id: string, completionId: string) =>
   api(`/tasks/${id}/completions/${completionId}`, { method: "DELETE" });
-/** Which page's boxes: the dashboard's, or the stats boxes on the user's page. */
+/** Which page's boxes: the dashboard's, or the stats boxes on the Stats page. */
 export type LayoutPage = "dashboard" | "stats";
 const layoutPath = (page: LayoutPage) => (page === "stats" ? "/layout/stats" : "/layout");
 export const getLayout = (page: LayoutPage) => api<{ layout: DashboardLayout | null }>(layoutPath(page)).then((r) => r.layout);

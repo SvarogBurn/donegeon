@@ -40,7 +40,7 @@ await add(main, "Essay"); await add(main, "Own"); await add(main, "Plain"); awai
 await p.keyboard.press("Escape");
 out("rows show what they are worth", (await chip("Essay")) === "+5" && (await chip("Movie")) === "−10", `${await chip("Essay")} ${await chip("Movie")}`);
 
-// --- tick / untick, Done tab
+// --- tick / untick, Done page
 out("balance starts at 0", (await balance()) === 0);
 await row("Movie").locator("input[type=checkbox]").click(); await wait(700);
 out("a reward you can't afford is refused", (await balance()) === 0 && (await titles(fun)).includes("Movie") && await p.locator("text=Not enough points").first().isVisible());
@@ -49,10 +49,10 @@ out("ticking a main task: +5, stays ticked in its list, undo bar", (await balanc
 await p.keyboard.press("Control+z"); await wait(700);
 out("Ctrl+Z unticks it and reverses the points", (await balance()) === 0 && !(await row("Essay").locator("input[type=checkbox]").isChecked()), `${await balance()} / ${await titles(main)}`);
 await row("Essay").locator("input[type=checkbox]").click(); await wait(700);
-await p.click('nav [aria-label="Done"]'); await wait();
-out("Done tab lists it under today", (await p.locator(`[data-done-on="${day(0)}"] [data-finished]`).count()) === 1 && (await p.locator("[data-finished]").innerText()).includes("Essay"));
+await p.locator('section[aria-label="Done"] [data-done-day]').click(); await wait();
+out("Done page lists it under today", (await p.locator(`[data-done-on="${day(0)}"] [data-finished]`).count()) === 1 && (await p.locator("[data-finished]").innerText()).includes("Essay"));
 await p.locator("[data-finished] input[type=checkbox]").click(); await wait(700);
-out("unticking in the Done tab takes the points back", (await balance()) === 0 && (await p.locator("[data-finished]").count()) === 0);
+out("unticking in the Done page takes the points back", (await balance()) === 0 && (await p.locator("[data-finished]").count()) === 0);
 await p.click('nav [aria-label="Tasks"]'); await p.waitForSelector("section[data-drop-list]"); await wait();
 out("and it is open again in its list, in place", (await titles(await cardOf("List"))) === "Essay,Own,Plain" && !(await row("Essay").locator("input[type=checkbox]").isChecked()), await titles(await cardOf("List")));
 
@@ -134,8 +134,8 @@ out("and the persistent task's copies are still there", (await copies.count()) =
 await ahead(0); await pretend(2);
 out("two days on: they have left their lists", (await row("Essay").count()) === 0 && (await row("Movie").count()) === 0 && (await row("Plain").count()) === 1);
 out("and the copies have gone; the persistent task itself stays", (await copies.count()) === 0 && (await row("Cake").locator('button[aria-label^="Done"]').count()) === 1);
-await p.click('nav [aria-label="Done"]'); await wait();
-out("and are still in the Done tab", (await p.locator("[data-finished]").allInnerTexts()).join().includes("Essay"));
+await p.locator('section[aria-label="Done"] [data-done-day]').click(); await wait();
+out("and are still in the Done page", (await p.locator("[data-finished]").allInnerTexts()).join().includes("Essay"));
 await p.click('nav [aria-label="Tasks"]'); await p.waitForSelector("section[data-drop-list]"); await wait();
 await pretend(0);
 

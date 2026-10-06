@@ -19,7 +19,7 @@ export function isRecent(day: string, at: string | null): boolean {
 
 /**
  * Whether a list shows the task. A ticked one, main or subtask, stays for 24 hours, so it can be unticked;
- * after that only the Done tab has it. If the user chose to hide ticked tasks, it goes at once.
+ * after that only the Done page has it. If the user chose to hide ticked tasks, it goes at once.
  */
 export function isShown(task: TaskTreeNode, ticked: TickedTasks): boolean {
   if (!task.isComplete) return true;

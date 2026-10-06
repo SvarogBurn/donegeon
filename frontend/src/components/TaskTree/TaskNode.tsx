@@ -163,7 +163,7 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
             checked={node.isComplete}
             disabled={toggle.isPending || hasOpenSubtasks}
             title={hasOpenSubtasks ? "Tick its subtasks first" : undefined}
-            // Ticking a main task finishes it: it is in the Done tab, and leaves its list 24 hours later. With an undo,
+            // Ticking a main task finishes it: it is in the Done page, and leaves its list 24 hours later. With an undo,
             // as for any task that leaves its list the moment it is ticked.
             onChange={() => (!node.isComplete && (!node.parentId || tree.ticked === "hide") ? tree.finishTask(node) : toggle.mutate(node.id))}
             aria-label={`Mark "${node.title}" ${node.isComplete ? "not done" : "done"}`}

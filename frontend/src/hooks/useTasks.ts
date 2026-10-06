@@ -25,7 +25,7 @@ const POINTS = ["points"];
 const TASK_DATA = [TASKS, COUNTDOWN, PRESSURE, POINTS];
 
 export const useTaskTrees = () => useQuery({ queryKey: TASKS, queryFn: tasksApi.listTaskTrees });
-/** The Done tab: a few days of ticks at a time, newest first; fetchNextPage brings the days before. */
+/** The Done page: a few days of ticks at a time, newest first; fetchNextPage brings the days before. */
 export const useDonePages = () =>
   useInfiniteQuery({
     queryKey: DONE,
@@ -88,7 +88,7 @@ export function useToggleTask() {
     onMutate: async (id: string) => {
       await Promise.all([TASKS, COUNTDOWN, PRESSURE].map((queryKey) => queryClient.cancelQueries({ queryKey })));
       const trees = queryClient.getQueryData<TaskTreeNode[]>(TASKS);
-      // The Done tab unticks tasks finished long ago, which only its own pages hold.
+      // The Done page unticks tasks finished long ago, which only its own pages hold.
       const done = queryClient.getQueryData<InfiniteData<DonePage>>(DONE);
       const node = findNode(trees ?? [], id) ?? findNode(done?.pages.flatMap((page) => page.tasks) ?? [], id);
       if (!node) return;

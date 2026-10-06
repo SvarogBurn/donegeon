@@ -44,8 +44,8 @@ await p.locator('[data-task-editor^="add:"]').first().click(); await p.keyboard.
 await p.keyboard.press("Escape"); await wait(300);
 await tick("Ch 3"); await tick("Exam"); await wait(600);
 
-await p.goto("http://localhost:5173/user"); await p.waitForSelector('section[aria-label="Done stats"]'); await wait();
-out("account box still there", await p.locator("[data-username]").innerText() === user);
+await p.goto("http://localhost:5173/stats"); await p.waitForSelector('section[aria-label="Done stats"]'); await wait();
+out("opened from the Stats tab in the task bar", await p.locator('nav [aria-label="Stats"][aria-current="page"]').count() === 1 && await p.locator("[data-username]").count() === 0);
 out("done today / week+ / all time", await cell("Done stats", "Today") === "2" && await cell("Done stats", "All time") === "4", `${await cell("Done stats", "Today")} ${await cell("Done stats", "All time")}`);
 out("streak: today and yesterday", await cell("Done stats", "Streak") === "2 days" && await cell("Done stats", "Longest") === "2 days", `${await cell("Done stats", "Streak")} / ${await cell("Done stats", "Longest")}`);
 const dot = (n) => p.locator(`section[aria-label="Done stats"] [data-day="${day(n)}"]`).getAttribute("data-count");
@@ -68,10 +68,10 @@ out("points: balance chart ends on the balance", await p.locator(`[data-balance-
 // The boxes are tiles like the dashboard's: moved by their tab button, minimized, with their own saved arrangement.
 const tiles = () => p.locator("[data-tile]").evaluateAll((els) => els.map((e) => e.dataset.tile).join(","));
 const hiddenRow = p.locator('[aria-label="Hidden boxes"]');
-out("ten boxes, Account, Settings and the filter among them, each with a pin, a move and a hide button", (await tiles()) === "account,settings,filter,done,written,deadlines,time,groups,points,unorganized" && await p.locator('[data-tile] [aria-label^="Drag to move"]').count() === 10 && await p.locator('[aria-label^="Hide "]').count() === 10 && await p.locator('[data-tile] [aria-label^="Pin "]').count() === 10, await tiles());
+out("eight boxes, the filter among them, each with a pin, a move and a hide button", (await tiles()) === "filter,done,written,deadlines,time,groups,points,unorganized" && await p.locator('[data-tile] [aria-label^="Drag to move"]').count() === 8 && await p.locator('[aria-label^="Hide "]').count() === 8 && await p.locator('[data-tile] [aria-label^="Pin "]').count() === 8, await tiles());
 await p.click('[aria-label="Hide Written down"]'); await wait();
 await p.click('[aria-label="Hide Points"]'); await wait();
-out("hidden boxes leave the page for the Hidden row", (await tiles()) === "account,settings,filter,done,deadlines,time,groups,unorganized" && (await hiddenRow.innerText()).replace(/\s+/g, " ") === "Hidden: Written down Points", `${await tiles()} / ${await hiddenRow.innerText()}`);
+out("hidden boxes leave the page for the Hidden row", (await tiles()) === "filter,done,deadlines,time,groups,unorganized" && (await hiddenRow.innerText()).replace(/\s+/g, " ") === "Hidden: Written down Points", `${await tiles()} / ${await hiddenRow.innerText()}`);
 { // Drag "Unorganized" above "Done".
   await p.locator('[data-tile="unorganized"] .tile-band').evaluate((el) => el.scrollIntoView({ block: "center" })); await wait(200);
   const h = await p.locator('[data-tile="unorganized"] [aria-label^="Drag to move"]').boundingBox();
@@ -80,16 +80,16 @@ out("hidden boxes leave the page for the Hidden row", (await tiles()) === "accou
   const t = await p.locator('[data-tile="done"]').boundingBox();
   await p.mouse.move(t.x + t.width / 2, Math.max(t.y + 8, 8), { steps: 8 }); await wait(200); await p.mouse.up(); await wait(600);
 }
-out("a box can be dragged to another place", (await tiles()) === "account,settings,filter,unorganized,done,deadlines,time,groups", await tiles());
+out("a box can be dragged to another place", (await tiles()) === "filter,unorganized,done,deadlines,time,groups", await tiles());
 await p.reload(); await p.waitForSelector('section[aria-label="Done stats"]'); await wait();
-out("arrangement and hidden boxes survive a reload", (await tiles()) === "account,settings,filter,unorganized,done,deadlines,time,groups" && await hiddenRow.locator("button").count() === 2, await tiles());
+out("arrangement and hidden boxes survive a reload", (await tiles()) === "filter,unorganized,done,deadlines,time,groups" && await hiddenRow.locator("button").count() === 2, await tiles());
 await hiddenRow.locator('button:text-is("Points")').click(); await wait();
 await hiddenRow.locator('button:text-is("Written down")').click(); await wait();
-out("brought back where they were", (await tiles()) === "account,settings,filter,unorganized,done,written,deadlines,time,groups,points" && await hiddenRow.count() === 0, await tiles());
+out("brought back where they were", (await tiles()) === "filter,unorganized,done,written,deadlines,time,groups,points" && await hiddenRow.count() === 0, await tiles());
 await p.goto("http://localhost:5173/"); await p.waitForSelector("section[data-drop-list]"); await wait();
 const home = await p.locator("[data-tile]").evaluateAll((els) => els.map((e) => e.dataset.tile.replace(/^list:.*/, "list")).join(","));
 out("the dashboard keeps its own arrangement", home.endsWith("goals,today,list,newList,tags,done") && !home.includes("unorganized") && await hiddenRow.count() === 0, home);
-await p.goto("http://localhost:5173/user"); await p.waitForSelector('section[aria-label="Done stats"]'); await wait();
+await p.goto("http://localhost:5173/stats"); await p.waitForSelector('section[aria-label="Done stats"]'); await wait();
 
 // Filters.
 const pick = async (label, value) => { await p.locator(`section[aria-label="Stats"] label:has-text("${label}") select`).selectOption({ label: value }); await wait(200); };
@@ -102,10 +102,10 @@ out("goal filter keeps them, drops the loose end", await cell("Done stats", "All
 await p.locator('section[aria-label="Stats"] button:text-is("Clear")').click(); await wait(200);
 out("clear brings everything back", await cell("Unorganized", "Open tasks") === "1" && await p.locator('section[aria-label="Stats"] button:text-is("Clear")').count() === 0);
 
-// Account and the filter are tiles too: pinned across the top, or out into a column of their own.
-await p.click('[aria-label="Pin Account"]'); await wait();
-out("Account can be pinned", await p.locator('[data-zone="pinned"] [data-tile="account"]').count() === 1 && await p.locator("[data-username]").isVisible());
-await p.click('[aria-label="Unpin Account"]'); await wait();
+// The filter is a tile too: pinned across the top, or out into a column of its own.
+await p.click('[aria-label="Pin Stats filter"]'); await wait();
+out("the filter can be pinned", await p.locator('[data-zone="pinned"] [data-tile="filter"]').count() === 1);
+await p.click('[aria-label="Unpin Stats filter"]'); await wait();
 { // Drag the filter out to a new column at the right.
   await p.locator('[data-tile="filter"]').evaluate((el) => el.scrollIntoView({ block: "center" })); await wait(200);
   const h = await p.locator('[data-tile="filter"] [aria-label^="Drag to move"]').boundingBox();
@@ -113,7 +113,7 @@ await p.click('[aria-label="Unpin Account"]'); await wait();
   const z = await p.locator('[data-zone="new"]').boundingBox();
   await p.mouse.move(z.x + z.width / 2, Math.max(z.y, 0) + 60, { steps: 8 }); await wait(200); await p.mouse.up(); await wait(600);
 }
-out("the filter can go in a second column", await p.locator('[data-zone="1"] [data-tile="filter"]').count() === 1 && await p.locator('[data-zone="0"] [data-tile="account"]').count() === 1);
+out("the filter can go in a second column", await p.locator('[data-zone="1"] [data-tile="filter"]').count() === 1 && await p.locator('[data-zone="0"] [data-tile="done"]').count() === 1);
 await p.click('[aria-label="Hide Stats filter"]'); await wait();
 out("and be minimized, back from the Hidden row", (await hiddenRow.innerText()).includes("Stats filter") && await p.locator('section[aria-label="Stats"]').count() === 0);
 await hiddenRow.locator('button:text-is("Stats filter")').click(); await wait();

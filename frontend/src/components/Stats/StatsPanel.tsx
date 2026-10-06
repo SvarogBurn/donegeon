@@ -69,8 +69,8 @@ function Pick({ label, value, onChange, children }: { label: string; value: stri
   );
 }
 
-/** A box of the user's page: a tile of its grid. */
-export interface PageBox {
+/** A box of the Stats page: a tile of its grid. */
+interface PageBox {
   key: string;
   /** Its name on the buttons, and in the Hidden row. */
   label: string;
@@ -485,32 +485,23 @@ export function StatBoxView({ name }: { name: string }) {
 }
 
 /**
- * The user's page: the boxes it is given (`before`: the account's), then the stats. All of them, the
- * filter too, are tiles of one grid: moved, pinned and hidden like the dashboard's, over as many columns
- * as fit, with an arrangement of their own. A stats box dropped on a folder's tab is shown in that folder too.
+ * The Stats page: every box of the stats, the filter too, as tiles of one grid: moved, pinned and hidden
+ * like the dashboard's, over as many columns as fit, with an arrangement of their own. A stats box dropped
+ * on a folder's tab is shown in that folder too.
  */
-export function StatsPanel({ before = [] }: { before?: PageBox[] }) {
+export function StatsPanel() {
   const stats = useStatBoxes();
   const layout = useLayout("stats");
   const saveLayout = useSaveLayout("stats");
   const drop = useDropOnTab();
 
-  // Without the stats, the account's boxes are still there (logging out, above all).
-  const alone = (message: ReactNode) => (
-    <div className="mx-auto max-w-3xl space-y-4">
-      {before.map((box) => (
-        <div key={box.key}>{box.node}</div>
-      ))}
-      {message}
-    </div>
-  );
-  if (stats.error) return alone(<p className="text-sm text-red-600">Couldn't load your stats: {stats.error.message}</p>);
+  if (stats.error) return <p className="text-sm text-red-600">Couldn't load your stats: {stats.error.message}</p>;
   // The layout is waited for (not required), so the boxes don't jump once it arrives.
-  if (!stats.boxes || layout.isLoading) return alone(<p className="text-sm text-stone-500">Loading…</p>);
+  if (!stats.boxes || layout.isLoading) return <p className="text-sm text-stone-500">Loading…</p>;
 
   // Every box is a tile of a grid like the dashboard's: dragged by its tab button, pinned, or minimized away.
-  const boxes = [...before, ...stats.boxes.map((box) => ({ ...box, view: statView(box.key) }))];
-  const saved = withTopBoxes(normalizeLayout(layout.data), [...before.map((box) => box.key), FILTER_BOX]);
+  const boxes = stats.boxes.map((box) => ({ ...box, view: statView(box.key) }));
+  const saved = withTopBoxes(normalizeLayout(layout.data), [FILTER_BOX]);
   const isHidden = (key: string) => (saved.hidden ?? []).includes(key);
   const tiles = boxes.filter((box) => !isHidden(box.key)).map((box) => ({ key: box.key, name: box.label, node: box.node, half: box.half, view: box.view, canHide: true }));
 

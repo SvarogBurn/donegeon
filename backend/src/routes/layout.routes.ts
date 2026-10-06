@@ -7,7 +7,7 @@ const key = z.string().min(1).max(60);
 const column = z.array(key).max(200);
 
 /**
- * A page's arrangement of boxes: the dashboard's, and the stats boxes' on the user's page. Tiles are named by key ("today", "goals",
+ * A page's arrangement of boxes: the dashboard's, and the stats boxes' on the Stats page. Tiles are named by key ("today", "goals",
  * "list:<id>", ...). Two arrangements are kept, "wide" and "phone", so
  * rearranging on a phone doesn't undo the desktop layout. (Older saves used
  * "1".."4"; the frontend converts those.) `hidden` are the tiles the user has

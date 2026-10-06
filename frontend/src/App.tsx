@@ -4,6 +4,7 @@ import { AuthPage } from "./pages/AuthPage";
 import { Dashboard } from "./pages/Dashboard";
 import { DonePage } from "./pages/Done";
 import { PointsPage } from "./pages/Points";
+import { StatsPage } from "./pages/Stats";
 import { CountdownRedirect, TaskPage } from "./pages/TaskPage";
 import { UserPage } from "./pages/User";
 
@@ -22,6 +23,7 @@ export function App() {
         <Route index element={<Dashboard />} />
         <Route path="folders/:folderId" element={<FolderPage />} />
         <Route path="done" element={<DonePage />} />
+        <Route path="stats" element={<StatsPage />} />
         <Route path="points" element={<PointsPage />} />
         <Route path="user" element={<UserPage />} />
         <Route path="tasks/:taskId" element={<TaskPage />} />

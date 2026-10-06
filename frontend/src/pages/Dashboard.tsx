@@ -135,7 +135,7 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
     { key: "done", name: "Done", node: <DoneLog tasks={tasks.data} /> },
   ];
   // A folder's page: its views, in the order they were added. Each is a copy: the list is on the Tasks page too,
-  // the stats box on the user's page. A view whose list is gone (or filtered out) shows nothing.
+  // the stats box on the Stats page. A view whose list is gone (or filtered out) shows nothing.
   const viewTiles = (folder?.views ?? []).flatMap((view): (Tile & { label?: string })[] => {
     const stat = statOfView(view);
     if (stat === null) return listTiles.filter((tile) => tile.key === view);

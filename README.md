@@ -62,10 +62,10 @@ On the dashboard a task's subtasks start hidden: click the arrow at the left of 
 
 - Every list is a **task list** (its items add points) or a **reward list** (its items cost points), with a points-per-item amount. Both are set when the list is created and can be changed in the list's header.
 - A task list is blue and a reward list orange, until you pick the list's own colour with the swatch on the plate in its top left corner, after the points: a few to choose from, "Other" for any colour, and a way back. The box's band and its Task / Reward switch take the colour.
-- Ticking a main task books its points and moves it to the **Done** tab; unticking it there puts it back and reverses the points. Subtasks show in the Done tab too, each under the day it was ticked, without waiting for their main task to be finished.
-- A ticked task or subtask stays in its list, ticked, for 24 hours, so you can still untick it; after that it is only in the Done tab (where it can be unticked too). A persistent task stays open; every time you press its repeat button, a ticked, crossed-off copy of it appears underneath (five presses, five copies). Untick a copy to take that one back. The copies go after 24 hours too.
+- Ticking a main task books its points and moves it to the **Done** page (click anywhere on the dashboard's Done box to open it); unticking it there puts it back and reverses the points. Subtasks show on the Done page too, each under the day it was ticked, without waiting for their main task to be finished.
+- A ticked task or subtask stays in its list, ticked, for 24 hours, so you can still untick it; after that it is only on the Done page (where it can be unticked too). A persistent task stays open; every time you press its repeat button, a ticked, crossed-off copy of it appears underneath (five presses, five copies). Untick a copy to take that one back. The copies go after 24 hours too.
 - A task can only be ticked once all its subtasks are, at every depth: until then its box is greyed out.
-- Ticked tasks sit at the bottom: a ticked main task under the open ones of its list, a ticked subtask under the open subtasks of the same task. Untick one and it is back where it was. On your own page (click your name in the task bar), **Ticked tasks** in the Settings box changes that: they can stay where they are instead, or be hidden, which takes a task out of the Tasks tab and your folders the moment it is ticked (Ctrl+Z brings it back; after that, untick it in the Done tab).
+- Ticked tasks sit at the bottom: a ticked main task under the open ones of its list, a ticked subtask under the open subtasks of the same task. Untick one and it is back where it was. On your own page (click your name in the task bar), **Ticked tasks** in the Settings box changes that: they can stay where they are instead, or be hidden, which takes a task out of the Tasks tab and your folders the moment it is ticked (Ctrl+Z brings it back; after that, untick it on the Done page).
 - Subtasks are worth nothing unless you say so. Give one its own amount in its ⋯ menu, or tick **Subtasks earn this too** in the main task's ⋯ menu: every subtask without an amount of its own is then worth what the main task is (as a main task takes its list's amount). Ticking a subtask books its points, unticking takes them back.
 - In a task's ⋯ menu: **Do today** (shows it in the Today box until it is done), **Persistent** (a repeat button instead of a checkbox: can be done or bought again and again), and its own point amount (empty = the list's amount).
 - **Repeat**, in the ⋯ menu once Persistent is ticked: put a number in "Every" and pick days, weeks or months ("every 3 weeks"). The task is then due on its day: it shows "due today" in its list and comes into the Today box by itself. Press its repeat button when it is done; it greys out and shows the next day until then. "Next" sets the next day by hand. **Planned days** keeps the rhythm even when you are late; **After done** counts the next round from the day you did it. Empty the number to take the schedule off.
@@ -88,11 +88,11 @@ The Stats box's filter (dates, list, folder, goal, tag, deadline type, repeating
 
 ## Folders
 
-A folder is a tab of your own in the task bar, next to Tasks and Done: a page of views. It shows copies of lists and of stats boxes; the lists themselves stay on the Tasks page, the stats on your own page.
+A folder is a tab of your own in the task bar, next to Tasks and Stats: a page of views. It shows copies of lists and of stats boxes; the lists themselves stay on the Tasks page, the stats on the Stats page.
 
 - The **+ New** tab is out of sight until it is needed. Start dragging a list (or a stats box) by the handle on its title band and it appears in the task bar: drop the box on it to make a folder showing it, which then asks for its name.
 - For an empty folder, click the task bar's empty space (or right-click it, or press and hold it): **+ New** comes out; click it. Escape or a click elsewhere puts it away again.
-- Drag more lists onto the folder's tab to show them there too. The same goes for the boxes of the stats on your own page, the filter included: a folder's copy of the filter narrows that folder's stats boxes.
+- Drag more lists onto the folder's tab to show them there too. The same goes for the boxes on the Stats page, the filter included: a folder's copy of the filter narrows that folder's stats boxes.
 - Click a folder's tab to open its page: what it shows, and a field for new lists, which are shown in the folder straight away (and are on the Tasks page like any list).
 - To take something out of a folder, open the folder and drag the box onto **Tasks**. Only the folder's copy goes.
 - To change a folder's name or colour, right-click its tab, press and hold it, or click it while its page is open. "Remove folder" there removes the tab only: no list is deleted or moved.
@@ -104,7 +104,7 @@ Every box has a drag handle and a Pin button on its title band. Drag a box above
 
 Every box also has a minimize button on its band, which hides it; on a list it sits between the drag handle and the delete button. Hidden boxes are listed in a "Hidden" row under the boxes; click one to bring it back where it was. Which boxes are hidden is saved per account. A hidden list keeps its tasks: they still count for Today, the deadlines and the stats.
 
-The stats boxes on your own page work the same way (drag, pin, minimize), with an arrangement of their own.
+The stats boxes on the Stats page (the **Stats** tab in the task bar) work the same way (drag, pin, minimize), with an arrangement of their own.
 
 ## On a phone
 

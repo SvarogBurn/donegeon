@@ -249,8 +249,8 @@
     outline: 2px solid var(--color-emerald-600);
     outline-offset: -2px;
   }
-  .tab-icon-done {
-    background-image: url("../../assets/icons/21x21done_icon_v1.svg");
+  .tab-icon-stats {
+    background-image: url("../../assets/icons/21x21stats_icon_v1.svg");
   }
   /* This one is 15x15 art pixels: kept at the same pixel size as the others, so it sits smaller in its square. */
   .tab-icon-user {

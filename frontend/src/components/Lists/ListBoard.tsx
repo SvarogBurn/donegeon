@@ -325,7 +325,7 @@ export function ListForm({ folderId = null }: { folderId?: string | null }) {
 
 /**
  * Each list with the tasks shown in it. A ticked task (a finished main task, or
- * a subtask) stays in its list, ticked, for 24 hours and is in the Done tab
+ * a subtask) stays in its list, ticked, for 24 hours and is in the Done page
  * from the start; with `ticked` "hide" it leaves its list the moment it is ticked.
  * While a goal/tag filter is on, only matching tasks and the lists holding them are kept.
  */
