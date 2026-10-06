@@ -53,7 +53,7 @@ function Labels({ node }: { node: TaskTreeNode }) {
   const update = useUpdateTask();
 
   return (
-    <>
+    <div className="space-y-3" data-menu-part="labels">
       <LabelPicker
         title="Goals"
         items={goals}
@@ -69,7 +69,7 @@ function Labels({ node }: { node: TaskTreeNode }) {
         emptyHint="Add a tag in the Tags box first."
       />
       {update.error && <p className="text-xs text-red-600">{update.error.message}</p>}
-    </>
+    </div>
   );
 }
 
@@ -99,7 +99,7 @@ function Doing({ node }: { node: TaskTreeNode }) {
     <div className="space-y-1">
       {/* A task written straight into Today has no list to go back to, so it can't be taken out. */}
       {(node.parentId || node.listId) && (
-        <label className={CHECK_ROW}>
+        <label className={CHECK_ROW} data-menu-part="today">
           <PixelCheckbox
             small
             checked={node.todaySince !== null}
@@ -110,7 +110,7 @@ function Doing({ node }: { node: TaskTreeNode }) {
       )}
       {!node.parentId && (
         <>
-          <label className={CHECK_ROW} title="Stays in its list and can be done again and again; each time counts its points.">
+          <label className={CHECK_ROW} data-menu-part="persistent" title="Stays in its list and can be done again and again; each time counts its points.">
             <PixelCheckbox
               small
               checked={node.isPersistent}
@@ -120,7 +120,7 @@ function Doing({ node }: { node: TaskTreeNode }) {
           </label>
         </>
       )}
-      <label className="flex items-center gap-2 px-1 text-xs">
+      <label className="flex items-center gap-2 px-1 text-xs" data-menu-part="points">
         <span className="shrink-0">{isReward ? "Costs" : "Points"}</span>
         {/* The same dark field as a list's "N each". */}
         <input
@@ -248,6 +248,11 @@ export function TaskMenu({ node, depth, onAddSubtask }: Props) {
   const tree = useTree();
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
+  // Opened from a row low on the screen it would hang off the bottom: the page scrolls just enough to show all of it.
+  const menu = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (isOpen) menu.current?.scrollIntoView({ block: "nearest" });
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -278,6 +283,7 @@ export function TaskMenu({ node, depth, onAddSubtask }: Props) {
         // On a phone it is a sheet along the bottom of the screen: beside its button it would hang off the edge.
         // It lies over the task bar (z-50), so a menu opened low on the screen is not cut off by it.
         <div
+          ref={menu}
           className="card absolute top-full right-0 z-50 mt-1 w-64 space-y-3 !p-3 shadow-lg max-sm:fixed max-sm:inset-x-2 max-sm:top-auto max-sm:bottom-2 max-sm:z-50 max-sm:mt-0 max-sm:max-h-[75dvh] max-sm:w-auto max-sm:overflow-y-auto"
           role="dialog"
           aria-label="Task options"
@@ -292,7 +298,7 @@ export function TaskMenu({ node, depth, onAddSubtask }: Props) {
           )}
           <Labels node={node} />
           {depth <= 1 && !node.isPersistent && (
-            <div className="space-y-1 text-xs">
+            <div className="space-y-1 text-xs" data-menu-part="deadline">
               <span className="font-medium">Deadline</span>
               <DeadlineFields task={node} />
             </div>

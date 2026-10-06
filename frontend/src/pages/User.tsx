@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router";
 import { TileFrame } from "../components/Tiles/TileFrame";
 import { useLogout, useMe, useUpdateMe } from "../hooks/useAuth";
 import type { TickedTasks } from "../types";
@@ -19,6 +20,7 @@ export function UserPage() {
   const { user } = useMe();
   const logout = useLogout();
   const update = useUpdateMe();
+  const navigate = useNavigate();
   if (!user) return null;
 
   return (
@@ -54,6 +56,18 @@ export function UserPage() {
           </select>
         </label>
         <p className="text-xs text-stone-500">{TICKED_NOTES[user.tickedTasks]}</p>
+        {/* The tutorial shows while the account has not seen it: this says it hasn't, and goes where it starts. */}
+        <button
+          type="button"
+          className="nes-btn btn"
+          data-start-tutorial
+          onClick={() => {
+            update.mutate({ tutorialSeen: false });
+            navigate("/");
+          }}
+        >
+          Repeat the tutorial
+        </button>
         {update.error && <p className="text-xs text-red-600">{update.error.message}</p>}
       </TileFrame>
     </div>

@@ -240,6 +240,7 @@
     display: none;
   }
   .new-folder-slot[data-shown],
+  html[data-tutorial-new-folder] .new-folder-slot,
   html[data-dragging-list] .new-folder-slot {
     display: flex;
     flex: none;
@@ -248,6 +249,45 @@
   [data-tab-drop][data-drop-hover] {
     outline: 2px solid var(--color-emerald-600);
     outline-offset: -2px;
+  }
+  /*
+   * The tutorial. The dim covers the screen but for holes cut where the things being talked about are (a clip-path,
+   * set by the component); it is over the task bar (z-40) and under the menus (z-50), and lets every click through.
+   * The spot is the hole the arrow points at, there to be found; it draws nothing.
+   */
+  .tutorial-dim {
+    @apply pointer-events-none fixed inset-0 z-[45];
+    background: rgb(0 0 0 / 0.65);
+  }
+  .tutorial-spot {
+    @apply pointer-events-none fixed z-[45];
+  }
+  /* The arrow between the tutorial's words and that thing. The art (50x20 art pixels) points right. */
+  .tutorial-arrow {
+    @apply pointer-events-none fixed z-[60];
+    width: 50px;
+    height: 20px;
+    background: url("../../assets/50x20arrow_+_v1.svg") center / contain no-repeat;
+    image-rendering: pixelated;
+    --nudge: 6px 0;
+    animation: tutorial-nudge 600ms steps(3) infinite alternate;
+  }
+  .tutorial-arrow[data-points="left"] {
+    rotate: 180deg;
+    --nudge: -6px 0;
+  }
+  .tutorial-arrow[data-points="down"] {
+    rotate: 90deg;
+    --nudge: 0 6px;
+  }
+  .tutorial-arrow[data-points="up"] {
+    rotate: -90deg;
+    --nudge: 0 -6px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tutorial-arrow {
+      animation: none;
+    }
   }
   .tab-icon-stats {
     background-image: url("../../assets/icons/21x21stats_icon_v1.svg");
@@ -441,5 +481,11 @@
   /* Small boxes without a title band (the task menu, the clock's panel, dialogs, notices): a plain grey border. */
   .card {
     @apply border-2 border-stone-300 bg-white p-4 dark:border-stone-700 dark:bg-stone-900;
+  }
+}
+
+@keyframes tutorial-nudge {
+  to {
+    translate: var(--nudge);
   }
 }

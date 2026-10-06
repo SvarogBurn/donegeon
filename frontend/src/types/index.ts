@@ -8,6 +8,8 @@ export interface User {
   id: string;
   username: string;
   tickedTasks: TickedTasks;
+  /** False until the tutorial was finished or skipped: it shows while this is false. */
+  tutorialSeen: boolean;
 }
 
 export interface Goal {

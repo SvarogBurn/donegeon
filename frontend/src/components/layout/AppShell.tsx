@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from "react-router";
 import { useMe } from "../../hooks/useAuth";
+import { Tutorial } from "../Tutorial/Tutorial";
 import { NavBar } from "./NavBar";
 
 /** Wraps every logged-in page; sends anonymous visitors to /login. */
@@ -17,6 +18,7 @@ export function AppShell() {
         <Outlet />
       </main>
       <NavBar user={user} />
+      <Tutorial user={user} />
     </>
   );
 }

@@ -74,7 +74,7 @@ On the dashboard a task's subtasks start hidden: click the arrow at the left of 
 
 ## Stats
 
-Click your name in the task bar: with the Account and Settings boxes are your stats. They cover tasks and subtasks, never rewards.
+Click the **Stats** tab in the task bar. The stats cover tasks and subtasks, never rewards.
 
 - **Done**: done today / this week (from Monday) / this month / ever, the current and longest streak of days with something done, and a dot per day for the last year (stronger = more done).
 - **Written down**: at which weekday and hour tasks get written down.
@@ -84,7 +84,7 @@ Click your name in the task bar: with the Account and Settings boxes are your st
 - **Points**: the balance day by day.
 - **Unorganized**: open main tasks with no deadline, goal or tag.
 
-The Stats box's filter (dates, list, folder, goal, tag, deadline type, repeating) narrows all of them at once; Folder, there once you have a folder, keeps only the lists that folder shows. Each box has a colour of its own, on its band and in its bars and dots: Done is purple like the Done box, Deadlines stays blue so that red can mean late. Every box on the page (Account, Settings and the filter too) can be dragged, pinned and minimized like the boxes of the dashboard, and dragged out to the right for another column, up to four. A subtask counts under its main task's list, goals and tags.
+The Stats box's filter (dates, list, folder, goal, tag, deadline type, repeating) narrows all of them at once; Folder, there once you have a folder, keeps only the lists that folder shows. Each box has a colour of its own, on its band and in its bars and dots: Done is purple like the Done box, Deadlines stays blue so that red can mean late. Every box on the page (the filter too) can be dragged, pinned and minimized like the boxes of the dashboard, and dragged out to the right for another column, up to four. A subtask counts under its main task's list, goals and tags.
 
 ## Folders
 
@@ -135,6 +135,14 @@ health check.
 
 Your icon and name at the right of the task bar open your own page, which is
 where Log out is.
+
+## The tutorial
+
+A new account is walked through the app the first time it is opened: a few words on points and rewards,
+then a pointer that waits for each thing to be done (a task, subtasks, a deadline, a reward list, a folder,
+hiding a box). "Skip tutorial" ends it at any point; **Repeat the tutorial** in the Settings box on your own page
+starts it again. It does not show in a browser driven by automation (the e2e scripts), unless
+`localStorage["donegeon.forceTutorial"]` is set.
 
 ## Changing the time and date
 

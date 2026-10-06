@@ -29,9 +29,9 @@ function startSession(req: Request, userId: string): Promise<void> {
 }
 
 /** What the app is told about the account: never the password hash. */
-const publicUser = (user: User) => ({ id: user.id, username: user.username, tickedTasks: user.tickedTasks });
+const publicUser = (user: User) => ({ id: user.id, username: user.username, tickedTasks: user.tickedTasks, tutorialSeen: user.tutorialSeen });
 
-const settings = z.object({ tickedTasks: z.enum(["bottom", "stay", "hide"]) });
+const settings = z.object({ tickedTasks: z.enum(["bottom", "stay", "hide"]), tutorialSeen: z.boolean() }).partial();
 
 export const authRouter = Router();
 
