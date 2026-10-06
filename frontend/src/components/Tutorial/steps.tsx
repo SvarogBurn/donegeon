@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { hasTaskPage } from "../../lib/taskPage";
 import type { Folder, List, TaskTreeNode } from "../../types";
 
 /** What a step can look at: the account's data, the page that is open, and what the tutorial has noted so far. */
@@ -189,6 +190,7 @@ export const STEPS: Step[] = [
       </>
     ),
     target: (ctx) => [tree(ctx)],
+    needsTask: true,
     button: "Very funny",
   },
   {
@@ -283,6 +285,9 @@ export const STEPS: Step[] = [
       </>
     ),
     target: () => ['section[aria-label="All deadlines"]', 'section[aria-label="Deadline pressure"]'],
+    needsTask: true,
+    // No deadline was given: no table to show.
+    skip: (ctx) => !ctx.task?.deadlineDate,
     button: "Great",
   },
   {
@@ -296,6 +301,8 @@ export const STEPS: Step[] = [
       </>
     ),
     target: (ctx) => [row(ctx)],
+    // Only a big task has a page of its own to go to.
+    skip: (ctx) => !ctx.task || !hasTaskPage(ctx.task),
     done: (ctx) => ctx.path.startsWith("/tasks/"),
   },
   {
@@ -309,6 +316,9 @@ export const STEPS: Step[] = [
       </>
     ),
     target: () => ['[aria-label="Countdown"]'],
+    needsTask: true,
+    route: (ctx) => ctx.task && `/tasks/${ctx.task.id}`,
+    skip: (ctx) => !ctx.task || !hasTaskPage(ctx.task),
     button: "Back",
   },
   {
@@ -353,6 +363,8 @@ export const STEPS: Step[] = [
   {
     text: () => <>Better. It waits in the Hidden row at the bottom if you ever miss it.</>,
     target: () => ['[aria-label="Hidden boxes"]'],
+    // Nothing was minimized: no Hidden row to point at.
+    skip: (ctx) => ctx.hidden === 0,
     button: "Next",
   },
   {
@@ -372,6 +384,7 @@ export const STEPS: Step[] = [
         It gets bigger the more you fill it up ;)
       </>
     ),
+    route: "/stats",
     button: "…okay",
   },
   {
@@ -394,6 +407,8 @@ export const STEPS: Step[] = [
   {
     // The new folder's own page, with nothing on it yet.
     route: (ctx) => ctx.folders.at(-1) && `/folders/${ctx.folders.at(-1)!.id}`,
+    // No folder was made: none to show, and none to fill in the step after.
+    skip: (ctx) => ctx.folders.length <= ctx.base.folders,
     text: () => <>An empty folder. Impressive.</>,
     target: () => ["[data-folder-title]"],
     button: "Next",
@@ -413,6 +428,7 @@ export const STEPS: Step[] = [
     // The handle to grab; once a list is in the air, the tab to drop it on.
     target: () => ["html[data-dragging-list] [data-folder-tab]", HANDLE],
     also: () => ["[data-folder-tab]"],
+    skip: (ctx) => ctx.folders.length === 0,
     done: (ctx) => views(ctx) > ctx.base.views,
   },
   {

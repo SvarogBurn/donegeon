@@ -12,6 +12,8 @@ interface Progress {
   /** The step whose notes are taken and whose page is open; its `done` is only looked at once this is the step. */
   entered: number;
   taskId: string | null;
+  /** The step that asks for a task was skipped: the steps about that task are passed over. */
+  noTask?: boolean;
   base: Record<string, number>;
   known: string[];
 }
@@ -185,7 +187,7 @@ function Running({ user }: { user: User }) {
     if (!isReady) return;
     if (!isEntered) {
       // Nothing to do on this screen (a second column on a phone): on to the next.
-      if (step.skip?.(ctx)) return next();
+      if ((step.needsTask && !ctx.task && progress.noTask) || step.skip?.(ctx)) return next();
       const route = typeof step.route === "function" ? step.route(ctx) : step.route;
       if (route && path !== route) navigate(route);
       setProgress((was) => ({
@@ -199,7 +201,7 @@ function Running({ user }: { user: User }) {
     if (step.needsTask && !ctx.task) return goTo(MAKE_TASK, { taskId: null });
     if (progress.step === MAKE_TASK) {
       const made = ctx.tasks.find((task) => !progress.known.includes(task.id));
-      if (made) goTo(MAKE_TASK + 1, { taskId: made.id });
+      if (made) goTo(MAKE_TASK + 1, { taskId: made.id, noTask: false });
     } else if (step.done?.(ctx)) next();
   });
 
@@ -211,6 +213,8 @@ function Running({ user }: { user: User }) {
     if (measured !== height) setHeight(measured);
   });
 
+  // Without the task there is nothing for the steps after it to be about; the others are simply left undone.
+  const skipStep = () => (progress.step === MAKE_TASK ? goTo(MAKE_TASK + 1, { taskId: null, noTask: true }) : next());
   const waits = Boolean(step.done) || progress.step === MAKE_TASK;
   const words = (
     <>
@@ -220,7 +224,7 @@ function Running({ user }: { user: User }) {
           Skip tutorial
         </button>
         {waits ? (
-          <button type="button" className="btn-quiet" title="Go on without doing it" onClick={next}>
+          <button type="button" className="btn-quiet" title="Go on without doing it" data-tutorial-skip onClick={skipStep}>
             Skip this step
           </button>
         ) : (

@@ -134,4 +134,22 @@ await p.setViewportSize({ width: 390, height: 800 }); await p.goto("http://local
 await next(); await next();
 out("phone: the words fit the screen", await bubble.evaluate((el) => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; }));
 await p.screenshot({ path: "tutorial-phone.png" });
+
+// A new account that does nothing it is told: every step can be skipped, and none comes round again.
+{
+  const q = await b.newPage({ viewport: { width: 1200, height: 900 } });
+  q.on("pageerror", e => console.log("PAGEERROR", String(e)));
+  await q.addInitScript(() => localStorage.setItem("donegeon.forceTutorial", "1"));
+  await q.goto("http://localhost:5173/signup"); await q.fill('input[autocomplete="username"]', user + "s"); await q.fill('input[type="password"]', "hunter2hunter2");
+  await q.keyboard.press("Enter"); await q.waitForSelector("[data-tutorial]"); await q.waitForTimeout(450);
+  const seen = []; let stuck = null;
+  for (let i = 0; i < 60 && await q.locator("[data-tutorial]").count(); i++) {
+    const at = Number(await q.locator("[data-tutorial]").getAttribute("data-tutorial"));
+    if (seen.includes(at)) { stuck = at; break; }
+    seen.push(at);
+    await q.click("[data-tutorial-skip], [data-tutorial-next]"); await q.waitForTimeout(700);
+  }
+  out("skipping every step gets to the end, no step twice", stuck === null && await q.locator("[data-tutorial]").count() === 0, `stuck at ${stuck}; seen ${seen.join(",")}`);
+  out("the steps about the task that was never made, and about things never done, are passed over", seen.length < 12, seen.join(","));
+}
 await b.close();
