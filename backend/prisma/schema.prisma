@@ -242,7 +242,7 @@ model TaskCompletion {
   @@index([taskId])
 }
 
-// A message from the suggestion box on the user's page. Read here, in the database; the app never shows them.
+// A message from the suggestion box on the user's page. Shown only in the inbox on a developer's page.
 model Feedback {
   id        String       @id @default(uuid())
   userId    String

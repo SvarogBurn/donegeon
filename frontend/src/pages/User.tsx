@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router";
 import { FeedbackBox } from "../components/Feedback/FeedbackBox";
+import { FeedbackInbox } from "../components/Feedback/FeedbackInbox";
 import { TileFrame } from "../components/Tiles/TileFrame";
 import { useLogout, useMe, useUpdateMe } from "../hooks/useAuth";
 import type { TickedTasks } from "../types";
@@ -72,6 +73,7 @@ export function UserPage() {
         {update.error && <p className="text-xs text-red-600">{update.error.message}</p>}
       </TileFrame>
       <FeedbackBox username={user.username} />
+      {user.isDev && <FeedbackInbox />}
     </div>
   );
 }

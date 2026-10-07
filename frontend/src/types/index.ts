@@ -13,6 +13,19 @@ export interface User {
   tickedTasks: TickedTasks;
   /** False until the tutorial was finished or skipped: it shows while this is false. */
   tutorialSeen: boolean;
+  /** One of the developers' accounts: its page has the inbox of the suggestion box. */
+  isDev: boolean;
+}
+
+/** A message from the suggestion box, as a developer's inbox shows it. */
+export interface FeedbackLetter {
+  id: string;
+  /** Who sent it. */
+  username: string;
+  kind: FeedbackKind;
+  subject: string;
+  message: string;
+  createdAt: string;
 }
 
 export interface Goal {
