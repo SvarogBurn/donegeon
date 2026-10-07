@@ -48,6 +48,9 @@ await p.goto("http://localhost:5173/stats"); await p.waitForSelector('section[ar
 out("opened from the Stats tab in the task bar", await p.locator('nav [aria-label="Stats"][aria-current="page"]').count() === 1 && await p.locator("[data-username]").count() === 0);
 out("done today / week+ / all time", await cell("Done stats", "Today") === "2" && await cell("Done stats", "All time") === "4", `${await cell("Done stats", "Today")} ${await cell("Done stats", "All time")}`);
 out("streak: today and yesterday", await cell("Done stats", "Streak") === "2 days" && await cell("Done stats", "Longest") === "2 days", `${await cell("Done stats", "Streak")} / ${await cell("Done stats", "Longest")}`);
+await p.goto("http://localhost:5173/user"); await p.waitForSelector("[data-streak]"); await wait(200);
+out("the user's page shows the same streak in its Account box", await p.locator('section[aria-label="Account"] [data-streak]').getAttribute("data-streak") === "2" && await p.locator("[data-streak-longest]").getAttribute("data-streak-longest") === "2");
+await p.goto("http://localhost:5173/stats"); await p.waitForSelector('section[aria-label="Done stats"]'); await wait();
 const dot = (n) => p.locator(`section[aria-label="Done stats"] [data-day="${day(n)}"]`).getAttribute("data-count");
 out("dots: 1, 0, 1, 2 over the four days", [await dot(-3), await dot(-2), await dot(-1), await dot(0)].join() === "1,0,1,2", [await dot(-3), await dot(-2), await dot(-1), await dot(0)].join());
 out("no dot after today", await p.locator(`[data-day="${day(1)}"]`).count() === 0);

@@ -1,8 +1,11 @@
 import { useNavigate } from "react-router";
+import { localDate } from "../api/client";
 import { FeedbackBox } from "../components/Feedback/FeedbackBox";
 import { FeedbackInbox } from "../components/Feedback/FeedbackInbox";
 import { TileFrame } from "../components/Tiles/TileFrame";
 import { useLogout, useMe, useUpdateMe } from "../hooks/useAuth";
+import { useLists, useStatRows } from "../hooks/useTasks";
+import { collectStats, countByDay, streaks } from "../lib/stats";
 import type { TickedTasks } from "../types";
 
 const TICKED_CHOICES: [TickedTasks, string][] = [
@@ -16,6 +19,34 @@ const TICKED_NOTES: Record<TickedTasks, string> = {
   stay: "A ticked task keeps its place for 24 hours, then is only on the Done page.",
   hide: "A ticked task leaves the Tasks tab and your folders at once. It is on the Done page, where it can be unticked.",
 };
+
+/** Days in a row with at least one task done, as the Stats page counts them with no filter set. Nothing while it loads. */
+function Streak() {
+  const rows = useStatRows();
+  const lists = useLists();
+  if (!rows.data || !lists.data) return null;
+  const { current, longest } = streaks(countByDay(collectStats(rows.data, lists.data).completions), localDate());
+
+  return (
+    <>
+      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
+        <p>
+          <span className="text-2xl font-bold tabular-nums" data-streak={current}>
+            {current}
+          </span>{" "}
+          <span className="text-sm text-stone-500">day streak</span>
+        </p>
+        <p>
+          <span className="text-2xl font-bold tabular-nums" data-streak-longest={longest}>
+            {longest}
+          </span>{" "}
+          <span className="text-sm text-stone-500">longest</span>
+        </p>
+      </div>
+      <p className="text-xs text-stone-500">Do at least one task a day to keep it going.</p>
+    </>
+  );
+}
 
 /** The user's own page, opened from their icon in the task bar: who is logged in, logging out, and their settings. */
 export function UserPage() {
@@ -34,6 +65,7 @@ export function UserPage() {
             {user.username}
           </p>
         </div>
+        <Streak />
         <button type="button" className="nes-btn btn" disabled={logout.isPending} onClick={() => logout.mutate()}>
           Log out
         </button>

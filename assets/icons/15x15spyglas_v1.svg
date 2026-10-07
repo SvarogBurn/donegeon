@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<svg version="1.1" width="225" height="225" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+<rect x="45" y="0" width="75" height="15" fill="#CBDBFC" />
+<rect x="30" y="15" width="15" height="15" fill="#CBDBFC" />
+<rect x="120" y="15" width="15" height="15" fill="#CBDBFC" />
+<rect x="15" y="30" width="15" height="15" fill="#CBDBFC" />
+<rect x="135" y="30" width="15" height="15" fill="#CBDBFC" />
+<rect x="0" y="45" width="15" height="75" fill="#CBDBFC" />
+<rect x="150" y="45" width="15" height="75" fill="#CBDBFC" />
+<rect x="15" y="120" width="15" height="15" fill="#CBDBFC" />
+<rect x="135" y="120" width="15" height="45" fill="#CBDBFC" />
+<rect x="30" y="135" width="15" height="15" fill="#CBDBFC" />
+<rect x="120" y="135" width="15" height="15" fill="#CBDBFC" />
+<rect x="150" y="135" width="15" height="45" fill="#CBDBFC" />
+<rect x="45" y="150" width="75" height="15" fill="#CBDBFC" />
+<rect x="165" y="150" width="15" height="45" fill="#CBDBFC" />
+<rect x="180" y="165" width="15" height="45" fill="#CBDBFC" />
+<rect x="195" y="180" width="15" height="45" fill="#CBDBFC" />
+<rect x="210" y="195" width="15" height="30" fill="#CBDBFC" />
+</svg>
