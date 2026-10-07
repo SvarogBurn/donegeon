@@ -37,6 +37,7 @@ const publicUser = (user: User) => ({
   tickedTasks: user.tickedTasks,
   tutorialSeen: user.tutorialSeen,
   pointsCap: user.pointsCap,
+  breakEvery: user.breakEvery,
   isDev: isDev(user.username),
 });
 
@@ -46,6 +47,8 @@ const settings = z
     tutorialSeen: z.boolean(),
     /** null = no cap. */
     pointsCap: z.number().int().min(1, "A cap is at least 1 point").max(MAX_POINTS).nullable(),
+    /** null = no reminder. */
+    breakEvery: z.number().int().min(1, "A reminder comes after at least 1 task").max(1000).nullable(),
   })
   .partial();
 

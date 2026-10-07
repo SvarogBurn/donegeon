@@ -64,6 +64,8 @@ model User {
   tickedTasks     TickedTasks @default(bottom)
   // The most points the balance can hold: earning past it is refused. null = no cap.
   pointsCap       Int?
+  // A reminder to take a break after every so many tasks done in a day; null = no reminder.
+  breakEvery      Int?
   // Whether the tutorial was finished or skipped; it shows until then, and again when asked for in the settings.
   tutorialSeen    Boolean  @default(false)
 

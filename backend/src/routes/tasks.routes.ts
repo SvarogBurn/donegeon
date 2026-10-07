@@ -407,8 +407,17 @@ tasksRouter.patch("/:id/toggle", async (req, res) => {
       data: completionPatch(task, !task.isComplete, new Date(), req.localDate),
     });
   });
-  res.json({ task: updated });
+  res.json({ task: updated, doneToday: await doneToday(task.userId, req.localDate) });
 });
+
+/** How many tasks the user has done on this day: every ticked one (subtasks too) and every "done it" press. */
+async function doneToday(owner: string, day: string) {
+  const [ticked, pressed] = await Promise.all([
+    prisma.task.count({ where: { userId: owner, deletedAt: null, isComplete: true, completedOn: day } }),
+    prisma.taskCompletion.count({ where: { userId: owner, day } }),
+  ]);
+  return ticked + pressed;
+}
 
 // One press of a persistent task's "done it" button: logs it, books the points
 // and unticks its subtasks for the next round. The task itself stays open; on a
@@ -446,7 +455,10 @@ tasksRouter.post("/:id/completions", async (req, res) => {
       },
     });
   });
-  res.status(201).json({ completion: { id: completion.id, day: completion.day } });
+  res.status(201).json({
+    completion: { id: completion.id, day: completion.day },
+    doneToday: await doneToday(task.userId, req.localDate),
+  });
 });
 
 // Undo of a press: the log entry goes, its points are reversed, the subtasks

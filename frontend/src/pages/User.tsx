@@ -51,53 +51,71 @@ function Streak() {
   );
 }
 
-/** What the cap starts at when it is switched on, until the user types their own. */
-const FIRST_CAP = 100;
+interface SwitchedAmountProps {
+  label: string;
+  /** null = switched off. */
+  value: number | null;
+  /** What it starts at when it is switched on, until the user types their own. */
+  first: number;
+  onSave: (value: number | null) => void;
+  /** What the number is, for a screen reader. */
+  amountLabel: string;
+  /** The `data-` name of the field; its switch is the same with `-switch`. */
+  name: string;
+  /** What the setting does, off and on. */
+  note: (value: number | null) => string;
+}
 
-/** A cap on the balance: off unless the user switches it on, and then as many points as they type. */
-function PointsCap({ cap, onSave }: { cap: number | null; onSave: (cap: number | null) => void }) {
-  const [text, setText] = useState(cap === null ? "" : String(cap));
-  useEffect(() => setText(cap === null ? "" : String(cap)), [cap]);
+/** A setting that is off unless the user switches it on, and then is the number they type: the points cap, the break reminder. */
+function SwitchedAmount({ label, value, first, onSave, amountLabel, name, note }: SwitchedAmountProps) {
+  const [text, setText] = useState(value === null ? "" : String(value));
+  useEffect(() => setText(value === null ? "" : String(value)), [value]);
 
   function done() {
     // Nothing typed, or 0, is no amount: back to the saved one.
-    const next = Number(text) || cap;
+    const next = Number(text) || value;
     setText(next === null ? "" : String(next));
-    if (next !== cap) onSave(next);
+    if (next !== value) onSave(next);
   }
 
   return (
     <>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <label className="flex items-center gap-2">
-          <PixelCheckbox small checked={cap !== null} onChange={(e) => onSave(e.target.checked ? FIRST_CAP : null)} data-points-cap-switch />
-          Points cap
+          <PixelCheckbox small checked={value !== null} onChange={(e) => onSave(e.target.checked ? first : null)} {...{ [`data-${name}-switch`]: true }} />
+          {label}
         </label>
-        {cap !== null && (
+        {value !== null && (
           <input
             className="w-28 border-2 border-stone-300 bg-white px-1 py-1 text-xs text-stone-900 tabular-nums dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
             type="text"
             inputMode="numeric"
-            // Switching the cap on goes straight to its amount.
+            // Switching it on goes straight to its amount.
             autoFocus
             onFocus={(e) => e.currentTarget.select()}
             value={text}
             onChange={(e) => setText(typedPoints(e.target.value))}
             onBlur={done}
             onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-            aria-label="The most points you can hold"
-            data-points-cap
+            aria-label={amountLabel}
+            {...{ [`data-${name}`]: true }}
           />
         )}
       </div>
-      <p className="text-xs text-stone-500">
-        {cap === null
-          ? "Your points can add up without limit."
-          : `A task that would take you past ${cap} ${cap === 1 ? "point" : "points"} can't be ticked or done until you spend some on a reward.`}
-      </p>
+      <p className="text-xs text-stone-500">{note(value)}</p>
     </>
   );
 }
+
+const capNote = (cap: number | null) =>
+  cap === null
+    ? "Your points can add up without limit."
+    : `A task that would take you past ${cap} ${cap === 1 ? "point" : "points"} can't be ticked or done until you spend some on a reward.`;
+
+const breakNote = (every: number | null) =>
+  every === null
+    ? "No reminders to take a break."
+    : `After every ${every === 1 ? "task" : `${every} tasks`} you do in a day, a popup reminds you to take a break to eat and drink.`;
 
 /** The user's own page, opened from their icon in the task bar: who is logged in, logging out, and their settings. */
 export function UserPage() {
@@ -141,7 +159,24 @@ export function UserPage() {
           </select>
         </label>
         <p className="text-xs text-stone-500">{TICKED_NOTES[user.tickedTasks]}</p>
-        <PointsCap cap={user.pointsCap} onSave={(pointsCap) => update.mutate({ pointsCap })} />
+        <SwitchedAmount
+          label="Points cap"
+          value={user.pointsCap}
+          first={100}
+          onSave={(pointsCap) => update.mutate({ pointsCap })}
+          amountLabel="The most points you can hold"
+          name="points-cap"
+          note={capNote}
+        />
+        <SwitchedAmount
+          label="Break reminder"
+          value={user.breakEvery}
+          first={5}
+          onSave={(breakEvery) => update.mutate({ breakEvery })}
+          amountLabel="Remind me after every so many tasks"
+          name="break-every"
+          note={breakNote}
+        />
         {/* The tutorial shows while the account has not seen it: this says it hasn't, and goes where it starts. */}
         <button
           type="button"

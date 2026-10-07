@@ -1,15 +1,17 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
 import * as foldersApi from "../api/folders";
 import * as goalsApi from "../api/goals";
 import * as listsApi from "../api/lists";
 import * as tagsApi from "../api/tags";
 import * as tasksApi from "../api/tasks";
 import { localDate } from "../api/client";
+import { taskDone } from "../lib/breakReminder";
 import { findNode, toggleInCountdown, toggleInTrees, type CompletionChange } from "../lib/optimisticToggle";
 import { NAME_FOLDER_EVENT } from "../lib/folders";
 import { refuse } from "../lib/refusal";
 import type { DashboardLayout } from "../lib/tileLayout";
-import type { Countdown, DonePage, Folder, TaskTreeNode } from "../types";
+import type { Countdown, DonePage, Folder, TaskTreeNode, User } from "../types";
+import { ME } from "./useAuth";
 
 const TASKS = ["tasks"];
 // What was done before yesterday is loaded apart from the task trees. These sit under their key, so whatever refreshes the trees refreshes them.
@@ -69,6 +71,9 @@ export const useCountdown = (taskId: string, enabled = true) =>
   useQuery({ queryKey: [...COUNTDOWN, taskId], queryFn: () => tasksApi.getCountdown(taskId), retry: false, enabled });
 
 // mutateAsync resolves only after the refetch, so callers can rely on fresh data.
+/** After how many tasks done in a day the user wants to be reminded to take a break; null = never. */
+const breakEvery = (queryClient: QueryClient) => queryClient.getQueryData<User | null>(ME)?.breakEvery ?? null;
+
 /** `onError`: for the mutations whose refusal shows in the popup next to the click. */
 function useInvalidating<TArgs, TResult>(mutationFn: (args: TArgs) => Promise<TResult>, keys: string[][], onError?: (error: Error) => void) {
   const queryClient = useQueryClient();
@@ -117,10 +122,20 @@ export function useToggleTask() {
       if (saved.done) queryClient.setQueryData(DONE, saved.done);
       for (const [queryKey, countdown] of saved.countdowns) queryClient.setQueryData(queryKey, countdown);
     },
+    // An untick is not a task done.
+    onSuccess: (task) => task.isComplete && taskDone(task.doneToday, breakEvery(queryClient)),
     onSettled: () => Promise.all(TASK_DATA.map((queryKey) => queryClient.invalidateQueries({ queryKey }))),
   });
 }
-export const usePressTask = () => useInvalidating(tasksApi.pressTask, TASK_DATA, refuse);
+export function usePressTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: tasksApi.pressTask,
+    onError: refuse,
+    onSuccess: (press) => taskDone(press.doneToday, breakEvery(queryClient)),
+    onSettled: () => Promise.all(TASK_DATA.map((queryKey) => queryClient.invalidateQueries({ queryKey }))),
+  });
+}
 export const useUndoPress = () =>
   useInvalidating(
     ({ id, completionId }: { id: string; completionId: string }) => tasksApi.undoPress(id, completionId),

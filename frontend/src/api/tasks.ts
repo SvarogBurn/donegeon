@@ -50,10 +50,13 @@ export const createTask = (body: {
 export const updateTask = (id: string, body: TaskChanges) =>
   api<{ task: Task }>(`/tasks/${id}`, { method: "PATCH", body }).then((r) => r.task);
 export const toggleTask = (id: string) =>
-  api<{ task: Task }>(`/tasks/${id}/toggle`, { method: "PATCH" }).then((r) => r.task);
+  api<{ task: Task; doneToday: number }>(`/tasks/${id}/toggle`, { method: "PATCH" }).then((r) => ({ ...r.task, doneToday: r.doneToday }));
 /** One press of a persistent task's "done it" button, and its undo. */
 export const pressTask = (id: string) =>
-  api<{ completion: { id: string; day: string } }>(`/tasks/${id}/completions`, { method: "POST" }).then((r) => r.completion);
+  api<{ completion: { id: string; day: string }; doneToday: number }>(`/tasks/${id}/completions`, { method: "POST" }).then((r) => ({
+    ...r.completion,
+    doneToday: r.doneToday,
+  }));
 export const undoPress = (id: string, completionId: string) =>
   api(`/tasks/${id}/completions/${completionId}`, { method: "DELETE" });
 /** Which page's boxes: the dashboard's, or the stats boxes on the Stats page. */

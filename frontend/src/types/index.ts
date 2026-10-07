@@ -15,6 +15,8 @@ export interface User {
   tutorialSeen: boolean;
   /** The most points the balance can hold; null (the default) = no cap. */
   pointsCap: number | null;
+  /** A reminder to take a break after every so many tasks done in a day; null (the default) = none. */
+  breakEvery: number | null;
   /** One of the developers' accounts: its page has the inbox of the suggestion box. */
   isDev: boolean;
 }

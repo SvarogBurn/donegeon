@@ -3,7 +3,7 @@ import * as authApi from "../api/auth";
 import { ApiError } from "../api/client";
 import type { TickedTasks, User } from "../types";
 
-const ME = ["me"];
+export const ME = ["me"];
 
 /** `user` is null when logged out, undefined while still loading. */
 export function useMe() {
