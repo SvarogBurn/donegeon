@@ -7,6 +7,7 @@ import * as tasksApi from "../api/tasks";
 import { localDate } from "../api/client";
 import { findNode, toggleInCountdown, toggleInTrees, type CompletionChange } from "../lib/optimisticToggle";
 import { NAME_FOLDER_EVENT } from "../lib/folders";
+import { refuse } from "../lib/refusal";
 import type { DashboardLayout } from "../lib/tileLayout";
 import type { Countdown, DonePage, Folder, TaskTreeNode } from "../types";
 
@@ -68,10 +69,12 @@ export const useCountdown = (taskId: string, enabled = true) =>
   useQuery({ queryKey: [...COUNTDOWN, taskId], queryFn: () => tasksApi.getCountdown(taskId), retry: false, enabled });
 
 // mutateAsync resolves only after the refetch, so callers can rely on fresh data.
-function useInvalidating<TArgs, TResult>(mutationFn: (args: TArgs) => Promise<TResult>, keys: string[][]) {
+/** `onError`: for the mutations whose refusal shows in the popup next to the click. */
+function useInvalidating<TArgs, TResult>(mutationFn: (args: TArgs) => Promise<TResult>, keys: string[][], onError?: (error: Error) => void) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn,
+    onError,
     onSettled: () => Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey }))),
   });
 }
@@ -107,7 +110,8 @@ export function useToggleTask() {
       }
       return { trees, done, countdowns };
     },
-    onError: (_error, _id, saved) => {
+    onError: (error, _id, saved) => {
+      refuse(error);
       if (!saved) return;
       if (saved.trees) queryClient.setQueryData(TASKS, saved.trees);
       if (saved.done) queryClient.setQueryData(DONE, saved.done);
@@ -116,11 +120,12 @@ export function useToggleTask() {
     onSettled: () => Promise.all(TASK_DATA.map((queryKey) => queryClient.invalidateQueries({ queryKey }))),
   });
 }
-export const usePressTask = () => useInvalidating(tasksApi.pressTask, TASK_DATA);
+export const usePressTask = () => useInvalidating(tasksApi.pressTask, TASK_DATA, refuse);
 export const useUndoPress = () =>
   useInvalidating(
     ({ id, completionId }: { id: string; completionId: string }) => tasksApi.undoPress(id, completionId),
     TASK_DATA,
+    refuse,
   );
 export const useDeleteTask = () => useInvalidating(tasksApi.deleteTask, TASK_DATA);
 export const useRestoreTask = () => useInvalidating(tasksApi.restoreTask, TASK_DATA);

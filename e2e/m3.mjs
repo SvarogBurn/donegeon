@@ -43,7 +43,7 @@ out("rows show what they are worth", (await chip("Essay")) === "+5" && (await ch
 // --- tick / untick, Done page
 out("balance starts at 0", (await balance()) === 0);
 await row("Movie").locator("input[type=checkbox]").click(); await wait(700);
-out("a reward you can't afford is refused", (await balance()) === 0 && (await titles(fun)).includes("Movie") && await p.locator("text=Not enough points").first().isVisible());
+out("a reward you can't afford is refused", (await balance()) === 0 && (await titles(fun)).includes("Movie") && (await p.locator("[data-refusal]").innerText()).includes("Not enough points"));
 await row("Essay").locator("input[type=checkbox]").click(); await wait(700);
 out("ticking a main task: +5, stays ticked in its list, undo bar", (await balance()) === 5 && (await row("Essay").locator("input[type=checkbox]").isChecked()) && await p.locator("text=Finished “Essay”").isVisible(), `${await balance()} / ${await titles(main)}`);
 await p.keyboard.press("Control+z"); await wait(700);

@@ -378,10 +378,8 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       restore.error ??
       removeList.error ??
       restoreList.error ??
-      toggle.error ??
-      setToday.error ??
-      press.error ??
-      undoPress.error,
+      // A refused tick or press shows in the popup next to the click instead.
+      setToday.error,
   };
   return <TreeContext.Provider value={value}>{children}</TreeContext.Provider>;
 }

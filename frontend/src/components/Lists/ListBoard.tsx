@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useCreateList, useUpdateList } from "../../hooks/useTasks";
 import { frameIn, isLight, KIND_COLORS, listColor, sliderIn } from "../../lib/frameTones";
 import { filterTree, isFiltering, type LabelFilter } from "../../lib/labels";
+import { pointsFieldWidth, typedPoints } from "../../lib/points";
 import { isShown } from "../../lib/recent";
 import type { List, ListKind, TaskTreeNode, TickedTasks } from "../../types";
 import { ColorChoices } from "../ColorChoices";
@@ -61,11 +62,11 @@ function KindFields({ kind, points, onKind, onPoints, onPointsDone, inCorner = f
       <label className="kind-points">
         <input
           className="points-field tabular-nums"
+          style={pointsFieldWidth(points)}
           type="text"
           inputMode="numeric"
-          maxLength={2}
           value={points}
-          onChange={(e) => onPoints(e.target.value.replace(/\D/g, ""))}
+          onChange={(e) => onPoints(typedPoints(e.target.value))}
           onBlur={onPointsDone}
           onKeyDown={(e) => e.key === "Enter" && onPointsDone && (e.preventDefault(), e.currentTarget.blur())}
           aria-label="Points per item"

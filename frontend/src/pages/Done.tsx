@@ -47,7 +47,6 @@ function FinishedTask({ node, listName }: { node: TaskTreeNode; listName: string
           <ValueChip node={node} />
         </span>
       </div>
-      {toggle.error && <p className="text-xs text-red-600">{toggle.error.message}</p>}
       {node.children.length > 0 && (
         <details className="ml-6 text-sm">
           <summary className="cursor-pointer text-xs text-stone-500">Subtasks</summary>
@@ -80,7 +79,6 @@ function TickedSubtask({ node, path, listName }: { node: TaskTreeNode; path: str
           <ValueChip node={node} />
         </span>
       </div>
-      {toggle.error && <p className="text-xs text-red-600">{toggle.error.message}</p>}
     </li>
   );
 }

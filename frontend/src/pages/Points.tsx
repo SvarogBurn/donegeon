@@ -1,4 +1,5 @@
 import { TileFrame } from "../components/Tiles/TileFrame";
+import { useMe } from "../hooks/useAuth";
 import { usePoints } from "../hooks/useTasks";
 import { formatAmount } from "../lib/points";
 import type { PointsSummary } from "../types";
@@ -18,6 +19,7 @@ function when(createdAt: string) {
 /** The balance and everything that led to it: points earned, spent on rewards, and taken back by an untick or undo. */
 export function PointsPage() {
   const points = usePoints();
+  const cap = useMe().user?.pointsCap ?? null;
   if (points.error) return <p className="text-sm text-red-600">Couldn't load your points: {points.error.message}</p>;
   if (!points.data) return <p className="text-sm text-stone-500">Loading…</p>;
   const { balance, transactions } = points.data;
@@ -29,7 +31,7 @@ export function PointsPage() {
         <span className="text-3xl font-bold tabular-nums" data-balance={balance}>
           {balance}
         </span>{" "}
-        <span className="text-sm text-stone-500">{balance === 1 ? "point" : "points"} to spend</span>
+        <span className="text-sm text-stone-500">{balance === 1 ? "point" : "points"} to spend{cap !== null && `, of ${cap} at most`}</span>
         </p>
       </TileFrame>
       <TileFrame title="History" aria-label="History">

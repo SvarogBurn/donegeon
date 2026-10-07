@@ -6,6 +6,7 @@ import { isDev } from "../lib/devs.js";
 import { HttpError } from "../lib/httpError.js";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, userId } from "../middleware/requireAuth.js";
+import { MAX_POINTS } from "../services/points.service.js";
 
 const credentials = z.object({
   username: z
@@ -35,10 +36,18 @@ const publicUser = (user: User) => ({
   username: user.username,
   tickedTasks: user.tickedTasks,
   tutorialSeen: user.tutorialSeen,
+  pointsCap: user.pointsCap,
   isDev: isDev(user.username),
 });
 
-const settings = z.object({ tickedTasks: z.enum(["bottom", "stay", "hide"]), tutorialSeen: z.boolean() }).partial();
+const settings = z
+  .object({
+    tickedTasks: z.enum(["bottom", "stay", "hide"]),
+    tutorialSeen: z.boolean(),
+    /** null = no cap. */
+    pointsCap: z.number().int().min(1, "A cap is at least 1 point").max(MAX_POINTS).nullable(),
+  })
+  .partial();
 
 export const authRouter = Router();
 

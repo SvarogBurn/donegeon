@@ -62,6 +62,8 @@ model User {
   todayPoints     Int      @default(2)
   // What the lists do with a ticked task.
   tickedTasks     TickedTasks @default(bottom)
+  // The most points the balance can hold: earning past it is refused. null = no cap.
+  pointsCap       Int?
   // Whether the tutorial was finished or skipped; it shows until then, and again when asked for in the settings.
   tutorialSeen    Boolean  @default(false)
 

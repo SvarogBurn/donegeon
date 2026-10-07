@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from "react-router";
 import { useMe } from "../../hooks/useAuth";
+import { RefusalPopup } from "../RefusalPopup";
 import { Tutorial } from "../Tutorial/Tutorial";
 import { NavBar } from "./NavBar";
 
@@ -19,6 +20,7 @@ export function AppShell() {
       </main>
       <NavBar user={user} />
       <Tutorial user={user} />
+      <RefusalPopup />
     </>
   );
 }

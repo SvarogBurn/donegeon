@@ -3,13 +3,14 @@ import { z } from "zod";
 import { notFound } from "../lib/httpError.js";
 import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
+import { MAX_POINTS } from "../services/points.service.js";
 import { subtreeIds } from "../services/taskTree.service.js";
 
 const DELETED_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 const name = z.string().trim().min(1, "Name is required").max(200);
 const kind = z.enum(["task", "reward"]);
-const defaultPoints = z.number().int().min(0, "Points can't be negative").max(100_000);
+const defaultPoints = z.number().int().min(0, "Points can't be negative").max(MAX_POINTS);
 
 /** "#rrggbb", or null for the kind's own colour. */
 export const color = z

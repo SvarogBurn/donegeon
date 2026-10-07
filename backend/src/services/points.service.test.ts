@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookingFor, openBooking, subtaskValue, taskValue } from "./points.service.js";
+import { bookingFor, canTakeBack, openBooking, subtaskValue, taskValue } from "./points.service.js";
 
 describe("taskValue", () => {
   it("uses the list's default until the task has its own amount", () => {
@@ -34,20 +34,46 @@ describe("subtaskValue", () => {
 
 describe("bookingFor", () => {
   it("adds points in a task list, whatever the balance", () => {
-    expect(bookingFor("task", 5, -3)).toEqual({ ok: true, row: { type: "earned", amount: 5 } });
+    expect(bookingFor("task", 5, -3, null)).toEqual({ ok: true, row: { type: "earned", amount: 5 } });
   });
 
   it("subtracts points in a reward list", () => {
-    expect(bookingFor("reward", 10, 10)).toEqual({ ok: true, row: { type: "redeemed", amount: -10 } });
+    expect(bookingFor("reward", 10, 10, null)).toEqual({ ok: true, row: { type: "redeemed", amount: -10 } });
   });
 
   it("refuses a reward the balance can't cover and says how much is missing", () => {
-    expect(bookingFor("reward", 10, 4)).toEqual({ ok: false, short: 6 });
+    expect(bookingFor("reward", 10, 4, null)).toEqual({ ok: false, short: 6 });
+  });
+
+  it("lets earning reach the user's cap but not pass it", () => {
+    expect(bookingFor("task", 10, 10, 25)).toEqual({ ok: true, row: { type: "earned", amount: 10 } });
+    expect(bookingFor("task", 5, 20, 25)).toEqual({ ok: true, row: { type: "earned", amount: 5 } });
+    expect(bookingFor("task", 10, 20, 25)).toEqual({ ok: false, over: 5 });
+  });
+
+  it("never holds a reward to the cap", () => {
+    expect(bookingFor("reward", 10, 40, 25)).toEqual({ ok: true, row: { type: "redeemed", amount: -10 } });
   });
 
   it("writes nothing for an item worth 0", () => {
-    expect(bookingFor("task", 0, 0)).toEqual({ ok: true, row: null });
-    expect(bookingFor("reward", 0, -5)).toEqual({ ok: true, row: null });
+    expect(bookingFor("task", 0, 0, null)).toEqual({ ok: true, row: null });
+    expect(bookingFor("reward", 0, -5, null)).toEqual({ ok: true, row: null });
+  });
+});
+
+describe("canTakeBack", () => {
+  it("lets earned points be taken back down to a balance of 0", () => {
+    expect(canTakeBack(10, 25)).toBe(true);
+    expect(canTakeBack(10, 10)).toBe(true);
+  });
+
+  it("leaves them booked when some were spent", () => {
+    expect(canTakeBack(10, 4)).toBe(false);
+    expect(canTakeBack(10, 0)).toBe(false);
+  });
+
+  it("always gives a reward's cost back", () => {
+    expect(canTakeBack(-10, 0)).toBe(true);
   });
 });
 

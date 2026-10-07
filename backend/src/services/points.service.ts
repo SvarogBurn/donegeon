@@ -18,18 +18,26 @@ export function subtaskValue(task: Pick<Task, "points">, root: Pick<Task, "point
   return task.points ?? (root.pointsToSubtasks ? rootValue : 0);
 }
 
+/** The most an amount (a task's, a list's, Today's, the user's cap) can be set to. */
+export const MAX_POINTS = 1_000_000_000;
+
 export type Booking =
   | { ok: true; row: { type: "earned" | "redeemed"; amount: number } | null }
-  | { ok: false; short: number };
+  | { ok: false; short: number }
+  | { ok: false; over: number };
 
 /**
  * The ledger row for doing an item worth `value` in a list of this kind: a
  * task list adds, a reward list subtracts and needs the balance to cover it.
+ * If the user set a cap (null = none), earning may reach it but not pass it.
  * Nothing is written for a value of 0.
  */
-export function bookingFor(kind: List["kind"], value: number, balance: number): Booking {
+export function bookingFor(kind: List["kind"], value: number, balance: number, cap: number | null): Booking {
   if (value <= 0) return { ok: true, row: null };
-  if (kind === "task") return { ok: true, row: { type: "earned", amount: value } };
+  if (kind === "task") {
+    if (cap !== null && balance + value > cap) return { ok: false, over: balance + value - cap };
+    return { ok: true, row: { type: "earned", amount: value } };
+  }
   if (balance < value) return { ok: false, short: value - balance };
   return { ok: true, row: { type: "redeemed", amount: -value } };
 }
@@ -52,30 +60,65 @@ export async function balanceOf(tx: Prisma.TransactionClient, userId: string): P
 }
 
 /**
+ * One booking at a time per user, until the transaction ends: the balance a
+ * booking is checked against (enough for a reward, room under the cap, not
+ * below 0) is then still the balance when its row is written, however fast
+ * the buttons are pressed.
+ */
+async function lockLedger(tx: Prisma.TransactionClient, userId: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))::text`;
+}
+
+/**
  * Books a task being done (ticked, or pressed if persistent). A subtask is booked
  * in its main task's list: that list's kind decides add or subtract.
  * Returns the row, or null if the task is worth nothing.
  */
 export async function bookTask(tx: Prisma.TransactionClient, task: Task) {
+  await lockLedger(tx, task.userId);
   let root = task;
   while (root.parentId) root = await tx.task.findUniqueOrThrow({ where: { id: root.parentId } });
   // A task that lives only in Today has no list: it earns its own amount, or the user's amount for Today.
   const list = root.listId ? await tx.list.findUnique({ where: { id: root.listId } }) : null;
-  const { todayPoints } = await tx.user.findUniqueOrThrow({ where: { id: task.userId }, select: { todayPoints: true } });
+  const { todayPoints, pointsCap } = await tx.user.findUniqueOrThrow({
+    where: { id: task.userId },
+    select: { todayPoints: true, pointsCap: true },
+  });
   const rootValue = taskValue(root, list, todayPoints);
   const value = task.parentId ? subtaskValue(task, root, rootValue) : rootValue;
-  const booking = bookingFor(list?.kind ?? "task", value, await balanceOf(tx, task.userId));
-  if (!booking.ok) throw new HttpError(400, `Not enough points: you need ${booking.short} more`);
+  const booking = bookingFor(list?.kind ?? "task", value, await balanceOf(tx, task.userId), pointsCap);
+  if (!booking.ok) {
+    throw new HttpError(
+      400,
+      "short" in booking
+        ? `Not enough points: you need ${booking.short} more`
+        : `Over your point cap of ${pointsCap}. Spend some points first`,
+    );
+  }
   if (!booking.row) return null;
   return tx.pointTransaction.create({
     data: { ...booking.row, userId: task.userId, relatedTaskId: task.id, title: task.title },
   });
 }
 
-/** Cancels a booking with a reversal row; the original row is never edited. */
+/**
+ * Whether a booking of `amount` can be reversed: the balance never goes below
+ * 0, so earned points that were spent since stay booked. Giving points back
+ * (a reward's cost) always can.
+ */
+export function canTakeBack(amount: number, balance: number): boolean {
+  return amount <= 0 || balance >= amount;
+}
+
+/**
+ * Cancels a booking with a reversal row; the original row is never edited.
+ * If that would take the balance below 0, nothing is written and the points stay as they are.
+ */
 export async function reverseBooking(tx: Prisma.TransactionClient, row: PointTransaction) {
   if (row.type === "reversal") return;
+  await lockLedger(tx, row.userId);
   if (await tx.pointTransaction.findUnique({ where: { reversesId: row.id } })) return;
+  if (!canTakeBack(row.amount, await balanceOf(tx, row.userId))) return;
   await tx.pointTransaction.create({
     data: {
       userId: row.userId,

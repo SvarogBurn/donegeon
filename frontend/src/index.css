@@ -346,7 +346,7 @@
     @apply bg-white px-2 py-1 text-xs text-stone-900 outline-none focus:bg-sky-50;
     margin: 4px;
   }
-  /* The points field of a list: two digits, light on near-black, no border; the same colour while typing. */
+  /* The points field of a list: as wide as its digits (two at least), light on near-black, no border; the same colour while typing. */
   .points-field {
     @apply px-1 py-1 text-center text-xs text-white outline-none;
     width: 28px;

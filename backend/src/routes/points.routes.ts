@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
-import { balanceOf } from "../services/points.service.js";
+import { balanceOf, MAX_POINTS } from "../services/points.service.js";
 
 const HISTORY_ROWS = 300;
 
@@ -25,7 +25,7 @@ pointsRouter.get("/", async (req, res) => {
   res.json({ balance, transactions, todayPoints });
 });
 
-const todayInput = z.object({ points: z.number().int().min(0, "Points can't be negative").max(100_000) });
+const todayInput = z.object({ points: z.number().int().min(0, "Points can't be negative").max(MAX_POINTS) });
 
 // What a Today-only task without its own amount earns from now on; points already booked stay as they are.
 pointsRouter.put("/today", async (req, res) => {

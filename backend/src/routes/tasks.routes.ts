@@ -6,7 +6,7 @@ import { isLocalDate } from "../lib/localDate.js";
 import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
 import { addDays, countdownForTask, todayPace } from "../services/countdown.service.js";
-import { bookTask, reverseBooking, reverseTaskBooking, subtaskValue, taskValue } from "../services/points.service.js";
+import { bookTask, MAX_POINTS, reverseBooking, reverseTaskBooking, subtaskValue, taskValue } from "../services/points.service.js";
 import { dueAfter } from "../services/repeat.service.js";
 import {
   buildTree,
@@ -44,7 +44,7 @@ const taskPatch = z.object({
   deadlineDate: localDate.nullable().optional(),
   deadlineType: z.enum(["hard", "soft"]).optional(),
   /** Its own amount, or null to go back to what it gets by default: the list's amount (a main task), or what its main task hands down (a subtask). */
-  points: z.number().int().min(0, "Points can't be negative").max(100_000).nullable().optional(),
+  points: z.number().int().min(0, "Points can't be negative").max(MAX_POINTS).nullable().optional(),
   /** Main tasks only: subtasks without their own amount are worth what this task is. */
   pointsToSubtasks: z.boolean().optional(),
   /** In or out of the Today box. */

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { PixelCheckbox } from "../PixelCheckbox";
 import { useGoals, useLists, useSetToday, useTags, useUpdateTask } from "../../hooks/useTasks";
 import { toggleId } from "../../lib/labels";
+import { pointsFieldWidth, typedPoints } from "../../lib/points";
 import { REPEAT_UNITS } from "../../lib/repeat";
 import type { RepeatUnit, TaskTreeNode } from "../../types";
 import { DateField, DeadlineFields } from "./DeadlineFields";
@@ -83,6 +84,7 @@ function Doing({ node }: { node: TaskTreeNode }) {
   const list = lists.find((l) => l.id === node.listId);
   const isReward = node.valueKind === "reward";
   const isSubtask = node.parentId !== null;
+  const pointsPlaceholder = String(isSubtask ? (node.points === null ? node.value : "") : (list?.defaultPoints ?? (node.points === null ? node.value : "")));
   const [points, setPoints] = useState(node.points === null ? "" : String(node.points));
   useEffect(() => setPoints(node.points === null ? "" : String(node.points)), [node.points]);
   const save = (changes: { points?: number | null; isPersistent?: boolean; pointsToSubtasks?: boolean }) =>
@@ -124,15 +126,15 @@ function Doing({ node }: { node: TaskTreeNode }) {
         <span className="shrink-0">{isReward ? "Costs" : "Points"}</span>
         {/* The same dark field as a list's "N each". */}
         <input
-          className="points-field !w-10 tabular-nums placeholder:text-stone-400"
+          className="points-field tabular-nums placeholder:text-stone-400"
+          style={pointsFieldWidth(points || pointsPlaceholder, 3)}
           type="text"
           inputMode="numeric"
-          maxLength={3}
           value={points}
-          onChange={(e) => setPoints(e.target.value.replace(/\D/g, ""))}
+          onChange={(e) => setPoints(typedPoints(e.target.value))}
           onBlur={savePoints}
           onKeyDown={(e) => e.key === "Enter" && savePoints()}
-          placeholder={String(isSubtask ? (node.points === null ? node.value : "") : (list?.defaultPoints ?? (node.points === null ? node.value : "")))}
+          placeholder={pointsPlaceholder}
           aria-label={`Points for this task (empty = ${isSubtask ? "what its main task hands down" : list ? "the list's amount" : "Today's amount"})`}
         />
         <span className="text-stone-500">

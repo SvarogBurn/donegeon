@@ -1,10 +1,13 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { localDate } from "../api/client";
 import { FeedbackBox } from "../components/Feedback/FeedbackBox";
 import { FeedbackInbox } from "../components/Feedback/FeedbackInbox";
+import { PixelCheckbox } from "../components/PixelCheckbox";
 import { TileFrame } from "../components/Tiles/TileFrame";
 import { useLogout, useMe, useUpdateMe } from "../hooks/useAuth";
 import { useLists, useStatRows } from "../hooks/useTasks";
+import { typedPoints } from "../lib/points";
 import { collectStats, countByDay, streaks } from "../lib/stats";
 import type { TickedTasks } from "../types";
 
@@ -44,6 +47,54 @@ function Streak() {
         </p>
       </div>
       <p className="text-xs text-stone-500">Do at least one task a day to keep it going.</p>
+    </>
+  );
+}
+
+/** What the cap starts at when it is switched on, until the user types their own. */
+const FIRST_CAP = 100;
+
+/** A cap on the balance: off unless the user switches it on, and then as many points as they type. */
+function PointsCap({ cap, onSave }: { cap: number | null; onSave: (cap: number | null) => void }) {
+  const [text, setText] = useState(cap === null ? "" : String(cap));
+  useEffect(() => setText(cap === null ? "" : String(cap)), [cap]);
+
+  function done() {
+    // Nothing typed, or 0, is no amount: back to the saved one.
+    const next = Number(text) || cap;
+    setText(next === null ? "" : String(next));
+    if (next !== cap) onSave(next);
+  }
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <label className="flex items-center gap-2">
+          <PixelCheckbox small checked={cap !== null} onChange={(e) => onSave(e.target.checked ? FIRST_CAP : null)} data-points-cap-switch />
+          Points cap
+        </label>
+        {cap !== null && (
+          <input
+            className="w-28 border-2 border-stone-300 bg-white px-1 py-1 text-xs text-stone-900 tabular-nums dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
+            type="text"
+            inputMode="numeric"
+            // Switching the cap on goes straight to its amount.
+            autoFocus
+            onFocus={(e) => e.currentTarget.select()}
+            value={text}
+            onChange={(e) => setText(typedPoints(e.target.value))}
+            onBlur={done}
+            onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+            aria-label="The most points you can hold"
+            data-points-cap
+          />
+        )}
+      </div>
+      <p className="text-xs text-stone-500">
+        {cap === null
+          ? "Your points can add up without limit."
+          : `A task that would take you past ${cap} ${cap === 1 ? "point" : "points"} can't be ticked or done until you spend some on a reward.`}
+      </p>
     </>
   );
 }
@@ -90,6 +141,7 @@ export function UserPage() {
           </select>
         </label>
         <p className="text-xs text-stone-500">{TICKED_NOTES[user.tickedTasks]}</p>
+        <PointsCap cap={user.pointsCap} onSave={(pointsCap) => update.mutate({ pointsCap })} />
         {/* The tutorial shows while the account has not seen it: this says it hasn't, and goes where it starts. */}
         <button
           type="button"

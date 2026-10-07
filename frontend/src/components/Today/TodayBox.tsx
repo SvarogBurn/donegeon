@@ -3,6 +3,7 @@ import { localDate } from "../../api/client";
 import { PixelCheckbox } from "../PixelCheckbox";
 import { usePoints, useSetToday, useSetTodayPoints, useToggleTask } from "../../hooks/useTasks";
 import { daysBetween } from "../../lib/dates";
+import { pointsFieldWidth, typedPoints } from "../../lib/points";
 import { isDue } from "../../lib/repeat";
 import type { TaskTreeNode, TickedTasks } from "../../types";
 import { ValueChip } from "../Points/ValueChip";
@@ -55,7 +56,7 @@ function TodayRow({ node, path, today }: TodayItem & { today: string }) {
   const carried = daysBetween(since(node), today);
   const isPersistent = node.isPersistent && !node.parentId;
   const pressedToday = node.completions.filter((press) => press.day === today).length;
-  const error = toggle.error ?? setToday.error;
+  const error = setToday.error;
   const hasOpenSubtasks = !node.isComplete && node.descendantDoneCount < node.descendantCount;
 
   return (
@@ -129,11 +130,11 @@ function TodayPoints() {
     <label className="flex items-center gap-1">
       <input
         className="points-field tabular-nums"
+        style={pointsFieldWidth(text)}
         type="text"
         inputMode="numeric"
-        maxLength={2}
         value={text}
-        onChange={(e) => setText(e.target.value.replace(/\D/g, ""))}
+        onChange={(e) => setText(typedPoints(e.target.value))}
         onBlur={done}
         onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), e.currentTarget.blur())}
         aria-label="Points per task added in Today"

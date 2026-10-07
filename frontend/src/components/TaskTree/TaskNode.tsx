@@ -72,7 +72,7 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
 
   const toggle = useToggleTask();
   const rename = useUpdateTask();
-  const error = toggle.error ?? rename.error;
+  const error = rename.error;
 
   const isPersistent = node.isPersistent && !node.parentId;
   const today = localDate();

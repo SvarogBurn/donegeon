@@ -13,6 +13,8 @@ export interface User {
   tickedTasks: TickedTasks;
   /** False until the tutorial was finished or skipped: it shows while this is false. */
   tutorialSeen: boolean;
+  /** The most points the balance can hold; null (the default) = no cap. */
+  pointsCap: number | null;
   /** One of the developers' accounts: its page has the inbox of the suggestion box. */
   isDev: boolean;
 }
