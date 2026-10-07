@@ -9,6 +9,7 @@ import { localDateMiddleware } from "./lib/localDate.js";
 import { requireAuth } from "./middleware/requireAuth.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { dashboardRouter } from "./routes/dashboard.routes.js";
+import { feedbackRouter } from "./routes/feedback.routes.js";
 import { foldersRouter } from "./routes/folders.routes.js";
 import { goalsRouter } from "./routes/goals.routes.js";
 import { layoutRouter } from "./routes/layout.routes.js";
@@ -58,6 +59,7 @@ export function createApp() {
   api.use("/dashboard", requireAuth, dashboardRouter);
   api.use("/points", requireAuth, pointsRouter);
   api.use("/layout", requireAuth, layoutRouter);
+  api.use("/feedback", requireAuth, feedbackRouter);
   api.use((_req, _res) => {
     throw new HttpError(404, "No such endpoint");
   });

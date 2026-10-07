@@ -43,6 +43,12 @@ enum TickedTasks {
   hide
 }
 
+// What a message from the suggestion box is about.
+enum FeedbackKind {
+  bug
+  feature
+}
+
 model User {
   id              String   @id @default(uuid())
   username        String   @unique
@@ -66,6 +72,7 @@ model User {
   folders           Folder[]
   pointTransactions PointTransaction[]
   taskCompletions   TaskCompletion[]
+  feedback          Feedback[]
 }
 
 model Goal {
@@ -233,6 +240,20 @@ model TaskCompletion {
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@index([taskId])
+}
+
+// A message from the suggestion box on the user's page. Read here, in the database; the app never shows them.
+model Feedback {
+  id        String       @id @default(uuid())
+  userId    String
+  kind      FeedbackKind
+  subject   String
+  message   String
+  createdAt DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // Session store for connect-pg-simple. Declared here so Prisma migrations own

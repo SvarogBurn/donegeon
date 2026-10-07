@@ -25,6 +25,7 @@ per check. They are scripts, not a test runner suite.
 | `stats.mjs` | the Stats page: done counts, streaks, dots, deadlines, time to finish, per list / goal, moving, pinning and hiding every box (the filter too), a second column, the filter, phone width |
 | `tutorial.mjs` | the tutorial from welcome to send-off: each step waits for what it asks for, the spot and arrow follow, finishing, repeating it from the settings, skipping, phone width |
 | `ticked.mjs` | ticked tasks sit under the open ones: subtasks within their task, main tasks within their list, back in place when unticked, Alt+↑ / Alt+↓ stepping over them; no ticking a task before its subtasks; the user page's choice for ticked tasks (bottom, stay, hide) |
+| `feedback.mjs` | the "Send mail to devs" box on the user page: laid out as an email, bug or feature, sending, the thanks, phone width |
 
 ## Run
 

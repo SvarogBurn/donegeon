@@ -4,6 +4,9 @@ import type { DashboardLayout } from "../lib/tileLayout";
 /** What the lists do with a ticked task: put it under the open ones, leave it where it is, or take it out of sight. */
 export type TickedTasks = "bottom" | "stay" | "hide";
 
+/** What a message from the suggestion box is about. */
+export type FeedbackKind = "bug" | "feature";
+
 export interface User {
   id: string;
   username: string;
