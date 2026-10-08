@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { useNavigate } from "react-router";
 import { localDate } from "../../api/client";
 import { PixelCheckbox } from "../PixelCheckbox";
@@ -64,15 +64,33 @@ function TodayRow({ node, path, pageId, today }: TodayItem & { today: string }) 
   const pressedToday = node.completions.filter((press) => press.day === today).length;
   const error = setToday.error;
   const hasOpenSubtasks = !node.isComplete && node.descendantDoneCount < node.descendantCount;
+  const hasChildren = node.children.length > 0;
+  // Subtasks start hidden behind the row's arrow, as in a list.
+  const [isOpen, setIsOpen] = useState(false);
+
+  // As in a list, a click on the row (not on one of its buttons) opens the big task's page. A task that is not
+  // part of a big one has no page: the click shows or hides its subtasks instead.
+  function onRowClick(e: MouseEvent<HTMLDivElement>) {
+    if ((e.target as Element).closest("button, input, a, label")) return;
+    if (pageId) navigate(`/tasks/${pageId}`);
+    else if (hasChildren) setIsOpen(!isOpen);
+  }
 
   return (
     <li data-today-item={node.id}>
       <div
-        // As in a list: a click on the row, not on one of its buttons, opens the big task's page.
-        onClick={(e) => pageId && !(e.target as Element).closest("button, input, a, label") && navigate(`/tasks/${pageId}`)}
+        onClick={onRowClick}
         data-opens={pageId ?? undefined}
-        className={`flex ${pageId ? "cursor-pointer" : ""} flex-wrap items-center gap-x-2 gap-y-1 rounded px-1 py-0.5 hover:bg-stone-50 dark:hover:bg-stone-800/50`}
+        className={`flex ${pageId || hasChildren ? "cursor-pointer" : ""} flex-wrap items-center gap-x-2 gap-y-1 rounded px-1 py-0.5 hover:bg-stone-50 dark:hover:bg-stone-800/50`}
       >
+        <button
+          type="button"
+          className="task-arrow"
+          onClick={() => setIsOpen(!isOpen)}
+          disabled={!hasChildren}
+          aria-expanded={isOpen}
+          aria-label={isOpen ? "Collapse subtasks" : "Expand subtasks"}
+        />
         {isPersistent ? (
           <button
             type="button"
@@ -118,6 +136,12 @@ function TodayRow({ node, path, pageId, today }: TodayItem & { today: string }) 
       </div>
       {error && <p className="text-xs text-red-600">{error.message}</p>}
       <PressCopies node={node} />
+      {/* The subtasks as they are in the task's list: ticked, renamed and added to from here. */}
+      {hasChildren && isOpen && (
+        <div className="ml-3 border-l border-stone-200 pl-3 dark:border-stone-800" data-today-subtasks>
+          <TaskTree nodes={node.children} parentId={node.id} listId={null} depth={path.length + 1} />
+        </div>
+      )}
     </li>
   );
 }

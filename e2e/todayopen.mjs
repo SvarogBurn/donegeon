@@ -24,6 +24,7 @@ const chapter = await add("Chapter one", { parentId: big }); await add("Chapter 
 await api(`/tasks/${big}`, "PATCH", { deadlineDate: day(10), deadlineType: "hard", today: true });
 await api(`/tasks/${chapter}`, "PATCH", { today: true });
 const small = await add("Buy milk", { listId }); await api(`/tasks/${small}`, "PATCH", { today: true });
+const plain = await add("Clean floor", { listId }); await add("Sweep", { parentId: plain }); await add("Mop", { parentId: plain }); await api(`/tasks/${plain}`, "PATCH", { today: true });
 await p.reload(); await p.waitForSelector(`[data-today-item="${small}"]`);
 
 const item = (id) => p.locator(`section[aria-label="Today"] [data-today-item="${id}"]`);
@@ -37,6 +38,19 @@ out("a subtask of a big task opens the big task's page", path() === `/tasks/${bi
 await p.goto("http://localhost:5173/"); await p.waitForSelector(`[data-today-item="${small}"]`);
 await title(small).click(); await wait();
 out("a small task has no page: stays put", path() === "/", path());
+const subs = item(plain).locator("[data-today-subtasks]");
+out("its arrow is there only with subtasks", await item(plain).locator(".task-arrow").isEnabled() && await item(small).locator(".task-arrow").isDisabled() && await subs.count() === 0);
+await title(plain).click(); await wait();
+out("a task with subtasks but no page: the click shows them", path() === "/" && (await subs.locator("textarea").evaluateAll((els) => els.map((el) => el.value))).join() === "Sweep,Mop", path());
+await subs.locator("input[type=checkbox]").first().click(); await wait();
+out("a subtask can be ticked from there", await subs.locator("input[type=checkbox]:checked").count() === 1);
+await title(plain).click(); await wait();
+out("a second click hides them", await subs.count() === 0);
+await item(plain).locator(".task-arrow").click(); await wait();
+out("the arrow shows them too", await subs.count() === 1);
+await item(big).locator(".task-arrow").click(); await wait();
+out("a big task's arrow shows its subtasks without leaving", path() === "/" && await item(big).locator("[data-today-subtasks] textarea").count() === 2, path());
+await p.screenshot({ path: "todayopen.png" });
 await item(chapter).locator("input[type=checkbox]").click(); await wait();
 out("ticking in Today ticks, without leaving", path() === "/" && await item(chapter).locator("input[type=checkbox]").isChecked(), path());
 await item(big).locator('button[aria-label^="Take"]').click(); await wait();
