@@ -68,6 +68,8 @@ const DELETED_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const KEPT_WHEN_DONE_DAYS = 1;
 /** How many days of ticks the Done page gets at a time. */
 const DONE_PAGE_DAYS = 5;
+/** How many tasks a search answers with at most. */
+const SEARCH_LIMIT = 30;
 /** Deadlines are allowed on top-level tasks (depth 0) and their direct subtasks (depth 1). */
 const MAX_DEADLINE_DEPTH = 1;
 
@@ -273,6 +275,56 @@ tasksRouter.get("/stats", async (req, res) => {
       tagIds: tags.map((t) => t.id),
       pressDays: completions.map((press) => press.day),
     })),
+  });
+});
+
+// The tasks of the search at the top of the Tasks page: every task there is whose title holds `q`, in any case, the ones finished long ago too.
+// The open ones come first, then the newest. Each says where it sits: the titles of the tasks above it, and its list.
+tasksRouter.get("/search", async (req, res) => {
+  const q = z.string().trim().max(300).parse(req.query.q ?? "");
+  if (!q) return void res.json({ results: [], more: false });
+  const owner = userId(req);
+  const found = await prisma.task.findMany({
+    // A % or _ that was typed is looked for as itself.
+    where: { ...live(owner), title: { contains: q.replace(/[\\%_]/g, "\\$&"), mode: "insensitive" } },
+    orderBy: [{ isComplete: "asc" }, { updatedAt: "desc" }],
+    take: SEARCH_LIMIT + 1,
+    select: { id: true, parentId: true, listId: true, title: true, isComplete: true, completedOn: true, isPersistent: true },
+  });
+  const results = found.slice(0, SEARCH_LIMIT);
+
+  // The tasks above the found ones, a level at a time, up to their main tasks.
+  const above = new Map<string, { id: string; parentId: string | null; listId: string | null; title: string }>(results.map((task) => [task.id, task]));
+  let missing = [...new Set(results.flatMap((task) => (task.parentId && !above.has(task.parentId) ? [task.parentId] : [])))];
+  while (missing.length > 0) {
+    const parents = await prisma.task.findMany({
+      where: { ...live(owner), id: { in: missing } },
+      select: { id: true, parentId: true, listId: true, title: true },
+    });
+    for (const parent of parents) above.set(parent.id, parent);
+    missing = [...new Set(parents.flatMap((task) => (task.parentId && !above.has(task.parentId) ? [task.parentId] : [])))];
+  }
+
+  res.json({
+    results: results.map((task) => {
+      const path: string[] = [];
+      let root: { id: string; parentId: string | null; listId: string | null; title: string } = task;
+      while (root.parentId && above.has(root.parentId)) {
+        root = above.get(root.parentId)!;
+        path.unshift(root.title);
+      }
+      return {
+        id: task.id,
+        title: task.title,
+        isComplete: task.isComplete,
+        completedOn: task.completedOn,
+        isPersistent: task.isPersistent,
+        path,
+        rootId: root.id,
+        listId: root.listId,
+      };
+    }),
+    more: found.length > SEARCH_LIMIT,
   });
 });
 

@@ -5,6 +5,7 @@ import { PressureSummary } from "../components/Countdown/PressureSummary";
 import { DoneLog } from "../components/Done/DoneLog";
 import { LabelsPanel } from "../components/Labels/LabelsPanel";
 import { ListCard, ListForm, listCards } from "../components/Lists/ListBoard";
+import { SiteSearch } from "../components/Search/SiteSearch";
 import { HiddenRow } from "../components/Tiles/HiddenRow";
 import { TileGrid, type Tile } from "../components/Tiles/TileGrid";
 import { TreeProvider } from "../components/TaskTree/TreeContext";
@@ -161,6 +162,7 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   return (
     <TreeProvider tasks={tasks.data} newTaskLabels={filter}>
       <div className="space-y-4">
+        <SiteSearch onPickLabel={(key, id) => !filter[key].includes(id) && setPicked({ ...filter, [key]: [...filter[key], id] })} />
         <TreeError />
         {filtering && (
           <p className="flex flex-wrap items-center justify-center gap-2 text-sm" role="status">

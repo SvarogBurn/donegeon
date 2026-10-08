@@ -152,6 +152,16 @@ export interface TaskTreeNode extends Task {
   completions: TaskPress[];
 }
 
+/** A task the search found. */
+export interface SearchResult extends Pick<Task, "id" | "title" | "isComplete" | "completedOn" | "isPersistent"> {
+  /** Titles of the tasks it sits under, outermost first; empty for a main task. */
+  path: string[];
+  /** Its main task; itself when it is one. */
+  rootId: string;
+  /** The list its main task is in; null for one that lives only in Today. */
+  listId: string | null;
+}
+
 /** A few days of the Done page, newest first. */
 export interface DonePage {
   /** The days in it, on each of which something was ticked. */

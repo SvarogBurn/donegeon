@@ -1,4 +1,4 @@
-import type { CombinedCountdown, Countdown, DonePage, PointsSummary, PressureSummary, RepeatUnit, StatRow, Task, TaskTreeNode } from "../types";
+import type { CombinedCountdown, Countdown, DonePage, PointsSummary, PressureSummary, RepeatUnit, SearchResult, StatRow, Task, TaskTreeNode } from "../types";
 import type { DashboardLayout } from "../lib/tileLayout";
 import { api } from "./client";
 
@@ -38,6 +38,8 @@ export const listDone = (before: string | null) => api<DonePage>(before ? `/task
 /** The trees holding what was ticked or pressed on `day`. */
 export const listDoneOn = (day: string) => api<{ tasks: TaskTreeNode[] }>(`/tasks/done/${day}`).then((r) => r.tasks);
 export const listStatRows = () => api<{ tasks: StatRow[] }>("/tasks/stats").then((r) => r.tasks);
+/** Every task whose title holds `q`, those finished long ago too; `more` when there were too many to send. */
+export const searchTasks = (q: string) => api<{ results: SearchResult[]; more: boolean }>(`/tasks/search?q=${encodeURIComponent(q)}`);
 export const createTask = (body: {
   title: string;
   parentId?: string | null;

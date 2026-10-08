@@ -1,0 +1,95 @@
+import { chromium } from "playwright";
+const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1200, height: 900 } });
+p.on("pageerror", e => console.log("PAGEERROR", String(e)));
+p.on("response", async r => r.status() >= 500 && console.log("HTTP", r.status(), r.url(), await r.text()));
+const user = "uitest" + Date.now();
+console.log("USER", user);
+const out = (n, ok, d = "") => console.log(ok ? "PASS" : "FAIL", n, d === "" ? "" : "-> " + d);
+const wait = (ms = 450) => p.waitForTimeout(ms);
+const api = (path, method = "GET", body, day) => p.evaluate(async ([path, method, body, day]) => {
+  const r = await fetch("/api" + path, { method, headers: { "Content-Type": "application/json", ...(day ? { "X-Local-Date": day } : {}) }, body: body && JSON.stringify(body) });
+  return { status: r.status, json: await r.json().catch(() => null) };
+}, [path, method, body, day]);
+
+await p.goto("http://localhost:5173/signup"); await p.fill('input[autocomplete="username"]', user); await p.fill('input[type="password"]', "hunter2hunter2");
+await p.keyboard.press("Enter"); await wait(1200);
+await api("/auth/me", "PATCH", { tutorialSeen: true });
+const list = (await api("/lists")).json.lists[0];
+const make = async (title, extra = {}) => (await api("/tasks", "POST", { title, ...extra })).json.task;
+const dragon = await make("Slay the Dragon", { listId: list.id });
+const sword = await make("Sharpen dragon sword", { parentId: dragon.id });
+await make("Buy milk", { listId: list.id });
+await make("100% done_ness", { listId: list.id });
+await make("1000 doneXness", { listId: list.id });
+const old = await make("Old dragon tale", { listId: list.id });
+await api(`/tasks/${old.id}/toggle`, "PATCH", undefined, "2026-01-05");
+for (let i = 0; i < 32; i++) await make(`Filler ${i}`, { listId: list.id });
+
+// --- the endpoint
+const found = (await api("/tasks/search?q=DRAGON")).json;
+out("finds by title in any case, open ones first", found.results.length === 3 && found.results.at(-1).id === old.id && !found.more, JSON.stringify(found.results.map(r => r.title)));
+const sub = found.results.find(r => r.id === sword.id);
+out("a subtask says what it is under", sub.path.join() === "Slay the Dragon" && sub.rootId === dragon.id && sub.listId === list.id, JSON.stringify(sub));
+out("an empty search finds nothing", (await api("/tasks/search?q=%20")).json.results.length === 0);
+out("% and _ are looked for as themselves", (await api("/tasks/search?q=" + encodeURIComponent("0% done_"))).json.results.length === 1 && (await api("/tasks/search?q=" + encodeURIComponent("%"))).json.results.length === 1);
+const many = (await api("/tasks/search?q=filler")).json;
+out("at most 30, and it says there are more", many.results.length === 30 && many.more === true);
+await p.context().clearCookies(); out("not without logging in", (await api("/tasks/search?q=dragon")).status === 401);
+await p.goto("http://localhost:5173/login"); await p.fill('input[autocomplete="username"]', user); await p.fill('input[type="password"]', "hunter2hunter2"); await p.keyboard.press("Enter"); await wait(1200);
+
+// --- the field
+const field = p.locator("[data-site-search] input");
+const panel = p.locator("[data-search-results]");
+const results = panel.locator("[data-search-result]");
+const search = async (text) => { await field.fill(text); await wait(800); };
+const hit = (kind, title) => panel.locator(`[data-search-result]:has-text("${title}"):has-text("${kind}")`).first();
+const goal = (await api("/goals", "POST", { name: "Dragon lore" })).json.goal;
+const tag = (await api("/tags", "POST", { name: "dragonish" })).json.tag;
+await api(`/tasks/${dragon.id}`, "PATCH", { goalIds: [goal.id] });
+const quests = (await api("/lists", "POST", { name: "Dragon quests" })).json.list;
+const folder = (await api("/folders", "POST", { name: "Dragon den", views: [] })).json.folder;
+await p.goto("http://localhost:5173/"); await field.waitFor();
+out("the bar has no search", (await p.locator('header button[aria-label="Search"]').count()) === 0);
+const at = await field.boundingBox();
+out("the field is at the top of the Tasks page", at.y < 80 && (await p.locator("[data-tile]").first().boundingBox()).y > at.y, JSON.stringify(at));
+out("nothing shows before typing", (await panel.count()) === 0);
+await search("dragon");
+out("it finds the folder, list, goal, tag and the three tasks", (await results.count()) === 7 && (await hit("Folder", "Dragon den").count()) + (await hit("List", "Dragon quests").count()) + (await hit("Goal", "Dragon lore").count()) + (await hit("Tag", "dragonish").count()) === 4, await results.count());
+out("the old task says when it was done and can't be gone to", (await results.last().innerText()).includes("Done 05/01/2026") && (await results.last().locator("button").count()) === 0, await results.last().innerText());
+out("the subtask shows its list and main task", (await panel.locator(`[data-search-result="${sword.id}"]`).innerText()).includes(`${list.name} › Slay the Dragon`));
+await p.screenshot({ path: process.env.SHOT ?? "search.png", clip: { x: 300, y: 0, width: 600, height: 520 } });
+await search("zzzz");
+out("nothing found says so", (await panel.innerText()).includes("Nothing found for “zzzz”."));
+await search("buy milk");
+await results.locator("button").click(); await wait(900);
+const row = p.locator('[data-task-row]:has(textarea:text-is("Buy milk"))').first();
+out("a task goes to its row and marks it", (await panel.count()) === 0 && (await row.getAttribute("data-found")) === "" && (await field.inputValue()) === "");
+await wait(2200);
+out("the mark goes away", (await row.getAttribute("data-found")) === null);
+await search("sharpen"); await p.keyboard.press("Enter"); await wait(900);
+out("Enter goes to the first result", (await p.locator("[data-found]").count()) === 1 && (await panel.count()) === 0);
+await search("dragon quests"); await hit("List", "Dragon quests").locator("button").click(); await wait(900);
+out("a list is marked on the page", (await p.locator(`[data-tile="list:${quests.id}"][data-found]`).count()) === 1);
+await search("lore"); await hit("Goal", "Dragon lore").locator("button").click(); await wait(600);
+out("a goal filters the lists", (await p.locator('[role="status"]').innerText()).includes("“Dragon lore”") && (await p.locator('[data-task-row]:has(textarea:text-is("Buy milk"))').count()) === 0);
+await p.locator('button:text("Clear filter")').click(); await wait(300);
+await search("time to"); await hit("Box on Stats", "Time to finish").locator("button").click(); await wait(1500);
+out("a box of the stats opens the Stats page at it", new URL(p.url()).pathname === "/stats" && (await p.locator('[data-tile="time"][data-found]').count()) === 1);
+await p.goto("http://localhost:5173/"); await field.waitFor();
+await search("den"); await hit("Folder", "Dragon den").locator("button").click(); await wait(700);
+out("a folder opens its page, which has the search too", new URL(p.url()).pathname === `/folders/${folder.id}` && (await field.count()) === 1);
+await search("points"); await hit("Page", "Points").locator("button").click(); await wait(700);
+out("a page is gone to", new URL(p.url()).pathname === "/points");
+await p.goto("http://localhost:5173/"); await field.waitFor();
+await search("dragon"); await p.keyboard.press("Escape"); await wait(200);
+out("Escape closes the results", (await panel.count()) === 0);
+await field.click(); await wait(200); await p.mouse.click(60, 400); await wait(200);
+out("so does a click elsewhere", (await panel.count()) === 0);
+
+// --- a phone
+await p.setViewportSize({ width: 375, height: 700 }); await wait(300);
+await search("dragon");
+const box = await panel.boundingBox();
+out("on a phone the results fit the screen", box.x >= 0 && box.x + box.width <= 375, JSON.stringify(box));
+await p.screenshot({ path: process.env.SHOT_PHONE ?? "search-phone.png" });
+await b.close();

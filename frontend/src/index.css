@@ -298,6 +298,51 @@
     background-image: url("../../assets/icons/21x21user_icon_v2.svg");
   }
   /*
+   * Rounded the pixel-art way: the corners are cut in steps of one block (--p), along a quarter circle 10 blocks
+   * in radius. On something 20 blocks tall that makes a pill.
+   * The cut also takes away an outline, so whatever needs an edge gets it from .pixel-round-edge around it.
+   */
+  .pixel-round {
+    --p: 2px;
+    clip-path: polygon(
+      0 calc(7 * var(--p)), var(--p) calc(7 * var(--p)), var(--p) calc(5 * var(--p)), calc(2 * var(--p)) calc(5 * var(--p)), calc(2 * var(--p)) calc(3 * var(--p)), calc(3 * var(--p)) calc(3 * var(--p)), calc(3 * var(--p)) calc(2 * var(--p)), calc(5 * var(--p)) calc(2 * var(--p)), calc(5 * var(--p)) var(--p), calc(7 * var(--p)) var(--p), calc(7 * var(--p)) 0,
+      calc(100% - 7 * var(--p)) 0, calc(100% - 7 * var(--p)) var(--p), calc(100% - 5 * var(--p)) var(--p), calc(100% - 5 * var(--p)) calc(2 * var(--p)), calc(100% - 3 * var(--p)) calc(2 * var(--p)), calc(100% - 3 * var(--p)) calc(3 * var(--p)), calc(100% - 2 * var(--p)) calc(3 * var(--p)), calc(100% - 2 * var(--p)) calc(5 * var(--p)), calc(100% - var(--p)) calc(5 * var(--p)), calc(100% - var(--p)) calc(7 * var(--p)), 100% calc(7 * var(--p)),
+      100% calc(100% - 7 * var(--p)), calc(100% - var(--p)) calc(100% - 7 * var(--p)), calc(100% - var(--p)) calc(100% - 5 * var(--p)), calc(100% - 2 * var(--p)) calc(100% - 5 * var(--p)), calc(100% - 2 * var(--p)) calc(100% - 3 * var(--p)), calc(100% - 3 * var(--p)) calc(100% - 3 * var(--p)), calc(100% - 3 * var(--p)) calc(100% - 2 * var(--p)), calc(100% - 5 * var(--p)) calc(100% - 2 * var(--p)), calc(100% - 5 * var(--p)) calc(100% - var(--p)), calc(100% - 7 * var(--p)) calc(100% - var(--p)), calc(100% - 7 * var(--p)) 100%,
+      calc(7 * var(--p)) 100%, calc(7 * var(--p)) calc(100% - var(--p)), calc(5 * var(--p)) calc(100% - var(--p)), calc(5 * var(--p)) calc(100% - 2 * var(--p)), calc(3 * var(--p)) calc(100% - 2 * var(--p)), calc(3 * var(--p)) calc(100% - 3 * var(--p)), calc(2 * var(--p)) calc(100% - 3 * var(--p)), calc(2 * var(--p)) calc(100% - 5 * var(--p)), var(--p) calc(100% - 5 * var(--p)), var(--p) calc(100% - 7 * var(--p)), 0 calc(100% - 7 * var(--p))
+    );
+  }
+  /* A one-block edge around a .pixel-round inside it, following the steps. */
+  .pixel-round-edge {
+    --p: 2px;
+    --edge: #222034;
+    filter: drop-shadow(var(--p) 0 0 var(--edge)) drop-shadow(calc(-1 * var(--p)) 0 0 var(--edge)) drop-shadow(0 var(--p) 0 var(--edge))
+      drop-shadow(0 calc(-1 * var(--p)) 0 var(--edge));
+  }
+  /* The search field: a pill 20 blocks tall, the spyglass at 2px per art pixel at its left end. Its edge lights up while it is typed in. */
+  .search-pill {
+    @apply flex items-center gap-2 text-sm text-white;
+    height: 40px;
+    padding: 0 16px 0 10px;
+    background-color: #3f3f74;
+  }
+  .search-pill::before {
+    content: "";
+    @apply size-[30px] flex-none;
+    background: url("../../assets/icons/15x15spyglas_v1.svg") center / contain no-repeat;
+    image-rendering: pixelated;
+  }
+  .search-pill > input {
+    @apply min-w-0 flex-1 bg-transparent outline-none placeholder:text-[#cbdbfc]/70;
+  }
+  .pixel-round-edge:focus-within {
+    --edge: #639bff;
+  }
+  /* The task or box a search result led to, for a moment. */
+  [data-found] {
+    outline: 2px solid #5b6ee1;
+    outline-offset: 2px;
+  }
+  /*
    * The arrow that shows or hides a task's subtasks (5x5 art pixels, 2px each).
    * The art points down, for shown; turned a quarter it points right, for hidden.
    */

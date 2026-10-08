@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
 import * as foldersApi from "../api/folders";
 import * as goalsApi from "../api/goals";
 import * as listsApi from "../api/lists";
@@ -41,6 +41,9 @@ export const useDoneOn = (day: string, enabled = true) =>
   useQuery({ queryKey: [...DONE, day], queryFn: () => tasksApi.listDoneOn(day), enabled });
 /** Every task, cut down for the stats. */
 export const useStatRows = () => useQuery({ queryKey: STATS, queryFn: tasksApi.listStatRows });
+/** The tasks of the site's search. Under the tasks' key, so a change to any task asks again; nothing is asked for an empty `q`. */
+export const useTaskSearch = (q: string) =>
+  useQuery({ queryKey: [...TASKS, "search", q], queryFn: () => tasksApi.searchTasks(q), enabled: q !== "", placeholderData: keepPreviousData });
 export const useGoals = () => useQuery({ queryKey: GOALS, queryFn: goalsApi.listGoals });
 export const useTags = () => useQuery({ queryKey: TAGS, queryFn: tagsApi.listTags });
 export const useLists = () => useQuery({ queryKey: LISTS, queryFn: listsApi.listLists });
