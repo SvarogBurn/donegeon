@@ -40,6 +40,8 @@ const LABELS: Record<string, string> = {
   deadlines: "All deadlines",
   [NEW_LIST_TILE]: "New list",
 };
+/** The search is hidden and brought back like a box: under this key among the layout's hidden ones. */
+const SEARCH = "search";
 
 /**
  * The Tasks page: every box and every list. With `folderId`
@@ -155,14 +157,23 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   const isHidden = (tile: Tile) => (saved.hidden ?? []).includes(tile.key);
   const allTiles = tiles.flatMap((tile) => (tile ? [{ ...tile, canHide: true }] : []));
   const shownTiles = allTiles.filter((tile) => !isHidden(tile));
-  const hiddenTiles = allTiles.filter(isHidden).map((tile) => ({ key: tile.key, label: tile.label ?? LABELS[tile.key] ?? tile.name }));
+  const isSearchHidden = (saved.hidden ?? []).includes(SEARCH);
+  const hiddenTiles = [
+    ...(isSearchHidden ? [{ key: SEARCH, label: "Search" }] : []),
+    ...allTiles.filter(isHidden).map((tile) => ({ key: tile.key, label: tile.label ?? LABELS[tile.key] ?? tile.name })),
+  ];
 
   const grid = <TileGrid tiles={shownTiles} order={allTiles.map((tile) => tile.key)} layout={saved} onChange={save} onDropOnTab={drop.dropOnTab} />;
 
   return (
     <TreeProvider tasks={tasks.data} newTaskLabels={filter}>
       <div className="space-y-4">
-        <SiteSearch onPickLabel={(key, id) => !filter[key].includes(id) && setPicked({ ...filter, [key]: [...filter[key], id] })} />
+        {!isSearchHidden && (
+          <SiteSearch
+            onPickLabel={(key, id) => !filter[key].includes(id) && setPicked({ ...filter, [key]: [...filter[key], id] })}
+            onHide={() => save(withHidden(saved, SEARCH, true))}
+          />
+        )}
         <TreeError />
         {filtering && (
           <p className="flex flex-wrap items-center justify-center gap-2 text-sm" role="status">

@@ -279,7 +279,7 @@ tasksRouter.get("/stats", async (req, res) => {
 });
 
 // The tasks of the search at the top of the Tasks page: every task there is whose title holds `q`, in any case, the ones finished long ago too.
-// The open ones come first, then the newest. Each says where it sits: the titles of the tasks above it, and its list.
+// The open ones come first, then the newest. Each says where it sits: the tasks above it (their titles and ids, outermost first), and its list.
 tasksRouter.get("/search", async (req, res) => {
   const q = z.string().trim().max(300).parse(req.query.q ?? "");
   if (!q) return void res.json({ results: [], more: false });
@@ -308,10 +308,12 @@ tasksRouter.get("/search", async (req, res) => {
   res.json({
     results: results.map((task) => {
       const path: string[] = [];
+      const pathIds: string[] = [];
       let root: { id: string; parentId: string | null; listId: string | null; title: string } = task;
       while (root.parentId && above.has(root.parentId)) {
         root = above.get(root.parentId)!;
         path.unshift(root.title);
+        pathIds.unshift(root.id);
       }
       return {
         id: task.id,
@@ -320,7 +322,7 @@ tasksRouter.get("/search", async (req, res) => {
         completedOn: task.completedOn,
         isPersistent: task.isPersistent,
         path,
-        rootId: root.id,
+        pathIds,
         listId: root.listId,
       };
     }),

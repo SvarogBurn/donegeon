@@ -136,11 +136,16 @@ describe("combinedCountdown", () => {
     expect(rows[0]).toMatchObject({ remaining: 13, doneThatDay: 0, overdue: false });
   });
 
-  it("drops a finished deadline once its day comes", () => {
+  it("drops a finished deadline at once, with its numbers", () => {
     const done = essay.map((t) => ({ ...t, completedOn: "2026-10-03" }));
-    const { rows } = combinedCountdown([...exam, ...done], "2026-10-03");
-    expect(rows[0]).toMatchObject({ doneThatDay: 6, remaining: 7, perDay: 1, overdue: false });
+    const { rows, items, totalTasks } = combinedCountdown([...exam, ...done], "2026-10-03");
+    expect(items.map((i) => i.taskId)).toEqual(["exam"]);
+    expect(totalTasks).toBe(7);
+    expect(rows[0]).toMatchObject({ doneThatDay: 0, remaining: 7, perDay: 1, overdue: false });
     expect(rows[3]).toMatchObject({ date: "2026-10-06", remaining: 7, perDay: 1, overdue: false });
+    // Ticked subtasks of a deadline still open go on counting as done.
+    const begun = essay.map((t, i) => ({ ...t, completedOn: i === 1 ? "2026-10-03" : null }));
+    expect(combinedCountdown(begun, "2026-10-03").rows[0]).toMatchObject({ doneThatDay: 1, remaining: 5 });
   });
 
   it("counts unfinished work in full, flagged overdue, once its deadline has come", () => {
@@ -152,7 +157,8 @@ describe("combinedCountdown", () => {
 
   it("starts each deadline on the day its task was written down, and past days use what was done", () => {
     const later = essay.map((t) => ({ ...t, startDate: "2026-10-05" }));
-    const done = exam.map((t, i) => ({ ...t, completedOn: i < 3 ? "2026-10-05" : null }));
+    // Three of its subtasks; the exam itself stays open, or it would have left the table.
+    const done = exam.map((t, i) => ({ ...t, completedOn: i >= 1 && i <= 3 ? "2026-10-05" : null }));
     const { rows } = combinedCountdown([...done, ...later], "2026-10-07");
     expect(rows[0]).toMatchObject({ date: "2026-10-03", remaining: 7, perDay: 1, doneThatDay: 0 });
     expect(rows[2]).toMatchObject({ date: "2026-10-05", remaining: 4 + 6, perDay: 4 / 5 + 6, doneThatDay: 3 });

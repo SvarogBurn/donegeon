@@ -322,7 +322,7 @@
   .search-pill {
     @apply flex items-center gap-2 text-sm text-white;
     height: 40px;
-    padding: 0 16px 0 10px;
+    padding: 0 14px 0 10px;
     background-color: #3f3f74;
   }
   .search-pill::before {

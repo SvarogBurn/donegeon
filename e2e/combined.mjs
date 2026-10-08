@@ -43,6 +43,26 @@ out("summary: 13 tasks, 0 done, 13 left, 2 deadlines", JSON.stringify(await tabl
   while ((await open.count()) > 0) { await open.first().click(); await wait(350); } }
 await row("Essay").locator("input[type=checkbox]").click(); await wait(250);
 await wait(800); l = await lines();
-out("essay done today: 6 done, exam alone at 1 per day", l[0].endsWith("|6|7|1") && l[4].endsWith("|7|1"), `${l[0]} / ${l[4]}`);
+out("essay done: it leaves the table, the exam alone at 1 per day", !l.includes("Essay deadline") && l[0].endsWith("||7|1") && l[4].endsWith("|7|1") && JSON.stringify(await table.locator("[data-summary]").allInnerTexts()) === '["7","0","7","1"]', `${l[0]} / ${l[4]}`);
+
+// a click on a deadline's row: a big task (hard deadline, two subtasks or more) opens its own page
+await table.locator('button:text-is("Exam deadline")').click(); await wait(600);
+out("a big task's row opens its page", new URL(p.url()).pathname.startsWith("/tasks/"), p.url());
+await p.goBack(); await table.waitFor();
+// ...any other is shown in its list: a soft deadline has no page, and a subtask with one is unfolded to
+await bigTask("Draft", 2, 5, true);
+await table.locator('button:text-is("Draft deadline")').click(); await wait(900);
+out("a task without a page is marked in its list", new URL(p.url()).pathname === "/" && (await row("Draft").getAttribute("data-found")) === "");
+await p.evaluate(async (deadlineDate) => {
+  const call = async (path, method, body) => (await fetch("/api" + path, { method, headers: { "Content-Type": "application/json" }, body: body && JSON.stringify(body) })).json();
+  const listId = (await call("/lists")).lists[0].id;
+  const plain = (await call("/tasks", "POST", { title: "Plain", listId })).task;
+  const part = (await call("/tasks", "POST", { title: "Plain part", parentId: plain.id })).task;
+  await call(`/tasks/${part.id}`, "PATCH", { deadlineDate, deadlineType: "soft" });
+}, day(4));
+await p.reload(); await table.waitFor(); await wait(500);
+out("its subtask starts folded away", (await row("Plain part").count()) === 0);
+await table.locator('button:text-is("Plain part deadline")').click(); await wait(900);
+out("a subtask's row unfolds its task and marks the subtask", (await row("Plain part").getAttribute("data-found")) === "" && (await p.locator("[data-found]").count()) === 1);
 await p.screenshot({ path: "combined.png", fullPage: true });
 await b.close();

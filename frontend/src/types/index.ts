@@ -156,8 +156,8 @@ export interface TaskTreeNode extends Task {
 export interface SearchResult extends Pick<Task, "id" | "title" | "isComplete" | "completedOn" | "isPersistent"> {
   /** Titles of the tasks it sits under, outermost first; empty for a main task. */
   path: string[];
-  /** Its main task; itself when it is one. */
-  rootId: string;
+  /** The ids of those same tasks: what has to be unfolded for it to show. */
+  pathIds: string[];
   /** The list its main task is in; null for one that lives only in Today. */
   listId: string | null;
 }

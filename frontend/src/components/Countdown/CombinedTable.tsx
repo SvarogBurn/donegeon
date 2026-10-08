@@ -1,6 +1,10 @@
 import { Fragment } from "react";
-import { useCombinedCountdown } from "../../hooks/useTasks";
+import { useNavigate } from "react-router";
+import { useCombinedCountdown, useTaskTrees } from "../../hooks/useTasks";
 import { formatPace } from "../../lib/dates";
+import { findNode } from "../../lib/optimisticToggle";
+import { findTaskRow, pathIdsTo, showOnPage } from "../../lib/showOnPage";
+import { hasTaskPage } from "../../lib/taskPage";
 import { TileFrame } from "../Tiles/TileFrame";
 import { pressureColor } from "./pressureColor";
 import { CELL, DayCells, dayRow, PaceCell, SheetTable, SummaryCells } from "./sheet";
@@ -8,13 +12,22 @@ import { CELL, DayCells, dayRow, PaceCell, SheetTable, SummaryCells } from "./sh
 const HEADERS = ["Day", "Date", "Done", "Left", "Per day"];
 
 /**
- * Every deadline, hard and soft, in one table: each day's "Per day" is the sum
+ * Every deadline still open, hard and soft, in one table: each day's "Per day" is the sum
  * of what each deadline needs that day. A merged row marks where each deadline
- * falls (just above its day). Hidden until there is a deadline.
+ * falls (just above its day); a click on it opens the task's own page if it has one (a big task),
+ * and otherwise shows the task where it is in its list. Hidden until there is a deadline.
  */
 export function CombinedTable() {
+  const navigate = useNavigate();
   const { data: countdown } = useCombinedCountdown();
+  const { data: trees = [] } = useTaskTrees();
   if (!countdown || countdown.items.length === 0) return null;
+
+  function open(taskId: string) {
+    const node = findNode(trees, taskId);
+    if (node && hasTaskPage(node)) navigate(`/tasks/${taskId}`);
+    else showOnPage((isLast) => findTaskRow(taskId, pathIdsTo(trees, taskId) ?? [], isLast));
+  }
 
   const today = countdown.rows.find((row) => row.date === countdown.today);
   const left = today?.remaining ?? countdown.totalTasks;
@@ -39,12 +52,15 @@ export function CombinedTable() {
             <Fragment key={row.date}>
               {deadlines.map((item) => (
                 <tr key={item.taskId} data-deadline-marker>
-                  <td
-                    colSpan={HEADERS.length}
-                    className={`${CELL} bg-stone-100 text-center font-semibold dark:bg-stone-800`}
-                    title={`${item.deadlineType === "soft" ? "Soft" : "Hard"} deadline`}
-                  >
-                    {item.title.split("\n")[0]} deadline
+                  <td colSpan={HEADERS.length} className={`${CELL} bg-stone-100 !p-0 text-center font-semibold dark:bg-stone-800`}>
+                    <button
+                      type="button"
+                      className="block w-full cursor-pointer px-1 py-0.5 sm:px-2 hover:bg-stone-200 focus-visible:bg-stone-200 dark:hover:bg-stone-700 dark:focus-visible:bg-stone-700"
+                      title={`${item.deadlineType === "soft" ? "Soft" : "Hard"} deadline. Click to go to the task`}
+                      onClick={() => open(item.taskId)}
+                    >
+                      {item.title.split("\n")[0]} deadline
+                    </button>
                   </td>
                 </tr>
               ))}

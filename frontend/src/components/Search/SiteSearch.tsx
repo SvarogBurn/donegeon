@@ -4,14 +4,12 @@ import { useFolders, useGoals, useLists, useTags, useTaskSearch, useTaskTrees } 
 import { formatDay } from "../../lib/dates";
 import { listView } from "../../lib/folders";
 import { findNode } from "../../lib/optimisticToggle";
+import { findTaskRow, showOnPage } from "../../lib/showOnPage";
 import type { SearchResult } from "../../types";
 import { STAT_BOXES } from "../Stats/StatsPanel";
 
 /** How long after the last key the tasks are asked for. */
 const TYPING_PAUSE_MS = 200;
-/** How long the thing a result led to stays marked. */
-const FOUND_MS = 2000;
-
 /** The pages, and the boxes on them that are always the same: [title, page, the box's tile if it is one, more words to find it by]. */
 const PLACES: [title: string, path: string, tile: string | null, words?: string][] = [
   ["Tasks", "/", null, "home lists dashboard"],
@@ -26,27 +24,6 @@ const PLACES: [title: string, path: string, tile: string | null, words?: string]
   ["All deadlines", "/", "deadlines", "countdown"],
   ...Object.entries(STAT_BOXES).map(([key, label]): [string, string, string] => [label, "/stats", key]),
 ];
-
-/**
- * Scrolls to the first of `selectors` there is on the page and marks it for a moment. The page may still be
- * on its way, so it is looked for over the next frames. What is hidden or folded away is not there to be found.
- */
-function showOnPage(selectors: string[]) {
-  let frames = 0;
-  const look = () => {
-    const el = selectors.map((selector) => document.querySelector<HTMLElement>(selector)).find(Boolean);
-    if (!el) {
-      if (++frames < 120) requestAnimationFrame(look);
-      return;
-    }
-    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    // A whole box is shown from its top; a single row in the middle of the screen.
-    el.scrollIntoView({ block: el.offsetHeight > window.innerHeight / 2 ? "start" : "center", behavior: still ? "auto" : "smooth" });
-    el.dataset.found = "";
-    window.setTimeout(() => delete el.dataset.found, FOUND_MS);
-  };
-  requestAnimationFrame(look);
-}
 
 /** One line of what was found. `go` is absent for what there is nowhere to go to. */
 interface Hit {
@@ -64,14 +41,17 @@ interface Hit {
 interface Props {
   /** Picking a goal or a tag from the results filters the page's lists by it. */
   onPickLabel: (key: "goalIds" | "tagIds", id: string) => void;
+  /** Takes the search off the page; like a box, it is brought back from the "Hidden" row. */
+  onHide: () => void;
 }
 
 /**
  * The search at the top of the Tasks page: a pill-shaped field that looks through the whole site. Pages, boxes,
  * folders, lists, goals and tags are found by name among what is already loaded; tasks are asked of the server,
- * which looks through the titles of every one there is, the ones finished long ago too.
+ * which looks through the titles of every one there is, the ones finished long ago too. A subtask that is found
+ * is shown in its place: the tasks above it are unfolded and it is the one marked.
  */
-export function SiteSearch({ onPickLabel }: Props) {
+export function SiteSearch({ onPickLabel, onHide }: Props) {
   const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
   const [text, setText] = useState("");
@@ -100,11 +80,11 @@ export function SiteSearch({ onPickLabel }: Props) {
   // What the Tasks page shows: a task that is in here can be gone to.
   const { data: trees = [] } = useTaskTrees();
 
-  const goTo = (path: string, selectors: string[] = []) => () => {
+  const goTo = (path: string, find?: (isLast: boolean) => HTMLElement | null) => () => {
     navigate(path);
-    if (selectors.length > 0) showOnPage(selectors);
+    if (find) showOnPage(find);
   };
-  const tile = (key: string) => `[data-tile="${key}"]`;
+  const tile = (key: string) => () => document.querySelector<HTMLElement>(`[data-tile="${key}"]`);
   const has = (...words: (string | undefined)[]) => words.some((word) => word?.toLowerCase().includes(typed.toLowerCase()));
 
   // Everything but the tasks is found as it is typed.
@@ -115,10 +95,10 @@ export function SiteSearch({ onPickLabel }: Props) {
           key: `place:${path}:${key ?? ""}`,
           title,
           kind: key === null ? "Page" : `Box on ${path === "/" ? "Tasks" : "Stats"}`,
-          go: goTo(path, key === null ? [] : [tile(key)]),
+          go: goTo(path, key === null ? undefined : tile(key)),
         })),
         ...folders.filter((folder) => has(folder.name)).map((folder) => ({ key: `folder:${folder.id}`, title: folder.name, kind: "Folder", go: goTo(`/folders/${folder.id}`) })),
-        ...lists.filter((list) => has(list.name)).map((list) => ({ key: listView(list.id), title: list.name, kind: list.kind === "reward" ? "Reward list" : "List", go: goTo("/", [tile(listView(list.id))]) })),
+        ...lists.filter((list) => has(list.name)).map((list) => ({ key: listView(list.id), title: list.name, kind: list.kind === "reward" ? "Reward list" : "List", go: goTo("/", tile(listView(list.id))) })),
         ...goals.filter((goal) => has(goal.name)).map((goal) => ({ key: `goal:${goal.id}`, title: goal.name, kind: "Goal", hint: "Show only the tasks with this goal", go: () => onPickLabel("goalIds", goal.id) })),
         ...tags.filter((tag) => has(tag.name)).map((tag) => ({ key: `tag:${tag.id}`, title: tag.name, kind: "Tag", hint: "Show only the tasks with this tag", go: () => onPickLabel("tagIds", tag.id) })),
       ];
@@ -136,7 +116,7 @@ export function SiteSearch({ onPickLabel }: Props) {
     ),
     hint: "Show it on the Tasks page",
     // Finished too long ago to be on the Tasks page: there is nowhere to go, the result says it all.
-    go: findNode(trees, result.id) ? goTo("/", [`[data-task-row="${result.id}"]`, `[data-task-row="${result.rootId}"]`]) : undefined,
+    go: findNode(trees, result.id) ? goTo("/", (isLast) => findTaskRow(result.id, result.pathIds, isLast)) : undefined,
   });
   const tasks = typed && q ? (search.data?.results ?? []).map(taskHit) : [];
   const isSearching = typed !== "" && (q !== typed || search.isFetching);
@@ -174,6 +154,14 @@ export function SiteSearch({ onPickLabel }: Props) {
               const first = hits.find((hit) => hit.go);
               if (first) choose(first);
             }}
+          />
+          {/* The boxes' own minimize button, which is drawn for a band of this blue. */}
+          <button
+            type="button"
+            className="tile-button tile-button-min !mt-0"
+            aria-label="Hide the search"
+            title="Hide the search; bring it back from the Hidden row at the bottom of the page"
+            onClick={onHide}
           />
         </label>
       </div>

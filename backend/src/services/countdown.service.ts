@@ -196,13 +196,14 @@ function plannedPace(item: CombinedSource, date: string, today: string): Pace {
  * day's "Per day" is the sum of the paces of the deadlines running that day.
  * Past days and today use what was actually done; later days follow the plan.
  * A subtask's deadline is skipped when its parent has one too, so nothing is counted twice.
+ * A deadline whose task is ticked (or sits in a finished main task) leaves the table at once, with its numbers.
  */
 export function combinedCountdown(tasks: PressureTask[], today: string): CombinedCountdown {
   const byId = new Map(tasks.map((t) => [t.id, t]));
   const hasDeadline = (t: PressureTask | undefined) => Boolean(t?.deadlineDate);
 
   const items = tasks
-    .filter((t) => hasDeadline(t) && !(t.parentId && hasDeadline(byId.get(t.parentId))))
+    .filter((t) => hasDeadline(t) && !t.completedOn && !(t.parentId && hasDeadline(byId.get(t.parentId))))
     .sort((a, b) => a.deadlineDate!.localeCompare(b.deadlineDate!))
     .map((task) => {
       const ids = new Set(subtreeIds(tasks, task.id));

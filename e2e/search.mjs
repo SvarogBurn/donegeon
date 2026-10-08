@@ -18,6 +18,7 @@ const list = (await api("/lists")).json.lists[0];
 const make = async (title, extra = {}) => (await api("/tasks", "POST", { title, ...extra })).json.task;
 const dragon = await make("Slay the Dragon", { listId: list.id });
 const sword = await make("Sharpen dragon sword", { parentId: dragon.id });
+const stone = await make("Find a whetstone", { parentId: sword.id });
 await make("Buy milk", { listId: list.id });
 await make("100% done_ness", { listId: list.id });
 await make("1000 doneXness", { listId: list.id });
@@ -29,7 +30,7 @@ for (let i = 0; i < 32; i++) await make(`Filler ${i}`, { listId: list.id });
 const found = (await api("/tasks/search?q=DRAGON")).json;
 out("finds by title in any case, open ones first", found.results.length === 3 && found.results.at(-1).id === old.id && !found.more, JSON.stringify(found.results.map(r => r.title)));
 const sub = found.results.find(r => r.id === sword.id);
-out("a subtask says what it is under", sub.path.join() === "Slay the Dragon" && sub.rootId === dragon.id && sub.listId === list.id, JSON.stringify(sub));
+out("a subtask says what it is under", sub.path.join() === "Slay the Dragon" && sub.pathIds.join() === dragon.id && sub.listId === list.id, JSON.stringify(sub));
 out("an empty search finds nothing", (await api("/tasks/search?q=%20")).json.results.length === 0);
 out("% and _ are looked for as themselves", (await api("/tasks/search?q=" + encodeURIComponent("0% done_"))).json.results.length === 1 && (await api("/tasks/search?q=" + encodeURIComponent("%"))).json.results.length === 1);
 const many = (await api("/tasks/search?q=filler")).json;
@@ -66,8 +67,17 @@ const row = p.locator('[data-task-row]:has(textarea:text-is("Buy milk"))').first
 out("a task goes to its row and marks it", (await panel.count()) === 0 && (await row.getAttribute("data-found")) === "" && (await field.inputValue()) === "");
 await wait(2200);
 out("the mark goes away", (await row.getAttribute("data-found")) === null);
+const taskRow = (id) => p.locator(`[data-task-row="${id}"]`).first();
+out("subtasks start folded away", (await taskRow(sword.id).count()) === 0);
 await search("sharpen"); await p.keyboard.press("Enter"); await wait(900);
-out("Enter goes to the first result", (await p.locator("[data-found]").count()) === 1 && (await panel.count()) === 0);
+out("Enter on a subtask unfolds its task and marks the subtask", (await p.locator("[data-found]").count()) === 1 && (await taskRow(sword.id).getAttribute("data-found")) === "" && (await panel.count()) === 0);
+await p.screenshot({ path: process.env.SHOT_SUB ?? "search-sub.png", clip: { x: 0, y: 0, width: 1200, height: 600 } });
+await p.reload(); await field.waitFor(); await wait(500);
+await search("whetstone"); await results.locator("button").click(); await wait(1200);
+out("a click on a subtask two deep unfolds both tasks above it", (await taskRow(stone.id).getAttribute("data-found")) === "" && (await p.locator("[data-found]").count()) === 1 && (await taskRow(dragon.id).locator(".task-arrow").getAttribute("aria-expanded")) === "true");
+await search("whetstone"); await p.keyboard.press("Enter"); await wait(900);
+out("already unfolded, it stays so", (await taskRow(stone.id).getAttribute("data-found")) === "" && (await taskRow(sword.id).locator(".task-arrow").getAttribute("aria-expanded")) === "true");
+await p.goto("http://localhost:5173/stats"); await wait(500); await p.goto("http://localhost:5173/"); await field.waitFor();
 await search("dragon quests"); await hit("List", "Dragon quests").locator("button").click(); await wait(900);
 out("a list is marked on the page", (await p.locator(`[data-tile="list:${quests.id}"][data-found]`).count()) === 1);
 await search("lore"); await hit("Goal", "Dragon lore").locator("button").click(); await wait(600);
@@ -85,6 +95,18 @@ await search("dragon"); await p.keyboard.press("Escape"); await wait(200);
 out("Escape closes the results", (await panel.count()) === 0);
 await field.click(); await wait(200); await p.mouse.click(60, 400); await wait(200);
 out("so does a click elsewhere", (await panel.count()) === 0);
+
+// --- hiding it
+const hiddenRow = p.locator('[role="group"][aria-label="Hidden boxes"]');
+await p.locator('button[aria-label="Hide the search"]').click(); await wait(500);
+out("the search can be hidden, and is offered in the Hidden row", (await field.count()) === 0 && (await hiddenRow.locator('button:text-is("Search")').count()) === 1);
+await p.reload(); await p.locator("[data-tile]").first().waitFor(); await wait(400);
+out("it stays hidden", (await field.count()) === 0);
+await p.goto(`http://localhost:5173/folders/${folder.id}`); await wait(800);
+out("a folder's page keeps its own", (await field.count()) === 1);
+await p.goto("http://localhost:5173/"); await p.locator("[data-tile]").first().waitFor();
+await hiddenRow.locator('button:text-is("Search")').click(); await wait(500);
+out("and comes back from there", (await field.count()) === 1 && (await hiddenRow.locator('button:text-is("Search")').count()) === 0);
 
 // --- a phone
 await p.setViewportSize({ width: 375, height: 700 }); await wait(300);
