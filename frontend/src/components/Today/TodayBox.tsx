@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import { localDate } from "../../api/client";
 import { PixelCheckbox } from "../PixelCheckbox";
 import { usePoints, useSetToday, useSetTodayPoints, useToggleTask } from "../../hooks/useTasks";
 import { daysBetween } from "../../lib/dates";
 import { pointsFieldWidth, typedPoints } from "../../lib/points";
 import { isDue } from "../../lib/repeat";
+import { hasTaskPage } from "../../lib/taskPage";
 import type { TaskTreeNode, TickedTasks } from "../../types";
 import { ValueChip } from "../Points/ValueChip";
 import { PressCopies } from "../TaskTree/PressCopies";
@@ -17,6 +19,8 @@ interface TodayItem {
   node: TaskTreeNode;
   /** Titles of the tasks it sits under, outermost first. */
   path: string[];
+  /** The big task whose page a click on the row opens: the item itself, or else the nearest one it sits under. Null = none. */
+  pageId: string | null;
 }
 
 const firstLine = (title: string) => title.split("\n")[0];
@@ -35,22 +39,24 @@ const since = (node: TaskTreeNode) => node.todaySince ?? node.nextDue!;
  */
 function todayItems(trees: TaskTreeNode[], today: string, ticked: TickedTasks): TodayItem[] {
   const found: TodayItem[] = [];
-  const visit = (nodes: TaskTreeNode[], path: string[], rootFinished: boolean) => {
+  const visit = (nodes: TaskTreeNode[], path: string[], rootFinished: boolean, abovePageId: string | null) => {
     for (const node of nodes) {
+      const pageId = hasTaskPage(node) ? node.id : abovePageId;
       const shown = node.isComplete ? ticked !== "hide" && node.completedOn === today : !rootFinished;
       const isIn = node.todaySince !== null || (path.length === 0 && isDue(node, today));
-      if (isIn && shown && !livesInToday(node)) found.push({ node, path });
-      visit(node.children, [...path, firstLine(node.title)], rootFinished || (path.length === 0 && node.isComplete));
+      if (isIn && shown && !livesInToday(node)) found.push({ node, path, pageId });
+      visit(node.children, [...path, firstLine(node.title)], rootFinished || (path.length === 0 && node.isComplete), pageId);
     }
   };
-  visit(trees, [], false);
+  visit(trees, [], false, null);
   // Longest-waiting first; ticked ones under the open ones, unless the user chose to leave them where they are.
   const tickedLast = (item: TodayItem) => Number(ticked === "bottom" && item.node.isComplete);
   return found.sort((a, b) => tickedLast(a) - tickedLast(b) || since(a.node).localeCompare(since(b.node)));
 }
 
-function TodayRow({ node, path, today }: TodayItem & { today: string }) {
+function TodayRow({ node, path, pageId, today }: TodayItem & { today: string }) {
   const tree = useTree();
+  const navigate = useNavigate();
   const toggle = useToggleTask();
   const setToday = useSetToday();
   const carried = daysBetween(since(node), today);
@@ -61,7 +67,12 @@ function TodayRow({ node, path, today }: TodayItem & { today: string }) {
 
   return (
     <li data-today-item={node.id}>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded px-1 py-0.5 hover:bg-stone-50 dark:hover:bg-stone-800/50">
+      <div
+        // As in a list: a click on the row, not on one of its buttons, opens the big task's page.
+        onClick={(e) => pageId && !(e.target as Element).closest("button, input, a, label") && navigate(`/tasks/${pageId}`)}
+        data-opens={pageId ?? undefined}
+        className={`flex ${pageId ? "cursor-pointer" : ""} flex-wrap items-center gap-x-2 gap-y-1 rounded px-1 py-0.5 hover:bg-stone-50 dark:hover:bg-stone-800/50`}
+      >
         {isPersistent ? (
           <button
             type="button"

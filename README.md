@@ -70,6 +70,7 @@ On the dashboard a task's subtasks start hidden: click the arrow at the left of 
 - In a task's ⋯ menu: **Do today** (shows it in the Today box until it is done), **Persistent** (a repeat button instead of a checkbox: can be done or bought again and again), and its own point amount (empty = the list's amount).
 - **Repeat**, in the ⋯ menu once Persistent is ticked: put a number in "Every" and pick days, weeks or months ("every 3 weeks"). The task is then due on its day: it shows "due today" in its list and comes into the Today box by itself. Press its repeat button when it is done; it greys out and shows the next day until then. "Next" sets the next day by hand. **Planned days** keeps the rhythm even when you are late; **After done** counts the next round from the day you did it. Empty the number to take the schedule off.
 - The balance in the task bar at the bottom opens the points history.
+- Clicking a task in the Today box opens the big task's own page (its countdown table beside its tree), as clicking it in its list does. A subtask opens the page of the big task it sits under. A task that is not part of a big task (a hard deadline and at least two subtasks) has no page, so nothing opens.
 - The Today box also has its own field: a task typed there lives only in Today until you drag it into a list. It is worth what the "N each" field at the top of the Today box says (2 to start with) unless you give it its own amount; once dragged into a list it follows that list.
 
 ## Stats
