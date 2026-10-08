@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import * as authApi from "../api/auth";
 import { ApiError } from "../api/client";
 import type { TickedTasks, User } from "../types";
@@ -50,14 +50,26 @@ export function useLogin(mode: "login" | "signup") {
   });
 }
 
+/** Logged out, with nothing of the account's left in the cache. */
+function forgetAccount(queryClient: QueryClient) {
+  // Not clear(): that drops the "me" query out from under AppShell, which then never hears it changed.
+  queryClient.setQueryData(ME, null);
+  queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== ME[0] });
+}
+
 export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: authApi.logout,
-    onSuccess: () => {
-      // Not clear(): that drops the "me" query out from under AppShell, which then never hears it changed.
-      queryClient.setQueryData(ME, null);
-      queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== ME[0] });
-    },
+    onSuccess: () => forgetAccount(queryClient),
+  });
+}
+
+/** Deletes the account for good; the app then stands where it does after logging out. */
+export function useDeleteAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: authApi.deleteMe,
+    onSuccess: () => forgetAccount(queryClient),
   });
 }

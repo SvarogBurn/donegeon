@@ -136,6 +136,11 @@ health check.
 Your icon and name at the right of the task bar open your own page, which is
 where Log out is.
 
+**Delete account**, in the same box, deletes the account and everything in it
+(tasks, lists, folders, goals, tags, points, stats, mail sent to the devs) for
+good, and logs it out everywhere. It asks first, and only goes ahead once
+`donegeon/<your username>` has been typed.
+
 ## The tutorial
 
 A new account is walked through the app the first time it is opened: a few words on points and rewards,

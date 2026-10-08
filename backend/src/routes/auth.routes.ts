@@ -103,3 +103,25 @@ authRouter.patch("/me", requireAuth, async (req, res) => {
   const data = settings.parse(req.body);
   res.json({ user: publicUser(await prisma.user.update({ where: { id: userId(req) }, data })) });
 });
+
+// Deletes the account and everything in it, for good. `confirm` is what the user typed to say they mean it.
+authRouter.delete("/me", requireAuth, async (req, res, next) => {
+  const { confirm } = z.object({ confirm: z.string() }).parse(req.body);
+  const id = userId(req);
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new HttpError(401, "Not logged in");
+  if (confirm.trim().toLowerCase() !== `donegeon/${user.username}`) {
+    throw new HttpError(400, `Type donegeon/${user.username} to delete your account`);
+  }
+  await prisma.$transaction([
+    // Everything the account owns goes with it (onDelete: Cascade).
+    prisma.user.delete({ where: { id } }),
+    // Its sessions on other devices too, so none is left logged in to an account that is gone.
+    prisma.$executeRaw`DELETE FROM "session" WHERE sess->>'userId' = ${id}`,
+  ]);
+  req.session.destroy((err) => {
+    if (err) return next(err);
+    res.clearCookie("donegeon.sid");
+    res.status(204).end();
+  });
+});

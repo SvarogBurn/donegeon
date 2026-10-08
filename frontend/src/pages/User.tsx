@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import { localDate } from "../api/client";
 import { FeedbackBox } from "../components/Feedback/FeedbackBox";
 import { FeedbackInbox } from "../components/Feedback/FeedbackInbox";
 import { PixelCheckbox } from "../components/PixelCheckbox";
 import { TileFrame } from "../components/Tiles/TileFrame";
-import { useLogout, useMe, useUpdateMe } from "../hooks/useAuth";
+import { useDeleteAccount, useLogout, useMe, useUpdateMe } from "../hooks/useAuth";
 import { useLists, useStatRows } from "../hooks/useTasks";
 import { typedPoints } from "../lib/points";
 import { collectStats, countByDay, streaks } from "../lib/stats";
@@ -117,12 +118,65 @@ const breakNote = (every: number | null) =>
     ? "No reminders to take a break."
     : `After every ${every === 1 ? "task" : `${every} tasks`} you do in a day, a popup reminds you to take a break to eat and drink.`;
 
+/**
+ * Asks before the account is deleted: the Delete button stays off until the user has typed "donegeon/<username>".
+ * Esc or Cancel closes it; a click beside it does not, so a slip can't lose what was typed.
+ */
+function DeleteAccount({ username, onCancel }: { username: string; onCancel: () => void }) {
+  const [typed, setTyped] = useState("");
+  const remove = useDeleteAccount();
+  const phrase = `donegeon/${username}`;
+  const matches = typed.trim().toLowerCase() === phrase;
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (matches && !remove.isPending) remove.mutate(typed);
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4" onKeyDown={(e) => e.key === "Escape" && !remove.isPending && onCancel()}>
+      <form onSubmit={submit} className="card w-96 max-w-full space-y-3 text-xs" role="alertdialog" aria-modal="true" aria-label="Delete account" data-delete-account>
+        <p className="text-sm text-red-600 dark:text-red-400">Delete your account?</p>
+        <p>
+          This deletes “{username}” and everything in it: your tasks, lists, folders, goals, tags, points and their history, your stats and the mail you sent. It can't be undone.
+        </p>
+        <label className="block space-y-1">
+          <span>
+            To go ahead, type <strong className="break-all select-all">{phrase}</strong>
+          </span>
+          <input
+            className="w-full border-2 border-stone-300 bg-white px-1 py-1 text-xs text-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            autoFocus
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            data-delete-account-confirm
+          />
+        </label>
+        {remove.error && <p className="text-red-600">{remove.error.message}</p>}
+        <div className="flex justify-end">
+          <button type="button" className="nes-btn btn-small" disabled={remove.isPending} onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="submit" className={`nes-btn btn-small ${matches ? "is-error" : "is-disabled"}`} disabled={!matches || remove.isPending}>
+            Delete account
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  );
+}
+
 /** The user's own page, opened from their icon in the task bar: who is logged in, logging out, and their settings. */
 export function UserPage() {
   const { user } = useMe();
   const logout = useLogout();
   const update = useUpdateMe();
   const navigate = useNavigate();
+  const [deleting, setDeleting] = useState(false);
   if (!user) return null;
 
   return (
@@ -139,6 +193,10 @@ export function UserPage() {
           Log out
         </button>
         {logout.error && <p className="text-xs text-red-600">{logout.error.message}</p>}
+        <button type="button" className="nes-btn is-error btn" data-delete-account-open onClick={() => setDeleting(true)}>
+          Delete account
+        </button>
+        {deleting && <DeleteAccount username={user.username} onCancel={() => setDeleting(false)} />}
       </TileFrame>
       {/* Every setting of the account's goes in this box. */}
       <TileFrame title="Settings" aria-label="Settings">
