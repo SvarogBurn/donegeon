@@ -264,11 +264,12 @@ tasksRouter.get("/stats", async (req, res) => {
       deadlineType: true,
       isComplete: true,
       completedOn: true,
+      completedAt: true,
       isPersistent: true,
       createdAt: true,
       goals: { select: { id: true } },
       tags: { select: { id: true } },
-      completions: { select: { day: true } },
+      completions: { select: { day: true, createdAt: true } },
     },
   });
   res.json({
@@ -277,6 +278,7 @@ tasksRouter.get("/stats", async (req, res) => {
       goalIds: goals.map((g) => g.id),
       tagIds: tags.map((t) => t.id),
       pressDays: completions.map((press) => press.day),
+      pressTimes: completions.map((press) => press.createdAt),
     })),
   });
 });

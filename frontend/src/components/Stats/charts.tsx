@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { formatDay, formatFullDay } from "../../lib/dates";
-import { heatLevel } from "../../lib/stats";
+import { heatCap, heatLevel, type FlowWeek } from "../../lib/stats";
 
 // The stats page's charts. Colours come from the --chart, --heat and --series variables in index.css.
 
@@ -56,7 +56,7 @@ function HeatLegend() {
  * week, the oldest ones are cut off at the left.
  */
 export function CalendarDots({ weeks }: { weeks: { day: string; count: number | null }[][] }) {
-  const max = Math.max(0, ...weeks.flat().map((cell) => cell.count ?? 0));
+  const cap = heatCap(weeks.flat().map((cell) => cell.count ?? 0));
   return (
     <div className="space-y-1">
       <div className="flex gap-1">
@@ -85,7 +85,7 @@ export function CalendarDots({ weeks }: { weeks: { day: string; count: number | 
                       className="size-[10px]"
                       data-day={day}
                       data-count={count}
-                      style={{ backgroundColor: `var(--heat-${heatLevel(count, max)})` }}
+                      style={{ backgroundColor: `var(--heat-${heatLevel(count, cap)})` }}
                       title={`${formatDay(day, true)}/${day.slice(0, 4)}: ${count} done`}
                     />
                   ),
@@ -100,11 +100,11 @@ export function CalendarDots({ weeks }: { weeks: { day: string; count: number | 
   );
 }
 
-/** Weekdays down, the 24 hours across: the stronger the cell, the more tasks were written down then. */
-export function HourGrid({ grid, max }: { grid: number[][]; max: number }) {
+/** Weekdays down, the 24 hours across: the stronger the cell, the more tasks were written down (or `what`) then. */
+export function HourGrid({ grid, cap, what = "written down" }: { grid: number[][]; cap: number; what?: string }) {
   return (
     <div className="space-y-1">
-      <div className="grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-[2px] text-[8px] leading-none" role="img" aria-label="Tasks written down by weekday and hour">
+      <div className="grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-[2px] text-[8px] leading-none" role="img" aria-label={`Tasks ${what} by weekday and hour`}>
         {grid.map((hours, weekday) => (
           <div key={weekday} className="contents">
             <span className="text-stone-500">{WEEKDAY_NAMES[weekday]}</span>
@@ -115,8 +115,8 @@ export function HourGrid({ grid, max }: { grid: number[][]; max: number }) {
                   className="h-[12px] min-w-0 flex-1"
                   data-hour={`${weekday}-${hour}`}
                   data-count={count}
-                  style={{ backgroundColor: `var(--heat-${heatLevel(count, max)})` }}
-                  title={`${WEEKDAY_NAMES[weekday]} ${String(hour).padStart(2, "0")}:00-${String(hour + 1).padStart(2, "0")}:00: ${count} written down`}
+                  style={{ backgroundColor: `var(--heat-${heatLevel(count, cap)})` }}
+                  title={`${WEEKDAY_NAMES[weekday]} ${String(hour).padStart(2, "0")}:00-${String(hour + 1).padStart(2, "0")}:00: ${count} ${what}`}
                 />
               ))}
             </div>
@@ -133,6 +133,56 @@ export function HourGrid({ grid, max }: { grid: number[][]; max: number }) {
         </div>
       </div>
       <HeatLegend />
+    </div>
+  );
+}
+
+/**
+ * Two columns per week, the newest at the right: what was written down beside what was done. Where the
+ * first is the taller one the pile grew that week. The week still running is paler: it isn't over yet.
+ */
+export function PairColumns({ weeks }: { weeks: FlowWeek[] }) {
+  const max = Math.max(1, ...weeks.flatMap((week) => [week.written, week.done]));
+  const column = (value: number, color: string) => <span className="min-w-0 flex-1" style={{ height: `${(value / max) * 100}%`, minHeight: value > 0 ? 2 : 0, backgroundColor: color }} />;
+  return (
+    <div className="space-y-1 text-xs text-stone-500 tabular-nums">
+      <div className="grid grid-cols-[auto_1fr] gap-x-2">
+        <div className="flex flex-col justify-between text-right">
+          <span>{max}</span>
+          <span>0</span>
+        </div>
+        <ul className="flex h-24 items-end gap-[6px] border-b-2" style={{ borderColor: "var(--chart-track)" }} aria-label="Written down and done per week">
+          {weeks.map((week) => (
+            <li
+              key={week.monday}
+              className={`flex h-full min-w-0 flex-1 items-end gap-[2px] ${week.isPartial ? "opacity-50" : ""}`}
+              data-flow-week={week.monday}
+              data-written={week.written}
+              data-done={week.done}
+              title={`Week of ${formatDay(week.monday)}${week.isPartial ? " (so far)" : ""}: ${week.written} written down, ${week.done} done, ${week.open} open at its end`}
+            >
+              {column(week.written, "var(--series-other)")}
+              {column(week.done, "var(--chart)")}
+            </li>
+          ))}
+        </ul>
+        <span />
+        <div className="flex justify-between">
+          <span>{formatDay(weeks[0].monday)}</span>
+          <span>this week</span>
+        </div>
+      </div>
+      <ul className="flex flex-wrap gap-x-3 gap-y-1 text-stone-900 dark:text-stone-100">
+        {[
+          ["Written down", "var(--series-other)"],
+          ["Done", "var(--chart)"],
+        ].map(([name, color]) => (
+          <li key={name} className="flex items-center gap-1">
+            <span className="size-[10px] flex-none" style={{ backgroundColor: color }} aria-hidden />
+            {name}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

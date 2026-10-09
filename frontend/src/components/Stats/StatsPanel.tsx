@@ -6,26 +6,35 @@ import { frameIn, isLight } from "../../lib/frameTones";
 import {
   DAY_PARTS,
   NO_GROUP,
+  NO_GROUP_ROW,
   NO_STAT_FILTER,
+  activeDays,
   balanceSeries,
   calendarWeeks,
   collectStats,
   countByDay,
-  createdGrid,
-  daysEarly,
+  dayPartOf,
+  deadlineOutcomes,
   durationBuckets,
   earlyLateBuckets,
+  firstDay,
+  flowOver,
+  flowWeeks,
   groupStats,
+  hourGrid,
+  isOnTime,
   matchesFilter,
   median,
   periodCounts,
+  pointsFlow,
   rangeStart,
   shareOverTime,
   streaks,
   turnaround,
-  weekdayIndex,
+  typicalWeek,
   type Completion,
   type GroupKey,
+  type Outcome,
   type StatFilter,
   type StatTask,
 } from "../../lib/stats";
@@ -36,7 +45,7 @@ import { HiddenRow } from "../Tiles/HiddenRow";
 import { TileFrame } from "../Tiles/TileFrame";
 import { TileGrid } from "../Tiles/TileGrid";
 import { TaskCells, type ListedTask } from "./TaskListDialog";
-import { BalanceChart, Bars, CalendarDots, Empty, HourGrid, Note, ShareBars, type ShareSegment } from "./charts";
+import { BalanceChart, Bars, CalendarDots, Empty, HourGrid, Note, PairColumns, ShareBars, type ShareSegment } from "./charts";
 
 const RANGES: [StatFilter["range"], string][] = [
   ["all", "All time"],
@@ -52,11 +61,30 @@ const GROUPS: [GroupKey, string, none: string][] = [
 ];
 // A year of weeks in the calendar of dots.
 const CALENDAR_WEEKS = 53;
+// The weeks of written down against done, and the days its numbers and the active days look back over.
+const FLOW_WEEKS = 12;
+const RECENT_DAYS = 28;
+// An open task this old has sat for a while.
+const OLD_DAYS = 30;
+const MOMENTS: ["written" | "done", string][] = [
+  ["written", "Written"],
+  ["done", "Done"],
+];
 // How many lists, goals or tags get a colour of their own (--series-1 to 7); the rest share one as "Other".
 const SERIES = 7;
 
 const days = (n: number | null) => (n === null ? "-" : n === 0 ? "same day" : `${Math.round(n * 10) / 10} ${n === 1 ? "day" : "days"}`);
 const percent = (share: number | null) => (share === null ? "-" : `${Math.round(share * 100)}%`);
+const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+/** "+3", "-2", "0": how a number moved. */
+/** Bars of buckets, each with its count and its share of them all, so the spread reads without adding up. */
+const bucketRows = (buckets: { label: string; count: number }[]) => {
+  const total = buckets.reduce((sum, bucket) => sum + bucket.count, 0);
+  return buckets.map(({ label, count: value }) => ({ label, value, text: value ? `${value} · ${Math.round((value / total) * 100)}%` : "0" }));
+};
+const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
+/** What a deadline's outcome says in a list of tasks. */
+const outcomeNote = ({ early, isOpen }: Outcome) => (isOpen ? `${count(-early, "day")} overdue` : early >= 0 ? "on time" : `${count(-early, "day")} late`);
 
 function Pick({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: ReactNode }) {
   return (
@@ -119,17 +147,19 @@ const DONE_COLOR = "#ad61cb";
 export const STAT_BOXES: Record<string, string> = {
   [FILTER_BOX]: "Stats filter",
   done: "Done",
-  written: "Written down",
+  flow: "Keeping up",
+  open: "Open work",
   deadlines: "Deadlines",
   time: "Time to finish",
   groups: "By list, goal or tag",
+  written: "Time of day",
   points: "Points",
   unorganized: "Unorganized",
 };
 
 /**
- * The stats as boxes: what got done and when, how deadlines went, how long tasks take, and the point
- * balance, plus the filter box that narrows the others. Tasks only: reward lists are left out.
+ * The stats as boxes: what got done and when, whether that keeps up with what is written down, what is
+ * still open, how deadlines went, how long tasks take, and the point balance, plus the filter box that narrows the others. Tasks only: reward lists are left out.
  * `boxes` is null until everything they need has loaded. Each use has a filter of its own.
  */
 export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null } {
@@ -141,6 +171,7 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
   const { data: folders = [] } = useFolders();
   const [filter, setFilter] = useState(NO_STAT_FILTER);
   const [groupKey, setGroupKey] = useState<GroupKey>("list");
+  const [moment, setMoment] = useState<"written" | "done">("written");
   const all = useMemo(() => collectStats(rows.data ?? [], lists.data ?? []), [rows.data, lists.data]);
 
   const error = rows.error ?? lists.error ?? goals.error ?? tags.error ?? points.error;
@@ -166,6 +197,16 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
   const byDay = countByDay(done);
   const counts = periodCounts(byDay, today);
   const streak = streaks(byDay, today);
+  const typical = typicalWeek(byDay, today);
+  const since = firstDay(byDay);
+  // The 30 days before the last 30 are only something to go by once the history reaches back over them.
+  const hasPrev30 = since !== null && since <= addDays(today, 1 - 60);
+  const last30 = done.filter(({ day }) => day >= addDays(today, 1 - 30) && day <= today);
+  const kinds = {
+    tasks: last30.filter((c) => !c.isPress && c.task.isRoot).length,
+    subtasks: last30.filter((c) => !c.isPress && !c.task.isRoot).length,
+    repeats: last30.filter((c) => c.isPress).length,
+  };
 
   // What the numbers count, for the list a click on one opens. Newest first; presses of one task on one day are one row.
   const listDone = (isIn: (day: string) => boolean): ListedTask[] => {
@@ -178,28 +219,45 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
     }
     return [...rows.values()].sort((a, b) => b.day.localeCompare(a.day));
   };
-  const monday = addDays(today, -weekdayIndex(today));
   const listed = (tasks: StatTask[], note: (task: StatTask) => string | undefined): ListedTask[] => tasks.map((task) => ({ task, note: note(task) }));
-  const partOf = ({ createdAt }: StatTask) => {
-    const hour = createdAt.getHours();
-    return DAY_PARTS.findIndex(({ from: start, to }) => (start < to ? hour >= start && hour < to : hour >= start || hour < to));
-  };
+  const newestFirst = (tasks: StatTask[], dayOf: (task: StatTask) => string) => [...tasks].sort((a, b) => dayOf(b).localeCompare(dayOf(a)));
 
-  const created = createdGrid(written);
+  const weeks = flowWeeks(tasks, today, FLOW_WEEKS);
+  const recent = flowOver(tasks, today, RECENT_DAYS);
 
-  const due = finished.filter((task) => task.deadlineDate);
+  // What is still to do, the longest waiting first; and of it, what is past a deadline of its own, the furthest behind first.
+  const age = (task: StatTask) => Math.max(0, daysBetween(task.createdOn, today));
+  const open = tasks.filter((task) => task.isOpen).sort((a, b) => age(b) - age(a));
+  const old = open.filter((task) => age(task) > OLD_DAYS);
+
+  // The time of day, of writing tasks down or of ticking them off.
+  const moments: { at: Date; task: StatTask; day: string }[] =
+    moment === "written"
+      ? written.map((task) => ({ at: task.createdAt, task, day: task.createdOn }))
+      : doneInRange.flatMap(({ at, task, day }) => (at ? [{ at, task, day }] : []));
+  const hours = hourGrid(moments.map(({ at }) => at));
+  const momentWord = moment === "written" ? "written down" : "done";
+
+  const outcomes = deadlineOutcomes(tasks, today);
+  const settled = outcomes.filter(({ day }) => inRange(day));
+  const overdue = outcomes.filter((outcome) => outcome.isOpen).sort((a, b) => a.early - b.early);
   const outcome = (["hard", "soft"] as const).map((type) => {
-    const ofType = due.filter((task) => task.deadlineKind === type);
-    return { type, total: ofType.length, onTime: ofType.filter((task) => daysEarly(task) >= 0).length };
+    const ofType = settled.filter(({ task }) => task.deadlineKind === type);
+    return { type, ofType, total: ofType.length, onTime: ofType.filter(isOnTime).length };
   });
+  const lateness = earlyLateBuckets(settled);
+  /** Finished in the range with a deadline of their own: how far ahead it was set, against how long they took. */
+  const due = finished.filter((task) => task.deadlineDate);
+  const ahead = median(due.map((task) => daysBetween(task.createdOn, task.deadlineDate!)));
+  const dueTook = median(due.map(turnaround));
 
   const loose = tasks.filter((task) => task.isRoot && task.isOpen && task.isLoose);
 
   const [, groupTitle, noneName] = GROUPS.find(([key]) => key === groupKey)!;
   const groupItems = groupKey === "list" ? taskLists : groupKey === "goal" ? goals.data : tags.data;
-  const groups = groupStats(groupKey, doneInRange, finished);
+  const groups = groupStats(groupKey, doneInRange, finished, settled, open);
   const groupRows = [...groupItems, ...(groups.has(NO_GROUP) ? [{ id: NO_GROUP, name: noneName }] : [])]
-    .map((item) => ({ name: item.name, ...(groups.get(item.id) ?? { id: item.id, done: 0, onTime: null, median: null }) }))
+    .map((item) => ({ name: item.name, ...(groups.get(item.id) ?? { id: item.id, ...NO_GROUP_ROW }) }))
     .sort((a, b) => b.done - a.done);
   const maxDone = Math.max(1, ...groupRows.map((row) => row.done));
 
@@ -227,6 +285,7 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
   const shareLegend = [...new Map(sharePeriods.flatMap((period) => period.segments).map((s) => [s.id, s])).values()];
 
   const balance = balanceSeries(points.data, from, today);
+  const flow = pointsFlow(points.data, from);
 
   const filterBox: PageBox = {
     key: FILTER_BOX,
@@ -293,8 +352,8 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
           )}
         </div>
         <Note>
-          Tasks and subtasks, not rewards. A subtask counts under its main task's list, goals and tags. Dates narrow everything except
-          the counts, streaks and dots in Done and the Unorganized box.
+          Tasks and subtasks, not rewards. A subtask counts under its main task's list, goals and tags. Dates narrow the boxes about
+          a stretch of time. Done and Keeping up have windows of their own; Open work and Unorganized are about now.
         </Note>
       </TileFrame>
     ),
@@ -310,48 +369,76 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
           <TaskCells
             cells={[
               ["Today", counts.today, "Done today", listDone((day) => day === today)],
-              ["This week", counts.week, "Done this week", listDone((day) => day >= monday && day <= today)],
-              ["This month", counts.month, "Done this month", listDone((day) => day.startsWith(today.slice(0, 7)) && day <= today)],
+              ["Last 7 days", counts.last7, "Done in the last 7 days", listDone((day) => day >= addDays(today, -6) && day <= today)],
+              ["Last 30 days", counts.last30, "Done in the last 30 days", listDone((day) => day >= addDays(today, -29) && day <= today)],
               ["All time", counts.all, "Done, all time", listDone(() => true)],
             ]}
           />
+          {(typical !== null || counts.last30 > 0) && (
+            <p className="text-xs" data-done-compare>
+              {typical !== null && `A usual week holds ${Math.round(typical * 10) / 10}; the last 7 days hold ${counts.last7}. `}
+              {hasPrev30 && `The 30 days before the last 30 held ${counts.prev30}. `}
+              {counts.last30 > 0 && `Of the last 30 days: ${count(kinds.tasks, "main task")}, ${count(kinds.subtasks, "subtask")}, ${count(kinds.repeats, "repeat")}.`}
+            </p>
+          )}
           <SummaryCells
             cells={[
-              ["Streak", `${streak.current} ${streak.current === 1 ? "day" : "days"}`],
-              ["Longest", `${streak.longest} ${streak.longest === 1 ? "day" : "days"}`],
+              ["Streak", count(streak.current, "day")],
+              ["Longest", count(streak.longest, "day")],
+              ["Active days", `${activeDays(byDay, today, RECENT_DAYS)}/${RECENT_DAYS}`],
             ]}
           />
           <CalendarDots weeks={calendarWeeks(byDay, today, CALENDAR_WEEKS)} />
-          <Note>A streak is days in a row with at least one task done. Each press of a persistent task counts as one.</Note>
+          <Note>
+            A streak is days in a row with at least one task done; active days are the days with one among the last {RECENT_DAYS}, so a
+            day off costs a day and not the run. A usual week is the middle one of the four before the last 7 days. Each press of a
+            persistent task counts as one.
+          </Note>
         </StatFrame>
       ),
     },
     {
-      key: "written",
-      label: "Written down",
+      key: "flow",
+      label: STAT_BOXES.flow,
       node: (
-        <StatFrame title="Written down" color="#2a9ba8" aria-label="Written down">
-          {created.total === 0 ? (
-            <Empty>No tasks written down in these dates.</Empty>
+        <StatFrame title="Keeping up" color="#3f9b5c" aria-label="Keeping up">
+          <TaskCells
+            cells={[
+              ["Written down", recent.written.length, `Written down in the last ${RECENT_DAYS} days`, listed(newestFirst(recent.written, (task) => task.createdOn), (task) => formatDay(task.createdOn))],
+              ["Done", recent.done.length, `Done in the last ${RECENT_DAYS} days`, listed(newestFirst(recent.done, (task) => task.closedOn!), (task) => formatDay(task.closedOn!))],
+              ["Open now", `${recent.open.length} (${signed(recent.open.length - recent.openBefore)})`, "Open now, the oldest first", listed([...recent.open].sort((a, b) => age(b) - age(a)), (task) => count(age(task), "day"))],
+            ]}
+          />
+          <PairColumns weeks={weeks} />
+          <Note>
+            The numbers are for the last {RECENT_DAYS} days, with how the open tasks moved over them in brackets; the columns are whole
+            weeks from Monday. Where more is written down than done, the pile grows. One-off tasks and their subtasks; a subtask left
+            unticked counts as done with its main task.
+          </Note>
+        </StatFrame>
+      ),
+    },
+    {
+      key: "open",
+      label: STAT_BOXES.open,
+      node: (
+        <StatFrame title="Open work" color="#7a6ad8" aria-label="Open work">
+          <TaskCells
+            cells={[
+              ["Open", open.length, "Open tasks, the oldest first", listed(open, (task) => count(age(task), "day"))],
+              ["Overdue", overdue.length, "Open and past their deadline", overdue.map((o) => ({ task: o.task, note: outcomeNote(o) }))],
+              [`Over ${OLD_DAYS} days old`, old.length, `Open for more than ${OLD_DAYS} days`, listed(old, (task) => count(age(task), "day"))],
+            ]}
+          />
+          {open.length === 0 ? (
+            <Empty>Nothing open.</Empty>
           ) : (
-            <>
-              <TaskCells
-                cells={DAY_PARTS.map(
-                  ({ name }, i) =>
-                    [
-                      name,
-                      percent(created.parts[i] / created.total),
-                      `Written down: ${name.toLowerCase()}`,
-                      listed(written.filter((task) => partOf(task) === i).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()), (task) => formatDay(task.createdOn)),
-                    ] as const,
-                )}
-              />
-              <HourGrid grid={created.grid} max={created.max} />
-              <Note>
-                When tasks were written down, by this device's clock. {DAY_PARTS.map(({ name, from: start, to }) => `${name} ${start}-${to}h`).join(", ")}.
-              </Note>
-            </>
+            <Bars aria-label="How long open tasks have been open" rows={bucketRows(durationBuckets(open.map(age)))} />
           )}
+          <Note>
+            Tasks and subtasks still to do, by how long ago they were written down, in the same steps as Time to finish{open.length > 0 && ` (median: ${count(Math.round(median(open.map(age))!), "day")})`}.
+            Overdue: the ones past a deadline of their own. Click a number to see the tasks. The Dates filter does not apply.
+          </Note>
         </StatFrame>
       ),
     },
@@ -360,29 +447,30 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
       label: "Deadlines",
       node: (
         <TileFrame title="Deadlines" aria-label="Deadlines">
-          {due.length === 0 ? (
-            <Empty>No finished tasks with a deadline in these dates.</Empty>
+          {settled.length === 0 ? (
+            <Empty>No deadlines met or missed in these dates.</Empty>
           ) : (
             <>
               <TaskCells
                 cells={outcome.map(
-                  ({ type, total, onTime }) =>
+                  ({ type, ofType, total, onTime }) =>
                     [
                       `${type === "hard" ? "Hard" : "Soft"} on time`,
                       total ? `${onTime}/${total} · ${percent(onTime / total)}` : "-",
-                      `Finished with a ${type} deadline`,
-                      // The late ones first, latest first.
-                      listed(due.filter((task) => task.deadlineKind === type).sort((a, b) => daysEarly(a) - daysEarly(b)), (task) =>
-                        daysEarly(task) >= 0 ? "on time" : `${-daysEarly(task)} ${daysEarly(task) === -1 ? "day" : "days"} late`,
-                      ),
+                      `Tasks with a ${type} deadline`,
+                      // The furthest behind first.
+                      [...ofType].sort((a, b) => a.early - b.early).map((o) => ({ task: o.task, note: outcomeNote(o) })),
                     ] as const,
                 )}
               />
               <Bars
                 aria-label="Finished early or late"
-                rows={earlyLateBuckets(due).map(({ label, count, late }) => ({ label, value: count, color: late ? "var(--chart-late)" : undefined }))}
+                rows={bucketRows(lateness).map((row, i) => ({ ...row, color: lateness[i].late ? "var(--chart-late)" : undefined }))}
               />
-              <Note>Finished tasks with a deadline of their own, by how far from it they were ticked off.</Note>
+              <Note>
+                Tasks with a deadline of their own, by how far from it they were ticked off. One still open after its deadline counts
+                as missed, under the day of the deadline.
+              </Note>
             </>
           )}
         </TileFrame>
@@ -400,14 +488,16 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
               <SummaryCells
                 cells={[
                   ["Written to done", days(median(finished.map(turnaround)))],
-                  ["Written to deadline", days(median(written.filter((task) => task.deadlineDate).map((task) => daysBetween(task.createdOn, task.deadlineDate!))))],
-                  ["With deadline: to done", days(median(due.map(turnaround)))],
+                  ["Written to deadline", days(ahead)],
+                  ["With deadline: to done", days(dueTook)],
                 ]}
               />
-              <Bars aria-label="Days from written down to done" rows={durationBuckets(finished.map(turnaround)).map(({ label, count }) => ({ label, value: count }))} />
+              <Bars aria-label="Days from written down to done" rows={bucketRows(durationBuckets(finished.map(turnaround)))} />
               <Note>
-                Medians: half the tasks took this long or less. "Written to deadline" is how far ahead deadlines are set; compare it
-                with how long those tasks then took.
+                Each bar is the tasks that took that long, with its share of them all. Medians: half the tasks took this long or
+                less. From {count(finished.length, "finished task")}, {due.length} with a
+                deadline: "Written to deadline" is how far ahead those deadlines were set, "With deadline: to done" how long the same
+                tasks took. Tasks still open are not in here; see Open work.
               </Note>
             </>
           )}
@@ -438,6 +528,7 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
                 <tr className="text-stone-500">
                   <th className="pr-2 text-left font-normal" />
                   <th className="w-full pr-2 text-left font-normal">Done</th>
+                  <th className="pr-2 text-right font-normal">Open</th>
                   <th className="pr-2 text-right font-normal whitespace-nowrap">On time</th>
                   <th className="text-right font-normal whitespace-nowrap">To done</th>
                 </tr>
@@ -454,7 +545,12 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
                         <span data-group-done>{row.done}</span>
                       </span>
                     </td>
-                    <td className="py-0.5 pr-2 text-right">{percent(row.onTime)}</td>
+                    <td className="py-0.5 pr-2 text-right" data-group-open>
+                      {row.open}
+                    </td>
+                    <td className="py-0.5 pr-2 text-right" data-group-on-time>
+                      {row.due ? `${row.onTime}/${row.due}` : "-"}
+                    </td>
                     <td className="py-0.5 text-right whitespace-nowrap">{days(row.median)}</td>
                   </tr>
                 ))}
@@ -468,9 +564,50 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
             </>
           )}
           <Note>
-            On time: finished tasks with a deadline that made it. To done: median from written down to done. A low on-time share or a
-            long time to done shows where things get put off.
+            Open: tasks and subtasks still to do, whatever the dates. On time: deadlines met, out of those met or missed in these
+            dates. To done: median days from written down to done. The numbers beside the share bars count each thing done once, though
+            it shows under every goal or tag it carries.
           </Note>
+        </StatFrame>
+      ),
+    },
+    {
+      key: "written",
+      label: STAT_BOXES.written,
+      node: (
+        <StatFrame title="Time of day" color="#2a9ba8" aria-label="Time of day">
+          <div className="flex flex-wrap gap-1">
+            {MOMENTS.map(([key, label]) => (
+              <button key={key} type="button" className={`nes-btn btn-small ${key === moment ? "is-primary" : ""}`} aria-pressed={key === moment} onClick={() => setMoment(key)}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {hours.total === 0 ? (
+            <Empty>No tasks {momentWord} in these dates.</Empty>
+          ) : (
+            <>
+              <TaskCells
+                cells={DAY_PARTS.map(
+                  ({ name }, i) =>
+                    [
+                      name,
+                      percent(hours.parts[i] / hours.total),
+                      `${moment === "written" ? "Written down" : "Done"}: ${name.toLowerCase()}`,
+                      moments
+                        .filter(({ at }) => dayPartOf(at) === i)
+                        .sort((a, b) => b.at.getTime() - a.at.getTime())
+                        .map(({ task, day }) => ({ task, note: formatDay(day) })),
+                    ] as const,
+                )}
+              />
+              <HourGrid grid={hours.grid} cap={hours.cap} what={momentWord} />
+              <Note>
+                When tasks were {momentWord}, by this device's clock. {DAY_PARTS.map(({ name, from: start, to }) => `${name} ${start}-${to}h`).join(", ")}.
+                {moment === "done" && " Done is when a task was ticked, which can be well after the work itself."}
+              </Note>
+            </>
+          )}
         </StatFrame>
       ),
     },
@@ -479,8 +616,23 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
       label: "Points",
       node: (
         <StatFrame title="Points" color="#e0b000" chart="#c98500" aria-label="Points over time">
-          {balance.length === 0 ? <Empty>No points booked yet.</Empty> : <BalanceChart series={balance} />}
-          <Note>The balance at the end of each day. Only the Dates filter applies here.</Note>
+          {balance.length === 0 ? (
+            <Empty>No points booked yet.</Empty>
+          ) : (
+            <>
+              <SummaryCells
+                cells={[
+                  ["Earned", flow.earned],
+                  ["Spent", flow.spent],
+                ]}
+              />
+              <BalanceChart series={balance} />
+            </>
+          )}
+          <Note>
+            Earned and spent in these dates, and the balance at the end of each day, from the newest bookings (300 at most). Only the
+            Dates filter applies here.
+          </Note>
         </StatFrame>
       ),
     },

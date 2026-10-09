@@ -27,6 +27,8 @@ export interface StatTask {
   /** The day it was written down, in the user's calendar. */
   createdOn: string;
   completedOn: string | null;
+  /** The day it stopped being something to do: when it was ticked, or when the nearest finished task above it was. */
+  closedOn: string | null;
   /** Still to do: not ticked, not inside a finished main task, not persistent. */
   isOpen: boolean;
   /** Carries no deadline, goal or tag of its own. */
@@ -37,6 +39,10 @@ export interface StatTask {
 export interface Completion {
   day: string;
   task: StatTask;
+  /** The moment of it, for the time of day. */
+  at: Date | null;
+  /** A press of a persistent task, not a tick. */
+  isPress: boolean;
 }
 
 export type RangeKey = "all" | "7" | "30" | "90" | "365";
@@ -72,6 +78,7 @@ export function collectStats(rows: StatRow[], lists: List[]): { tasks: StatTask[
   }
 
   const visit = (node: StatRow, root: StatRow, above: StatTask | null, insideFinished: boolean) => {
+    const completedOn = node.completedOn;
     const createdAt = new Date(node.createdAt);
     const ownKind = node.deadlineDate ? (node.deadlineType ?? "hard") : null;
     const task: StatTask = {
@@ -86,13 +93,14 @@ export function collectStats(rows: StatRow[], lists: List[]): { tasks: StatTask[
       isPersistent: root.isPersistent,
       createdAt,
       createdOn: node.startDate ?? localDay(createdAt),
-      completedOn: node.completedOn,
+      completedOn,
+      closedOn: completedOn ?? above?.closedOn ?? null,
       isOpen: !node.isComplete && !insideFinished && !root.isPersistent,
       isLoose: !node.deadlineDate && node.goalIds.length === 0 && node.tagIds.length === 0,
     };
     tasks.push(task);
-    if (node.completedOn) completions.push({ day: node.completedOn, task });
-    for (const day of node.pressDays) completions.push({ day, task });
+    if (completedOn) completions.push({ day: completedOn, task, at: node.completedAt ? new Date(node.completedAt) : null, isPress: false });
+    node.pressDays.forEach((day, i) => completions.push({ day, task, at: node.pressTimes[i] ? new Date(node.pressTimes[i]) : null, isPress: true }));
     for (const child of childrenOf.get(node.id) ?? []) visit(child, root, task, insideFinished || node.isComplete);
   };
   for (const root of rows) {
@@ -125,19 +133,53 @@ export function countByDay(completions: Completion[]) {
   return counts;
 }
 
-/** Done today, this week (from Monday), this month, this year, and ever. */
+/**
+ * Done today, in the last 7 and 30 days (today counted) and in the 7 and 30 before those, this year, and ever.
+ * The windows roll with the day, so each is a whole one and can be set against the one before.
+ */
 export function periodCounts(byDay: Map<string, number>, today: string) {
-  const monday = addDays(today, -weekdayIndex(today));
-  const month = today.slice(0, 7);
   const year = today.slice(0, 4);
-  const counts = { today: byDay.get(today) ?? 0, week: 0, month: 0, year: 0, all: 0 };
+  const back = (n: number) => addDays(today, 1 - n);
+  const counts = { today: byDay.get(today) ?? 0, last7: 0, prev7: 0, last30: 0, prev30: 0, year: 0, all: 0 };
   for (const [day, count] of byDay) {
     counts.all += count;
-    if (day >= monday && day <= today) counts.week += count;
-    if (day.startsWith(month) && day <= today) counts.month += count;
-    if (day.startsWith(year) && day <= today) counts.year += count;
+    if (day > today) continue;
+    if (day.startsWith(year)) counts.year += count;
+    if (day >= back(7)) counts.last7 += count;
+    else if (day >= back(14)) counts.prev7 += count;
+    if (day >= back(30)) counts.last30 += count;
+    else if (day >= back(60)) counts.prev30 += count;
   }
   return counts;
+}
+
+/** The first day anything was done; null = nothing yet. */
+export function firstDay(byDay: Map<string, number>): string | null {
+  let first: string | null = null;
+  for (const day of byDay.keys()) if (first === null || day < first) first = day;
+  return first;
+}
+
+/**
+ * What a week usually holds: the median of the `weeks` 7-day windows before the last 7 days.
+ * null until the history reaches back that far, so a new account is not measured against empty weeks.
+ */
+export function typicalWeek(byDay: Map<string, number>, today: string, weeks = 4): number | null {
+  const first = firstDay(byDay);
+  if (first === null || first > addDays(today, 1 - 7 * (weeks + 1))) return null;
+  const sums = Array.from({ length: weeks }, (_, w) => {
+    let sum = 0;
+    for (let d = 0; d < 7; d++) sum += byDay.get(addDays(today, -7 * (w + 1) - d)) ?? 0;
+    return sum;
+  });
+  return median(sums);
+}
+
+/** On how many of the last `span` days (today counted) something was done. Unlike a streak, a day off costs one day. */
+export function activeDays(byDay: Map<string, number>, today: string, span: number) {
+  let active = 0;
+  for (let d = 0; d < span; d++) if ((byDay.get(addDays(today, -d)) ?? 0) > 0) active++;
+  return active;
 }
 
 /**
@@ -171,9 +213,19 @@ export function calendarWeeks(byDay: Map<string, number>, today: string, weeks: 
   });
 }
 
-/** 0 for nothing, then 1-4 by how close a count is to the largest one. */
-export function heatLevel(count: number, max: number) {
-  return count <= 0 || max <= 0 ? 0 : Math.max(1, Math.ceil((count / max) * 4));
+/**
+ * The count that gets the strongest colour: nine in ten of the counts above zero are at or under it, so one
+ * day far above the rest doesn't wash all the others out. With only a few counts it is the largest.
+ */
+export function heatCap(counts: number[]) {
+  const sorted = counts.filter((count) => count > 0).sort((a, b) => a - b);
+  if (sorted.length === 0) return 0;
+  return sorted[sorted.length < 10 ? sorted.length - 1 : Math.floor((sorted.length - 1) * 0.9)];
+}
+
+/** 0 for nothing, then 1-4 by how close a count is to `cap` (see heatCap); anything over it is a 4. */
+export function heatLevel(count: number, cap: number) {
+  return count <= 0 || cap <= 0 ? 0 : Math.min(4, Math.max(1, Math.ceil((count / cap) * 4)));
 }
 
 export const DAY_PARTS = [
@@ -183,16 +235,21 @@ export const DAY_PARTS = [
   { name: "Night", from: 22, to: 5 },
 ] as const;
 
-/** How many tasks were written down in each hour of each weekday (rows Monday to Sunday), by the device's clock. */
-export function createdGrid(tasks: StatTask[]) {
+/** Which of DAY_PARTS a moment falls in, by the device's clock. */
+export const dayPartOf = (at: Date) => {
+  const hour = at.getHours();
+  return DAY_PARTS.findIndex(({ from, to }) => (from < to ? hour >= from && hour < to : hour >= from || hour < to));
+};
+
+/** How many of `moments` fall in each hour of each weekday (rows Monday to Sunday), by the device's clock. */
+export function hourGrid(moments: Date[]) {
   const grid = Array.from({ length: 7 }, () => Array<number>(24).fill(0));
   const parts = DAY_PARTS.map(() => 0);
-  for (const { createdAt } of tasks) {
-    const hour = createdAt.getHours();
-    grid[(createdAt.getDay() + 6) % 7][hour]++;
-    parts[DAY_PARTS.findIndex(({ from, to }) => (from < to ? hour >= from && hour < to : hour >= from || hour < to))]++;
+  for (const at of moments) {
+    grid[(at.getDay() + 6) % 7][at.getHours()]++;
+    parts[dayPartOf(at)]++;
   }
-  return { grid, parts, max: Math.max(0, ...grid.flat()), total: tasks.length };
+  return { grid, parts, cap: heatCap(grid.flat()), total: moments.length };
 }
 
 export function median(values: number[]): number | null {
@@ -204,8 +261,33 @@ export function median(values: number[]): number | null {
 
 /** Days from writing a task down to ticking it off; never negative. */
 export const turnaround = (task: StatTask) => Math.max(0, daysBetween(task.createdOn, task.completedOn!));
-/** Days a task was finished before its deadline; negative = late. */
-export const daysEarly = (task: StatTask) => daysBetween(task.completedOn!, task.deadlineDate!);
+
+/** How a deadline went, once that is settled: the task was finished, or it is still open with the deadline behind it. */
+export interface Outcome {
+  task: StatTask;
+  /** Days it was finished before its deadline; negative = late. For an open task: how far behind it is today. */
+  early: number;
+  /** Still open, with its deadline passed. */
+  isOpen: boolean;
+  /** The day it was settled: when it was finished, or the deadline it missed. */
+  day: string;
+}
+
+/**
+ * One-off tasks with a deadline of their own whose deadline has been settled. The open ones past their
+ * deadline are in, as late: without them the tasks put off the longest would be the ones never counted.
+ */
+export function deadlineOutcomes(tasks: StatTask[], today: string): Outcome[] {
+  const outcomes: Outcome[] = [];
+  for (const task of tasks) {
+    if (!task.deadlineDate || task.isPersistent) continue;
+    if (task.completedOn) outcomes.push({ task, early: daysBetween(task.completedOn, task.deadlineDate), isOpen: false, day: task.completedOn });
+    else if (task.isOpen && task.deadlineDate < today) outcomes.push({ task, early: daysBetween(today, task.deadlineDate), isOpen: true, day: task.deadlineDate });
+  }
+  return outcomes;
+}
+
+export const isOnTime = (outcome: Outcome) => !outcome.isOpen && outcome.early >= 0;
 
 export interface Bucket {
   label: string;
@@ -221,37 +303,30 @@ const EARLY_LATE: { label: string; has: (early: number) => boolean }[] = [
   { label: "2-6 days late", has: (n) => n <= -2 && n >= -6 },
   { label: "7+ days late", has: (n) => n <= -7 },
 ];
+export const STILL_OPEN = "Still open, overdue";
 
-/** Finished tasks by how far from their deadline they were done, earliest first. */
-export function earlyLateBuckets(tasks: StatTask[]): (Bucket & { late: boolean })[] {
-  const early = tasks.map(daysEarly);
-  return EARLY_LATE.map(({ label, has }, i) => ({ label, count: early.filter(has).length, late: i > 3 }));
+/** Settled deadlines by how far from the deadline the task was done, earliest first; the ones still open go last, in a row of their own. */
+export function earlyLateBuckets(outcomes: Outcome[]): (Bucket & { late: boolean })[] {
+  const early = outcomes.filter((outcome) => !outcome.isOpen).map((outcome) => outcome.early);
+  return [
+    ...EARLY_LATE.map(({ label, has }, i) => ({ label, count: early.filter(has).length, late: i > 3 })),
+    { label: STILL_OPEN, count: outcomes.length - early.length, late: true },
+  ];
 }
 
-// Upper ends of the duration buckets to choose from, in days.
-const DURATION_STEPS = [0, 1, 3, 7, 14, 30, 90, 180, 365];
+// The duration buckets, by their last day. Always the same ones, so the bars can be read at a glance
+// and set against each other (Time to finish beside Open work, this month beside the last).
+const DURATION_ENDS = [0, 1, 3, 7, 14, 30, 90];
 
-/**
- * Durations in at most `max` buckets, shortest first. The buckets follow the
- * data: they are spread up to where nine in ten durations fall, and whatever
- * took longer than the last one goes into "Longer".
- */
-export function durationBuckets(days: number[], max = 6): Bucket[] {
-  if (days.length === 0) return [];
-  const sorted = [...days].sort((a, b) => a - b);
-  const most = sorted[Math.floor((sorted.length - 1) * 0.9)];
-  const last = DURATION_STEPS.findIndex((step) => step >= most);
-  const top = last === -1 ? DURATION_STEPS.length - 1 : last;
-  const count = Math.min(max - 1, top + 1);
-  const ends = Array.from({ length: count }, (_, i) => DURATION_STEPS[count === 1 ? 0 : Math.round((i * top) / (count - 1))]);
-
-  const buckets = ends.map((end, i) => {
-    const start = i === 0 ? 0 : ends[i - 1] + 1;
-    const label = end === 0 ? "Same day" : start === end ? `${end} day${end === 1 ? "" : "s"}` : `${start}-${end} days`;
+/** Durations in days, in fixed buckets, shortest first: same day, 1 day, 2-3, 4-7, 8-14, 15-30, 31-90, and over 90. Empty ones are kept. */
+export function durationBuckets(days: number[]): Bucket[] {
+  const buckets = DURATION_ENDS.map((end, i) => {
+    const start = i === 0 ? 0 : DURATION_ENDS[i - 1] + 1;
+    const label = end === 0 ? "Same day" : start === end ? `${end} day` : `${start}-${end} days`;
     return { label, count: days.filter((d) => d >= start && d <= end).length };
   });
-  const longer = days.filter((d) => d > ends.at(-1)!).length;
-  return longer > 0 ? [...buckets, { label: "Longer", count: longer }] : buckets;
+  const last = DURATION_ENDS.at(-1)!;
+  return [...buckets, { label: `Over ${last} days`, count: days.filter((d) => d > last).length }];
 }
 
 export type GroupKey = "list" | "goal" | "tag";
@@ -266,40 +341,43 @@ const groupsOf = (task: StatTask, key: GroupKey): string[] => {
 export interface GroupRow {
   id: string;
   done: number;
-  /** Share of its finished tasks with a deadline that made it; null = none had one. */
-  onTime: number | null;
-  /** Median days from written down to done. */
+  /** Tasks and subtasks still to do. */
+  open: number;
+  /** Its settled deadlines (see deadlineOutcomes), and how many of them were met. */
+  due: number;
+  onTime: number;
+  /** Median days from written down to done, over its finished tasks; null = none. */
   median: number | null;
 }
 
+export const NO_GROUP_ROW: Omit<GroupRow, "id"> = { done: 0, open: 0, due: 0, onTime: 0, median: null };
+
 /**
- * Per list, goal or tag: how much was done, how often on time, and how long it
+ * Per list, goal or tag: how much was done, how much is open, how often on time, and how long it
  * took. A task with several goals (or tags) counts under each of them.
  */
-export function groupStats(key: GroupKey, completions: Completion[], finished: StatTask[]): Map<string, GroupRow> {
-  const work = new Map<string, { done: number; due: number; onTime: number; days: number[] }>();
+export function groupStats(key: GroupKey, completions: Completion[], finished: StatTask[], outcomes: Outcome[], open: StatTask[]): Map<string, GroupRow> {
+  const work = new Map<string, Omit<GroupRow, "id" | "median"> & { days: number[] }>();
   const at = (id: string) => {
-    if (!work.has(id)) work.set(id, { done: 0, due: 0, onTime: 0, days: [] });
+    if (!work.has(id)) work.set(id, { done: 0, open: 0, due: 0, onTime: 0, days: [] });
     return work.get(id)!;
   };
   for (const { task } of completions) for (const id of groupsOf(task, key)) at(id).done++;
-  for (const task of finished) {
-    for (const id of groupsOf(task, key)) {
-      const group = at(id);
-      group.days.push(turnaround(task));
-      if (!task.deadlineDate) continue;
-      group.due++;
-      if (daysEarly(task) >= 0) group.onTime++;
+  for (const task of open) for (const id of groupsOf(task, key)) at(id).open++;
+  for (const task of finished) for (const id of groupsOf(task, key)) at(id).days.push(turnaround(task));
+  for (const outcome of outcomes) {
+    for (const id of groupsOf(outcome.task, key)) {
+      at(id).due++;
+      if (isOnTime(outcome)) at(id).onTime++;
     }
   }
-  return new Map(
-    [...work].map(([id, g]) => [id, { id, done: g.done, onTime: g.due ? g.onTime / g.due : null, median: median(g.days) }]),
-  );
+  return new Map([...work].map(([id, { days, ...counts }]) => [id, { id, ...counts, median: median(days) }]));
 }
 
 export interface SharePeriod {
   key: string;
   label: string;
+  /** Things done in the period, each counted once. */
   total: number;
   /** Done per group id. */
   parts: Map<string, number>;
@@ -328,10 +406,8 @@ export function shareOverTime(key: GroupKey, completions: Completion[], from: st
   for (const { day, task } of completions) {
     const period = periods.get(periodOf(day));
     if (!period) continue;
-    for (const id of groupsOf(task, key)) {
-      period.parts.set(id, (period.parts.get(id) ?? 0) + 1);
-      period.total++;
-    }
+    period.total++;
+    for (const id of groupsOf(task, key)) period.parts.set(id, (period.parts.get(id) ?? 0) + 1);
   }
   return { unit, periods: [...periods.values()].slice(-MAX_PERIODS) };
 }
@@ -362,4 +438,70 @@ export function balanceSeries(points: PointsSummary, from: string | null, today:
     if (!from || day >= from) series.push({ day, balance: running });
   }
   return series;
+}
+
+export interface FlowWeek {
+  /** The Monday the week starts on. */
+  monday: string;
+  written: number;
+  /** Ticked, or closed with the task above it. */
+  done: number;
+  /** Open at the end of the week (or today, in a week still running). */
+  open: number;
+  /** The week holding today: not over yet. */
+  isPartial: boolean;
+}
+
+/** A one-off task was written down in these days / stopped being something to do in them / was open at the end of `day`. */
+const writtenIn = (task: StatTask, from: string, to: string) => task.createdOn >= from && task.createdOn <= to;
+const closedIn = (task: StatTask, from: string, to: string) => task.closedOn !== null && task.closedOn >= from && task.closedOn <= to;
+const openAt = (task: StatTask, day: string) => task.createdOn <= day && (task.closedOn === null || task.closedOn > day);
+
+/**
+ * Written down against done, week by week (Monday first), the newest last. One-off tasks and their subtasks:
+ * a persistent task is never finished, so it has no place in a count of what is left. A subtask left unticked
+ * counts as done on the day its main task was, so that written minus done is how the pile of open tasks moved.
+ */
+export function flowWeeks(tasks: StatTask[], today: string, weeks: number): FlowWeek[] {
+  const oneOff = tasks.filter((task) => !task.isPersistent);
+  const lastMonday = addDays(today, -weekdayIndex(today));
+  return Array.from({ length: weeks }, (_, w) => {
+    const monday = addDays(lastMonday, (w - weeks + 1) * 7);
+    const sunday = addDays(monday, 6);
+    const end = sunday > today ? today : sunday;
+    const week: FlowWeek = { monday, written: 0, done: 0, open: 0, isPartial: sunday > today };
+    for (const task of oneOff) {
+      if (writtenIn(task, monday, end)) week.written++;
+      if (closedIn(task, monday, end)) week.done++;
+      if (openAt(task, end)) week.open++;
+    }
+    return week;
+  });
+}
+
+/** The same over the last `span` days, today counted, as the tasks themselves; `openBefore` is how many were open the day before those. */
+export function flowOver(tasks: StatTask[], today: string, span: number) {
+  const oneOff = tasks.filter((task) => !task.isPersistent);
+  const from = addDays(today, 1 - span);
+  return {
+    written: oneOff.filter((task) => writtenIn(task, from, today)),
+    done: oneOff.filter((task) => closedIn(task, from, today)),
+    open: oneOff.filter((task) => openAt(task, today)),
+    openBefore: oneOff.filter((task) => openAt(task, addDays(from, -1))).length,
+  };
+}
+
+/**
+ * Points earned and spent in the history's rows from `from` on. A reversal takes back what it cancels:
+ * a negative one an earning, a positive one a spending.
+ */
+export function pointsFlow(points: PointsSummary, from: string | null) {
+  let earned = 0;
+  let spent = 0;
+  for (const row of points.transactions) {
+    if (from && localDay(new Date(row.createdAt)) < from) continue;
+    if (row.type === "earned" || (row.type === "reversal" && row.amount < 0)) earned += row.amount;
+    else spent -= row.amount;
+  }
+  return { earned, spent };
 }

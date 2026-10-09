@@ -191,8 +191,12 @@ export type StatRow = Pick<
   | "goalIds"
   | "tagIds"
 > & {
+  /** The moment it was ticked; null while it is open. */
+  completedAt: string | null;
   /** The day of each press of a persistent task. */
   pressDays: string[];
+  /** The moment of each of those presses, in the same order. */
+  pressTimes: string[];
 };
 
 export interface CountdownRow extends Pace {

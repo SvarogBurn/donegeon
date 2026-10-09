@@ -41,12 +41,17 @@ await tick("Ch 1");
 await pretend(-1); await tick("Ch 2");
 await pretend(0);
 await p.locator('[data-task-editor^="add:"]').first().click(); await p.keyboard.type("Loose end"); await p.keyboard.press("Enter"); await wait();
+await p.keyboard.type("Late paper"); await p.keyboard.press("Enter"); await wait();
 await p.keyboard.press("Escape"); await wait(300);
+// A paper due yesterday that stays open: a missed deadline though it was never ticked.
+const paper = (await api("/tasks", "GET")).tasks.find((t) => t.title === "Late paper");
+await api(`/tasks/${paper.id}`, "PATCH", { deadlineDate: day(-1), deadlineType: "hard" });
 await tick("Ch 3"); await tick("Exam"); await wait(600);
 
 await p.goto("http://localhost:5173/stats"); await p.waitForSelector('section[aria-label="Done stats"]'); await wait();
 out("opened from the Stats tab in the task bar", await p.locator('nav [aria-label="Stats"][aria-current="page"]').count() === 1 && await p.locator("[data-username]").count() === 0);
 out("done today / week+ / all time", await cell("Done stats", "Today") === "2" && await cell("Done stats", "All time") === "4", `${await cell("Done stats", "Today")} ${await cell("Done stats", "All time")}`);
+out("done in the last 7 days; active on 3 of the last 28", await cell("Done stats", "Last 7 days") === "4" && await cell("Done stats", "Active days") === "3/28", `${await cell("Done stats", "Last 7 days")} ${await cell("Done stats", "Active days")}`);
 out("streak: today and yesterday", await cell("Done stats", "Streak") === "2 days" && await cell("Done stats", "Longest") === "2 days", `${await cell("Done stats", "Streak")} / ${await cell("Done stats", "Longest")}`);
 await p.goto("http://localhost:5173/user"); await p.waitForSelector("[data-streak]"); await wait(200);
 out("the user's page shows the same streak in its Account box", await p.locator('section[aria-label="Account"] [data-streak]').getAttribute("data-streak") === "2" && await p.locator("[data-streak-longest]").getAttribute("data-streak-longest") === "2");
@@ -55,13 +60,21 @@ await p.goto("http://localhost:5173/stats"); await p.waitForSelector('section[ar
 const dot = (n) => p.locator(`section[aria-label="Done stats"] [data-day="${day(n)}"]`).getAttribute("data-count");
 out("dots: 1, 0, 1, 2 over the four days", [await dot(-3), await dot(-2), await dot(-1), await dot(0)].join() === "1,0,1,2", [await dot(-3), await dot(-2), await dot(-1), await dot(0)].join());
 out("no dot after today", await p.locator(`[data-day="${day(1)}"]`).count() === 0);
-const written = await p.locator('section[aria-label="Written down"] [data-hour]').evaluateAll((els) => els.reduce((n, el) => n + Number(el.dataset.count), 0));
-out("written down: all five tasks in the grid", written === 5, written);
-out("hard deadline: exam late, 0 of 1 on time", (await cell("Deadlines", "Hard on time")).startsWith("0/1"), await cell("Deadlines", "Hard on time"));
+const hourSum = () => p.locator('section[aria-label="Time of day"] [data-hour]').evaluateAll((els) => els.reduce((n, el) => n + Number(el.dataset.count), 0));
+out("time of day, written: all six tasks in the grid", await hourSum() === 6, await hourSum());
+await p.locator('section[aria-label="Time of day"] button:text-is("Done")').click(); await wait(200);
+out("time of day, done: the four ticks", await hourSum() === 4, await hourSum());
+await p.locator('section[aria-label="Time of day"] button:text-is("Written")').click(); await wait(200);
+const flow = await p.locator('section[aria-label="Keeping up"] [data-flow-week]').evaluateAll((els) => els.reduce(([w, d], el) => [w + Number(el.dataset.written), d + Number(el.dataset.done)], [0, 0]).join("/"));
+out("keeping up: 6 written against 4 done over the weeks", flow === "6/4" && await p.locator('section[aria-label="Keeping up"] [data-flow-week]').count() === 12, flow);
+out("keeping up: the same in its numbers, 2 open that were not there before", await cell("Keeping up", "Written down") === "6" && await cell("Keeping up", "Done") === "4" && await cell("Keeping up", "Open now") === "2 (+2)", await cell("Keeping up", "Open now"));
+out("open work: the loose end and the paper, the paper overdue", await cell("Open work", "Open") === "2" && await cell("Open work", "Overdue") === "1" && await cell("Open work", "Over 30 days old") === "0", `${await cell("Open work", "Open")} ${await cell("Open work", "Overdue")}`);
+out("hard deadline: exam late and the paper never done, 0 of 2 on time", (await cell("Deadlines", "Hard on time")).startsWith("0/2"), await cell("Deadlines", "Hard on time"));
 out("late bar: 1 day late", await bar("Deadlines", "1 day late") === "1" && await bar("Deadlines", "On the day") === "0");
+out("the open paper has a bar of its own", await bar("Deadlines", "Still open, overdue") === "1", await bar("Deadlines", "Still open, overdue"));
 out("time to finish: median of 0, 2, 3, 3 days", await cell("Time to finish", "Written to done") === "2.5 days", await cell("Time to finish", "Written to done"));
 out("written to deadline: 2 days ahead", await cell("Time to finish", "Written to deadline") === "2 days", await cell("Time to finish", "Written to deadline"));
-out("buckets: same day 1, longest first bucket holds the rest", await bar("Time to finish", "Same day") === "1", await p.locator('section[aria-label="Time to finish"] [data-bar]').evaluateAll((els) => els.map((el) => `${el.dataset.bar}=${el.dataset.value}`).join(" ")));
+out("buckets: always the same eight; same day 1, the other three in 2-3 days", await bar("Time to finish", "Same day") === "1" && await bar("Time to finish", "2-3 days") === "3" && await bar("Time to finish", "Over 90 days") === "0" && await p.locator('section[aria-label="Time to finish"] [data-bar]').count() === 8, await p.locator('section[aria-label="Time to finish"] [data-bar]').evaluateAll((els) => els.map((el) => `${el.dataset.bar}=${el.dataset.value}`).join(" ")));
 out("unorganized: the loose end only", await cell("Unorganized", "Open tasks") === "1", await cell("Unorganized", "Open tasks"));
 { // A click on a number lists the tasks it counts.
   const tasks = p.locator("[data-stat-tasks]");
@@ -72,7 +85,7 @@ out("unorganized: the loose end only", await cell("Unorganized", "Open tasks") =
   out("a click on Done / All time lists everything done", await tasks.locator("[data-stat-task]").count() === Number(await cell("Done stats", "All time")), await tasks.locator("[data-stat-task]").count());
   await p.keyboard.press("Escape"); await wait(200);
   await p.locator('section[aria-label="Deadlines"] [data-summary="Hard on time"]').click(); await wait(300);
-  out("a click on Hard on time lists them, with how late", (await tasks.innerText()).includes("1 day late"));
+  out("a click on Hard on time lists them, with how late", (await tasks.innerText()).includes("1 day late") && (await tasks.innerText()).includes("1 day overdue"));
   await p.keyboard.press("Escape"); await wait(200);
   out("Escape closes the list", await tasks.count() === 0);
   await p.locator('section[aria-label="Unorganized"] [data-summary="Open tasks"]').click(); await wait(300);
@@ -82,6 +95,8 @@ out("unorganized: the loose end only", await cell("Unorganized", "Open tasks") =
 }
 const group = (name) => p.locator(`section[aria-label="By list, goal or tag"] [data-group="${name}"] [data-group-done]`).innerText();
 out("by list: 4 done in List", await group("List") === "4", await group("List"));
+const groupCell = (name, what) => p.locator(`section[aria-label="By list, goal or tag"] [data-group="${name}"] [data-group-${what}]`).innerText();
+out("by list: 2 open, neither deadline met", await groupCell("List", "open") === "2" && await groupCell("List", "on-time") === "0/2", `${await groupCell("List", "open")} ${await groupCell("List", "on-time")}`);
 await p.locator('section[aria-label="By list, goal or tag"] button:text-is("Goals")').click(); await wait(200);
 out("by goal: subtasks count under the exam's goal", await group("Degree") === "4", await group("Degree"));
 out("points: balance chart ends on the balance", await p.locator(`[data-balance-day="${day(0)}"]`).getAttribute("data-balance") === "1");
@@ -89,10 +104,10 @@ out("points: balance chart ends on the balance", await p.locator(`[data-balance-
 // The boxes are tiles like the dashboard's: moved by their tab button, minimized, with their own saved arrangement.
 const tiles = () => p.locator("[data-tile]").evaluateAll((els) => els.map((e) => e.dataset.tile).join(","));
 const hiddenRow = p.locator('[aria-label="Hidden boxes"]');
-out("eight boxes, the filter among them, each with a pin, a move and a hide button", (await tiles()) === "filter,done,written,deadlines,time,groups,points,unorganized" && await p.locator('[data-tile] [aria-label^="Drag to move"]').count() === 8 && await p.locator('[aria-label^="Hide "]').count() === 8 && await p.locator('[data-tile] [aria-label^="Pin "]').count() === 8, await tiles());
-await p.click('[aria-label="Hide Written down"]'); await wait();
+out("ten boxes, the filter among them, each with a pin, a move and a hide button", (await tiles()) === "filter,done,flow,open,deadlines,time,groups,written,points,unorganized" && await p.locator('[data-tile] [aria-label^="Drag to move"]').count() === 10 && await p.locator('[aria-label^="Hide "]').count() === 10 && await p.locator('[data-tile] [aria-label^="Pin "]').count() === 10, await tiles());
+await p.click('[aria-label="Hide Time of day"]'); await wait();
 await p.click('[aria-label="Hide Points"]'); await wait();
-out("hidden boxes leave the page for the Hidden row", (await tiles()) === "filter,done,deadlines,time,groups,unorganized" && (await hiddenRow.innerText()).replace(/\s+/g, " ") === "Hidden: Written down Points", `${await tiles()} / ${await hiddenRow.innerText()}`);
+out("hidden boxes leave the page for the Hidden row", (await tiles()) === "filter,done,flow,open,deadlines,time,groups,unorganized" && (await hiddenRow.innerText()).replace(/\s+/g, " ") === "Hidden: Time of day Points", `${await tiles()} / ${await hiddenRow.innerText()}`);
 { // Drag "Unorganized" above "Done".
   await p.locator('[data-tile="unorganized"] .tile-band').evaluate((el) => el.scrollIntoView({ block: "center" })); await wait(200);
   const h = await p.locator('[data-tile="unorganized"] [aria-label^="Drag to move"]').boundingBox();
@@ -101,12 +116,12 @@ out("hidden boxes leave the page for the Hidden row", (await tiles()) === "filte
   const t = await p.locator('[data-tile="done"]').boundingBox();
   await p.mouse.move(t.x + t.width / 2, Math.max(t.y + 8, 8), { steps: 8 }); await wait(200); await p.mouse.up(); await wait(600);
 }
-out("a box can be dragged to another place", (await tiles()) === "filter,unorganized,done,deadlines,time,groups", await tiles());
+out("a box can be dragged to another place", (await tiles()) === "filter,unorganized,done,flow,open,deadlines,time,groups", await tiles());
 await p.reload(); await p.waitForSelector('section[aria-label="Done stats"]'); await wait();
-out("arrangement and hidden boxes survive a reload", (await tiles()) === "filter,unorganized,done,deadlines,time,groups" && await hiddenRow.locator("button").count() === 2, await tiles());
+out("arrangement and hidden boxes survive a reload", (await tiles()) === "filter,unorganized,done,flow,open,deadlines,time,groups" && await hiddenRow.locator("button").count() === 2, await tiles());
 await hiddenRow.locator('button:text-is("Points")').click(); await wait();
-await hiddenRow.locator('button:text-is("Written down")').click(); await wait();
-out("brought back where they were", (await tiles()) === "filter,unorganized,done,written,deadlines,time,groups,points" && await hiddenRow.count() === 0, await tiles());
+await hiddenRow.locator('button:text-is("Time of day")').click(); await wait();
+out("brought back where they were", (await tiles()) === "filter,unorganized,done,flow,open,deadlines,time,groups,written,points" && await hiddenRow.count() === 0, await tiles());
 await p.goto("http://localhost:5173/"); await p.waitForSelector("section[data-drop-list]"); await wait();
 const home = await p.locator("[data-tile]").evaluateAll((els) => els.map((e) => e.dataset.tile.replace(/^list:.*/, "list")).join(","));
 out("the dashboard keeps its own arrangement", home.endsWith("goals,today,list,newList,tags,done") && !home.includes("unorganized") && await hiddenRow.count() === 0, home);

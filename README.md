@@ -77,12 +77,14 @@ On the dashboard a task's subtasks start hidden: click the arrow at the left of 
 
 Click the **Stats** tab in the task bar. The stats cover tasks and subtasks, never rewards.
 
-- **Done**: done today / this week (from Monday) / this month / ever, the current and longest streak of days with something done, and a dot per day for the last year (stronger = more done).
-- **Written down**: at which weekday and hour tasks get written down.
-- **Deadlines**: how often hard and soft deadlines were met, and how many days early or late tasks were finished.
-- **Time to finish**: median days from written down to done, and how far ahead deadlines are set. The bars group tasks by how long they took, in buckets that follow your data (six at most, the last one "Longer").
-- **By list / goal / tag**: how much was done in each, how often on time, how long it took, and each one's share over time.
-- **Points**: the balance day by day.
+- **Done**: done today / in the last 7 days / in the last 30 days / ever, each a click away from the tasks it counts. Under them, once there is enough history to go by: what a usual week holds (the middle one of the four before the last 7 days), what the 30 days before the last 30 held, and how the last 30 days split into main tasks, subtasks and repeats. Then the current and longest streak of days with something done, the active days among the last 28 (a day off costs one day there, not the run), and a dot per day for the last year (stronger = more done; a single day far above the rest no longer washes the others out).
+- **Keeping up**: what was written down against what was done, week by week for twelve weeks, with the numbers for the last 28 days and how the count of open tasks moved over them. One-off tasks and their subtasks.
+- **Open work**: the tasks and subtasks still to do: how many, how many are past a deadline of their own, how many are over 30 days old, and how long ago they were written down, in the same steps as Time to finish. It is about now, so the Dates filter leaves it alone.
+- **Deadlines**: how often hard and soft deadlines were met, and how many days early or late tasks were finished. A task still open after its deadline counts as missed (the red "Still open, overdue" bar): leaving it out would hide exactly the tasks put off the longest.
+- **Time to finish**: median days from written down to done; and, for the finished tasks that had a deadline, how far ahead it was set beside how long they took. The bars group tasks by how long they took, always in the same steps (same day, 1 day, 2-3, 4-7, 8-14, 15-30, 31-90, over 90 days), each with its count and its share, so the spread can be read at a glance. Finished tasks only; the open ones are in Open work.
+- **By list / goal / tag**: how much was done in each, how much is open, how many of its deadlines were met, how long it took, and each one's share over time.
+- **Time of day**: at which weekday and hour tasks get written down, or (the Done button) ticked off.
+- **Points**: earned and spent, and the balance day by day.
 - **Unorganized**: open main tasks with no deadline, goal or tag.
 
 The Stats box's filter (dates, list, folder, goal, tag, deadline type, repeating) narrows all of them at once; Folder, there once you have a folder, keeps only the lists that folder shows. Each box has a colour of its own, on its band and in its bars and dots: Done is purple like the Done box, Deadlines stays blue so that red can mean late. Every box on the page (the filter too) can be dragged, pinned and minimized like the boxes of the dashboard, and dragged out to the right for another column, up to four. A subtask counts under its main task's list, goals and tags.
