@@ -1,6 +1,6 @@
 import { useState, type KeyboardEvent } from "react";
-import { useCreateTask } from "../../hooks/useTasks";
-import { TitleEditor } from "./TitleEditor";
+import { useAddTask } from "../../hooks/useTasks";
+import { ShortSyntaxEditor } from "./ShortSyntaxEditor";
 import { useTree } from "./TreeContext";
 
 interface Props {
@@ -12,10 +12,10 @@ interface Props {
   editorId?: string;
 }
 
-/** The always-present field at the bottom of a list or task page: Enter adds a task and stays ready for the next. */
+/** The always-present field at the bottom of a list or task page: Enter adds a task and stays ready for the next. Shortcuts typed into it (#tag, @date, ...) are set on the task. */
 export function TaskForm({ listId, parentId, placeholder, editorId }: Props) {
   const [title, setTitle] = useState("");
-  const createTask = useCreateTask();
+  const createTask = useAddTask();
   const { newTaskLabels } = useTree();
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -23,12 +23,13 @@ export function TaskForm({ listId, parentId, placeholder, editorId }: Props) {
     if (e.key !== "Enter" || e.shiftKey || !title.trim() || createTask.isPending) return;
     const submitted = title;
     setTitle("");
-    createTask.mutate({ title: submitted, listId, parentId, ...newTaskLabels }, { onError: () => setTitle(submitted) });
+    createTask.mutate({ text: submitted, listId, parentId, ...newTaskLabels }, { onError: () => setTitle(submitted) });
   }
 
   return (
     <div>
-      <TitleEditor
+      <ShortSyntaxEditor
+        parentId={parentId}
         editorId={editorId ?? `add:${listId ?? parentId}`}
         value={title}
         onChange={setTitle}

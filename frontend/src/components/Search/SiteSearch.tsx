@@ -17,7 +17,7 @@ const PLACES: [title: string, path: string, tile: string | null, words?: string]
   ["Calendar", "/calendar", null, "days month planner upcoming"],
   ["Done", "/done", null, "finished history log"],
   ["Points", "/points", null, "balance history rewards"],
-  ["Account", "/user", null, "user settings log out password feedback tutorial"],
+  ["Account", "/user", null, "user settings log out password feedback tutorial cheat sheet shortcuts keyboard syntax help"],
   ["Today", "/", "today"],
   ["Goals", "/", "goals"],
   ["Tags", "/", "tags"],

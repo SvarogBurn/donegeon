@@ -1,4 +1,5 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import * as foldersApi from "../api/folders";
 import * as goalsApi from "../api/goals";
 import * as listsApi from "../api/lists";
@@ -9,8 +10,9 @@ import { taskDone } from "../lib/breakReminder";
 import { findNode, toggleInCountdown, toggleInTrees, type CompletionChange } from "../lib/optimisticToggle";
 import { NAME_FOLDER_EVENT } from "../lib/folders";
 import { refuse } from "../lib/refusal";
+import { parseShortSyntax, type SyntaxContext } from "../lib/shortSyntax";
 import type { DashboardLayout } from "../lib/tileLayout";
-import type { Countdown, DonePage, Folder, TaskTreeNode, User } from "../types";
+import type { Countdown, DonePage, Folder, Goal, List, Tag, TaskTreeNode, User } from "../types";
 import { ME } from "./useAuth";
 
 const TASKS = ["tasks"];
@@ -88,6 +90,81 @@ function useInvalidating<TArgs, TResult>(mutationFn: (args: TArgs) => Promise<TR
 }
 
 export const useCreateTask = () => useInvalidating(tasksApi.createTask, TASK_DATA);
+
+/** How deep a task under `parentId` sits: 0 for a main task. A parent that isn't among the loaded trees counts as a main task. */
+function depthUnder(trees: TaskTreeNode[], parentId: string | null | undefined) {
+  if (!parentId) return 0;
+  const find = (nodes: TaskTreeNode[], depth: number): number | null => {
+    for (const node of nodes) {
+      const found = node.id === parentId ? depth : find(node.children, depth + 1);
+      if (found !== null) return found;
+    }
+    return null;
+  };
+  return (find(trees, 0) ?? 0) + 1;
+}
+
+/** What the shortcuts typed into a new task under `parentId` (none = a main task) are read against. */
+export function useSyntaxContext(parentId?: string | null): SyntaxContext {
+  const { data: tags } = useTags();
+  const { data: goals } = useGoals();
+  const { data: lists } = useLists();
+  const { data: trees } = useTaskTrees();
+  const today = localDate();
+  return useMemo(
+    () => ({ today, tags: tags ?? [], goals: goals ?? [], lists: lists ?? [], depth: depthUnder(trees ?? [], parentId) }),
+    [today, tags, goals, lists, trees, parentId],
+  );
+}
+
+/** A new task as it was typed, shortcuts and all, and where it goes. */
+export interface TypedTask extends Omit<tasksApi.NewTask, "title"> {
+  text: string;
+}
+
+/**
+ * Adds a task from what was typed into an add field: the shortcuts in it (#tag, @date, ... see lib/shortSyntax)
+ * are taken out of the title and set on the task, in the one request that makes it. Tags and goals named for the
+ * first time are made first. What the caller passes (the filter's labels, the calendar's day, the box's list) is
+ * what holds unless a shortcut says otherwise.
+ */
+export function useAddTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ text, ...place }: TypedTask) => {
+      // Asked for if they were never loaded: a name must not be taken for new because its list is missing.
+      const [tags, goals, lists] = await Promise.all([
+        queryClient.ensureQueryData<Tag[]>({ queryKey: TAGS, queryFn: tagsApi.listTags }),
+        queryClient.ensureQueryData<Goal[]>({ queryKey: GOALS, queryFn: goalsApi.listGoals }),
+        queryClient.ensureQueryData<List[]>({ queryKey: LISTS, queryFn: listsApi.listLists }),
+      ]);
+      const depth = depthUnder(queryClient.getQueryData<TaskTreeNode[]>(TASKS) ?? [], place.parentId);
+      const typed = parseShortSyntax(text, { today: localDate(), tags, goals, lists, depth });
+      if (!typed.title) throw new Error("A task needs a title too, not only shortcuts");
+
+      const newTags = await Promise.all(typed.newTags.map(tagsApi.createTag));
+      const newGoals = await Promise.all(typed.newGoals.map((name) => goalsApi.createGoal({ name })));
+      const movesList = typed.listId !== undefined && typed.listId !== place.listId;
+      return tasksApi.createTask({
+        ...place,
+        title: typed.title,
+        // In another list than the one typed in, it goes to the end: the place was counted for this one.
+        ...(movesList && { listId: typed.listId, index: undefined }),
+        tagIds: [...new Set([...(place.tagIds ?? []), ...typed.tagIds, ...newTags.map((tag) => tag.id)])],
+        goalIds: [...new Set([...(place.goalIds ?? []), ...typed.goalIds, ...newGoals.map((goal) => goal.id)])],
+        // A schedule and a deadline don't go together, so a typed schedule drops the day the caller gave.
+        deadlineDate: typed.repeat ? undefined : (typed.deadlineDate ?? place.deadlineDate),
+        deadlineType: typed.deadlineDate ? typed.deadlineType : place.deadlineType,
+        points: typed.points,
+        today: typed.today || undefined,
+        repeatEvery: typed.repeat?.every,
+        repeatUnit: typed.repeat?.unit,
+        nextDue: typed.repeat?.nextDue,
+      });
+    },
+    onSettled: () => Promise.all([...TASK_DATA, TAGS, GOALS].map((queryKey) => queryClient.invalidateQueries({ queryKey }))),
+  });
+}
 /**
  * Ticking shows at once: the row, its parents' "x/y done", deadline pills and
  * any open countdown table change before the server answers, and roll back if it fails.

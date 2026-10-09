@@ -58,6 +58,24 @@ In a task:
 
 On the dashboard a task's subtasks start hidden: click the arrow at the left of its row to show them. They are shown from the start on the task's own page and while a goal or tag filter is on.
 
+## Typing shortcuts
+
+While adding a task (a list's add field, a new row, the Today box, a day of the calendar), these can be typed anywhere in the title. They are taken out of the title and set on the task; chips under the field show what it will get, and a dropdown offers what could finish the one being typed.
+
+| Type | What it does |
+|---|---|
+| `#name` | adds a tag; a new name makes a new tag |
+| `^name` | adds a goal; a new name makes a new goal |
+| `@date` | hard deadline |
+| `~date` | soft deadline |
+| `@today` / `@now` | do today: it shows in the Today box and stays in its list |
+| `@every …` | repeats: `@daily`, `@weekly`, `@monthly`, `@every 2 weeks`, `@every fri` |
+| `5p` | its points |
+| `/list` | puts it in that list |
+| `\` in front | keeps a shortcut as plain text |
+
+Dates: `tomorrow` (`tmr`), a weekday (`fri`, the next one), `next week`, `next month`, `in 3 days`, `3d`, `2w`, `25/12`, `25/12/26`, `25 dec`; after `~` also `today`. A shortcut counts only at the start of a word, and only when adding a task, not when renaming one. Deadlines are for main tasks and their direct subtasks; lists and repeats for main tasks. The same table is in the app, in the Cheat sheet box of the user page.
+
 ## Points, rewards, Today
 
 - Every list is a **task list** (its items add points) or a **reward list** (its items cost points), with a points-per-item amount. Both are set when the list is created and can be changed in the list's header.

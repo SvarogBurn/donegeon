@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { PixelCheckbox } from "../PixelCheckbox";
 import { useNavigate } from "react-router";
-import { useCreateTask, useGoals, useTags, useToggleTask, useUpdateTask } from "../../hooks/useTasks";
+import { useAddTask, useGoals, useTags, useToggleTask, useUpdateTask } from "../../hooks/useTasks";
 import { localDate } from "../../api/client";
 import { formatDay } from "../../lib/dates";
 import { isFiltering } from "../../lib/labels";
@@ -11,6 +11,7 @@ import type { TaskTreeNode } from "../../types";
 import { ValueChip } from "../Points/ValueChip";
 import { DeadlineBadge } from "./DeadlineBadge";
 import { PressCopies } from "./PressCopies";
+import { ShortSyntaxEditor } from "./ShortSyntaxEditor";
 import { TaskMenu } from "./TaskMenu";
 import { focusNeighbor, TitleEditor } from "./TitleEditor";
 import { useTree } from "./TreeContext";
@@ -235,10 +236,10 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
   );
 }
 
-/** The unsaved row opened by Enter / Ctrl+Enter. */
+/** The unsaved row opened by Enter / Ctrl+Enter. Shortcuts typed into it (#tag, @date, ...) are set on the task. */
 function DraftRow() {
   const tree = useTree();
-  const createTask = useCreateTask();
+  const createTask = useAddTask();
   const ref = useRef<HTMLTextAreaElement>(null);
   const draft = tree.draft!;
   useEffect(() => ref.current?.focus(), []);
@@ -256,7 +257,7 @@ function DraftRow() {
     if (!title || createTask.isPending) return;
     tree.setDraftText("");
     try {
-      const created = await createTask.mutateAsync({ title, ...placement() });
+      const created = await createTask.mutateAsync({ text: title, ...placement() });
       tree.setDraft(
         next === "subtask"
           ? { parentId: created.id, listId: null, afterId: null }
@@ -281,7 +282,7 @@ function DraftRow() {
   const finishRef = useRef(() => {});
   finishRef.current = () => {
     const title = tree.draftText.trim();
-    if (title) createTask.mutate({ title, ...placement() });
+    if (title) createTask.mutate({ text: title, ...placement() });
     close();
   };
   function onBlur(e: FocusEvent<HTMLTextAreaElement>) {
@@ -297,8 +298,9 @@ function DraftRow() {
         <span className="w-4" />
         <span className="mt-2 size-4 rounded-sm border border-dashed border-stone-400" />
         <div className="min-w-32 flex-1">
-          <TitleEditor
+          <ShortSyntaxEditor
             ref={ref}
+            parentId={draft.parentId}
             editorId="draft"
             value={tree.draftText}
             onChange={tree.setDraftText}

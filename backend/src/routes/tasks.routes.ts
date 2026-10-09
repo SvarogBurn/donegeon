@@ -35,6 +35,12 @@ const taskInput = z.object({
   /** A main task written into a day of the calendar starts with that day as its deadline; soft unless said otherwise. */
   deadlineDate: localDate.optional(),
   deadlineType: z.enum(["hard", "soft"]).optional(),
+  /** What the short syntax of the add fields can set from the start; each means what it does in taskPatch. */
+  points: z.number().int().min(0, "Points can't be negative").max(MAX_POINTS).optional(),
+  today: z.boolean().optional(),
+  repeatEvery: z.number().int().min(1, "Repeat every 1 or more").max(999).optional(),
+  repeatUnit: z.enum(["day", "week", "month"]).optional(),
+  nextDue: localDate.optional(),
 });
 
 const taskPatch = z.object({
@@ -359,8 +365,14 @@ tasksRouter.post("/", async (req, res) => {
   const listId = input.listId ?? null;
 
   if (parentId && listId) throw new HttpError(400, "A task goes either in a list or under a parent task");
-  if (parentId && input.deadlineDate) throw new HttpError(400, "Only a main task can start with a deadline");
   if (parentId) await ownTask(req, parentId);
+  if (parentId && input.deadlineDate && depthOf(await liveTasks(owner), parentId) + 1 > MAX_DEADLINE_DEPTH) {
+    throw new HttpError(400, "Deadlines can only be set on main tasks and their direct subtasks");
+  }
+  if (input.repeatEvery && parentId) throw new HttpError(400, "Only main tasks can be persistent");
+  if (input.repeatEvery && input.deadlineDate) {
+    throw new HttpError(400, "A persistent task is never finished, so it can't have a deadline. Remove one or the other.");
+  }
   if (listId) await assertOwnList(req, listId);
   await assertOwnLabels(req, input.goalIds, input.tagIds);
 
@@ -376,7 +388,15 @@ tasksRouter.post("/", async (req, res) => {
         deadlineDate: input.deadlineDate,
         deadlineType: input.deadlineDate ? (input.deadlineType ?? "soft") : undefined,
         // Without a list or a parent it was written straight into Today, and lives only there until moved to a list.
-        todaySince: parentId || listId ? null : req.localDate,
+        todaySince: input.today || !(parentId || listId) ? req.localDate : null,
+        points: input.points,
+        // A schedule makes the task persistent, due today unless another day was given.
+        ...(input.repeatEvery && {
+          isPersistent: true,
+          repeatEvery: input.repeatEvery,
+          repeatUnit: input.repeatUnit,
+          nextDue: input.nextDue ?? req.localDate,
+        }),
         goals: { connect: (input.goalIds ?? []).map((id) => ({ id })) },
         tags: { connect: (input.tagIds ?? []).map((id) => ({ id })) },
       },

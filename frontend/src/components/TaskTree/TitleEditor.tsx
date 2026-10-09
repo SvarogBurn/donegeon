@@ -33,6 +33,8 @@ interface Props extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "value
   ref?: Ref<HTMLTextAreaElement>;
   /** Only as wide as the text (not the whole row), so the space beside it stays free to click. */
   fitText?: boolean;
+  /** Asked before any key does anything here; true = the key was used up (by an open dropdown, say). */
+  interceptKey?: (e: KeyboardEvent<HTMLTextAreaElement>) => boolean;
 }
 
 /**
@@ -40,7 +42,7 @@ interface Props extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "value
  * Up/Down step to the neighbouring task once the caret is on the first/last line.
  * Plain Enter never inserts a line break; the owner decides what it does.
  */
-export function TitleEditor({ value, onChange, editorId, onKeyDown, className = "", ref, fitText = false, ...rest }: Props) {
+export function TitleEditor({ value, onChange, editorId, onKeyDown, className = "", ref, fitText = false, interceptKey, ...rest }: Props) {
   const innerRef = useRef<HTMLTextAreaElement>(null);
 
   useLayoutEffect(() => {
@@ -53,7 +55,7 @@ export function TitleEditor({ value, onChange, editorId, onKeyDown, className = 
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     // Let an input method finish composing before any key means something here.
-    if (e.nativeEvent.isComposing) return;
+    if (e.nativeEvent.isComposing || interceptKey?.(e)) return;
     const el = e.currentTarget;
     const plain = !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey;
 

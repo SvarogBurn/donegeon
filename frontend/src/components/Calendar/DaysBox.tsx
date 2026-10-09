@@ -1,12 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { localDate } from "../../api/client";
-import { useCreateTask, useToggleTask } from "../../hooks/useTasks";
+import { useAddTask, useSyntaxContext, useToggleTask } from "../../hooks/useTasks";
 import { firstLine, daysFrom, type DoneItem, type PlanItem } from "../../lib/calendar";
 import { addDays, daysBetween, formatDay } from "../../lib/dates";
 import { repeatLabel } from "../../lib/repeat";
+import { parseShortSyntax } from "../../lib/shortSyntax";
 import type { List } from "../../types";
 import { PixelCheckbox } from "../PixelCheckbox";
 import { DeadlineBadge } from "../TaskTree/DeadlineBadge";
+import { SyntaxChips } from "../TaskTree/ShortSyntaxEditor";
 import { useTree } from "../TaskTree/TreeContext";
 import { TileFrame } from "../Tiles/TileFrame";
 import { CAL_BOXES, isOpen, pickDay, useCalendar, useDayPicked, type Info } from "./calendarData";
@@ -80,9 +82,13 @@ function PlanRow({ item, today, listName, onInfo }: { item: PlanItem; today: str
   );
 }
 
-/** The field a day's "+ Add" opens: Enter adds a task to the picked list, with that day as its soft deadline. */
+/**
+ * The field a day's "+ Add" opens: Enter adds a task to the picked list, with that day as its soft deadline.
+ * Shortcuts typed into it are set on the task; a typed deadline or list is the one it gets.
+ */
 function AddOnDay({ day, lists, onClose }: { day: string; lists: List[]; onClose: () => void }) {
-  const createTask = useCreateTask();
+  const createTask = useAddTask();
+  const ctx = useSyntaxContext();
   const [title, setTitle] = useState("");
   const [listId, setListId] = useState(() => {
     let last: string | null = null;
@@ -104,7 +110,7 @@ function AddOnDay({ day, lists, onClose }: { day: string; lists: List[]; onClose
     } catch {
       // Not remembered, then.
     }
-    createTask.mutate({ title: submitted, listId, deadlineDate: day }, { onError: () => setTitle(submitted) });
+    createTask.mutate({ text: submitted, listId, deadlineDate: day }, { onError: () => setTitle(submitted) });
   }
 
   return (
@@ -117,8 +123,9 @@ function AddOnDay({ day, lists, onClose }: { day: string; lists: List[]; onClose
         placeholder="New task, then Enter"
         aria-label={`New task for ${formatDay(day, true)}`}
         enterKeyHint="done"
-        maxLength={500}
+        maxLength={300}
       />
+      <SyntaxChips tokens={parseShortSyntax(title, ctx).tokens} />
       <div className="flex items-center gap-1.5">
         <select
           value={listId}

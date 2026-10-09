@@ -40,18 +40,25 @@ export const listDoneOn = (day: string) => api<{ tasks: TaskTreeNode[] }>(`/task
 export const listStatRows = () => api<{ tasks: StatRow[] }>("/tasks/stats").then((r) => r.tasks);
 /** Every task whose title holds `q`, those finished long ago too; `more` when there were too many to send. */
 export const searchTasks = (q: string) => api<{ results: SearchResult[]; more: boolean }>(`/tasks/search?q=${encodeURIComponent(q)}`);
-export const createTask = (body: {
+export interface NewTask {
   title: string;
   parentId?: string | null;
   listId?: string | null;
   index?: number;
   goalIds?: string[];
   tagIds?: string[];
-  /** Main tasks only: the day it is written into in the calendar, as a soft deadline unless said otherwise. */
+  /** Main tasks and their direct subtasks: soft unless said otherwise. */
   deadlineDate?: string;
   deadlineType?: "hard" | "soft";
-}) =>
-  api<{ task: Task }>("/tasks", { body }).then((r) => r.task);
+  points?: number;
+  /** In the Today box from the start. */
+  today?: boolean;
+  /** Main tasks only: makes it persistent, due every so many units from `nextDue` (today if left out). */
+  repeatEvery?: number;
+  repeatUnit?: RepeatUnit;
+  nextDue?: string;
+}
+export const createTask = (body: NewTask) => api<{ task: Task }>("/tasks", { body }).then((r) => r.task);
 export const updateTask = (id: string, body: TaskChanges) =>
   api<{ task: Task }>(`/tasks/${id}`, { method: "PATCH", body }).then((r) => r.task);
 export const toggleTask = (id: string) =>

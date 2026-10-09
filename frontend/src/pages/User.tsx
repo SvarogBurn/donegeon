@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 import { localDate } from "../api/client";
 import { FeedbackBox } from "../components/Feedback/FeedbackBox";
 import { FeedbackInbox } from "../components/Feedback/FeedbackInbox";
+import { Cheatsheet } from "../components/Help/Cheatsheet";
 import { PixelCheckbox } from "../components/PixelCheckbox";
 import { TileFrame } from "../components/Tiles/TileFrame";
 import { useDeleteAccount, useLogout, useMe, useUpdateMe } from "../hooks/useAuth";
@@ -270,6 +271,7 @@ export function UserPage() {
         {update.error && <p className="text-xs text-red-600">{update.error.message}</p>}
       </TileFrame>
       <FeedbackBox username={user.username} />
+      <Cheatsheet />
       {user.isDev && <FeedbackInbox />}
     </div>
   );
