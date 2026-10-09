@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { localDate } from "../../api/client";
 import { useAddTask, useSyntaxContext, useToggleTask } from "../../hooks/useTasks";
 import { firstLine, daysFrom, type DoneItem, type PlanItem } from "../../lib/calendar";
@@ -26,6 +26,39 @@ const LIST_KEY = "donegeon.calendarList";
 const DRAG_PX = 5;
 
 const CHIP = "pixel-chip px-1.5 py-0.5 text-[10px] whitespace-nowrap";
+/** A day's list grows this tall and no taller; an edge of it fades where there is more past it. */
+const LIST =
+  "max-h-[min(60dvh,24rem)] overflow-x-hidden overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden data-more-above:mask-t-from-[calc(100%-1.5rem)] data-more-below:mask-b-from-[calc(100%-1.5rem)]";
+
+/** Marks which ways a day's list has more than it shows. */
+function markMore(list: HTMLElement) {
+  list.toggleAttribute("data-more-above", list.scrollTop > 0);
+  list.toggleAttribute("data-more-below", list.scrollTop + list.clientHeight < list.scrollHeight - 1);
+}
+
+/**
+ * What is on a day. A long one scrolls within its own height, with no scroll bar, like the row:
+ * by the wheel, a swipe, or dragging it.
+ */
+function DayList({ className, children }: { className: string; children: ReactNode }) {
+  const list = useRef<HTMLUListElement>(null);
+
+  // What is in the list changes without it being scrolled, and so does the room it has.
+  useLayoutEffect(() => markMore(list.current!));
+  useEffect(() => {
+    // Held on to: the list is still told of its size once more as it is taken off the page, its ref by then empty.
+    const el = list.current!;
+    const sized = new ResizeObserver(() => markMore(el));
+    sized.observe(el);
+    return () => sized.disconnect();
+  }, []);
+
+  return (
+    <ul ref={list} data-day-list onScroll={(e) => markMore(e.currentTarget)} className={`${LIST} ${className}`}>
+      {children}
+    </ul>
+  );
+}
 
 /** One thing to do on a day: ticked (or, a task on a schedule that is due, pressed) from here; its name opens more about it. */
 function PlanRow({ item, today, listName, onInfo }: { item: PlanItem; today: string; listName: string | undefined; onInfo: () => void }) {
@@ -187,7 +220,7 @@ function DayColumn({ day, today, isSelected, plan, done, lists, onInfo }: DayPro
         done.length === 0 ? (
           <p className="py-2 text-center text-xs text-stone-500">Nothing ticked off</p>
         ) : (
-          <ul className="border-t border-stone-200 dark:border-stone-800">
+          <DayList className="border-t border-stone-200 dark:border-stone-800">
             {done.map((item) => (
               <li key={item.id} data-done-item={item.id} className="space-y-0.5 py-1.5 text-sm text-stone-500">
                 <button type="button" data-task-name title="More about this task" className="block max-w-full cursor-pointer text-left break-words hover:underline" onClick={() => onInfo({ done: item, day })}>
@@ -197,18 +230,18 @@ function DayColumn({ day, today, isSelected, plan, done, lists, onInfo }: DayPro
                 {item.path.length > 0 && <p className="truncate text-xs">{item.path.join(" › ")}</p>}
               </li>
             ))}
-          </ul>
+          </DayList>
         )
       ) : (
         <>
           {plan.length === 0 ? (
             <p className="py-2 text-center text-xs text-stone-500">No tasks</p>
           ) : (
-            <ul className="divide-y divide-stone-200 border-y border-stone-200 dark:divide-stone-800 dark:border-stone-800">
+            <DayList className="divide-y divide-stone-200 border-y border-stone-200 dark:divide-stone-800 dark:border-stone-800">
               {plan.map((item) => (
                 <PlanRow key={item.node.id} item={item} today={today} listName={listName(item.listId)} onInfo={() => onInfo({ plan: item, day })} />
               ))}
-            </ul>
+            </DayList>
           )}
           {taskLists.length > 0 &&
             (isAdding ? (
@@ -230,7 +263,8 @@ function DayColumn({ day, today, isSelected, plan, done, lists, onInfo }: DayPro
  * A row of days, one column a day, that goes on without end both ways: more days come as either end is neared.
  * It has no scroll bar: it is moved with the arrows above it, by dragging it, or as any sideways scroll
  * (a swipe, a trackpad). It opens on today; a day picked in the Calendar box comes to its front.
- * A day from today on shows what there is to do on it, a day gone by what was ticked off on it.
+ * A day from today on shows what there is to do on it, a day gone by what was ticked off on it;
+ * a day with more than fits its height is scrolled on its own, up and down.
  */
 export function DaysBox() {
   const [range, setRange] = useState(() => {
@@ -317,20 +351,30 @@ export function DaysBox() {
   }
 
   // A mouse has nothing to swipe with: the row is dragged by any part of it that isn't a button or a field.
+  // Dragged up or down over a day with more than it shows, it is that day's list that moves instead.
   function startPan(e: ReactPointerEvent<HTMLDivElement>) {
     if (e.pointerType !== "mouse" || e.button !== 0 || (e.target as Element).closest("button, input, select, a, label")) return;
     const row = e.currentTarget;
+    const list = (e.target as Element).closest<HTMLElement>("[data-day-list]");
+    const tall = list && list.scrollHeight > list.clientHeight ? list : null;
     const startX = e.clientX;
+    const startY = e.clientY;
     const startLeft = row.scrollLeft;
-    let isPanning = false;
+    const startTop = tall?.scrollTop ?? 0;
+    // Which way the drag goes is settled once, by its first few pixels.
+    let moving: HTMLElement | null = null;
     const onMove = (ev: PointerEvent) => {
-      if (!isPanning && Math.abs(ev.clientX - startX) < DRAG_PX) return;
-      if (!isPanning) {
-        isPanning = true;
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!moving) {
+        const isUpDown = tall !== null && Math.abs(dy) > Math.abs(dx);
+        if (Math.abs(isUpDown ? dy : dx) < DRAG_PX) return;
+        moving = isUpDown ? tall : row;
         row.setPointerCapture(e.pointerId);
         row.dataset.panning = "";
       }
-      row.scrollLeft = startLeft - (ev.clientX - startX);
+      if (moving === row) row.scrollLeft = startLeft - dx;
+      else moving.scrollTop = startTop - dy;
     };
     const onEnd = () => {
       delete row.dataset.panning;

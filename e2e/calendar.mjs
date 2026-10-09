@@ -66,9 +66,22 @@ out("going back never reaches an end: days are put in front", await p.locator("[
 const count = await p.locator("[data-day]").count();
 for (let i = 0; i < 12; i++) { await p.locator('button[aria-label="Later days"]').click(); await wait(500); }
 out("nor does going on", await p.locator("[data-day]").count() > count && await strip.evaluate((el) => el.scrollWidth - el.scrollLeft - el.clientWidth > 600), `${count} -> ${await p.locator("[data-day]").count()}`);
+// The last slide takes a little over half a second: the row is read once it has come to rest.
+await wait();
 const box = await strip.boundingBox(); const at = await strip.evaluate((el) => el.scrollLeft);
 await p.mouse.move(box.x + 300, box.y + box.height - 8); await p.mouse.down(); await p.mouse.move(box.x + 100, box.y + box.height - 8, { steps: 5 }); await p.mouse.up();
 out("the row is dragged with the mouse", await strip.evaluate((el) => el.scrollLeft) - at === 200, await strip.evaluate((el) => el.scrollLeft) - at);
+
+for (let i = 1; i <= 12; i++) await api(`/tasks/${await add(`Busy day ${i}`, { listId })}`, "PATCH", { deadlineDate: plus(4), deadlineType: "soft" });
+await p.reload(); await p.waitForSelector("[data-day-strip]"); await wait();
+const busy = col(plus(4)).locator("[data-day-list]");
+out("a day with a lot on it grows no taller: its list scrolls, with no scroll bar, and + Add stays under it", await busy.evaluate((el) => el.scrollHeight > el.clientHeight && el.clientHeight <= 384 && el.offsetWidth === el.clientWidth && getComputedStyle(el).scrollbarWidth === "none" && el.hasAttribute("data-more-below") && !el.hasAttribute("data-more-above")) && await col(plus(4)).getByText("+ Add").isVisible(), await busy.evaluate((el) => `${el.clientHeight} of ${el.scrollHeight}`));
+out("a day with little on it is left as it was", await col(plus(3)).locator("[data-day-list]").evaluate((el) => el.scrollHeight === el.clientHeight && !el.hasAttribute("data-more-below")));
+const item = await busy.locator("[data-plan-item]").nth(1).boundingBox();
+await p.mouse.move(item.x + item.width - 6, item.y + item.height / 2); await p.mouse.down(); await p.mouse.move(item.x + item.width - 6, item.y + item.height / 2 - 100, { steps: 5 }); await p.mouse.up();
+out("the list is dragged up and down with the mouse, the row staying put", await busy.evaluate((el) => el.scrollTop === 100 && el.hasAttribute("data-more-above")) && Math.abs(await left(today)) <= 2, await busy.evaluate((el) => el.scrollTop));
+await p.mouse.move(item.x + item.width / 2, item.y + item.height / 2); await p.mouse.wheel(0, 3000); await wait(300);
+out("and scrolled with the wheel, to its end", await busy.evaluate((el) => el.scrollTop + el.clientHeight >= el.scrollHeight - 1 && !el.hasAttribute("data-more-below")));
 
 await p.locator("[data-days-today]").click(); await wait(1200);
 out("the month names the tasks on a day", await p.locator(`[data-cal-day="${plus(5)}"] [data-cal-task="${made.id}"]`).isVisible() || today.slice(0, 7) !== plus(5).slice(0, 7));
@@ -98,6 +111,26 @@ const dragTo = async (name, target) => {
   await p.mouse.move(handle.x + 5, handle.y + 5); await p.mouse.down(); await p.mouse.move(handle.x + 9, handle.y + 9); const to = await p.locator(target).boundingBox(); await p.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 8 }); await p.mouse.up(); await wait(700);
 };
 out("on the Calendar page the boxes have a tab button and no pin", await p.locator(".tile-button-tab").count() === 2 && await p.locator(".tile-button-pin").count() === 0);
+const boxes = () => p.locator("[data-box]").evaluateAll((els) => els.map((el) => el.dataset.box).join());
+const daysUnder = () => p.locator('section[aria-label="Days"]').evaluate((el) => el.getBoundingClientRect().top > document.querySelector('section[aria-label="Calendar"]').getBoundingClientRect().top);
+await p.locator('button[aria-label="Later days"]').click(); await wait(900);
+const rowAt = await strip.evaluate((el) => el.scrollLeft);
+// Dropped near the other box's top: its middle can be under the task bar.
+const dragOnto = async (name, other) => {
+  const handle = await p.locator(`section[aria-label="${name}"] .tile-button-tab`).boundingBox();
+  await p.mouse.move(handle.x + 5, handle.y + 5); await p.mouse.down(); await p.mouse.move(handle.x + 9, handle.y + 9); const to = await p.locator(`section[aria-label="${other}"]`).boundingBox(); await p.mouse.move(to.x + to.width / 2, to.y + 100, { steps: 8 });
+  const marked = await p.locator("[data-box][data-drop]").evaluateAll((els) => els.map((el) => `${el.dataset.box} ${el.dataset.drop}`).join());
+  await p.mouse.up(); await wait(700);
+  return marked;
+};
+const down = await dragOnto("Days", "Calendar");
+out("a box dragged over the other marks where it lands", down === "month below", down);
+out("a box dropped on the other takes its place", await boxes() === "month,days" && await daysUnder(), await boxes());
+out("the row of days staying on the days it showed", rowAt > 0 && await strip.evaluate((el) => el.scrollLeft) === rowAt, `${rowAt} -> ${await strip.evaluate((el) => el.scrollLeft)}`);
+await p.reload(); await p.waitForSelector("[data-day-strip]"); await wait();
+out("the order is kept over a reload", await boxes() === "month,days" && await daysUnder() && Math.abs(await left(today)) <= 2);
+const up = await dragOnto("Days", "Calendar");
+out("and dropped back on it, the boxes are as they were", up === "month above" && await boxes() === "days,month" && !(await daysUnder()) && await p.locator("[data-drop]").count() === 0, await boxes());
 await dragTo("Days", 'nav [data-tab-drop="main"]');
 out("a box dropped on Tasks says so and stays", (await p.locator("[data-cal-note]").innerText()).includes("Tasks page") && await p.locator('section[aria-label="Days"]').count() === 1);
 await p.locator('nav [aria-label="Tasks"]').click(); await p.waitForSelector("h2:text-is('Goals')"); await wait();

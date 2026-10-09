@@ -71,9 +71,9 @@ export const pressTask = (id: string) =>
   }));
 export const undoPress = (id: string, completionId: string) =>
   api(`/tasks/${id}/completions/${completionId}`, { method: "DELETE" });
-/** Which page's boxes: the dashboard's, or the stats boxes on the Stats page. */
-export type LayoutPage = "dashboard" | "stats";
-const layoutPath = (page: LayoutPage) => (page === "stats" ? "/layout/stats" : "/layout");
+/** Which page's boxes: the dashboard's, the stats boxes on the Stats page, or the Calendar page's. */
+export type LayoutPage = "dashboard" | "stats" | "calendar";
+const layoutPath = (page: LayoutPage) => (page === "dashboard" ? "/layout" : `/layout/${page}`);
 export const getLayout = (page: LayoutPage) => api<{ layout: DashboardLayout | null }>(layoutPath(page)).then((r) => r.layout);
 export const saveLayout = (page: LayoutPage, layout: DashboardLayout) => api(layoutPath(page), { method: "PUT", body: layout });
 export const getPoints = () => api<PointsSummary>("/points");
