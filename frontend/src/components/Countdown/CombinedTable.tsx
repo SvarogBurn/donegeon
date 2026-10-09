@@ -8,6 +8,7 @@ import { hasTaskPage } from "../../lib/taskPage";
 import { TileFrame } from "../Tiles/TileFrame";
 import { pressureColor } from "./pressureColor";
 import { CELL, DayCells, dayRow, PaceCell, SheetTable, SummaryCells } from "./sheet";
+import { RichText } from "../RichText";
 
 const HEADERS = ["Day", "Date", "Done", "Left", "Per day"];
 
@@ -59,7 +60,7 @@ export function CombinedTable() {
                       title={`${item.deadlineType === "soft" ? "Soft" : "Hard"} deadline. Click to go to the task`}
                       onClick={() => open(item.taskId)}
                     >
-                      {item.title.split("\n")[0]} deadline
+                      <RichText text={item.title.split("\n")[0]} /> deadline
                     </button>
                   </td>
                 </tr>

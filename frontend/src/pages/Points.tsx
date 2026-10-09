@@ -3,6 +3,7 @@ import { useMe } from "../hooks/useAuth";
 import { usePoints } from "../hooks/useTasks";
 import { formatAmount } from "../lib/points";
 import type { PointsSummary } from "../types";
+import { RichText } from "../components/RichText";
 
 const WHAT: Record<PointsSummary["transactions"][number]["type"], string> = {
   earned: "Earned",
@@ -48,7 +49,7 @@ export function PointsPage() {
                 className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 border-t border-stone-200 py-1 first:border-t-0 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] dark:border-stone-800"
               >
                 <span className="text-xs whitespace-nowrap text-stone-500 tabular-nums max-sm:order-3 sm:text-sm">{when(row.createdAt)}</span>
-                <span className="break-words max-sm:order-1">{row.title.split("\n")[0]}</span>
+                <span className="break-words max-sm:order-1"><RichText text={row.title.split("\n")[0]} /></span>
                 <span className="text-xs whitespace-nowrap text-stone-500 max-sm:order-4 max-sm:text-right sm:text-sm">{WHAT[row.type]}</span>
                 <span
                   className={`text-right font-medium whitespace-nowrap tabular-nums max-sm:order-2 ${row.amount < 0 ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400"}`}

@@ -2,6 +2,7 @@ import { addDays } from "./dates";
 import { addInterval, isDue } from "./repeat";
 import { hasTaskPage } from "./taskPage";
 import type { StatRow, TaskTreeNode } from "../types";
+import { plainTitle } from "./markup";
 
 /**
  * Why a task is on a day: its deadline is that day; its deadline has passed (shown on today);
@@ -89,7 +90,7 @@ export function planByDay(trees: TaskTreeNode[], today: string, until: string): 
         put(today, { ...item, kind: "today" });
       }
       // Subtasks left open inside a finished main task went to the Done page with it.
-      if (!(isMain && node.isComplete)) visit(node.children, [...path, firstLine(node.title)], inList, pageId);
+      if (!(isMain && node.isComplete)) visit(node.children, [...path, plainTitle(firstLine(node.title))], inList, pageId);
     }
   };
   visit(trees, [], null, null);
@@ -105,7 +106,7 @@ export function doneByDay(rows: StatRow[]): Map<string, DoneItem[]> {
   const pathOf = (row: StatRow) => {
     const path: string[] = [];
     for (let above = row.parentId && byId.get(row.parentId); above; above = above.parentId && byId.get(above.parentId)) {
-      path.unshift(firstLine(above.title));
+      path.unshift(plainTitle(firstLine(above.title)));
     }
     return path;
   };

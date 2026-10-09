@@ -6,6 +6,8 @@ import { localDate } from "../api/client";
 import { useDonePages, useLists, useToggleTask } from "../hooks/useTasks";
 import { addDays, formatDay } from "../lib/dates";
 import type { TaskTreeNode } from "../types";
+import { RichText } from "../components/RichText";
+import { plainTitle } from "../lib/markup";
 
 /** A finished task's subtasks, as they were left: read-only. */
 function Subtasks({ nodes }: { nodes: TaskTreeNode[] }) {
@@ -14,7 +16,7 @@ function Subtasks({ nodes }: { nodes: TaskTreeNode[] }) {
       {nodes.map((node) => (
         <li key={node.id}>
           <span className={node.isComplete ? "" : "text-stone-500"}>
-            {node.isComplete ? "✓" : "○"} {node.title}
+            {node.isComplete ? "✓" : "○"} <RichText text={node.title} />
           </span>
           {node.children.length > 0 && <Subtasks nodes={node.children} />}
         </li>
@@ -33,10 +35,10 @@ function FinishedTask({ node, listName }: { node: TaskTreeNode; listName: string
           checked
           disabled={toggle.isPending}
           onChange={() => toggle.mutate(node.id)}
-          aria-label={`Mark "${node.title}" not done`}
+          aria-label={`Mark "${plainTitle(node.title)}" not done`}
           title="Untick to make it open again"
         />
-        <span className="min-w-0 flex-1 break-words whitespace-pre-line">{node.title}</span>
+        <span className="min-w-0 flex-1 break-words whitespace-pre-line"><RichText text={node.title} /></span>
         <span className="flex items-center gap-1.5 text-xs text-stone-500">
           {node.children.length > 0 && (
             <span className="tabular-nums">
@@ -68,11 +70,11 @@ function TickedSubtask({ node, path, listName }: { node: TaskTreeNode; path: str
           checked
           disabled={toggle.isPending}
           onChange={() => toggle.mutate(node.id)}
-          aria-label={`Mark "${node.title}" not done`}
+          aria-label={`Mark "${plainTitle(node.title)}" not done`}
           title="Untick to make it open again"
         />
         <span className="min-w-0 flex-1 break-words">
-          <span className="whitespace-pre-line">{node.title}</span> <span className="text-xs text-stone-500">{path.join(" › ")}</span>
+          <span className="whitespace-pre-line"><RichText text={node.title} /></span> <span className="text-xs text-stone-500">{path.join(" › ")}</span>
         </span>
         <span className="flex items-center gap-1.5 text-xs text-stone-500">
           {listName && <span className="max-w-40 truncate">{listName}</span>}
@@ -97,7 +99,7 @@ function tickedEntries(trees: TaskTreeNode[]): Entry[] {
     for (const node of nodes) {
       const inList = path.length === 0 ? node.listId : listId;
       if (node.isComplete && node.completedOn) entries.push({ node, path, listId: inList });
-      visit(node.children, [...path, node.title.split("\n")[0]], inList);
+      visit(node.children, [...path, plainTitle(node.title.split("\n")[0])], inList);
     }
   };
   visit(trees, [], null);

@@ -7,6 +7,8 @@ import { findNode } from "../../lib/optimisticToggle";
 import { findTaskRow, showOnPage } from "../../lib/showOnPage";
 import type { SearchResult } from "../../types";
 import { STAT_BOXES } from "../Stats/StatsPanel";
+import { RichText } from "../RichText";
+import { plainTitle } from "../../lib/markup";
 
 /** How long after the last key the tasks are asked for. */
 const TYPING_PAUSE_MS = 200;
@@ -30,6 +32,8 @@ const PLACES: [title: string, path: string, tile: string | null, words?: string]
 interface Hit {
   key: string;
   title: string;
+  /** A task's title, which can hold markup. */
+  isTask?: boolean;
   /** Small, under the title: where it is. */
   where?: string;
   /** Small, at the right: what it is, or how a task stands. */
@@ -108,7 +112,8 @@ export function SiteSearch({ onPickLabel, onHide }: Props) {
   const taskHit = (result: SearchResult): Hit => ({
     key: result.id,
     title: result.title,
-    where: [lists.find((list) => list.id === result.listId)?.name ?? (result.listId ? null : "Today"), ...result.path.map((title) => title.split("\n")[0])].filter(Boolean).join(" › "),
+    isTask: true,
+    where: [lists.find((list) => list.id === result.listId)?.name ?? (result.listId ? null : "Today"), ...result.path.map((title) => plainTitle(title.split("\n")[0]))].filter(Boolean).join(" › "),
     kind: result.isComplete && result.completedOn ? `Done ${formatDay(result.completedOn)}/${result.completedOn.slice(0, 4)}` : result.isPersistent ? "Repeats" : "Open",
     mark: (
       <span className={`flex-none ${result.isComplete ? "" : "text-stone-500"}`} aria-hidden>
@@ -175,7 +180,7 @@ export function SiteSearch({ onPickLabel, onHide }: Props) {
                   <>
                     <span className="flex items-start gap-1.5">
                       {hit.mark}
-                      <span className="min-w-0 flex-1 break-words whitespace-pre-line">{hit.title}</span>
+                      <span className="min-w-0 flex-1 break-words whitespace-pre-line">{hit.isTask ? <RichText text={hit.title} /> : hit.title}</span>
                       {!hit.where && <span className="flex-none text-xs text-stone-500">{hit.kind}</span>}
                     </span>
                     {hit.where && (

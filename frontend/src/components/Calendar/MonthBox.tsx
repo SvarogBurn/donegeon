@@ -5,6 +5,8 @@ import { formatDay } from "../../lib/dates";
 import { TileFrame } from "../Tiles/TileFrame";
 import { CAL_BOXES, isOpen, pickDay, useCalendar, useDayPicked, type Info } from "./calendarData";
 import { TaskInfo } from "./TaskInfo";
+import { RichText } from "../RichText";
+import { plainTitle } from "../../lib/markup";
 
 /** How many tasks a day of the month names before it says how many more there are. */
 const NAMED = 3;
@@ -108,15 +110,15 @@ export function MonthBox() {
                 <ul className="hidden min-w-0 space-y-0.5 @xl:block">
                   {plan.slice(0, NAMED).map((item) => (
                     <li key={item.node.id}>
-                      <button type="button" data-cal-task={item.node.id} title={firstLine(item.node.title)} className={`${NAME} ${nameTone(item)}`} onClick={() => setInfo({ plan: item, day })}>
-                        {firstLine(item.node.title)}
+                      <button type="button" data-cal-task={item.node.id} title={plainTitle(firstLine(item.node.title))} className={`${NAME} ${nameTone(item)}`} onClick={() => setInfo({ plan: item, day })}>
+                        <RichText text={firstLine(item.node.title)} />
                       </button>
                     </li>
                   ))}
                   {done.slice(0, Math.max(NAMED - plan.length, 0)).map((item) => (
                     <li key={item.id}>
-                      <button type="button" data-cal-task={item.id} title={item.title} className={`${NAME} text-stone-500`} onClick={() => setInfo({ done: item, day })}>
-                        <span className="glyph !text-[10px]">✓</span> {item.title}
+                      <button type="button" data-cal-task={item.id} title={plainTitle(item.title)} className={`${NAME} text-stone-500`} onClick={() => setInfo({ done: item, day })}>
+                        <span className="glyph !text-[10px]">✓</span> <RichText text={item.title} />
                       </button>
                     </li>
                   ))}

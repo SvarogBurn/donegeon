@@ -536,6 +536,19 @@
     --text-3xl: 30px;
     --text-3xl--line-height: 1.2;
   }
+  /*
+   * Bold and italic in a title's markup. The pixel font has neither and none is faked (see body), so bold is the
+   * letters drawn twice, one pixel apart, and italic is the one slant the browser may make. The ordinary font has both.
+   */
+  .markup-bold {
+    text-shadow: 1px 0 currentColor;
+  }
+  .markup-italic {
+    font-synthesis: style;
+  }
+  [data-font="plain"] :is(.tile-body, .card) .markup-bold {
+    text-shadow: none;
+  }
   /* Symbols the pixel font doesn't have (⋯ ⠿ × ▦ ‹ ›): the system font, at a size that reads. */
   .glyph,
   .btn-quiet.glyph {

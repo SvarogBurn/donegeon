@@ -5,6 +5,7 @@ import { useLists, useTaskTrees } from "../../hooks/useTasks";
 import { findTaskRow, pathIdsTo, showOnPage } from "../../lib/showOnPage";
 import type { StatTask } from "../../lib/stats";
 import { SummaryCells } from "../Countdown/sheet";
+import { RichText } from "../RichText";
 
 /** A task behind one of the stats' numbers, with what that number knows about it ("07/10", "2 days late"). */
 export interface ListedTask {
@@ -57,7 +58,7 @@ function TaskListDialog({ title, items, onClose }: { title: string; items: Liste
                   onClick={() => goTo(task)}
                 >
                   <span className="min-w-0 flex-1 break-words">
-                    {task.title.split("\n")[0]}
+                    <RichText text={task.title.split("\n")[0]} />
                     {times && times > 1 && <span className="text-stone-500 tabular-nums"> ×{times}</span>}
                   </span>
                   <span className="max-w-28 shrink-0 truncate text-stone-500">{lists.find((list) => list.id === task.listId)?.name}</span>

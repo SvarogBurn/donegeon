@@ -30,6 +30,7 @@ per check. They are scripts, not a test runner suite.
 | `ticked.mjs` | ticked tasks sit under the open ones: subtasks within their task, main tasks within their list, back in place when unticked, Alt+↑ / Alt+↓ stepping over them; no ticking a task before its subtasks; the user page's choice for ticked tasks (bottom, stay, hide) |
 | `feedback.mjs` | the "Send mail to devs" box on the user page: laid out as an email, bug or feature, sending, the thanks, phone width |
 | `shortsyntax.mjs` | shortcuts typed into a new task: the dropdown (arrows, Enter, Tab, Esc) and the chips under the field, #tag, ^goal, @ and ~ deadlines, @today, @every, points, /list, new tags and goals made on the way, what only looks like a shortcut, the backslash, subtasks, the Today box, the cheat sheet on the user page, phone width |
+| `markup.mjs` | markup in titles: bold, italic, underline, highlight and crossed out shown styled in a row, the markers back while typing, Ctrl+B / I / U on a selection and off again, what is not markup, the Today box and the task page, the cheat sheet |
 
 ## Run
 

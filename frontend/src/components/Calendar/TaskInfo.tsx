@@ -9,6 +9,7 @@ import { repeatLabel } from "../../lib/repeat";
 import { findTaskRow, pathIdsTo, showOnPage } from "../../lib/showOnPage";
 import { ValueChip } from "../Points/ValueChip";
 import type { Info } from "./calendarData";
+import { RichText } from "../RichText";
 
 const days = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
 
@@ -79,7 +80,7 @@ export function TaskInfo({ info, onClose }: { info: Info; onClose: () => void })
             <ul className="mt-1 space-y-0.5 text-stone-500">
               {node.children.map((child) => (
                 <li key={child.id} className={child.isComplete ? "line-through" : ""}>
-                  <span className="glyph !text-xs">{child.isComplete ? "✓" : "○"}</span> {firstLine(child.title)}
+                  <span className="glyph !text-xs">{child.isComplete ? "✓" : "○"}</span> <RichText text={firstLine(child.title)} />
                 </li>
               ))}
             </ul>
@@ -115,7 +116,7 @@ export function TaskInfo({ info, onClose }: { info: Info; onClose: () => void })
       onKeyDown={(e) => e.key === "Escape" && onClose()}
     >
       <div className="card max-h-full w-96 max-w-full space-y-3 overflow-y-auto" role="dialog" aria-modal="true" aria-label="Task" data-task-info={id}>
-        <h3 className="text-sm break-words whitespace-pre-line">{title}</h3>
+        <h3 className="text-sm break-words whitespace-pre-line"><RichText text={title} /></h3>
         <dl className="space-y-1.5 text-xs">{rows}</dl>
         <div className="flex flex-wrap justify-end gap-2">
           <button type="button" className="nes-btn btn-small" onClick={onClose}>

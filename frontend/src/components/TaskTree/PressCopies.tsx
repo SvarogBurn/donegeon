@@ -2,6 +2,8 @@ import { isRecent } from "../../lib/recent";
 import type { TaskTreeNode } from "../../types";
 import { PixelCheckbox } from "../PixelCheckbox";
 import { useTree } from "./TreeContext";
+import { RichText } from "../RichText";
+import { plainTitle } from "../../lib/markup";
 
 /**
  * Under a persistent task: a ticked, crossed-off copy of it for every time it
@@ -18,16 +20,16 @@ export function PressCopies({ node, className = "" }: { node: TaskTreeNode; clas
   const title = node.title.split("\n")[0];
 
   return (
-    <ul className={className} aria-label={`Times "${title}" was done in the last 24 hours`}>
+    <ul className={className} aria-label={`Times "${plainTitle(title)}" was done in the last 24 hours`}>
       {recent.map((press) => (
         <li key={press.id} data-press-copy={press.id} className="flex items-center gap-x-1.5 px-1 py-0.5">
           <PixelCheckbox
             checked
             onChange={() => tree.takeBackPress(node, press.id)}
-            aria-label={`Take back "${title}": not done after all`}
+            aria-label={`Take back "${plainTitle(title)}": not done after all`}
             title="Done. Untick within 24 hours to take it back"
           />
-          <span className="min-w-0 truncate text-stone-400 line-through">{title}</span>
+          <span className="min-w-0 truncate text-stone-400 line-through"><RichText text={title} /></span>
         </li>
       ))}
     </ul>

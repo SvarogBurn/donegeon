@@ -15,6 +15,7 @@ import { ShortSyntaxEditor } from "./ShortSyntaxEditor";
 import { TaskMenu } from "./TaskMenu";
 import { focusNeighbor, TitleEditor } from "./TitleEditor";
 import { useTree } from "./TreeContext";
+import { plainTitle } from "../../lib/markup";
 
 /** The task's goals (filled pills) and tags (#outlined), by name. */
 function LabelChips({ node }: { node: TaskTreeNode }) {
@@ -155,7 +156,7 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
             type="button"
             className="repeat-button mt-1.5"
             onClick={() => tree.pressTask(node)}
-            aria-label={`Done "${node.title}" once more`}
+            aria-label={`Done "${plainTitle(node.title)}" once more`}
             title="Done it. Stays here for next time; a ticked copy underneath can be unticked to take it back"
           />
         ) : (
@@ -167,7 +168,7 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
             // Ticking a main task finishes it: it is in the Done page, and leaves its list 24 hours later. With an undo,
             // as for any task that leaves its list the moment it is ticked.
             onChange={() => (!node.isComplete && (!node.parentId || tree.ticked === "hide") ? tree.finishTask(node) : toggle.mutate(node.id))}
-            aria-label={`Mark "${node.title}" ${node.isComplete ? "not done" : "done"}`}
+            aria-label={`Mark "${plainTitle(node.title)}" ${node.isComplete ? "not done" : "done"}`}
           />
         )}
 

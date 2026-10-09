@@ -5,6 +5,7 @@ import { useDoneOn } from "../../hooks/useTasks";
 import { addDays, formatDay } from "../../lib/dates";
 import type { TaskTreeNode } from "../../types";
 import { TileFrame } from "../Tiles/TileFrame";
+import { RichText } from "../RichText";
 
 interface DoneTask {
   id: string;
@@ -123,7 +124,7 @@ export function DoneLog({ tasks }: { tasks: TaskTreeNode[] }) {
         <ul className="space-y-1 text-sm">
           {done.map((task) => (
             <li key={task.id} className="flex items-baseline gap-2">
-              <span className="min-w-0 truncate">{task.title}</span>
+              <span className="min-w-0 truncate"><RichText text={task.title} /></span>
               {task.times && task.times > 1 && <span className="shrink-0 text-stone-500 tabular-nums">×{task.times}</span>}
               {task.path.length > 0 && <span className="min-w-0 shrink-[2] truncate text-stone-500">{task.path.join(" › ")}</span>}
             </li>

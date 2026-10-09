@@ -6,14 +6,15 @@ import type { TaskTreeNode } from "../../types";
 import { formatDay, formatPace } from "../../lib/dates";
 import { TileFrame } from "../Tiles/TileFrame";
 import { pressureColor } from "./pressureColor";
+import { RichText } from "../RichText";
 
 /** Links to the task's page when it has one (big tasks only). */
 function ItemTitle({ taskId, title, trees }: { taskId: string; title: string; trees: TaskTreeNode[] }) {
   const node = findNode(trees, taskId);
-  if (!node || !hasTaskPage(node)) return <span className="min-w-0 truncate font-medium">{title}</span>;
+  if (!node || !hasTaskPage(node)) return <span className="min-w-0 truncate font-medium"><RichText text={title} /></span>;
   return (
     <Link to={`/tasks/${taskId}`} className="min-w-0 truncate font-medium underline-offset-2 hover:underline">
-      {title}
+      <RichText text={title} />
     </Link>
   );
 }

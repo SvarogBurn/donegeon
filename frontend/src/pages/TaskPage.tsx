@@ -10,6 +10,7 @@ import { TreeError, UndoBar } from "../components/TaskTree/TreeStatus";
 import { useCountdown, useTaskTrees } from "../hooks/useTasks";
 import { hasTaskPage } from "../lib/taskPage";
 import type { TaskTreeNode } from "../types";
+import { RichText } from "../components/RichText";
 
 function findNode(nodes: TaskTreeNode[], id: string, depth = 0): { node: TaskTreeNode; depth: number } | null {
   for (const node of nodes) {
@@ -55,7 +56,7 @@ export function TaskPage() {
         ) : (
           <>
             <header className="card flex flex-wrap items-start justify-between gap-4">
-              <h1 className="min-w-0 text-xl font-bold break-words whitespace-pre-line">{found.node.title}</h1>
+              <h1 className="min-w-0 text-xl font-bold break-words whitespace-pre-line"><RichText text={found.node.title} /></h1>
               {canHaveDeadline && (
                 <div className="w-56 shrink-0">
                   <DeadlineFields task={found.node} />

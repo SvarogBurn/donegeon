@@ -50,6 +50,7 @@ In a task:
 | `Enter` | new task below, at the same depth (on an empty new row: close it) |
 | `Ctrl+Enter` | new subtask |
 | `Shift+Enter` | new line inside the title |
+| `Ctrl+B` / `Ctrl+I` / `Ctrl+U` | bold / italic / underline around the selected words |
 | `↑` / `↓` | move between tasks |
 | `Alt+↑` / `Alt+↓` | reorder among siblings |
 | `Delete` at the end of a title | delete the task and its subtasks |
@@ -75,6 +76,20 @@ While adding a task (a list's add field, a new row, the Today box, a day of the 
 | `\` in front | keeps a shortcut as plain text |
 
 Dates: `tomorrow` (`tmr`), a weekday (`fri`, the next one), `next week`, `next month`, `in 3 days`, `3d`, `2w`, `25/12`, `25/12/26`, `25 dec`; after `~` also `today`. A shortcut counts only at the start of a word, and only when adding a task, not when renaming one. Deadlines are for main tasks and their direct subtasks; lists and repeats for main tasks. The same table is in the app, in the Cheat sheet box of the user page.
+
+## Styling a title
+
+Any task's title can hold markup. The markers show while the title is being typed in and are hidden everywhere else.
+
+| Type | Shows as | Key |
+|---|---|---|
+| `**bold**` | bold | `Ctrl+B` |
+| `*italic*` | italic | `Ctrl+I` |
+| `__underline__` | underlined | `Ctrl+U` |
+| `==highlight==` | highlighted | |
+| `~~crossed out~~` | crossed out | |
+
+The keys put the marker around the selected words, or take it off. Styles can sit inside one another (`**a *b* c**`). A marker counts only when it hugs the words and is closed on the same line, so `5 * 3 * 2` and `snake_case` are left alone; a backslash in front of one keeps it as text.
 
 ## Points, rewards, Today
 

@@ -13,6 +13,8 @@ import { useTree } from "../TaskTree/TreeContext";
 import { TileFrame } from "../Tiles/TileFrame";
 import { CAL_BOXES, isOpen, pickDay, useCalendar, useDayPicked, type Info } from "./calendarData";
 import { TaskInfo } from "./TaskInfo";
+import { RichText } from "../RichText";
+import { plainTitle } from "../../lib/markup";
 
 /** How many days the row starts with before and after the day it opens on, and grows by at either end. */
 const DAYS_BEFORE = 7;
@@ -73,7 +75,7 @@ function PlanRow({ item, today, listName, onInfo }: { item: PlanItem; today: str
   return (
     <li data-plan-item={node.id} data-plan-kind={kind} className={`flex items-start gap-2 py-1.5 ${isAhead ? "opacity-60" : ""}`}>
       {kind === "due" ? (
-        <button type="button" className="repeat-button" onClick={() => tree.pressTask(node)} aria-label={`Done "${title}" once more`} />
+        <button type="button" className="repeat-button" onClick={() => tree.pressTask(node)} aria-label={`Done "${plainTitle(title)}" once more`} />
       ) : isAhead ? (
         <span className="glyph w-5 flex-none text-center text-stone-500" aria-hidden>
           ↻
@@ -85,7 +87,7 @@ function PlanRow({ item, today, listName, onInfo }: { item: PlanItem; today: str
           disabled={toggle.isPending || hasOpenSubtasks}
           title={hasOpenSubtasks ? "Tick its subtasks first" : undefined}
           onChange={() => (!node.isComplete && (!node.parentId || tree.ticked === "hide") ? tree.finishTask(node) : toggle.mutate(node.id))}
-          aria-label={`Mark "${title}" ${node.isComplete ? "not done" : "done"}`}
+          aria-label={`Mark "${plainTitle(title)}" ${node.isComplete ? "not done" : "done"}`}
         />
       )}
       <div className="min-w-0 flex-1 space-y-1">
@@ -96,7 +98,7 @@ function PlanRow({ item, today, listName, onInfo }: { item: PlanItem; today: str
           onClick={onInfo}
           className={`block max-w-full cursor-pointer text-left text-sm break-words hover:underline ${node.isComplete ? "text-stone-400 line-through" : ""}`}
         >
-          {title}
+          <RichText text={title} />
         </button>
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-stone-500">
           {path.length > 0 && <span className="min-w-0 truncate">{path.join(" › ")}</span>}
@@ -224,7 +226,7 @@ function DayColumn({ day, today, isSelected, plan, done, lists, onInfo }: DayPro
             {done.map((item) => (
               <li key={item.id} data-done-item={item.id} className="space-y-0.5 py-1.5 text-sm text-stone-500">
                 <button type="button" data-task-name title="More about this task" className="block max-w-full cursor-pointer text-left break-words hover:underline" onClick={() => onInfo({ done: item, day })}>
-                  <span className="glyph !text-xs">✓</span> {item.title}
+                  <span className="glyph !text-xs">✓</span> <RichText text={item.title} />
                   {item.times && item.times > 1 && <span className="tabular-nums"> ×{item.times}</span>}
                 </button>
                 {item.path.length > 0 && <p className="truncate text-xs">{item.path.join(" › ")}</p>}

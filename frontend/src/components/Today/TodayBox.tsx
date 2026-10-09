@@ -14,6 +14,8 @@ import { TaskForm } from "../TaskTree/TaskForm";
 import { TaskTree } from "../TaskTree/TaskNode";
 import { useTree } from "../TaskTree/TreeContext";
 import { TileFrame } from "../Tiles/TileFrame";
+import { RichText } from "../RichText";
+import { plainTitle } from "../../lib/markup";
 
 interface TodayItem {
   node: TaskTreeNode;
@@ -45,7 +47,7 @@ function todayItems(trees: TaskTreeNode[], today: string, ticked: TickedTasks): 
       const shown = node.isComplete ? ticked !== "hide" && node.completedOn === today : !rootFinished;
       const isIn = node.todaySince !== null || (path.length === 0 && isDue(node, today));
       if (isIn && shown && !livesInToday(node)) found.push({ node, path, pageId });
-      visit(node.children, [...path, firstLine(node.title)], rootFinished || (path.length === 0 && node.isComplete), pageId);
+      visit(node.children, [...path, plainTitle(firstLine(node.title))], rootFinished || (path.length === 0 && node.isComplete), pageId);
     }
   };
   visit(trees, [], false, null);
@@ -96,7 +98,7 @@ function TodayRow({ node, path, pageId, today }: TodayItem & { today: string }) 
             type="button"
             className="repeat-button"
             onClick={() => tree.pressTask(node)}
-            aria-label={`Done "${node.title}" once more`}
+            aria-label={`Done "${plainTitle(node.title)}" once more`}
           />
         ) : (
           <PixelCheckbox
@@ -105,10 +107,10 @@ function TodayRow({ node, path, pageId, today }: TodayItem & { today: string }) 
             disabled={toggle.isPending || hasOpenSubtasks}
             title={hasOpenSubtasks ? "Tick its subtasks first" : undefined}
             onChange={() => (!node.isComplete && (!node.parentId || tree.ticked === "hide") ? tree.finishTask(node) : toggle.mutate(node.id))}
-            aria-label={`Mark "${node.title}" ${node.isComplete ? "not done" : "done"}`}
+            aria-label={`Mark "${plainTitle(node.title)}" ${node.isComplete ? "not done" : "done"}`}
           />
         )}
-        <span className={`min-w-0 truncate ${node.isComplete ? "text-stone-400 line-through" : ""}`}>{firstLine(node.title)}</span>
+        <span className={`min-w-0 truncate ${node.isComplete ? "text-stone-400 line-through" : ""}`}><RichText text={firstLine(node.title)} /></span>
         {path.length > 0 && <span className="min-w-0 shrink-[2] truncate text-stone-500">{path.join(" › ")}</span>}
         <span className="ml-auto flex items-center gap-1.5">
           {isPersistent && pressedToday > 0 && <span className="text-xs text-stone-500 tabular-nums">×{pressedToday} today</span>}
@@ -126,7 +128,7 @@ function TodayRow({ node, path, pageId, today }: TodayItem & { today: string }) 
             type="button"
             className="btn-quiet glyph disabled:invisible"
             disabled={node.todaySince === null}
-            aria-label={`Take "${firstLine(node.title)}" out of Today`}
+            aria-label={`Take "${plainTitle(firstLine(node.title))}" out of Today`}
             title="Take out of Today (the task itself stays where it is)"
             onClick={() => setToday.mutate({ id: node.id, today: false })}
           >
