@@ -63,6 +63,23 @@ out("time to finish: median of 0, 2, 3, 3 days", await cell("Time to finish", "W
 out("written to deadline: 2 days ahead", await cell("Time to finish", "Written to deadline") === "2 days", await cell("Time to finish", "Written to deadline"));
 out("buckets: same day 1, longest first bucket holds the rest", await bar("Time to finish", "Same day") === "1", await p.locator('section[aria-label="Time to finish"] [data-bar]').evaluateAll((els) => els.map((el) => `${el.dataset.bar}=${el.dataset.value}`).join(" ")));
 out("unorganized: the loose end only", await cell("Unorganized", "Open tasks") === "1", await cell("Unorganized", "Open tasks"));
+{ // A click on a number lists the tasks it counts.
+  const tasks = p.locator("[data-stat-tasks]");
+  await p.locator('section[aria-label="Unorganized"] [data-summary="Open tasks"]').click(); await wait(300);
+  out("a click on Open tasks lists the open tasks it counts", await tasks.locator("[data-stat-task]").count() === 1, await tasks.innerText().catch(() => "no list"));
+  await p.keyboard.press("Escape"); await wait(200);
+  await p.locator('section[aria-label="Done stats"] [data-summary="All time"]').click(); await wait(300);
+  out("a click on Done / All time lists everything done", await tasks.locator("[data-stat-task]").count() === Number(await cell("Done stats", "All time")), await tasks.locator("[data-stat-task]").count());
+  await p.keyboard.press("Escape"); await wait(200);
+  await p.locator('section[aria-label="Deadlines"] [data-summary="Hard on time"]').click(); await wait(300);
+  out("a click on Hard on time lists them, with how late", (await tasks.innerText()).includes("1 day late"));
+  await p.keyboard.press("Escape"); await wait(200);
+  out("Escape closes the list", await tasks.count() === 0);
+  await p.locator('section[aria-label="Unorganized"] [data-summary="Open tasks"]').click(); await wait(300);
+  await tasks.locator("[data-stat-task]").click(); await p.waitForSelector("[data-task-row]"); await wait(600);
+  out("a click on a listed task goes to its row on the Tasks page", new URL(p.url()).pathname === "/" && await p.locator("[data-task-row][data-found]").count() === 1);
+  await p.goBack(); await p.waitForSelector('section[aria-label="Unorganized"]'); await wait(600);
+}
 const group = (name) => p.locator(`section[aria-label="By list, goal or tag"] [data-group="${name}"] [data-group-done]`).innerText();
 out("by list: 4 done in List", await group("List") === "4", await group("List"));
 await p.locator('section[aria-label="By list, goal or tag"] button:text-is("Goals")').click(); await wait(200);

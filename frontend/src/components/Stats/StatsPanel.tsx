@@ -23,15 +23,19 @@ import {
   shareOverTime,
   streaks,
   turnaround,
+  weekdayIndex,
+  type Completion,
   type GroupKey,
   type StatFilter,
+  type StatTask,
 } from "../../lib/stats";
-import { daysBetween } from "../../lib/dates";
+import { addDays, daysBetween, formatDay } from "../../lib/dates";
 import { SummaryCells } from "../Countdown/sheet";
 import { normalizeLayout, withHidden, type DashboardLayout } from "../../lib/tileLayout";
 import { HiddenRow } from "../Tiles/HiddenRow";
 import { TileFrame } from "../Tiles/TileFrame";
 import { TileGrid } from "../Tiles/TileGrid";
+import { TaskCells, type ListedTask } from "./TaskListDialog";
 import { BalanceChart, Bars, CalendarDots, Empty, HourGrid, Note, ShareBars, type ShareSegment } from "./charts";
 
 const RANGES: [StatFilter["range"], string][] = [
@@ -163,6 +167,24 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
   const counts = periodCounts(byDay, today);
   const streak = streaks(byDay, today);
 
+  // What the numbers count, for the list a click on one opens. Newest first; presses of one task on one day are one row.
+  const listDone = (isIn: (day: string) => boolean): ListedTask[] => {
+    const rows = new Map<string, ListedTask & { day: string }>();
+    for (const { day, task } of done as Completion[]) {
+      if (!isIn(day)) continue;
+      const row = rows.get(`${task.id}:${day}`);
+      if (row) row.times = (row.times ?? 1) + 1;
+      else rows.set(`${task.id}:${day}`, { task, day, note: formatDay(day) });
+    }
+    return [...rows.values()].sort((a, b) => b.day.localeCompare(a.day));
+  };
+  const monday = addDays(today, -weekdayIndex(today));
+  const listed = (tasks: StatTask[], note: (task: StatTask) => string | undefined): ListedTask[] => tasks.map((task) => ({ task, note: note(task) }));
+  const partOf = ({ createdAt }: StatTask) => {
+    const hour = createdAt.getHours();
+    return DAY_PARTS.findIndex(({ from: start, to }) => (start < to ? hour >= start && hour < to : hour >= start || hour < to));
+  };
+
   const created = createdGrid(written);
 
   const due = finished.filter((task) => task.deadlineDate);
@@ -285,12 +307,12 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
       label: "Done",
       node: (
         <StatFrame title="Done" tone="record" chart={DONE_COLOR} aria-label="Done stats">
-          <SummaryCells
+          <TaskCells
             cells={[
-              ["Today", counts.today],
-              ["This week", counts.week],
-              ["This month", counts.month],
-              ["All time", counts.all],
+              ["Today", counts.today, "Done today", listDone((day) => day === today)],
+              ["This week", counts.week, "Done this week", listDone((day) => day >= monday && day <= today)],
+              ["This month", counts.month, "Done this month", listDone((day) => day.startsWith(today.slice(0, 7)) && day <= today)],
+              ["All time", counts.all, "Done, all time", listDone(() => true)],
             ]}
           />
           <SummaryCells
@@ -313,7 +335,17 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
             <Empty>No tasks written down in these dates.</Empty>
           ) : (
             <>
-              <SummaryCells cells={DAY_PARTS.map(({ name }, i) => [name, percent(created.parts[i] / created.total)] as const)} />
+              <TaskCells
+                cells={DAY_PARTS.map(
+                  ({ name }, i) =>
+                    [
+                      name,
+                      percent(created.parts[i] / created.total),
+                      `Written down: ${name.toLowerCase()}`,
+                      listed(written.filter((task) => partOf(task) === i).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()), (task) => formatDay(task.createdOn)),
+                    ] as const,
+                )}
+              />
               <HourGrid grid={created.grid} max={created.max} />
               <Note>
                 When tasks were written down, by this device's clock. {DAY_PARTS.map(({ name, from: start, to }) => `${name} ${start}-${to}h`).join(", ")}.
@@ -332,7 +364,20 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
             <Empty>No finished tasks with a deadline in these dates.</Empty>
           ) : (
             <>
-              <SummaryCells cells={outcome.map(({ type, total, onTime }) => [`${type === "hard" ? "Hard" : "Soft"} on time`, total ? `${onTime}/${total} · ${percent(onTime / total)}` : "-"] as const)} />
+              <TaskCells
+                cells={outcome.map(
+                  ({ type, total, onTime }) =>
+                    [
+                      `${type === "hard" ? "Hard" : "Soft"} on time`,
+                      total ? `${onTime}/${total} · ${percent(onTime / total)}` : "-",
+                      `Finished with a ${type} deadline`,
+                      // The late ones first, latest first.
+                      listed(due.filter((task) => task.deadlineKind === type).sort((a, b) => daysEarly(a) - daysEarly(b)), (task) =>
+                        daysEarly(task) >= 0 ? "on time" : `${-daysEarly(task)} ${daysEarly(task) === -1 ? "day" : "days"} late`,
+                      ),
+                    ] as const,
+                )}
+              />
               <Bars
                 aria-label="Finished early or late"
                 rows={earlyLateBuckets(due).map(({ label, count, late }) => ({ label, value: count, color: late ? "var(--chart-late)" : undefined }))}
@@ -444,20 +489,8 @@ export function useStatBoxes(): { boxes: PageBox[] | null; error: Error | null }
       label: "Unorganized",
       node: (
         <TileFrame title="Unorganized" tone="setup" aria-label="Unorganized">
-          <SummaryCells cells={[["Open tasks", loose.length]]} />
-          <Note>Open main tasks with no deadline, goal or tag.</Note>
-          {loose.length > 0 && (
-            <details className="text-sm">
-              <summary className="cursor-pointer text-xs text-stone-500">Show them</summary>
-              <ul className="mt-1 space-y-0.5">
-                {loose.map((task) => (
-                  <li key={task.id} className="truncate">
-                    {task.title.split("\n")[0]}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
+          <TaskCells cells={[["Open tasks", loose.length, "Unorganized open tasks", listed(loose, () => undefined)]]} />
+          <Note>Open main tasks with no deadline, goal or tag. Click the number to see them.</Note>
         </TileFrame>
       ),
     },
