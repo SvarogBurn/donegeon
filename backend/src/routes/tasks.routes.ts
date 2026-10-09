@@ -32,6 +32,9 @@ const taskInput = z.object({
   tagIds: z.array(z.string().uuid()).max(50).optional(),
   /** Where to insert among the new siblings; omitted = at the end. */
   index: index.optional(),
+  /** A main task written into a day of the calendar starts with that day as its deadline; soft unless said otherwise. */
+  deadlineDate: localDate.optional(),
+  deadlineType: z.enum(["hard", "soft"]).optional(),
 });
 
 const taskPatch = z.object({
@@ -354,6 +357,7 @@ tasksRouter.post("/", async (req, res) => {
   const listId = input.listId ?? null;
 
   if (parentId && listId) throw new HttpError(400, "A task goes either in a list or under a parent task");
+  if (parentId && input.deadlineDate) throw new HttpError(400, "Only a main task can start with a deadline");
   if (parentId) await ownTask(req, parentId);
   if (listId) await assertOwnList(req, listId);
   await assertOwnLabels(req, input.goalIds, input.tagIds);
@@ -367,6 +371,8 @@ tasksRouter.post("/", async (req, res) => {
         title: input.title,
         notes: input.notes || null,
         startDate: req.localDate,
+        deadlineDate: input.deadlineDate,
+        deadlineType: input.deadlineDate ? (input.deadlineType ?? "soft") : undefined,
         // Without a list or a parent it was written straight into Today, and lives only there until moved to a list.
         todaySince: parentId || listId ? null : req.localDate,
         goals: { connect: (input.goalIds ?? []).map((id) => ({ id })) },

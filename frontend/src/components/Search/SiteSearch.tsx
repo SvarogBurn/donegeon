@@ -14,6 +14,7 @@ const TYPING_PAUSE_MS = 200;
 const PLACES: [title: string, path: string, tile: string | null, words?: string][] = [
   ["Tasks", "/", null, "home lists dashboard"],
   ["Stats", "/stats", null, "statistics charts"],
+  ["Calendar", "/calendar", null, "days month planner upcoming"],
   ["Done", "/done", null, "finished history log"],
   ["Points", "/points", null, "balance history rewards"],
   ["Account", "/user", null, "user settings log out password feedback tutorial"],

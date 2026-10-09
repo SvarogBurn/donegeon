@@ -5,8 +5,11 @@ export interface TileControls {
   /** For the buttons' labels: "Today", 'list "Chores"'. */
   name: string;
   isPinned: boolean;
-  onTogglePin: () => void;
+  /** Absent where there is no band to pin to (the Calendar page). */
+  onTogglePin?: () => void;
   onDragStart: (e: ReactPointerEvent<HTMLElement>) => void;
+  /** What the tab button says it does, where that is not moving among the tiles of a grid. */
+  dragTitle?: string;
   /** Minimizes the tile away (it can be brought back from the "Hidden" row under the grid); absent on tiles that can't be hidden. */
   onHide?: () => void;
 }
@@ -41,20 +44,22 @@ export function TileFrame({ title, actions, tone = "blue", className = "", child
         <h2 className="tile-title">{title}</h2>
         {controls && (
           <>
-            <button
-              type="button"
-              className="tile-button tile-button-pin"
-              aria-pressed={controls.isPinned}
-              aria-label={`${controls.isPinned ? "Unpin" : "Pin"} ${controls.name}`}
-              title={controls.isPinned ? "Unpin: back into the columns" : "Pin to the top of the page"}
-              onClick={controls.onTogglePin}
-            />
+            {controls.onTogglePin && (
+              <button
+                type="button"
+                className="tile-button tile-button-pin"
+                aria-pressed={controls.isPinned}
+                aria-label={`${controls.isPinned ? "Unpin" : "Pin"} ${controls.name}`}
+                title={controls.isPinned ? "Unpin: back into the columns" : "Pin to the top of the page"}
+                onClick={controls.onTogglePin}
+              />
+            )}
             <button
               type="button"
               className="tile-button tile-button-tab"
               onPointerDown={controls.onDragStart}
               aria-label={`Drag to move ${controls.name}`}
-              title="Drag to move: above or below another tile, or into another column"
+              title={controls.dragTitle ?? "Drag to move: above or below another tile, or into another column"}
             />
             {controls.onHide && (
               <button

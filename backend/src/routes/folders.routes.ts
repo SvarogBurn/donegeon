@@ -8,8 +8,8 @@ import { color } from "./lists.routes.js";
 
 const name = z.string().trim().min(1, "Name is required").max(60);
 
-/** The boxes a folder shows: lists ("list:<id>") and boxes of the stats ("stat:<name>"). */
-export const viewsSchema = z.array(z.string().regex(/^(list:[0-9a-f-]{36}|stat:[a-z]{1,30})$/i, "No such box")).max(200);
+/** The boxes a folder shows: lists ("list:<id>"), boxes of the stats ("stat:<name>") and of the calendar ("cal:<name>"). */
+export const viewsSchema = z.array(z.string().regex(/^(list:[0-9a-f-]{36}|stat:[a-z]{1,30}|cal:[a-z]{1,30})$/i, "No such box")).max(200);
 
 const folderInput = z.object({
   name: name.optional(),

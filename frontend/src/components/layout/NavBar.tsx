@@ -77,6 +77,10 @@ export function NavBar({ user }: { user: User }) {
             <span className="tab-icon tab-icon-stats" aria-hidden />
             Stats
           </NavLink>
+          <NavLink to="/calendar" className={tab} aria-label="Calendar">
+            <span className="tab-icon tab-icon-calendar" aria-hidden />
+            Calendar
+          </NavLink>
           <FolderTabs tab={tab} isNewShown={isNewShown} onNewUsed={() => setIsNewShown(false)} />
         </nav>
         <Link to="/" className="logo h-[42px] max-sm:hidden" aria-label="Donegeon" />

@@ -47,6 +47,9 @@ export const createTask = (body: {
   index?: number;
   goalIds?: string[];
   tagIds?: string[];
+  /** Main tasks only: the day it is written into in the calendar, as a soft deadline unless said otherwise. */
+  deadlineDate?: string;
+  deadlineType?: "hard" | "soft";
 }) =>
   api<{ task: Task }>("/tasks", { body }).then((r) => r.task);
 export const updateTask = (id: string, body: TaskChanges) =>

@@ -14,6 +14,8 @@
 export interface DashboardLayout {
   pinned: string[];
   hidden?: string[];
+  /** The Tasks page's only: boxes of other pages (the calendar's, "cal:<name>") that it shows too. */
+  extras?: string[];
   byColumns: Record<string, string[][]>;
 }
 
@@ -52,7 +54,7 @@ export function normalizeLayout(layout: DashboardLayout | null | undefined): Das
   const byColumns: Record<string, string[][]> = {};
   if (wide ?? legacyWide) byColumns.wide = (wide ?? legacyWide)!;
   if (phone ?? legacy["1"]) byColumns.phone = (phone ?? legacy["1"])!;
-  return { pinned: layout.pinned, hidden: layout.hidden ?? [], byColumns };
+  return { pinned: layout.pinned, hidden: layout.hidden ?? [], extras: layout.extras ?? [], byColumns };
 }
 
 /** The saved arrangement for a screen that fits `n` columns, if there is one to go by. */

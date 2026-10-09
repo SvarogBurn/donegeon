@@ -46,3 +46,4 @@ Each script signs up a fresh `uitest…` account. Remove them afterwards:
 ```sh
 docker compose exec -T db psql -U donegeon -c "DELETE FROM \"User\" WHERE username LIKE 'uitest%'"
 ```
+| `calendar.mjs` | the Calendar page: the tab, the Days row starting at today with deadlines / overdue / scheduled rounds / Today marks on their days, done things on days gone by, "+ Add" on a day (soft deadline in the list), ticking and pressing from a day, picking a day in the month, no scroll bar and no end either way (arrows, mouse drag), the month naming its tasks, the task dialog and where it leads (list, big task page), dragging a box onto Tasks and onto "New" (a folder), phone width |

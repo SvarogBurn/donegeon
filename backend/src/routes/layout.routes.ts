@@ -16,6 +16,8 @@ const column = z.array(key).max(200);
 export const layoutSchema = z.object({
   pinned: column,
   hidden: column.optional(),
+  /** The dashboard's only: boxes of other pages (the calendar's, "cal:<name>") that are shown on it too. */
+  extras: column.optional(),
   byColumns: z.record(z.string().min(1).max(10), z.array(column).max(4)).refine((r) => Object.keys(r).length <= 8),
 });
 

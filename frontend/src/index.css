@@ -292,6 +292,9 @@
   .tab-icon-stats {
     background-image: url("../../assets/icons/21x21stats_icon_v1.svg");
   }
+  .tab-icon-calendar {
+    background-image: url("../../assets/icons/21x21calendar_icon_v1.svg");
+  }
   /* This one is 15x15 art pixels: kept at the same pixel size as the others, so it sits smaller in its square. */
   .tab-icon-user {
     @apply bg-size-[15px] sm:bg-size-[30px];
