@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Navigate, Outlet } from "react-router";
 import { useMe } from "../../hooks/useAuth";
 import { BreakReminder } from "../BreakReminder";
@@ -8,6 +9,13 @@ import { NavBar } from "./NavBar";
 /** Wraps every logged-in page; sends anonymous visitors to /login. */
 export function AppShell() {
   const { user, isLoading, error } = useMe();
+  // The account's theme, on the page itself so that popups drawn outside the shell follow it too (see index.css).
+  const plainFont = user?.plainFont ?? false;
+  useEffect(() => {
+    if (!plainFont) return;
+    document.documentElement.dataset.font = "plain";
+    return () => void delete document.documentElement.dataset.font;
+  }, [plainFont]);
 
   if (isLoading) return <p className="p-8 text-center text-sm text-stone-500">Loading…</p>;
   if (error) return <p className="p-8 text-center text-sm text-red-600">Can't reach the server: {error.message}</p>;

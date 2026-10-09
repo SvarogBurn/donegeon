@@ -20,11 +20,12 @@ per check. They are scripts, not a test runner suite.
 | `logout.mjs` | log out lands on the login page, stays logged out, works again after logging back in |
 | `account.mjs` | Delete account on the user page: off until `donegeon/<username>` is typed, the server refusing a wrong phrase, landing on the login page, the account gone, other devices logged out |
 | `todayopen.mjs` | clicking a row in the Today box: a big task opens its page with the table, a subtask of one opens that big task's page, a task with subtasks but no page shows them (the arrow too), a small task stays put, the checkbox and × still do their own thing |
+| `font.mjs` | the Theme setting "Plain font in boxes": the text inside the boxes (tasks, subtasks, goals, the settings) in an ordinary font, titles and the task bar still pixel, kept over a reload, switched off again, phone width |
 | `repeat.mjs` | tasks on a schedule: every N days / weeks / months, due today and in Today by itself, done and undone, late rounds, planned days vs after done, taking the schedule off |
 | `subpoints.mjs` | points on subtasks: their own amount, the main task's amount handed down, ticking and unticking, switching it off |
 | `colors.mjs` | a list's own colour: the band and the switch take it, light colours get a dark title, any other colour, back to the kind's own |
 | `folders.mjs` | folders as tabs of the task bar: dropping lists on New / a folder (a copy: the list stays on Tasks), the folder's page, taking a box out by dropping it on Tasks, stats boxes copied into a folder, name and colour by click, right-click and hold, removing a folder |
-| `stats.mjs` | the Stats page: done counts, streaks (the streak in the user page's Account box too), dots, deadlines, time to finish, per list / goal, moving, pinning and hiding every box (the filter too), a second column, the filter, phone width |
+| `stats.mjs` | the Stats page: done counts, streaks (the streak and the tasks done this year in the user page's Account box too), dots, deadlines, time to finish, per list / goal, moving, pinning and hiding every box (the filter too), a second column, the filter, phone width |
 | `tutorial.mjs` | the tutorial from welcome to send-off: each step waits for what it asks for, the spot and arrow follow, finishing, repeating it from the settings, skipping, phone width |
 | `ticked.mjs` | ticked tasks sit under the open ones: subtasks within their task, main tasks within their list, back in place when unticked, Alt+↑ / Alt+↓ stepping over them; no ticking a task before its subtasks; the user page's choice for ticked tasks (bottom, stay, hide) |
 | `feedback.mjs` | the "Send mail to devs" box on the user page: laid out as an email, bug or feature, sending, the thanks, phone width |

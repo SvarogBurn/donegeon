@@ -17,6 +17,8 @@ export interface User {
   pointsCap: number | null;
   /** A reminder to take a break after every so many tasks done in a day; null (the default) = none. */
   breakEvery: number | null;
+  /** Theme: the text inside the boxes is in an ordinary font instead of the pixel one. */
+  plainFont: boolean;
   /** One of the developers' accounts: its page has the inbox of the suggestion box. */
   isDev: boolean;
 }

@@ -68,6 +68,8 @@ model User {
   breakEvery      Int?
   // Whether the tutorial was finished or skipped; it shows until then, and again when asked for in the settings.
   tutorialSeen    Boolean  @default(false)
+  // Theme: the text inside the boxes in an ordinary font instead of the pixel one; titles keep the pixel font.
+  plainFont       Boolean  @default(false)
 
   goals             Goal[]
   tags              Tag[]

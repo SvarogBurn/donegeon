@@ -135,12 +135,17 @@ health check.
 ## Your account
 
 Your icon and name at the right of the task bar open your own page, which is
-where Log out is.
+where Log out is. Its Account box also shows your streak and how many tasks you have done this calendar year (counted as the Stats page counts them: ticks and presses of repeating tasks, rewards left out).
 
 **Delete account**, in the same box, deletes the account and everything in it
 (tasks, lists, folders, goals, tags, points, stats, mail sent to the devs) for
 good, and logs it out everywhere. It asks first, and only goes ahead once
 `donegeon/<your username>` has been typed.
+
+Under **Theme** in the Settings box, **Plain font in boxes** shows the text inside the boxes in an ordinary
+font (a little larger, as it is much narrower) instead of the pixel one: tasks and subtasks, goals and tags, Today,
+Done, the stats, these settings, and the small menus and dialogs. Titles keep the pixel font: the band of each box,
+the task bar, the search field. It is saved per account.
 
 ## The tutorial
 

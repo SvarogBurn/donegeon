@@ -38,6 +38,7 @@ const publicUser = (user: User) => ({
   tutorialSeen: user.tutorialSeen,
   pointsCap: user.pointsCap,
   breakEvery: user.breakEvery,
+  plainFont: user.plainFont,
   isDev: isDev(user.username),
 });
 
@@ -45,6 +46,7 @@ const settings = z
   .object({
     tickedTasks: z.enum(["bottom", "stay", "hide"]),
     tutorialSeen: z.boolean(),
+    plainFont: z.boolean(),
     /** null = no cap. */
     pointsCap: z.number().int().min(1, "A cap is at least 1 point").max(MAX_POINTS).nullable(),
     /** null = no reminder. */

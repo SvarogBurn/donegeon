@@ -125,15 +125,17 @@ export function countByDay(completions: Completion[]) {
   return counts;
 }
 
-/** Done today, this week (from Monday), this month, and ever. */
+/** Done today, this week (from Monday), this month, this year, and ever. */
 export function periodCounts(byDay: Map<string, number>, today: string) {
   const monday = addDays(today, -weekdayIndex(today));
   const month = today.slice(0, 7);
-  const counts = { today: byDay.get(today) ?? 0, week: 0, month: 0, all: 0 };
+  const year = today.slice(0, 4);
+  const counts = { today: byDay.get(today) ?? 0, week: 0, month: 0, year: 0, all: 0 };
   for (const [day, count] of byDay) {
     counts.all += count;
     if (day >= monday && day <= today) counts.week += count;
     if (day.startsWith(month) && day <= today) counts.month += count;
+    if (day.startsWith(year) && day <= today) counts.year += count;
   }
   return counts;
 }

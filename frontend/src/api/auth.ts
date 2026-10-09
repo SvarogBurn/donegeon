@@ -9,4 +9,4 @@ export const login = (body: Credentials) => api<{ user: User }>("/auth/login", {
 export const logout = () => api("/auth/logout", { method: "POST" });
 /** `confirm` is "donegeon/<username>", typed by the user. */
 export const deleteMe = (confirm: string) => api("/auth/me", { method: "DELETE", body: { confirm } });
-export const updateMe =(body: Partial<Pick<User, "tickedTasks" | "tutorialSeen" | "pointsCap" | "breakEvery">>) => api<{ user: User }>("/auth/me", { method: "PATCH", body }).then((r) => r.user);
+export const updateMe =(body: Partial<Pick<User, "tickedTasks" | "tutorialSeen" | "pointsCap" | "breakEvery" | "plainFont">>) => api<{ user: User }>("/auth/me", { method: "PATCH", body }).then((r) => r.user);

@@ -9,7 +9,7 @@ import { TileFrame } from "../components/Tiles/TileFrame";
 import { useDeleteAccount, useLogout, useMe, useUpdateMe } from "../hooks/useAuth";
 import { useLists, useStatRows } from "../hooks/useTasks";
 import { typedPoints } from "../lib/points";
-import { collectStats, countByDay, streaks } from "../lib/stats";
+import { collectStats, countByDay, periodCounts, streaks } from "../lib/stats";
 import type { TickedTasks } from "../types";
 
 const TICKED_CHOICES: [TickedTasks, string][] = [
@@ -24,12 +24,15 @@ const TICKED_NOTES: Record<TickedTasks, string> = {
   hide: "A ticked task leaves the Tasks tab and your folders at once. It is on the Done page, where it can be unticked.",
 };
 
-/** Days in a row with at least one task done, as the Stats page counts them with no filter set. Nothing while it loads. */
+/** Days in a row with at least one task done and the tasks done this year, as the Stats page counts them with no filter set. Nothing while it loads. */
 function Streak() {
   const rows = useStatRows();
   const lists = useLists();
   if (!rows.data || !lists.data) return null;
-  const { current, longest } = streaks(countByDay(collectStats(rows.data, lists.data).completions), localDate());
+  const today = localDate();
+  const byDay = countByDay(collectStats(rows.data, lists.data).completions);
+  const { current, longest } = streaks(byDay, today);
+  const { year } = periodCounts(byDay, today);
 
   return (
     <>
@@ -45,6 +48,12 @@ function Streak() {
             {longest}
           </span>{" "}
           <span className="text-sm text-stone-500">longest</span>
+        </p>
+        <p>
+          <span className="text-2xl font-bold tabular-nums" data-done-year={year}>
+            {year}
+          </span>{" "}
+          <span className="text-sm text-stone-500">done in {today.slice(0, 4)}</span>
         </p>
       </div>
       <p className="text-xs text-stone-500">Do at least one task a day to keep it going.</p>
@@ -235,6 +244,17 @@ export function UserPage() {
           name="break-every"
           note={breakNote}
         />
+        {/* How the app looks. */}
+        <h3 className="border-t-2 border-stone-300 pt-3 font-pixel text-xs text-stone-500 dark:border-stone-700">Theme</h3>
+        <label className="flex items-center gap-2 text-xs">
+          <PixelCheckbox small checked={user.plainFont} onChange={(e) => update.mutate({ plainFont: e.target.checked })} data-plain-font />
+          Plain font in boxes
+        </label>
+        <p className="text-xs text-stone-500">
+          {user.plainFont
+            ? "The text inside the boxes (tasks, goals, these settings, ...) is in an ordinary font. Titles keep the pixel font."
+            : "Everything is written in the pixel font."}
+        </p>
         {/* The tutorial shows while the account has not seen it: this says it hasn't, and goes where it starts. */}
         <button
           type="button"
