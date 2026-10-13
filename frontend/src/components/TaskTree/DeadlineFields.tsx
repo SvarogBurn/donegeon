@@ -73,7 +73,12 @@ export function DateField({ value, onChange, label = "Deadline date" }: DateFiel
         aria-hidden
         className="pointer-events-none absolute right-0 bottom-0 size-0 opacity-0"
         value={value ?? ""}
-        onChange={(e) => onChange(e.target.value || null)}
+        onChange={(e) => {
+          onChange(e.target.value || null);
+          // The calendar's button was clicked to get here and still has the focus: Enter would open the calendar
+          // again. With the day picked it lets go, so in the task menu Enter is OK.
+          if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+        }}
       />
       {isInvalid && <p className="mt-1 text-xs text-red-600">Use day/month/year, e.g. 07/10/2026</p>}
     </div>

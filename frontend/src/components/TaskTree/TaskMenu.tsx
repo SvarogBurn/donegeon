@@ -261,7 +261,19 @@ export function TaskMenu({ node, depth, onAddSubtask }: Props) {
     const onPointerDown = (e: PointerEvent) => {
       if (!ref.current?.contains(e.target as Node)) setIsOpen(false);
     };
-    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && setIsOpen(false);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsOpen(false);
+      if (e.key !== "Enter" || e.isComposing || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+      // Enter is OK: it saves the field being typed in and closes. Not where the key has a job of its own: on a
+      // button (the calendar, Add subtask, the ⋯ itself), in a dropdown, in the calendar's own field. A switch
+      // that is one of a pair (Hard / Soft) was set by its click, so there Enter is OK too.
+      const target = e.target as HTMLElement;
+      if (target.closest("select, input[type=date]") || target.closest("button:not([aria-pressed])")) return;
+      e.preventDefault();
+      // Leaving a typed field saves it. A date that can't be read keeps the menu open, with its message.
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      if (!menu.current?.querySelector('[aria-invalid="true"]')) setIsOpen(false);
+    };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
     return () => {
@@ -313,8 +325,8 @@ export function TaskMenu({ node, depth, onAddSubtask }: Props) {
               Delete task
             </button>
           </div>
-          {/* Everything above is saved as it is changed (a typed field when it is left); OK just says so and closes. */}
-          <button type="button" className="nes-btn is-primary btn" title="Changes are saved; close this menu" onClick={() => setIsOpen(false)}>
+          {/* Everything above is saved as it is changed (a typed field when it is left); OK just says so and closes. Enter does the same. */}
+          <button type="button" className="nes-btn is-primary btn" title="Changes are saved; close this menu (Enter)" onClick={() => setIsOpen(false)}>
             OK
           </button>
         </div>
