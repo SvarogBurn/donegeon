@@ -57,8 +57,35 @@ interface Place {
 const GAP = 62;
 const BUBBLE = 352;
 
-/** A hole in the dim over `rect`, with a little room around it: a piece of the clip-path. */
-const hole = (rect: Rect) => `M${rect.left - 6} ${rect.top - 6}h${rect.width + 12}v${rect.height + 12}h${-rect.width - 12}Z`;
+/** Narrower than this is a phone: the words are kept small and some steps are left out. */
+const NARROW = 640;
+
+/**
+ * The part of the page that can be seen, in the page's own coordinates: less than the window while a phone's
+ * keyboard is up. Looked at again whenever it changes.
+ */
+function useVisibleArea(): Rect {
+  const read = (): Rect => {
+    const view = window.visualViewport;
+    return view
+      ? { top: Math.round(view.offsetTop), left: Math.round(view.offsetLeft), width: Math.round(view.width), height: Math.round(view.height) }
+      : { top: 0, left: 0, width: window.innerWidth, height: window.innerHeight };
+  };
+  const [area, setArea] = useState(read);
+  useEffect(() => {
+    const look = () => setArea((was) => (JSON.stringify(was) === JSON.stringify(read()) ? was : read()));
+    const view = window.visualViewport;
+    view?.addEventListener("resize", look);
+    view?.addEventListener("scroll", look);
+    window.addEventListener("resize", look);
+    return () => {
+      view?.removeEventListener("resize", look);
+      view?.removeEventListener("scroll", look);
+      window.removeEventListener("resize", look);
+    };
+  }, []);
+  return area;
+}
 interface Found {
   rect: Rect | null;
   /** The menu the target is a part of, if it is: the words keep clear of all of it. */
@@ -93,7 +120,14 @@ function useTargetRects(selectors: string[], also: string[], step: number): Foun
       if (el && scrolled.current !== `${step} ${matched}`) {
         scrolled.current = `${step} ${matched}`;
         // Something in a menu or in the task bar is brought into sight without moving the page more than it takes.
-        el.scrollIntoView({ block: el.closest("header, [role=dialog]") ? "nearest" : "center", inline: "nearest", behavior: "smooth" });
+        // Something taller than there is room for is shown from its top, not its middle; with its top in sight already, or all of the screen under it, it is left where it is.
+        const seen = window.visualViewport?.height ?? window.innerHeight;
+        const size = el.getBoundingClientRect();
+        const isTall = size.height > seen * 0.6;
+        const fillsScreen = size.top <= 0 && size.bottom >= seen;
+        if (!isTall || !(fillsScreen || (size.top >= 0 && size.top <= seen * 0.4))) {
+          el.scrollIntoView({ block: el.closest("header, [role=dialog]") ? "nearest" : isTall ? "start" : "center", inline: "nearest", behavior: "smooth" });
+        }
       }
       const rect = el ? box(el) : null;
       const dialog = el?.parentElement?.closest("[role=dialog]");
@@ -146,6 +180,7 @@ function Running({ user }: { user: User }) {
     lists: lists.data ?? [],
     folders: folders.data ?? [],
     hidden: layout.data?.hidden?.length ?? 0,
+    hiddenBoxes: layout.data?.hidden ?? [],
     arranged: hash(JSON.stringify([layout.data?.pinned ?? [], layout.data?.byColumns ?? {}])),
     columns: (layout.data?.byColumns.wide ?? []).filter((column) => column.length > 0).length,
     path,
@@ -153,9 +188,14 @@ function Running({ user }: { user: User }) {
     base: progress.base,
     known: progress.known,
     isTouch: stored(() => matchMedia("(pointer: coarse)").matches, false),
+    isNarrow: window.innerWidth < NARROW,
   };
   const isEntered = progress.entered === progress.step;
   const isShown = !step.dark && isEntered;
+  const area = useVisibleArea();
+  // The words folded away to a single button, to see all of the screen; a new step unfolds them.
+  const [isFolded, setIsFolded] = useState(false);
+  useEffect(() => setIsFolded(false), [progress.step]);
   const { rect, frame, more } = useTargetRects(isShown ? (step.target?.(ctx) ?? []) : [], isShown ? (step.also?.(ctx) ?? []) : [], progress.step);
   // The dark opening covers the page's scrollbar too: the page doesn't scroll under it.
   useEffect(() => {
@@ -218,7 +258,7 @@ function Running({ user }: { user: User }) {
   const waits = Boolean(step.done) || progress.step === MAKE_TASK;
   const words = (
     <>
-      <p className="text-sm">{step.text(ctx)}</p>
+      <p className={`text-sm max-sm:text-xs ${step.dark ? "" : "pr-6"}`}>{step.text(ctx)}</p>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button type="button" className="btn-quiet" onClick={end}>
           Skip tutorial
@@ -233,6 +273,11 @@ function Running({ user }: { user: User }) {
           </button>
         )}
       </div>
+      {!step.dark && (
+        <button type="button" className="btn-quiet glyph absolute top-1 right-1" aria-label="Fold the tutorial's words away" title="Out of the way; they come back with the button it leaves" data-tutorial-fold onClick={() => setIsFolded(true)}>
+          –
+        </button>
+      )}
     </>
   );
 
@@ -246,61 +291,100 @@ function Running({ user }: { user: User }) {
   // The app's data is still on its way: the first step that shows the app waits for it.
   if (!isReady || !isEntered) return null;
 
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const width = Math.min(BUBBLE, vw - 16);
-  const within = (value: number, size: number, room: number) => Math.max(8, Math.min(value, room - size - 8));
+  // What can be seen of the page: less than the window while a phone's keyboard is up.
+  const vw = area.width;
+  const seenTop = area.top;
+  const seenBottom = area.top + area.height;
+  const isNarrow = window.innerWidth < NARROW;
+  const width = Math.min(isNarrow ? 300 : BUBBLE, vw - 16);
+  const across = (value: number, size: number) => area.left + Math.max(8, Math.min(value - area.left, vw - size - 8));
+  const down = (value: number, size: number) => Math.max(seenTop + 8, Math.min(value, seenBottom - size - 8));
   // The words go under the thing they are about, over it, or beside it: the first of those with room for them.
-  // With room nowhere (it fills the screen) or nothing to point at, they sit at the bottom, clear of the task bar.
-  let place: Place | null = null;
-  if (rect && height > 0) {
-    // A part of a menu: the words go beside the whole menu, and the arrow comes in level with the part.
-    const around = frame ?? rect;
-    const bottom = around.top + around.height;
-    const right = around.left + around.width;
-    const x = rect.left + rect.width / 2;
-    const y = within(rect.top + rect.height / 2 - 10, 20, vh) + 10;
-    const left = within(x - width / 2, width, vw);
-    const top = within(y - height / 2, height, vh);
-    const ax = within(x - 25, 50, vw) + 25;
-    const sides: Record<string, false | Place> = {
-      below: vh - bottom >= GAP + height + 8 && { top: bottom + GAP, left, arrow: { x: ax, y: bottom + GAP / 2, points: "up" } },
-      above: around.top >= GAP + height + 8 && { top: around.top - GAP - height, left, arrow: { x: ax, y: around.top - GAP / 2, points: "down" } },
-      right: vw - right >= GAP + width + 8 && { top, left: right + GAP, arrow: { x: right + GAP / 2, y, points: "left" } },
-      left: around.left >= GAP + width + 8 && { top, left: around.left - GAP - width, arrow: { x: around.left - GAP / 2, y, points: "right" } },
-    };
-    const order = frame ? ["left", "right", "below", "above"] : [step.side ?? "below", "below", "above", "right", "left"];
-    place = order.map((side) => sides[side]).find((side) => side !== false) ?? null;
+  // With room nowhere (it fills the screen) they go along the top or the bottom, whichever covers less of it;
+  // with nothing to point at, along the bottom. Along the bottom they keep clear of the task bar.
+  let place: Place | { top: number; left: number; arrow: null } | null = null;
+  if (height > 0 && !isFolded) {
+    const bar = document.querySelector("header")?.getBoundingClientRect().top ?? window.innerHeight;
+    const atBottom = Math.max(seenTop + 8, Math.min(seenBottom, bar) - height - 12);
+    const atTop = seenTop + 8;
+    const middle = area.left + (vw - width) / 2;
+    place = { top: atBottom, left: middle, arrow: null };
+    if (rect) {
+      // A part of a menu: the words go beside the whole menu, and the arrow comes in level with the part.
+      // A thing in a box that is lit with it (the field of a list): the words keep clear of the whole box, where the new task will land.
+      const holds = (box: Rect) => box.top <= rect.top && box.left <= rect.left && box.top + box.height >= rect.top + rect.height && box.left + box.width >= rect.left + rect.width;
+      const box = more.filter(holds).sort((a, b) => a.width * a.height - b.width * b.height)[0];
+      const around = frame ?? box ?? rect;
+      const bottom = around.top + around.height;
+      const right = around.left + around.width;
+      const x = rect.left + rect.width / 2;
+      const y = down(rect.top + rect.height / 2 - 10, 20) + 10;
+      const left = across(x - width / 2, width);
+      const top = down(y - height / 2, height);
+      const ax = across(x - 25, 50) + 25;
+      const sides: Record<string, false | Place> = {
+        below: Math.min(seenBottom, bar) - bottom >= GAP + height + 8 && { top: bottom + GAP, left, arrow: { x: ax, y: bottom + GAP / 2, points: "up" } },
+        above: around.top - seenTop >= GAP + height + 8 && { top: around.top - GAP - height, left, arrow: { x: ax, y: around.top - GAP / 2, points: "down" } },
+        right: area.left + vw - right >= GAP + width + 8 && { top, left: right + GAP, arrow: { x: right + GAP / 2, y, points: "left" } },
+        left: around.left - area.left >= GAP + width + 8 && { top, left: around.left - GAP - width, arrow: { x: around.left - GAP / 2, y, points: "right" } },
+      };
+      const order = frame ? ["left", "right", "below", "above"] : [step.side ?? "below", "below", "above", "right", "left"];
+      const beside = order.map((side) => sides[side]).find((side) => side !== false);
+      const covered = (from: number) => Math.max(0, Math.min(from + height, bottom) - Math.max(from, around.top));
+      if (beside) place = beside;
+      else if (covered(atTop) < covered(atBottom)) place = { top: atTop, left: middle, arrow: null };
+    }
   }
-  const bubble: CSSProperties = place
-    ? { width, top: place.top, left: place.left }
-    : { width, left: (vw - width) / 2, bottom: "calc(var(--bar-h, 5rem) + 1rem)" };
+  const bubble: CSSProperties = { width, top: place?.top ?? 0, left: place?.left ?? 0, maxHeight: isNarrow ? Math.round(area.height * 0.45) : undefined, visibility: place ? undefined : "hidden" };
+  const holes = rect ? [rect, ...more] : [];
 
   return (
     <>
       {rect && (
         <>
-          {/* Everything is dimmed but the things the step is about: a hole is cut in the dim over each. */}
-          <div className="tutorial-dim" style={{ clipPath: `path(evenodd, "M0 0H${vw}V${vh}H0Z${[rect, ...more].map(hole).join("")}")` }} aria-hidden />
+          {/* Everything is dimmed but the things the step is about: a hole is masked out of the dim over each. */}
+          <svg className="tutorial-dim" aria-hidden>
+            <mask id="tutorial-holes">
+              <rect width="100%" height="100%" fill="white" />
+              {holes.map((hole, i) => (
+                <rect key={i} data-tutorial-hole x={hole.left - 6} y={hole.top - 6} width={hole.width + 12} height={hole.height + 12} fill="black" />
+              ))}
+            </mask>
+            <rect className="tutorial-shade" width="100%" height="100%" mask="url(#tutorial-holes)" />
+          </svg>
           <div className="tutorial-spot" data-tutorial-spot style={{ top: rect.top - 6, left: rect.left - 6, width: rect.width + 12, height: rect.height + 12 }} aria-hidden />
         </>
       )}
-      {place && (
+      {place?.arrow && !step.noArrow && (
         <div className="tutorial-arrow" data-points={place.arrow.points} style={{ left: place.arrow.x - 25, top: place.arrow.y - 10 }} aria-hidden />
       )}
-      <div
-        ref={bubbleEl}
-        className="card fixed z-[60] space-y-3 !p-3 shadow-lg"
-        style={bubble}
-        role="dialog"
-        aria-label="Tutorial"
-        aria-live="polite"
-        data-tutorial={progress.step}
-        // Not a click "elsewhere" for the menus and the task bar, which close on one.
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        {words}
-      </div>
+      {isFolded ? (
+        <button
+          type="button"
+          className="nes-btn is-primary btn-small fixed right-2 z-[60]"
+          style={{ bottom: "calc(var(--bar-h, 5rem) + 0.75rem)" }}
+          data-tutorial={progress.step}
+          data-tutorial-unfold
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => setIsFolded(false)}
+        >
+          Tutorial ▸
+        </button>
+      ) : (
+        <div
+          ref={bubbleEl}
+          className="card fixed z-[60] space-y-3 overflow-y-auto !p-3 shadow-lg max-sm:space-y-2 max-sm:!p-2"
+          style={bubble}
+          role="dialog"
+          aria-label="Tutorial"
+          aria-live="polite"
+          data-tutorial={progress.step}
+          // Not a click "elsewhere" for the menus and the task bar, which close on one.
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {words}
+        </div>
+      )}
     </>
   );
 }

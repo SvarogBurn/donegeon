@@ -251,13 +251,21 @@
     outline-offset: -2px;
   }
   /*
-   * The tutorial. The dim covers the screen but for holes cut where the things being talked about are (a clip-path,
+   * The tutorial. The dim covers the screen but for holes cut where the things being talked about are (an SVG mask,
    * set by the component); it is over the task bar (z-40) and under the menus (z-50), and lets every click through.
    * The spot is the hole the arrow points at, there to be found; it draws nothing.
    */
   .tutorial-dim {
-    @apply pointer-events-none fixed inset-0 z-[45];
-    background: rgb(0 0 0 / 0.65);
+    @apply pointer-events-none fixed inset-0 z-[45] size-full;
+  }
+  .tutorial-shade {
+    fill: rgb(0 0 0 / 0.65);
+  }
+  /* On a phone less of the page is lit at a time, so what is not is kept easier to make out. */
+  @media (width < 40rem) {
+    .tutorial-shade {
+      fill: rgb(0 0 0 / 0.5);
+    }
   }
   .tutorial-spot {
     @apply pointer-events-none fixed z-[45];

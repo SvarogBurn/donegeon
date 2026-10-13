@@ -9,6 +9,8 @@ export interface TutorialContext {
   folders: Folder[];
   /** How many boxes of the Tasks page are minimized. */
   hidden: number;
+  /** Which ones: their keys ("search", "tags", "list:<id>"). */
+  hiddenBoxes: string[];
   /** Changes whenever the boxes of the Tasks page are arranged differently. */
   arranged: number;
   /** How many columns the boxes of the Tasks page are in, as far as it was ever arranged. */
@@ -21,6 +23,8 @@ export interface TutorialContext {
   /** The main tasks there were when the user was told to make one. */
   known: string[];
   isTouch: boolean;
+  /** A phone's width: the steps that only show something more are left out, and the words are kept small. */
+  isNarrow: boolean;
 }
 
 export interface Step {
@@ -33,6 +37,8 @@ export interface Step {
   also?: (ctx: TutorialContext) => string[];
   /** Where the words go if there is room there, rather than under or over the target. */
   side?: "right";
+  /** The target is lit but not pointed at: there is nothing to do with it. */
+  noArrow?: boolean;
   /** Set on <html> (as data-...) while the step is on, for index.css to show something that is otherwise out of sight. */
   flag?: string;
   /** The page this step happens on, opened when the step begins. */
@@ -60,6 +66,15 @@ const name = (ctx: TutorialContext) => <b>{ctx.task?.title.split("\n")[0]}</b>;
 const subtasks = (ctx: TutorialContext) => ctx.task?.descendantCount ?? 0;
 const views = (ctx: TutorialContext) => ctx.folders.reduce((sum, folder) => sum + folder.views.length, 0);
 const rewardLists = (ctx: TutorialContext) => ctx.lists.filter((list) => list.kind === "reward").length;
+/** Main tasks that carry something a typed shortcut sets: points, a deadline, a Today mark, a tag, a goal or a schedule. */
+const withShortcuts = (ctx: TutorialContext) =>
+  ctx.tasks.filter((task) => task.points !== null || task.deadlineDate || task.isPersistent || task.tagIds.length + task.goalIds.length > 0 || (task.todaySince && task.listId)).length;
+const withDeadline = (ctx: TutorialContext) => ctx.tasks.filter((task) => task.deadlineDate).length;
+/** Every list's box: lit where something is made, so the new thing doesn't land in the dark. */
+const LISTS = '[data-tile^="list:"]';
+/** The box of the list the tutorial's task is in. */
+const listOf = (ctx: TutorialContext) => `${LISTS}:has(${row(ctx)})`;
+const ADD_FIELD = '[data-tile^="list:"] [data-task-editor^="add:"]';
 const FOLDER_EDITOR = 'nav [role="dialog"][aria-label^="Folder"]';
 
 /** Something said under one's breath: folded away behind the little arrow (the one that folds subtasks away). */
@@ -84,8 +99,8 @@ export const STEPS: Step[] = [
     text: () => (
       <>
         <b>Welcome to Donegeon.</b>
-        <br />A gamified task manager where you sweat and do tasks to earn points with me. Then, you spend those points on doing
-        things you enjoy and love (like scrolling YouTube, you filthy degenerate. I've seen your history). Gotta love capitalism
+        <br />A gamified task manager where you do tasks to earn points with me. Then, you spend those points on doing
+        things you enjoy and love (like scrolling YouTube, playing games, building passion projects). Gotta love capitalism
         babeeeyy~!
       </>
     ),
@@ -117,6 +132,7 @@ export const STEPS: Step[] = [
       </>
     ),
     target: () => ['[data-tile^="list:"] [data-task-editor^="add:"]', '[data-tile^="list:"]', '[data-tile="newList"]'],
+    also: () => [LISTS],
     // `done` here is seen to by the tutorial itself: it has to note which task was made.
   },
   {
@@ -148,6 +164,7 @@ export const STEPS: Step[] = [
       </>
     ),
     target: (ctx) => [tree(ctx)],
+    also: (ctx) => [listOf(ctx)],
     done: (ctx) => subtasks(ctx) >= 1,
   },
   {
@@ -159,6 +176,7 @@ export const STEPS: Step[] = [
       </>
     ),
     target: (ctx) => [tree(ctx)],
+    also: (ctx) => [listOf(ctx)],
     done: (ctx) => subtasks(ctx) >= 2,
   },
   {
@@ -166,6 +184,7 @@ export const STEPS: Step[] = [
     route: "/",
     text: () => <b>Another.</b>,
     target: (ctx) => [tree(ctx)],
+    also: (ctx) => [listOf(ctx)],
     done: (ctx) => subtasks(ctx) >= 3,
   },
   {
@@ -180,6 +199,7 @@ export const STEPS: Step[] = [
       </>
     ),
     target: (ctx) => [tree(ctx)],
+    also: (ctx) => [listOf(ctx)],
     done: (ctx) => subtasks(ctx) >= 4,
   },
   {
@@ -187,9 +207,13 @@ export const STEPS: Step[] = [
       <>
         <b>I'm just messing with you.</b> You can stop breaking it down into baby steps. Although breaking it down as much as you
         can, helps.
+        <br />
+        By default a subtask is worth no points. It can also be worth what its main task is, or have an amount of its own.
       </>
     ),
     target: (ctx) => [tree(ctx)],
+    also: (ctx) => [listOf(ctx)],
+    noArrow: true,
     needsTask: true,
     button: "Very funny",
   },
@@ -198,7 +222,7 @@ export const STEPS: Step[] = [
     route: "/",
     text: () => (
       <>
-        Every task has a <b>⋯</b> at the end of its row. Imagine,... I know a guy who went his whole life without touching those three dots.
+        Every task has a <b>⋯</b> at the end of its row... I know a guy who went his whole life without touching those three dots.
         Not you though. You are <i>modern</i> and <i>sleek</i>. <b>Open it.</b>
       </>
     ),
@@ -213,7 +237,7 @@ export const STEPS: Step[] = [
   },
   {
     needsTask: true,
-    text: () => <>Here are the points you earn or loose. Every task can have its own amount, subtasks too. Leave it empty and it's worth what its list says.</>,
+    text: () => <>Here are the points you earn or loose. Every task can have its own amount, subtasks too. Leave it empty and it'll have the points from the list by default.</>,
     target: (ctx) => [part("points"), MENU, dots(ctx)],
     button: "Next",
   },
@@ -221,10 +245,10 @@ export const STEPS: Step[] = [
     needsTask: true,
     text: () => (
       <>
-        Two types of deadlines to watch out for: Hard and soft, or as my friend Snaker says, Erect and Flaccid.
+        Two types of deadlines to watch out for: Hard and soft, or as my friend Snake says, Erect and Flaccid.
         <br />
         Hard deadlines are things you must do. Miss it and there are consequences.
-        <br />A Soft one is self-imposed, the kind that says "I'll do it tomorrow".
+        <br />A Soft ones are self-imposed, the kind that says "I'll do it tomorrow".
       </>
     ),
     target: (ctx) => [part("deadline"), MENU, dots(ctx)],
@@ -255,7 +279,7 @@ export const STEPS: Step[] = [
       <>
         you can attribute goals or other tags to tasks. I recommend giving each big task a goal so you don't get lost in the sauce
         and do tasks just to do them. Later, when creating a list, you can give it tags or goals too, so they automatically transfer to it's
-        tasks.
+        tasks. You can also filter by going to the goals or tags panel so it shows only tasks from that goal/task.
       </>
     ),
     target: (ctx) => [part("labels"), MENU, dots(ctx)],
@@ -280,8 +304,8 @@ export const STEPS: Step[] = [
     route: "/",
     text: (ctx) => (
       <>
-        There it is. Your {name(ctx)}. Every deadline you have lands in this one table, day by day, with how many related tasks you
-        need to do per day to make it. It only gets worse from here.
+        There it is. Your {name(ctx)}. Every deadline you have lands in this one table, with how many related tasks you
+        need to do per day to make it.
       </>
     ),
     target: () => ['section[aria-label="All deadlines"]', 'section[aria-label="Deadline pressure"]'],
@@ -325,6 +349,64 @@ export const STEPS: Step[] = [
     route: "/",
     text: () => (
       <>
+        Most of what the menu does can be typed. Add a task and put a shortcut in its title, for example <b>Buy milk @today 5p</b>. The
+        chips under the field show what the task will get.
+      </>
+    ),
+    // The field to type in, with what opens under it: the dropdown and the chips.
+    target: () => [ADD_FIELD, '[data-tile^="list:"]'],
+    also: () => [LISTS, "[data-syntax-options]", "[data-syntax-chips]"],
+    note: (ctx) => ({ typed: withShortcuts(ctx) }),
+    done: (ctx) => withShortcuts(ctx) > ctx.base.typed,
+  },
+  {
+    route: "/",
+    text: () => (
+      <>
+        <b>#tag</b>, <b>^goal</b>, <b>@date</b> for a hard deadline, <b>~date</b> for a soft one, <b>/list</b> to send it to another
+        list. A backslash in front keeps the character as plain text. The whole list is on your user page.
+      </>
+    ),
+    target: () => [ADD_FIELD, '[data-tile^="list:"]'],
+    also: () => [LISTS],
+    // On a phone the one shortcut just tried is enough; the rest is on the cheat sheet.
+    skip: (ctx) => ctx.isNarrow,
+    button: "Next",
+  },
+  {
+    route: "/",
+    text: (ctx) => (
+      <>
+        Titles can be styled. {!ctx.isTouch && (
+          <>
+            Select some words and press <b>Ctrl+B</b>, <b>Ctrl+I</b> or <b>Ctrl+U</b>. You can also type the markers yourself:
+          </>
+        )}
+        {ctx.isTouch && "Type the markers around the words:"} **bold**, *italic*, __underline__, ==highlight==, ~~crossed out~~.
+      </>
+    ),
+    target: (ctx) => [...(ctx.task ? [row(ctx)] : []), ADD_FIELD, '[data-tile^="list:"]'],
+    // Its keys want a keyboard.
+    skip: (ctx) => ctx.isNarrow,
+    button: "Next",
+  },
+  {
+    route: "/",
+    text: () => (
+      <>
+        The search looks through everything: tasks (finished ones too), lists, goals, tags and pages. Picking a goal or a tag filters the
+        lists by it.
+      </>
+    ),
+    target: () => ["[data-site-search]"],
+    // Minimized away: nothing to point at.
+    skip: (ctx) => ctx.hiddenBoxes.includes("search"),
+    button: "Next",
+  },
+  {
+    route: "/",
+    text: () => (
+      <>
         Here you make lists. They are a collections of tasks.
         <br />
         Now make a new list. I want you to flip its
@@ -332,6 +414,7 @@ export const STEPS: Step[] = [
       </>
     ),
     target: () => ['[data-tile="newList"]'],
+    also: () => [LISTS],
     note: (ctx) => ({ rewards: rewardLists(ctx) }),
     done: (ctx) => rewardLists(ctx) > ctx.base.rewards,
   },
@@ -390,6 +473,53 @@ export const STEPS: Step[] = [
   {
     text: () => (
       <>
+        Deadlines are easier to read on a calendar. Click <b>Calendar</b>.
+      </>
+    ),
+    target: () => ['header nav [aria-label="Calendar"]'],
+    done: (ctx) => ctx.path === "/calendar",
+  },
+  {
+    route: "/calendar",
+    text: () => (
+      <>
+        Each column is a day, starting today. A day lists what is due on it: deadlines, repeating tasks, and what you marked for Today.
+        Drag the row sideways, or use the arrows, to see other days.
+      </>
+    ),
+    target: () => ['section[aria-label="Days"]'],
+    button: "Next",
+  },
+  {
+    route: "/calendar",
+    text: () => (
+      <>
+        Press <b>+ Add</b> under a day and write a task. It gets that day as a soft deadline.
+      </>
+    ),
+    // The button to press; then the field it opens.
+    target: () => ["[data-add-on]", 'section[aria-label="Days"] [aria-label^="Add a task on"]'],
+    also: () => ['section[aria-label="Days"]'],
+    // A day only offers "+ Add" when there is a task list to add to.
+    skip: (ctx) => !ctx.lists.some((list) => list.kind === "task"),
+    note: (ctx) => ({ dated: withDeadline(ctx) }),
+    done: (ctx) => withDeadline(ctx) > ctx.base.dated,
+  },
+  {
+    route: "/calendar",
+    text: () => (
+      <>
+        The month shows how much is due and done on each day. Click a day to bring the Days row to it, or a task's name to see more about
+        it. Both boxes can be moved, like the ones on Tasks.
+      </>
+    ),
+    target: () => ['section[aria-label="Calendar"]'],
+    skip: (ctx) => ctx.isNarrow,
+    button: "Next",
+  },
+  {
+    text: () => (
+      <>
         For separate views of only some tasks or only rewards or whatever, make a folder.
         <br />
         Hit + New, give it a name and a colour, press Enter.
@@ -410,15 +540,15 @@ export const STEPS: Step[] = [
     // No folder was made: none to show, and none to fill in the step after.
     skip: (ctx) => ctx.folders.length <= ctx.base.folders,
     text: () => <>An empty folder. Impressive.</>,
+    // The whole page is lit: the emptiness is the thing to see.
     target: () => ["[data-folder-title]"],
+    also: () => ["main"],
     button: "Next",
   },
   {
     route: "/",
     text: () => (
       <>
-        An empty folder. Impressive.
-        <br />
         You can fill it with your lists and junk from the Tasks screen or the Stats screen. The folder only shows a copy of the
         actual list.
         <br />
@@ -430,6 +560,35 @@ export const STEPS: Step[] = [
     also: () => ["[data-folder-tab]"],
     skip: (ctx) => ctx.folders.length === 0,
     done: (ctx) => views(ctx) > ctx.base.views,
+  },
+  {
+    text: () => <>Your own page is under your name. Click it.</>,
+    target: () => ['header [aria-label="Account"]'],
+    done: (ctx) => ctx.path === "/user",
+  },
+  {
+    route: "/user",
+    text: () => (
+      <>
+        Your streak counts the days in a row with at least one task done. In Settings you can cap your points, ask for a break reminder,
+        switch the boxes to a plain font, and start this tutorial again.
+      </>
+    ),
+    target: () => ['section[aria-label="Settings"]'],
+    also: () => ['section[aria-label="Account"]'],
+    button: "Next",
+  },
+  {
+    route: "/user",
+    text: () => (
+      <>
+        The cheat sheet lists every shortcut and key. If something is broken or missing, the box above it sends a message to the
+        developers.
+      </>
+    ),
+    target: () => ["[data-cheatsheet]"],
+    also: () => ['section[aria-label="Send mail to devs"]'],
+    button: "Next",
   },
   {
     text: () => <>And that's it. I'm tired. You want to change something? Your settings are under your name. Fuck around and find out.</>,

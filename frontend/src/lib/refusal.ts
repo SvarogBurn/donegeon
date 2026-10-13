@@ -1,3 +1,5 @@
+import { isUnreachable } from "../api/client";
+
 /**
  * A tick or a "done it" press the server refused (over the points cap, not
  * enough points, points already spent...): what it said, and where on the
@@ -27,6 +29,8 @@ function set(next: Refusal | null) {
 
 /** Shows why the last click did nothing, next to what was clicked. */
 export function refuse(error: Error) {
+  // Not a refusal: the server never heard of it, and the notice at the top of the page says so.
+  if (isUnreachable(error)) return;
   const recent = clicked && Date.now() - clicked.time < CLICK_IS_OLD_MS ? clicked : null;
   // Where it is now, or, if the click took it off the screen (a finished task leaves its list), where it was.
   const box = recent && (recent.el.isConnected ? recent.el.getBoundingClientRect() : recent.box);
