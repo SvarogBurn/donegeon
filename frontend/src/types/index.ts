@@ -4,6 +4,9 @@ import type { DashboardLayout } from "../lib/tileLayout";
 /** What the lists do with a ticked task: put it under the open ones, leave it where it is, or take it out of sight. */
 export type TickedTasks = "bottom" | "stay" | "hide";
 
+/** When a task with a deadline (hard or soft) comes into Today by itself: never, on the day of its deadline, or from the day before. */
+export type DeadlineToday = "never" | "day" | "dayBefore";
+
 /** What a message from the suggestion box is about. */
 export type FeedbackKind = "bug" | "feature";
 
@@ -11,6 +14,9 @@ export interface User {
   id: string;
   username: string;
   tickedTasks: TickedTasks;
+  /** Lists show their tasks soonest date first (deadline, or the next day of a schedule), those without a date under them. */
+  sortByDeadline: boolean;
+  deadlineToday: DeadlineToday;
   /** False until the tutorial was finished or skipped: it shows while this is false. */
   tutorialSeen: boolean;
   /** The most points the balance can hold; null (the default) = no cap. */

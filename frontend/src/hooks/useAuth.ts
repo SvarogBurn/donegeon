@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import * as authApi from "../api/auth";
 import { ApiError } from "../api/client";
-import type { TickedTasks, User } from "../types";
+import type { DeadlineToday, TickedTasks, User } from "../types";
 
 export const ME = ["me"];
 
@@ -23,6 +23,16 @@ export function useMe() {
 /** What the lists do with a ticked task; under the open ones unless the user chose otherwise on their page. */
 export function useTickedTasks(): TickedTasks {
   return useMe().user?.tickedTasks ?? "bottom";
+}
+
+/** Whether lists show their tasks soonest date first, instead of in the user's own order; off unless switched on on their page. */
+export function useSortByDeadline(): boolean {
+  return useMe().user?.sortByDeadline ?? false;
+}
+
+/** When a task with a deadline comes into Today by itself; never, unless the user chose otherwise on their page. */
+export function useDeadlineToday(): DeadlineToday {
+  return useMe().user?.deadlineToday ?? "never";
 }
 
 /** A setting of the account's: shows at once and is saved in the background. */

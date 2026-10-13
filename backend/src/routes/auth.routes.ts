@@ -35,6 +35,8 @@ const publicUser = (user: User) => ({
   id: user.id,
   username: user.username,
   tickedTasks: user.tickedTasks,
+  sortByDeadline: user.sortByDeadline,
+  deadlineToday: user.deadlineToday,
   tutorialSeen: user.tutorialSeen,
   pointsCap: user.pointsCap,
   breakEvery: user.breakEvery,
@@ -45,6 +47,8 @@ const publicUser = (user: User) => ({
 const settings = z
   .object({
     tickedTasks: z.enum(["bottom", "stay", "hide"]),
+    sortByDeadline: z.boolean(),
+    deadlineToday: z.enum(["never", "day", "dayBefore"]),
     tutorialSeen: z.boolean(),
     plainFont: z.boolean(),
     /** null = no cap. */

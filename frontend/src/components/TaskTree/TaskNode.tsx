@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 import { useAddTask, useGoals, useTags, useToggleTask, useUpdateTask } from "../../hooks/useTasks";
 import { localDate } from "../../api/client";
 import { formatDay } from "../../lib/dates";
+import { soonestFirst } from "../../lib/deadlines";
 import { isFiltering } from "../../lib/labels";
 import { isDue, isWaiting, repeatLabel } from "../../lib/repeat";
 import { hasTaskPage } from "../../lib/taskPage";
@@ -330,14 +331,16 @@ interface TaskTreeProps {
 const tickedLast = (nodes: TaskTreeNode[]) => [...nodes.filter((n) => !n.isComplete), ...nodes.filter((n) => n.isComplete)];
 
 export function TaskTree({ nodes, parentId, listId, depth = 0 }: TaskTreeProps) {
-  const { draft, ticked } = useTree();
+  const { draft, ticked, byDeadline } = useTree();
+  // If the user chose so: soonest date first. Shown that way only, like the ticked ones: nothing is moved.
+  const ordered = byDeadline ? soonestFirst(nodes) : nodes;
   const draftIsHere = draft !== null && draft.parentId === parentId && (parentId !== null || draft.listId === listId);
 
   return (
     <ul>
       {draftIsHere && draft.afterId === null && <DraftRow />}
       {/* Unless the user chose otherwise: then every task keeps its place, ticked or not. */}
-      {(ticked === "bottom" ? tickedLast(nodes) : nodes).map((node) => (
+      {(ticked === "bottom" ? tickedLast(ordered) : ordered).map((node) => (
         <Fragment key={node.id}>
           <TaskNode node={node} depth={depth} />
           {draftIsHere && draft.afterId === node.id && <DraftRow />}

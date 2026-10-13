@@ -2,12 +2,14 @@ import { useEffect, useState, type MouseEvent } from "react";
 import { useNavigate } from "react-router";
 import { localDate } from "../../api/client";
 import { PixelCheckbox } from "../PixelCheckbox";
+import { useDeadlineToday } from "../../hooks/useAuth";
 import { usePoints, useSetToday, useSetTodayPoints, useToggleTask } from "../../hooks/useTasks";
 import { daysBetween } from "../../lib/dates";
+import { deadlineTodayFrom } from "../../lib/deadlines";
 import { pointsFieldWidth, typedPoints } from "../../lib/points";
 import { isDue } from "../../lib/repeat";
 import { hasTaskPage } from "../../lib/taskPage";
-import type { TaskTreeNode, TickedTasks } from "../../types";
+import type { DeadlineToday, TaskTreeNode, TickedTasks } from "../../types";
 import { ValueChip } from "../Points/ValueChip";
 import { PressCopies } from "../TaskTree/PressCopies";
 import { TaskForm } from "../TaskTree/TaskForm";
@@ -19,6 +21,8 @@ import { plainTitle } from "../../lib/markup";
 
 interface TodayItem {
   node: TaskTreeNode;
+  /** The day it came into Today: marked for it, due (a task on a schedule), or its deadline near. */
+  since: string;
   /** Titles of the tasks it sits under, outermost first. */
   path: string[];
   /** The big task whose page a click on the row opens: the item itself, or else the nearest one it sits under. Null = none. */
@@ -30,38 +34,37 @@ const firstLine = (title: string) => title.split("\n")[0];
 /** Written straight into Today: a main task with no list. It is shown here as a full, editable task. */
 const livesInToday = (node: TaskTreeNode) => !node.parentId && !node.listId;
 
-/** The day an item came into Today: marked for it, or (a task on a schedule) due. */
-const since = (node: TaskTreeNode) => node.todaySince ?? node.nextDue!;
-
 /**
  * Everything from the lists that is marked for Today, at any depth, plus the main tasks on a
- * schedule that are due: those come in by themselves and leave when done. Open items stay from day to day;
+ * schedule that are due and, if the user chose so, the tasks whose deadline is near (`deadlines`): those come in by
+ * themselves and leave when done. Open items stay from day to day;
  * a ticked one stays for the rest of the day it was ticked on (or goes at once, if the user chose to hide
  * ticked tasks). Subtasks left open inside a finished main task went to the Done page with it.
  */
-function todayItems(trees: TaskTreeNode[], today: string, ticked: TickedTasks): TodayItem[] {
+function todayItems(trees: TaskTreeNode[], today: string, ticked: TickedTasks, deadlines: DeadlineToday): TodayItem[] {
   const found: TodayItem[] = [];
   const visit = (nodes: TaskTreeNode[], path: string[], rootFinished: boolean, abovePageId: string | null) => {
     for (const node of nodes) {
       const pageId = hasTaskPage(node) ? node.id : abovePageId;
       const shown = node.isComplete ? ticked !== "hide" && node.completedOn === today : !rootFinished;
-      const isIn = node.todaySince !== null || (path.length === 0 && isDue(node, today));
-      if (isIn && shown && !livesInToday(node)) found.push({ node, path, pageId });
+      const fromDeadline = deadlineTodayFrom(node, deadlines);
+      const since = node.todaySince ?? (path.length === 0 && isDue(node, today) ? node.nextDue : null) ?? (fromDeadline !== null && fromDeadline <= today ? fromDeadline : null);
+      if (since !== null && shown && !livesInToday(node)) found.push({ node, since, path, pageId });
       visit(node.children, [...path, plainTitle(firstLine(node.title))], rootFinished || (path.length === 0 && node.isComplete), pageId);
     }
   };
   visit(trees, [], false, null);
   // Longest-waiting first; ticked ones under the open ones, unless the user chose to leave them where they are.
   const tickedLast = (item: TodayItem) => Number(ticked === "bottom" && item.node.isComplete);
-  return found.sort((a, b) => tickedLast(a) - tickedLast(b) || since(a.node).localeCompare(since(b.node)));
+  return found.sort((a, b) => tickedLast(a) - tickedLast(b) || a.since.localeCompare(b.since));
 }
 
-function TodayRow({ node, path, pageId, today }: TodayItem & { today: string }) {
+function TodayRow({ node, since, path, pageId, today }: TodayItem & { today: string }) {
   const tree = useTree();
   const navigate = useNavigate();
   const toggle = useToggleTask();
   const setToday = useSetToday();
-  const carried = daysBetween(since(node), today);
+  const carried = daysBetween(since, today);
   const isPersistent = node.isPersistent && !node.parentId;
   const pressedToday = node.completions.filter((press) => press.day === today).length;
   const error = setToday.error;
@@ -123,7 +126,7 @@ function TodayRow({ node, path, pageId, today }: TodayItem & { today: string }) 
             </span>
           )}
           <ValueChip node={node} />
-          {/* A task that is here because it is due leaves by being done, not by hand. */}
+          {/* A task that is here because it is due, or its deadline near, leaves by being done, not by hand. */}
           <button
             type="button"
             className="btn-quiet glyph disabled:invisible"
@@ -191,7 +194,8 @@ function TodayPoints() {
 export function TodayBox({ tasks }: { tasks: TaskTreeNode[] }) {
   const { dropTarget, ticked } = useTree();
   const today = localDate();
-  const items = todayItems(tasks, today, ticked);
+  const deadlines = useDeadlineToday();
+  const items = todayItems(tasks, today, ticked, deadlines);
   const own = tasks.filter((task) => livesInToday(task) && (!task.isComplete || (ticked !== "hide" && task.completedOn === today)));
   const left = [...items.map((item) => item.node), ...own].filter((node) => !node.isComplete && !node.isPersistent).length;
 

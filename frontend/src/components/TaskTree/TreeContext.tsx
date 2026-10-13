@@ -13,7 +13,8 @@ import type { TaskPlacement } from "../../api/tasks";
 import { edgeScroller } from "../../lib/edgeScroll";
 import { NO_FILTER, type LabelFilter } from "../../lib/labels";
 import { isShown } from "../../lib/recent";
-import { useTickedTasks } from "../../hooks/useAuth";
+import { useSortByDeadline, useTickedTasks } from "../../hooks/useAuth";
+import { orderDay } from "../../lib/deadlines";
 import {
   useDeleteList,
   useDeleteTask,
@@ -56,6 +57,8 @@ interface TreeContextValue {
   rootId: string | null;
   /** What the lists do with a ticked task: the user's choice on their page. */
   ticked: TickedTasks;
+  /** Tasks are shown soonest date first, those without a date under them: the user's choice on their page. */
+  byDeadline: boolean;
   draggingId: string | null;
   dropTarget: DropTarget | null;
   /** Call from the drag handle's onPointerDown. Works for mouse and touch. */
@@ -130,6 +133,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [undoable, setUndoable] = useState<Undoable[]>([]);
   const ticked = useTickedTasks();
+  const byDeadline = useSortByDeadline();
   const move = useMoveTask();
   const toggle = useToggleTask();
   const press = usePressTask();
@@ -340,8 +344,10 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       const siblings = siblingsOf(node);
       // The swap is with the row next to it on screen. Ticked tasks shown under the open ones: step over siblings of
       // the other kind. Otherwise rows are in their own order, and a list leaves out the ticked ones it no longer shows.
+      // Shown soonest date first: a task only changes places with those of its own day, or with the others that have none.
       const steppedOver = (sibling: TaskTreeNode) =>
-        ticked === "bottom" ? sibling.isComplete !== node.isComplete : rootId === null && !isShown(sibling, ticked);
+        (byDeadline && orderDay(sibling) !== orderDay(node)) ||
+        (ticked === "bottom" ? sibling.isComplete !== node.isComplete : rootId === null && !isShown(sibling, ticked));
       let index = siblings.findIndex((s) => s.id === node.id) + direction;
       while (siblings[index] && steppedOver(siblings[index])) index += direction;
       if (index < 0 || index >= siblings.length) return;
@@ -349,7 +355,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       // The row is re-inserted in the DOM, which drops focus; put it back.
       move.mutateAsync({ id: node.id, placement }).then(() => focusTaskEditor(node.id), () => {});
     },
-    [move, siblingsOf, ticked, rootId],
+    [move, siblingsOf, ticked, byDeadline, rootId],
   );
 
   const value: TreeContextValue = {
@@ -361,6 +367,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
     newTaskLabels,
     rootId,
     ticked,
+    byDeadline,
     draggingId,
     dropTarget,
     startDrag,

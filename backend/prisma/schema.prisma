@@ -43,6 +43,13 @@ enum TickedTasks {
   hide
 }
 
+// When a task with a deadline (hard or soft) comes into Today by itself: never, on the day of its deadline, or from the day before.
+enum DeadlineToday {
+  never
+  day
+  dayBefore
+}
+
 // What a message from the suggestion box is about.
 enum FeedbackKind {
   bug
@@ -64,6 +71,10 @@ model User {
   todayPoints     Int      @default(2)
   // What the lists do with a ticked task.
   tickedTasks     TickedTasks @default(bottom)
+  // Lists show their tasks soonest date first (deadline, or the next day of a schedule), those without a date under them.
+  sortByDeadline  Boolean  @default(false)
+  // Whether tasks come into Today by themselves when their deadline is near.
+  deadlineToday   DeadlineToday @default(never)
   // The most points the balance can hold: earning past it is refused. null = no cap.
   pointsCap       Int?
   // A reminder to take a break after every so many tasks done in a day; null = no reminder.

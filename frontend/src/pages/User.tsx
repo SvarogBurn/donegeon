@@ -11,7 +11,7 @@ import { useDeleteAccount, useLogout, useMe, useUpdateMe } from "../hooks/useAut
 import { useLists, useStatRows } from "../hooks/useTasks";
 import { typedPoints } from "../lib/points";
 import { collectStats, countByDay, periodCounts, streaks } from "../lib/stats";
-import type { TickedTasks } from "../types";
+import type { DeadlineToday, TickedTasks } from "../types";
 
 const TICKED_CHOICES: [TickedTasks, string][] = [
   ["bottom", "Go to the bottom"],
@@ -23,6 +23,18 @@ const TICKED_NOTES: Record<TickedTasks, string> = {
   bottom: "A ticked task sits under the open ones of its list (a subtask under the open subtasks of its task) for 24 hours, then is only on the Done page.",
   stay: "A ticked task keeps its place for 24 hours, then is only on the Done page.",
   hide: "A ticked task leaves the Tasks tab and your folders at once. It is on the Done page, where it can be unticked.",
+};
+
+const DEADLINE_TODAY_CHOICES: [DeadlineToday, string][] = [
+  ["never", "Are not added to Today"],
+  ["day", "Come into Today on their day"],
+  ["dayBefore", "Come into Today the day before"],
+];
+
+const DEADLINE_TODAY_NOTES: Record<DeadlineToday, string> = {
+  never: "A task is in Today when you put it there, or when it is on a schedule and due.",
+  day: "A task or subtask with a deadline, hard or soft, comes into Today by itself on the day of its deadline, and stays there until it is done.",
+  dayBefore: "A task or subtask with a deadline, hard or soft, comes into Today by itself the day before its deadline, and stays there until it is done.",
 };
 
 /** Days in a row with at least one task done and the tasks done this year, as the Stats page counts them with no filter set. Nothing while it loads. */
@@ -227,6 +239,31 @@ export function UserPage() {
           </select>
         </label>
         <p className="text-xs text-stone-500">{TICKED_NOTES[user.tickedTasks]}</p>
+        <label className="flex items-center gap-2 text-xs">
+          <PixelCheckbox small checked={user.sortByDeadline} onChange={(e) => update.mutate({ sortByDeadline: e.target.checked })} data-sort-by-deadline />
+          Soonest date first
+        </label>
+        <p className="text-xs text-stone-500">
+          {user.sortByDeadline
+            ? "In a list, the task with the nearest date (its deadline, or the next day of its schedule) is at the top; tasks without a date are under them, in your own order. Subtasks within their task too."
+            : "Tasks are in the order you put them in."}
+        </p>
+        <label className="flex flex-wrap items-center gap-2 text-xs">
+          Tasks with a deadline
+          <select
+            className="max-w-full border-2 border-stone-300 bg-white px-1 py-1 text-xs text-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
+            value={user.deadlineToday}
+            onChange={(e) => update.mutate({ deadlineToday: e.target.value as DeadlineToday })}
+            data-deadline-today
+          >
+            {DEADLINE_TODAY_CHOICES.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="text-xs text-stone-500">{DEADLINE_TODAY_NOTES[user.deadlineToday]}</p>
         <SwitchedAmount
           label="Points cap"
           value={user.pointsCap}
