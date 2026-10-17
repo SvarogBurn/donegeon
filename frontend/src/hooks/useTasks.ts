@@ -173,17 +173,18 @@ export function useAddTask() {
 export function useToggleTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: tasksApi.toggleTask,
-    onMutate: async (id: string) => {
+    mutationFn: ({ id, done }: { id: string; done: boolean }) => tasksApi.toggleTask(id, done),
+    onMutate: async ({ id, done: ticks }) => {
       await Promise.all([TASKS, COUNTDOWN, PRESSURE].map((queryKey) => queryClient.cancelQueries({ queryKey })));
       const trees = queryClient.getQueryData<TaskTreeNode[]>(TASKS);
       // The Done page unticks tasks finished long ago, which only its own pages hold.
       const done = queryClient.getQueryData<InfiniteData<DonePage>>(DONE);
       const node = findNode(trees ?? [], id) ?? findNode(done?.pages.flatMap((page) => page.tasks) ?? [], id);
-      if (!node) return;
+      // Already so: the server changes nothing either.
+      if (!node || node.isComplete === ticks) return;
 
       const today = localDate();
-      const change: CompletionChange = { id, was: node.completedOn, now: node.isComplete ? null : today };
+      const change: CompletionChange = { id, was: node.completedOn, now: ticks ? today : null };
       const countdowns = queryClient.getQueriesData<Countdown>({ queryKey: COUNTDOWN });
       if (trees) queryClient.setQueryData(TASKS, toggleInTrees(trees, change, today));
       if (done) {
@@ -196,7 +197,7 @@ export function useToggleTask() {
       }
       return { trees, done, countdowns };
     },
-    onError: (error, _id, saved) => {
+    onError: (error, _args, saved) => {
       refuse(error);
       if (!saved) return;
       if (saved.trees) queryClient.setQueryData(TASKS, saved.trees);

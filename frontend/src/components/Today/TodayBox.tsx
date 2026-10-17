@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { localDate } from "../../api/client";
 import { PixelCheckbox } from "../PixelCheckbox";
 import { useDeadlineToday } from "../../hooks/useAuth";
-import { usePoints, useSetToday, useSetTodayPoints, useSetWeek, useToggleTask } from "../../hooks/useTasks";
+import { usePoints, useSetToday, useSetTodayPoints, useSetWeek } from "../../hooks/useTasks";
 import { daysBetween, formatDay } from "../../lib/dates";
 import { deadlineTodayFrom } from "../../lib/deadlines";
 import { pointsFieldWidth, typedPoints } from "../../lib/points";
@@ -81,7 +81,6 @@ interface PickedRowProps {
 function PickedRow({ node, path, pageId, today, box, carried, auto, missed = false, rounds = 0, round }: PickedRowProps) {
   const tree = useTree();
   const navigate = useNavigate();
-  const toggle = useToggleTask();
   const setToday = useSetToday();
   const setWeek = useSetWeek();
   const isPersistent = node.isPersistent && !node.parentId;
@@ -142,15 +141,16 @@ function PickedRow({ node, path, pageId, today, box, carried, auto, missed = fal
             type="button"
             className="repeat-button"
             onClick={() => tree.pressTask(node)}
+            disabled={tree.isBusy(node.id)}
             aria-label={`Done "${plainTitle(node.title)}" once more`}
           />
         ) : (
           <PixelCheckbox
             className={hasOpenSubtasks ? "opacity-40" : ""}
             checked={node.isComplete}
-            disabled={toggle.isPending || hasOpenSubtasks}
+            disabled={tree.isBusy(node.id) || hasOpenSubtasks}
             title={hasOpenSubtasks ? "Tick its subtasks first" : undefined}
-            onChange={() => (!node.isComplete && (!node.parentId || tree.ticked === "hide") ? tree.finishTask(node) : toggle.mutate(node.id))}
+            onChange={() => tree.tick(node)}
             aria-label={`Mark "${plainTitle(node.title)}" ${node.isComplete ? "not done" : "done"}`}
           />
         )}

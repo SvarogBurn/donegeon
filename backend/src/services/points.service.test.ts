@@ -1,5 +1,6 @@
+import type { Prisma, Task } from "@prisma/client";
 import { describe, expect, it } from "vitest";
-import { bookingFor, canTakeBack, openBooking, subtaskValue, taskValue } from "./points.service.js";
+import { bookingFor, bookTick, canTakeBack, openBooking, subtaskValue, taskValue } from "./points.service.js";
 
 describe("taskValue", () => {
   it("uses the list's default until the task has its own amount", () => {
@@ -98,5 +99,29 @@ describe("openBooking", () => {
   it("has nothing to reverse once everything is reversed", () => {
     expect(openBooking([row("a", "redeemed", 0), row("a-undo", "reversal", 1, "a")])).toBeNull();
     expect(openBooking([])).toBeNull();
+  });
+});
+
+describe("bookTick", () => {
+  /** Just enough of a transaction to read a task's ledger rows and presses. Booking anything new would need more, and throw. */
+  const ledger = (rows: object[], presses: object[] = []) =>
+    ({
+      pointTransaction: { findMany: async () => rows },
+      taskCompletion: { findMany: async () => presses },
+    }) as unknown as Prisma.TransactionClient;
+  const task = { id: "t", userId: "u", parentId: null } as Task;
+  const earned = { id: "e", type: "earned", amount: 5, reversesId: null, createdAt: new Date() };
+
+  it("doesn't pay again for a tick whose points an untick couldn't take back (they had been spent)", async () => {
+    await expect(bookTick(ledger([earned]), task)).resolves.toBeNull();
+  });
+
+  it("books as usual when the last tick was taken back", async () => {
+    const reversal = { id: "r", type: "reversal", amount: -5, reversesId: "e", createdAt: new Date() };
+    await expect(bookTick(ledger([earned, reversal]), task)).rejects.toThrow();
+  });
+
+  it("doesn't count a press of a persistent task as a tick", async () => {
+    await expect(bookTick(ledger([earned], [{ pointTransactionId: "e" }]), task)).rejects.toThrow();
   });
 });

@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -85,8 +86,13 @@ interface TreeContextValue {
   deleteTask: (node: TaskTreeNode) => void;
   /** Deletes the list with all its tasks; undoable the same way. */
   deleteList: (list: List) => void;
-  /** Ticks a task and offers the undo: for a main task, which goes to the Done page, so a slip doesn't mean a trip there. */
-  finishTask: (node: TaskTreeNode) => void;
+  /**
+   * Ticks a task, or unticks a ticked one. A tick that takes it out of sight (a main task, which goes to the Done
+   * page, or any task when ticked ones are hidden) offers the undo, so a slip doesn't mean a trip there.
+   */
+  tick: (node: TaskTreeNode) => void;
+  /** A tick or press of this task is on its way to the server: its checkbox or button waits, so a double click counts once. */
+  isBusy: (id: string) => boolean;
   /** One press of a persistent task's "done it" button; undoable. */
   pressTask: (node: TaskTreeNode) => void;
   /** Takes one press back: unticking a persistent task that shows as done. */
@@ -97,12 +103,22 @@ interface TreeContextValue {
   error: Error | null;
 }
 
-export type Undoable =
-  | { kind: "task" | "list" | "finished"; id: string; title: string }
-  | { kind: "press"; id: string; title: string; completionId: string };
+/** `until`: when it stops being undoable (Date.now() time). */
+export type Undoable = { title: string; id: string; until: number } & (
+  | { kind: "task" | "list" | "finished" }
+  | { kind: "press"; completionId: string }
+);
 
-/** How long an action stays undoable from the page (the server keeps deletes longer). */
+/**
+ * How long each action stays undoable from the page, counted from that action. The server keeps a delete
+ * restorable a little longer (RESTORABLE_MS in backend/src/lib/deleted.ts), then removes it for good.
+ */
 const UNDO_WINDOW_MS = 10_000;
+
+/** `Omit` of each member of a union, so a press keeps its completionId. */
+type OmitEach<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+/** An Undoable before it is offered, without its `until`. */
+type Offer = OmitEach<Undoable, "until">;
 
 const TreeContext = createContext<TreeContextValue | null>(null);
 
@@ -191,46 +207,63 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
     focusTaskEditor(id);
   }, [byId]);
 
+  const offer = useCallback((item: Offer) => setUndoable((stack) => [...stack, { ...item, until: Date.now() + UNDO_WINDOW_MS } as Undoable]), []);
+
+  // The tasks whose tick or press is on its way. A ref, so a second click in the same instant already finds it;
+  // the re-render shows the control waiting.
+  const busy = useRef(new Set<string>());
+  const [, rerender] = useReducer((n: number) => n + 1, 0);
+  const once = useCallback((id: string, send: () => Promise<unknown>) => {
+    if (busy.current.has(id)) return;
+    busy.current.add(id);
+    rerender();
+    send()
+      .catch(() => {})
+      .finally(() => {
+        busy.current.delete(id);
+        rerender();
+      });
+  }, []);
+
   const deleteTask = useCallback(
     (node: TaskTreeNode) => {
       // Offered for undo only once the server has really deleted it.
       remove.mutateAsync(node.id).then(
-        () => setUndoable((stack) => [...stack, { kind: "task", id: node.id, title: node.title }]),
+        () => offer({ kind: "task", id: node.id, title: node.title }),
         () => {},
       );
     },
-    [remove],
+    [remove, offer],
   );
 
   const deleteList = useCallback(
     (list: List) => {
       removeList.mutateAsync(list.id).then(
-        () => setUndoable((stack) => [...stack, { kind: "list", id: list.id, title: list.name }]),
+        () => offer({ kind: "list", id: list.id, title: list.name }),
         () => {},
       );
     },
-    [removeList],
+    [removeList, offer],
   );
 
-  const finishTask = useCallback(
+  const tick = useCallback(
     (node: TaskTreeNode) => {
-      toggle.mutateAsync(node.id).then(
-        () => setUndoable((stack) => [...stack, { kind: "finished", id: node.id, title: node.title }]),
-        () => {},
+      const done = !node.isComplete;
+      const leavesSight = done && (!node.parentId || ticked === "hide");
+      once(node.id, () =>
+        toggle.mutateAsync({ id: node.id, done }).then(() => leavesSight && offer({ kind: "finished", id: node.id, title: node.title })),
       );
     },
-    [toggle],
+    [toggle, ticked, once, offer],
   );
 
   const pressTask = useCallback(
     (node: TaskTreeNode) => {
-      press.mutateAsync(node.id).then(
-        (completion) =>
-          setUndoable((stack) => [...stack, { kind: "press", id: node.id, title: node.title, completionId: completion.id }]),
-        () => {},
+      once(node.id, () =>
+        press.mutateAsync(node.id).then((completion) => offer({ kind: "press", id: node.id, title: node.title, completionId: completion.id })),
       );
     },
-    [press],
+    [press, once, offer],
   );
 
   const takeBackPress = useCallback(
@@ -252,7 +285,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       undoPress.mutate({ id: last.id, completionId: last.completionId });
     } else if (last.kind === "finished") {
       // Still ticked? Then untick it, which puts it back in its list.
-      if (byId.get(last.id)?.isComplete) toggle.mutate(last.id);
+      if (byId.get(last.id)?.isComplete) toggle.mutate({ id: last.id, done: false });
     } else {
       focusWhenShown.current = last.id;
       restore.mutate(last.id);
@@ -267,7 +300,12 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       e.preventDefault();
       undo();
     };
-    const expire = setTimeout(() => setUndoable([]), UNDO_WINDOW_MS);
+    // Each action stops being undoable on its own time, not when the newest one does.
+    const soonest = Math.min(...undoable.map((item) => item.until));
+    const expire = setTimeout(
+      () => setUndoable((stack) => stack.filter((item) => item.until > Date.now())),
+      Math.max(0, soonest - Date.now()),
+    );
     document.addEventListener("keydown", onKeyDown, true);
     return () => {
       clearTimeout(expire);
@@ -442,7 +480,8 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
     moveBy,
     deleteTask,
     deleteList,
-    finishTask,
+    tick,
+    isBusy: (id) => busy.current.has(id),
     pressTask,
     takeBackPress,
     undoable,

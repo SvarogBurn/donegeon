@@ -1,4 +1,4 @@
-import type { Task } from "@prisma/client";
+import type { Prisma, Task } from "@prisma/client";
 
 export type TaskTreeNode<T> = T & {
   children: TaskTreeNode<T>[];
@@ -81,12 +81,59 @@ export function withFinishedRoots<T extends FinishInput>(tasks: T[]): { tasks: T
   };
 }
 
-/** 0 for a top-level task, 1 for its children, and so on. */
-export function depthOf(tasks: Pick<Task, "id" | "parentId">[], id: string): number {
-  const parentOf = new Map(tasks.map((t) => [t.id, t.parentId]));
-  let depth = 0;
-  for (let current = parentOf.get(id); current; current = parentOf.get(current)) depth++;
+/** A tree is never this deep; the queries below stop there, so a loop in the data can't make them run forever. */
+const MAX_DEPTH = 100;
+
+/**
+ * `rootIds` and everything beneath them that isn't deleted, at every depth, each with how far below its
+ * root it sits (the root itself: 0). One query, however deep the trees, without reading the rest of the tasks.
+ */
+export function findSubtree(db: Prisma.TransactionClient, rootIds: string[]): Promise<{ id: string; depth: number }[]> {
+  if (rootIds.length === 0) return Promise.resolve([]);
+  return db.$queryRaw`
+    WITH RECURSIVE below AS (
+      SELECT id, 0 AS depth FROM "Task" WHERE id = ANY(${rootIds}::text[]) AND "deletedAt" IS NULL
+      UNION ALL
+      SELECT t.id, b.depth + 1 FROM "Task" t JOIN below b ON t."parentId" = b.id
+      WHERE t."deletedAt" IS NULL AND b.depth < ${MAX_DEPTH}
+    )
+    SELECT id, depth FROM below`;
+}
+
+/** How deep a task sits: 0 for a top-level task, 1 for its children, and so on. */
+export async function findDepth(db: Prisma.TransactionClient, id: string): Promise<number> {
+  const [{ depth }] = await db.$queryRaw<{ depth: number }[]>`
+    WITH RECURSIVE up AS (
+      SELECT "parentId", 0 AS steps FROM "Task" WHERE id = ${id}
+      UNION ALL
+      SELECT t."parentId", up.steps + 1 FROM "Task" t JOIN up ON t.id = up."parentId" WHERE up.steps < ${MAX_DEPTH}
+    )
+    SELECT GREATEST(count(*) - 1, 0)::int AS depth FROM up`;
   return depth;
+}
+
+/**
+ * Ids of the whole trees the user's tasks matching `where` sit in: up to their main tasks, then everything
+ * beneath those. The rest of the user's tasks are never read, however many there are.
+ */
+export async function wholeTreeIds(db: Prisma.TransactionClient, owner: string, where: Prisma.TaskWhereInput): Promise<string[]> {
+  const live = { userId: owner, deletedAt: null };
+  const rootIds = new Set<string>();
+  const asked = new Set<string>();
+  let level = await db.task.findMany({ where: { ...live, ...where }, select: { id: true, parentId: true } });
+  while (level.length > 0) {
+    const parentIds: string[] = [];
+    for (const task of level) {
+      if (!task.parentId) rootIds.add(task.id);
+      else if (!asked.has(task.parentId)) parentIds.push(task.parentId);
+      if (task.parentId) asked.add(task.parentId);
+    }
+    level =
+      parentIds.length > 0
+        ? await db.task.findMany({ where: { ...live, id: { in: parentIds } }, select: { id: true, parentId: true } })
+        : [];
+  }
+  return (await findSubtree(db, [...rootIds])).map((task) => task.id);
 }
 
 /** `ids` with `id` inserted at `index` (clamped to the list). `ids` must not already contain `id`. */

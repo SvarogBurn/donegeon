@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import connectPgSimple from "connect-pg-simple";
 import express, { type NextFunction, type Request, type Response } from "express";
 import session from "express-session";
@@ -89,6 +90,12 @@ export function createApp() {
       res.status(err.status).json({ error: err.message });
     } else if (err instanceof SyntaxError && "body" in err) {
       res.status(400).json({ error: "Invalid JSON" });
+    } else if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025") {
+      // The row went between being looked up and being written (deleted meanwhile, in another tab).
+      res.status(404).json({ error: "Not found: it may have just been deleted" });
+    } else if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      // Two requests at once making the same unique thing (a username).
+      res.status(409).json({ error: "That already exists" });
     } else {
       console.error(err);
       res.status(500).json({ error: "Something went wrong" });

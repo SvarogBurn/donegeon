@@ -85,7 +85,7 @@ export function isUnreachable(error: unknown): boolean {
 /**
  * Waits for the server to be awake before asking (see lib/serverStatus), and asks again when the host
  * answered in its place. A change is sent again only when it certainly never arrived (502, 503): after a
- * dropped connection or a timeout (504) it may have, and a tick sent twice is a tick undone.
+ * dropped connection or a timeout (504) it may have, and a new task sent twice is two tasks.
  */
 export async function api<T = void>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
   const method = options.method ?? (options.body === undefined ? "GET" : "POST");

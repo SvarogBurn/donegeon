@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { localDate } from "../../api/client";
-import { useAddTask, useSyntaxContext, useToggleTask } from "../../hooks/useTasks";
+import { useAddTask, useSyntaxContext } from "../../hooks/useTasks";
 import { firstLine, daysFrom, type DoneItem, type PlanItem } from "../../lib/calendar";
 import { addDays, daysBetween, formatDay } from "../../lib/dates";
 import { currentRound, repeatLabel } from "../../lib/repeat";
@@ -32,7 +32,6 @@ const CHIP = "pixel-chip px-1.5 py-0.5 text-[10px] whitespace-nowrap";
 function PlanRow({ item, today, listName, onInfo }: { item: PlanItem; today: string; listName: string | undefined; onInfo: () => void }) {
   const { node, kind, path } = item;
   const tree = useTree();
-  const toggle = useToggleTask();
   const hasOpenSubtasks = !node.isComplete && node.descendantDoneCount < node.descendantCount;
   // A round that isn't due yet is only there to be seen.
   const isAhead = kind === "next" || kind === "round";
@@ -41,7 +40,13 @@ function PlanRow({ item, today, listName, onInfo }: { item: PlanItem; today: str
   return (
     <li data-plan-item={node.id} data-plan-kind={kind} className={`flex items-start gap-2 py-1.5 ${isAhead ? "opacity-60" : ""}`}>
       {kind === "due" ? (
-        <button type="button" className="repeat-button" onClick={() => tree.pressTask(node)} aria-label={`Done "${plainTitle(title)}" once more`} />
+        <button
+          type="button"
+          className="repeat-button"
+          onClick={() => tree.pressTask(node)}
+          disabled={tree.isBusy(node.id)}
+          aria-label={`Done "${plainTitle(title)}" once more`}
+        />
       ) : isAhead ? (
         <span className="glyph w-5 flex-none text-center text-stone-500" aria-hidden>
           ↻
@@ -50,9 +55,9 @@ function PlanRow({ item, today, listName, onInfo }: { item: PlanItem; today: str
         <PixelCheckbox
           className={hasOpenSubtasks ? "opacity-40" : ""}
           checked={node.isComplete}
-          disabled={toggle.isPending || hasOpenSubtasks}
+          disabled={tree.isBusy(node.id) || hasOpenSubtasks}
           title={hasOpenSubtasks ? "Tick its subtasks first" : undefined}
-          onChange={() => (!node.isComplete && (!node.parentId || tree.ticked === "hide") ? tree.finishTask(node) : toggle.mutate(node.id))}
+          onChange={() => tree.tick(node)}
           aria-label={`Mark "${plainTitle(title)}" ${node.isComplete ? "not done" : "done"}`}
         />
       )}

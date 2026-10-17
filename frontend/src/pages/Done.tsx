@@ -34,7 +34,7 @@ function FinishedTask({ node, listName }: { node: TaskTreeNode; listName: string
         <PixelCheckbox
           checked
           disabled={toggle.isPending}
-          onChange={() => toggle.mutate(node.id)}
+          onChange={() => toggle.mutate({ id: node.id, done: false })}
           aria-label={`Mark "${plainTitle(node.title)}" not done`}
           title="Untick to make it open again"
         />
@@ -69,7 +69,7 @@ function TickedSubtask({ node, path, listName }: { node: TaskTreeNode; path: str
         <PixelCheckbox
           checked
           disabled={toggle.isPending}
-          onChange={() => toggle.mutate(node.id)}
+          onChange={() => toggle.mutate({ id: node.id, done: false })}
           aria-label={`Mark "${plainTitle(node.title)}" not done`}
           title="Untick to make it open again"
         />

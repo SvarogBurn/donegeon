@@ -66,8 +66,9 @@ export interface NewTask {
 export const createTask = (body: NewTask) => api<{ task: Task }>("/tasks", { body }).then((r) => r.task);
 export const updateTask = (id: string, body: TaskChanges) =>
   api<{ task: Task }>(`/tasks/${id}`, { method: "PATCH", body }).then((r) => r.task);
-export const toggleTask = (id: string) =>
-  api<{ task: Task; doneToday: number }>(`/tasks/${id}/toggle`, { method: "PATCH" }).then((r) => ({ ...r.task, doneToday: r.doneToday }));
+/** Ticks (`done`) or unticks a task. Saying what it should be, not "flip it", so a request sent twice changes nothing. */
+export const toggleTask = (id: string, done: boolean) =>
+  api<{ task: Task; doneToday: number }>(`/tasks/${id}/toggle`, { method: "PATCH", body: { done } }).then((r) => ({ ...r.task, doneToday: r.doneToday }));
 /** One press of a persistent task's "done it" button, and its undo. */
 export const pressTask = (id: string) =>
   api<{ completion: { id: string; day: string }; doneToday: number }>(`/tasks/${id}/completions`, { method: "POST" }).then((r) => ({

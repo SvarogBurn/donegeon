@@ -132,16 +132,33 @@ export async function reverseBooking(tx: Prisma.TransactionClient, row: PointTra
 }
 
 /**
+ * What ticking the task booked and no untick has taken back yet; null = nothing. Presses of a persistent
+ * task are booked separately and don't count here.
+ */
+export async function openTickBooking(tx: Prisma.TransactionClient, taskId: string) {
+  const [rows, presses] = await Promise.all([
+    tx.pointTransaction.findMany({ where: { relatedTaskId: taskId } }),
+    tx.taskCompletion.findMany({ where: { taskId }, select: { pointTransactionId: true } }),
+  ]);
+  const pressed = new Set(presses.map((press) => press.pointTransactionId));
+  return openBooking(rows.filter((row) => !pressed.has(row.id)));
+}
+
+/**
+ * Books a tick, unless an earlier tick's points are still booked: an untick whose points had been spent
+ * left them there (see reverseBooking), and ticking again must not pay a second time.
+ */
+export async function bookTick(tx: Prisma.TransactionClient, task: Task) {
+  if (await openTickBooking(tx, task.id)) return null;
+  return bookTask(tx, task);
+}
+
+/**
  * Un-ticking gives back (or takes back) exactly what ticking booked, whatever
  * the task is worth or wherever it sits now. Presses of a persistent task are
  * booked separately and are not touched here.
  */
 export async function reverseTaskBooking(tx: Prisma.TransactionClient, task: Pick<Task, "id">) {
-  const [rows, presses] = await Promise.all([
-    tx.pointTransaction.findMany({ where: { relatedTaskId: task.id } }),
-    tx.taskCompletion.findMany({ where: { taskId: task.id }, select: { pointTransactionId: true } }),
-  ]);
-  const pressed = new Set(presses.map((press) => press.pointTransactionId));
-  const open = openBooking(rows.filter((row) => !pressed.has(row.id)));
+  const open = await openTickBooking(tx, task.id);
   if (open) await reverseBooking(tx, open);
 }

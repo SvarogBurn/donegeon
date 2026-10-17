@@ -1,12 +1,11 @@
 import { Router, type Request } from "express";
 import { z } from "zod";
+import { isRestorable, tooLateToRestore } from "../lib/deleted.js";
 import { notFound } from "../lib/httpError.js";
 import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
 import { MAX_POINTS } from "../services/points.service.js";
-import { subtreeIds } from "../services/taskTree.service.js";
-
-const DELETED_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+import { findSubtree } from "../services/taskTree.service.js";
 
 const name = z.string().trim().min(1, "Name is required").max(200);
 const kind = z.enum(["task", "reward"]);
@@ -44,10 +43,6 @@ export const listsRouter = Router();
 
 listsRouter.get("/", async (req, res) => {
   const owner = userId(req);
-  // Deleted lists stay restorable for a while, then go for good (their tasks cascade).
-  await prisma.list.deleteMany({
-    where: { userId: owner, deletedAt: { lt: new Date(Date.now() - DELETED_RETENTION_MS) } },
-  });
   const lists = await prisma.list.findMany({
     where: { userId: owner, deletedAt: null },
     orderBy: [{ position: "asc" }, { createdAt: "asc" }],
@@ -92,11 +87,7 @@ listsRouter.delete("/:id", async (req, res) => {
     where: { listId: list.id, deletedAt: null },
     select: { id: true },
   });
-  const all = await prisma.task.findMany({
-    where: { userId: list.userId, deletedAt: null },
-    select: { id: true, parentId: true },
-  });
-  const taskIds = roots.flatMap((root) => subtreeIds(all, root.id));
+  const taskIds = (await findSubtree(prisma, roots.map((root) => root.id))).map((task) => task.id);
   await prisma.$transaction([
     prisma.task.updateMany({ where: { id: { in: taskIds } }, data: { deletedAt } }),
     prisma.list.update({ where: { id: list.id }, data: { deletedAt } }),
@@ -104,13 +95,14 @@ listsRouter.delete("/:id", async (req, res) => {
   res.status(204).end();
 });
 
-// Undo of a delete: the list and the tasks that were deleted with it.
+// Undo of a delete: the list and the tasks that were deleted with it, within a minute of the delete.
 listsRouter.post("/:id/restore", async (req, res) => {
   const owner = userId(req);
   const list = await prisma.list.findFirst({
     where: { id: req.params.id, userId: owner, deletedAt: { not: null } },
   });
   if (!list) throw notFound("Deleted list");
+  if (!isRestorable(list.deletedAt!)) throw tooLateToRestore();
   await prisma.$transaction([
     prisma.list.update({ where: { id: list.id }, data: { deletedAt: null } }),
     prisma.task.updateMany({ where: { userId: owner, deletedAt: list.deletedAt }, data: { deletedAt: null } }),

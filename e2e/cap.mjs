@@ -64,9 +64,9 @@ await api(`/tasks/${treat.id}/toggle`, "PATCH");
 out("everything can be spent", (await balance()) === 0, await balance());
 const back = await api(`/tasks/${small.id}/toggle`, "PATCH");
 out("a task whose points are spent can be unticked, and the points stay as they are", back.status === 200 && back.json.task.isComplete === false && (await balance()) === 0, `${back.status} ${await balance()}`);
-out("ticking it again earns its points again", (await api(`/tasks/${small.id}/toggle`, "PATCH")).status === 200 && (await balance()) === 10, await balance());
-out("and unticking takes those back", (await api(`/tasks/${small.id}/toggle`, "PATCH")).status === 200 && (await balance()) === 0, await balance());
-// Small's first 10 points stayed booked, so with both rewards given back the balance is 10 higher than before: 40.
+out("ticking it again doesn't pay a second time: its first points never left", (await api(`/tasks/${small.id}/toggle`, "PATCH")).status === 200 && (await balance()) === 0, await balance());
+out("and unticking it again still leaves them", (await api(`/tasks/${small.id}/toggle`, "PATCH")).status === 200 && (await balance()) === 0, await balance());
+// Small's 10 points stayed booked, so with both rewards given back the balance is 10 higher than before: 40.
 await api(`/tasks/${treat.id}/toggle`, "PATCH");
 await api(`/tasks/${big.id}/toggle`, "PATCH");
 

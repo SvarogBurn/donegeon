@@ -168,6 +168,7 @@ model Task {
   nextDue         String?
   // Soft delete, so a delete can be undone. Set on the whole deleted subtree
   // with one shared timestamp; every query must filter on deletedAt = null.
+  // Restorable for a minute, then removed for good (src/lib/deleted.ts).
   deletedAt    DateTime?
   position     Int           @default(0)
   createdAt    DateTime      @default(now())
@@ -186,6 +187,7 @@ model Task {
   @@index([userId])
   @@index([parentId])
   @@index([listId])
+  @@index([deletedAt])
 }
 
 model List {
@@ -200,7 +202,7 @@ model List {
   // What a top-level task in this list is worth unless it has its own amount.
   defaultPoints Int       @default(1)
   isArchived    Boolean   @default(false)
-  // Soft delete, undoable like tasks. The list's tasks get the same timestamp.
+  // Soft delete, undoable like tasks (for a minute). The list's tasks get the same timestamp.
   deletedAt     DateTime?
   createdAt     DateTime  @default(now())
 
@@ -208,6 +210,7 @@ model List {
   tasks Task[]
 
   @@index([userId])
+  @@index([deletedAt])
 }
 
 // A tab of the user's own in the task bar: a page of views. Removing it removes nothing else.

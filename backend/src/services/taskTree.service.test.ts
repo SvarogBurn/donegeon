@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTree, completionPatch, depthOf, insertAt, subtreeIds, withFinishedRoots } from "./taskTree.service.js";
+import { buildTree, completionPatch, insertAt, subtreeIds, withFinishedRoots } from "./taskTree.service.js";
 
 const t0 = new Date("2026-10-01T10:00:00Z");
 
@@ -44,18 +44,12 @@ describe("buildTree", () => {
   });
 });
 
-describe("subtreeIds / depthOf", () => {
+describe("subtreeIds", () => {
   const tasks = [task("root", null), task("a", "root"), task("a1", "a"), task("z", null)];
 
   it("collects a task and all its descendants", () => {
     expect(subtreeIds(tasks, "root").sort()).toEqual(["a", "a1", "root"]);
     expect(subtreeIds(tasks, "a1")).toEqual(["a1"]);
-  });
-
-  it("reports depth from the top-level task", () => {
-    expect(depthOf(tasks, "root")).toBe(0);
-    expect(depthOf(tasks, "a")).toBe(1);
-    expect(depthOf(tasks, "a1")).toBe(2);
   });
 });
 

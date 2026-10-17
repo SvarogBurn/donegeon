@@ -54,7 +54,7 @@ In a task:
 | `↑` / `↓` | move between tasks |
 | `Alt+↑` / `Alt+↓` | reorder among siblings |
 | `Delete` at the end of a title | delete the task and its subtasks |
-| `Ctrl+Z` within 10 seconds of a delete | bring it back |
+| `Ctrl+Z` within 10 seconds of a delete | bring it back (after that it is deleted for good within a couple of minutes) |
 | `Esc` | discard the new row / undo the edit in progress |
 
 On the dashboard a task's subtasks start hidden: click the arrow at the left of its row to show them. They are shown from the start on the task's own page and while a goal or tag filter is on.

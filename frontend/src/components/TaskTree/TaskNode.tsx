@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { PixelCheckbox } from "../PixelCheckbox";
 import { useNavigate } from "react-router";
-import { useAddTask, useGoals, useTags, useToggleTask, useUpdateTask } from "../../hooks/useTasks";
+import { useAddTask, useGoals, useTags, useUpdateTask } from "../../hooks/useTasks";
 import { localDate } from "../../api/client";
 import { formatDay } from "../../lib/dates";
 import { soonestFirst } from "../../lib/deadlines";
@@ -75,7 +75,6 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
   const [title, setTitle] = useState(node.title);
   useEffect(() => setTitle(node.title), [node.title]);
 
-  const toggle = useToggleTask();
   const rename = useUpdateTask();
   const error = rename.error;
 
@@ -162,6 +161,7 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
             type="button"
             className="repeat-button mt-1.5"
             onClick={() => tree.pressTask(node)}
+            disabled={tree.isBusy(node.id)}
             aria-label={`Done "${plainTitle(node.title)}" once more`}
             title="Done it. Stays here for next time; a ticked copy underneath can be unticked to take it back"
           />
@@ -169,11 +169,11 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
           <PixelCheckbox
             className={`mt-1.5 ${hasOpenSubtasks ? "opacity-40" : ""}`}
             checked={node.isComplete}
-            disabled={toggle.isPending || hasOpenSubtasks}
+            disabled={tree.isBusy(node.id) || hasOpenSubtasks}
             title={hasOpenSubtasks ? "Tick its subtasks first" : undefined}
             // Ticking a main task finishes it: it is in the Done page, and leaves its list 24 hours later. With an undo,
             // as for any task that leaves its list the moment it is ticked.
-            onChange={() => (!node.isComplete && (!node.parentId || tree.ticked === "hide") ? tree.finishTask(node) : toggle.mutate(node.id))}
+            onChange={() => tree.tick(node)}
             aria-label={`Mark "${plainTitle(node.title)}" ${node.isComplete ? "not done" : "done"}`}
           />
         )}
