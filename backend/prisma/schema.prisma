@@ -146,6 +146,11 @@ model Task {
   pointsToSubtasks Boolean   @default(false)
   // The day the task was marked for Today; null = not in Today.
   todaySince   String?
+  // The day of the Week box (Monday to Sunday) the task is planned for; null = not in it. Still open once its
+  // week is over, it is shown on the Monday of the week it is.
+  weekDay      String?
+  // Its place on that day of the Week box, apart from the task's place in its list.
+  weekPosition Int           @default(0)
   // Top-level tasks only. Done again and again: never complete, each press is a TaskCompletion.
   isPersistent Boolean       @default(false)
   // A persistent task on a schedule: due again every repeatEvery units. Null = no schedule, done whenever.
@@ -153,6 +158,12 @@ model Task {
   repeatUnit      RepeatUnit    @default(week)
   // false: the next round keeps to the planned days. true: it is counted from the day the task was done.
   repeatAfterDone Boolean       @default(false)
+  // Keeping to the planned days: true = every round missed is still to be done, each press doing the oldest;
+  // false = missed rounds are skipped, one press brings it to its next planned day.
+  repeatMakeUp    Boolean       @default(false)
+  // Rounds moved to another day in the Week box: planned day -> the day it is done on instead ("2026-10-22":
+  // "2026-10-23"). The rhythm keeps to the planned days. Null = none moved.
+  roundMoves      Json?
   // The day the next round is due; set while repeatEvery is.
   nextDue         String?
   // Soft delete, so a delete can be undone. Set on the whole deleted subtree

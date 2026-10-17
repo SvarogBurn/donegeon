@@ -6,7 +6,7 @@ import { localDate } from "../../api/client";
 import { formatDay } from "../../lib/dates";
 import { soonestFirst } from "../../lib/deadlines";
 import { isFiltering } from "../../lib/labels";
-import { isDue, isWaiting, repeatLabel } from "../../lib/repeat";
+import { currentRound, isDue, isWaiting, repeatLabel, roundsDue } from "../../lib/repeat";
 import { hasTaskPage } from "../../lib/taskPage";
 import type { TaskTreeNode } from "../../types";
 import { ValueChip } from "../Points/ValueChip";
@@ -17,6 +17,7 @@ import { TaskMenu } from "./TaskMenu";
 import { focusNeighbor, TitleEditor } from "./TitleEditor";
 import { useTree } from "./TreeContext";
 import { plainTitle } from "../../lib/markup";
+import { livesInWeek, weekColumn } from "../../lib/week";
 
 /** The task's goals (filled pills) and tags (#outlined), by name. */
 function LabelChips({ node }: { node: TaskTreeNode }) {
@@ -52,7 +53,7 @@ function LabelChips({ node }: { node: TaskTreeNode }) {
   );
 }
 
-const DROP_STYLES = {
+export const DROP_STYLES = {
   before: "shadow-[inset_0_2px_0_var(--color-emerald-600)]",
   after: "shadow-[inset_0_-2px_0_var(--color-emerald-600)]",
   inside: "bg-emerald-100 dark:bg-emerald-950",
@@ -61,7 +62,8 @@ const DROP_STYLES = {
 /** Parts of a row that do their own thing; a click anywhere else opens the task's page (if it has one). */
 const ROW_CONTROLS = "button, input, textarea, a, label, [role=dialog]";
 
-function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
+/** `inWeek`: shown as a row of the Week box, where its place is the box's own order. */
+export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; depth: number; inWeek?: boolean }) {
   const tree = useTree();
   const navigate = useNavigate();
   // A drag starts on the handle but can end on the row's empty space, which the browser reports as a click there.
@@ -80,11 +82,14 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
   const isPersistent = node.isPersistent && !node.parentId;
   const today = localDate();
   const pressedToday = node.completions.filter((press) => press.day === today).length;
+  const round = currentRound(node, today);
   const hasChildren = node.children.length > 0;
   // A task is ticked last: everything beneath it first.
   const hasOpenSubtasks = !node.isComplete && node.descendantDoneCount < node.descendantCount;
   const hasDraftChild = tree.draft?.parentId === node.id;
-  const drop = tree.dropTarget?.kind === "task" && tree.dropTarget.id === node.id ? tree.dropTarget.zone : null;
+  const target = tree.dropTarget;
+  const drop =
+    (target?.kind === "task" || (inWeek && target?.kind === "weekItem")) && target.id === node.id ? target.zone : null;
 
   function saveTitle() {
     const next = title.trim();
@@ -104,7 +109,7 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
       else if (node.id === tree.rootId) {
         setOpened(true);
         tree.setDraft({ parentId: node.id, listId: null, afterId: null });
-      } else tree.setDraft({ parentId: node.parentId, listId: node.parentId ? null : node.listId, afterId: node.id });
+      } else tree.setDraft({ parentId: node.parentId, listId: node.parentId ? null : node.listId, afterId: node.id, weekDay: livesInWeek(node) ? weekColumn(node, today) : undefined });
     } else if (e.key === "Escape") {
       setTitle(node.title);
     } else if (e.key === "Delete" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
@@ -133,7 +138,7 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
   }
 
   return (
-    <li className={tree.draggingId === node.id ? "opacity-40" : ""}>
+    <li className={tree.draggingId === node.id ? "opacity-40" : ""} data-week-item={inWeek ? node.id : undefined}>
       <div
         data-task-row={node.id}
         onPointerDown={(e) => (pressedControl.current = Boolean((e.target as Element).closest(ROW_CONTROLS)))}
@@ -194,14 +199,21 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
               ×{pressedToday} today
             </span>
           )}
-          {node.nextDue && (
+          {round?.missed && (
+            <span className="font-bold text-red-600" data-missed title={`Not done since ${formatDay(node.nextDue!)}: that round was dropped, it doesn't have to be made up`}>
+              !
+            </span>
+          )}
+          {round && (
             <span
-              data-next-due={node.nextDue}
+              data-next-due={round.day}
               data-due={isDue(node, today) ? "" : undefined}
               title={`Repeats ${repeatLabel(node)}`}
               className={`pixel-chip px-2 py-0.5 text-xs whitespace-nowrap ${isDue(node, today) ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" : "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400"}`}
             >
-              {node.nextDue === today ? "due today" : `${isDue(node, today) ? "due since" : "next"} ${formatDay(node.nextDue)}`}
+              {round.day === today ? "due today" : `${isDue(node, today) ? "due since" : "next"} ${formatDay(round.day)}`}
+              {/* Making up missed rounds: how many are still to be done. */}
+              {roundsDue(node, today) > 1 && ` ×${roundsDue(node, today)}`}
             </span>
           )}
           <DeadlineBadge task={node} />
@@ -239,14 +251,15 @@ function TaskNode({ node, depth }: { node: TaskTreeNode; depth: number }) {
 }
 
 /** The unsaved row opened by Enter / Ctrl+Enter. Shortcuts typed into it (#tag, @date, ...) are set on the task. */
-function DraftRow() {
+export function DraftRow() {
   const tree = useTree();
   const createTask = useAddTask();
   const ref = useRef<HTMLTextAreaElement>(null);
   const draft = tree.draft!;
   useEffect(() => ref.current?.focus(), []);
 
-  const placement = () => ({ ...tree.draftPlacement(), ...tree.newTaskLabels });
+  // In the Week box it goes on the same day, right after the row it was opened from.
+  const placement = () => ({ ...tree.draftPlacement(), ...tree.newTaskLabels, ...(draft.weekDay && { weekDay: draft.weekDay, weekAfter: draft.afterId }) });
 
   function close() {
     tree.setDraft(null);
@@ -334,7 +347,8 @@ export function TaskTree({ nodes, parentId, listId, depth = 0 }: TaskTreeProps) 
   const { draft, ticked, byDeadline } = useTree();
   // If the user chose so: soonest date first. Shown that way only, like the ticked ones: nothing is moved.
   const ordered = byDeadline ? soonestFirst(nodes) : nodes;
-  const draftIsHere = draft !== null && draft.parentId === parentId && (parentId !== null || draft.listId === listId);
+  // A row opened in the Week box is shown there, by the box itself.
+  const draftIsHere = draft !== null && draft.parentId === parentId && (parentId !== null || (draft.listId === listId && !draft.weekDay));
 
   return (
     <ul>

@@ -10,15 +10,20 @@ import {
   type ReactNode,
 } from "react";
 import type { TaskPlacement } from "../../api/tasks";
-import { edgeScroller } from "../../lib/edgeScroll";
+import { areaScroller, edgeScroller } from "../../lib/edgeScroll";
 import { NO_FILTER, type LabelFilter } from "../../lib/labels";
 import { isShown } from "../../lib/recent";
 import { useSortByDeadline, useTickedTasks } from "../../hooks/useAuth";
 import { orderDay } from "../../lib/deadlines";
+import { livesInToday, livesInWeek, weekColumn, weekDays } from "../../lib/week";
+import { currentRound } from "../../lib/repeat";
+import { localDate } from "../../api/client";
 import {
   useDeleteList,
   useDeleteTask,
   useMoveTask,
+  useMoveRound,
+  usePlaceInWeek,
   usePressTask,
   useRestoreList,
   useRestoreTask,
@@ -36,13 +41,21 @@ export interface Draft {
   listId: string | null;
   /** The sibling it sits below; null = first in its list. */
   afterId: string | null;
+  /** A main task written into this day of the Week box: `afterId` is its place there. */
+  weekDay?: string;
 }
 
 export type DropTarget =
   | { kind: "task"; id: string; zone: "before" | "after" | "inside" }
   | { kind: "list"; listId: string }
   /** The Today box: marks the task for today; it stays where it is. */
-  | { kind: "today" };
+  | { kind: "today" }
+  /** The Week box, or its tab: the same for the week. Dropped there, a task goes last on today. */
+  | { kind: "week" }
+  /** A day of the Week box: last on that day. */
+  | { kind: "weekDay"; day: string }
+  /** Above or below a row of the Week box: that place on its day. */
+  | { kind: "weekItem"; id: string; zone: "before" | "after" };
 
 interface TreeContextValue {
   draft: Draft | null;
@@ -61,8 +74,11 @@ interface TreeContextValue {
   byDeadline: boolean;
   draggingId: string | null;
   dropTarget: DropTarget | null;
-  /** Call from the drag handle's onPointerDown. Works for mouse and touch. */
-  startDrag: (e: ReactPointerEvent<HTMLElement>, node: TaskTreeNode) => void;
+  /**
+   * Call from the drag handle's onPointerDown. Works for mouse and touch. `round`: dragging one round of a task on a
+   * schedule in the Week box (the day it was planned on), which moves only that round.
+   */
+  startDrag: (e: ReactPointerEvent<HTMLElement>, node: TaskTreeNode, round?: string) => void;
   /** Alt+Up / Alt+Down: swap with the previous / next sibling. */
   moveBy: (node: TaskTreeNode, direction: -1 | 1) => void;
   /** Deletes the task with its subtasks; undoable while it is in `undoable`. */
@@ -106,13 +122,23 @@ function hitTest(x: number, y: number, own: Element | null): DropTarget | null {
   if (!el || own?.contains(el)) return null;
 
   const row = el.closest<HTMLElement>("[data-task-row]");
+  // A row of the Week box itself (not one of the subtasks shown under it) stands for its place in the box.
+  const weekItem = el.closest<HTMLElement>("[data-week-item]");
+  if (weekItem && (!row || row.dataset.taskRow === weekItem.dataset.weekItem)) {
+    const rect = (row ?? weekItem.querySelector("[data-week-row]") ?? weekItem).getBoundingClientRect();
+    return { kind: "weekItem", id: weekItem.dataset.weekItem!, zone: y - rect.top < rect.height / 2 ? "before" : "after" };
+  }
   if (row) {
     const rect = row.getBoundingClientRect();
     const fraction = (y - rect.top) / rect.height;
     const zone = fraction < 0.3 ? "before" : fraction > 0.7 ? "after" : "inside";
     return { kind: "task", id: row.dataset.taskRow!, zone };
   }
-  if (el.closest("[data-drop-today]")) return { kind: "today" };
+  const weekDay = el.closest<HTMLElement>("[data-week-day]");
+  if (weekDay) return { kind: "weekDay", day: weekDay.dataset.weekDay! };
+  // The Today box shows Today or Week; the tab of the other one takes drops too.
+  const box = el.closest<HTMLElement>("[data-drop-today], [data-drop-week]");
+  if (box) return { kind: box.dataset.dropWeek === undefined ? "today" : "week" };
   const list = el.closest<HTMLElement>("[data-drop-list]");
   if (list) return { kind: "list", listId: list.dataset.dropList! };
   return null;
@@ -139,6 +165,8 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
   const press = usePressTask();
   const undoPress = useUndoPress();
   const setToday = useSetToday();
+  const placeInWeek = usePlaceInWeek();
+  const moveRound = useMoveRound();
   const remove = useDeleteTask();
   const restore = useRestoreTask();
   const removeList = useDeleteList();
@@ -253,9 +281,10 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
 
   const siblingsOf = useCallback((node: TaskTreeNode): TaskTreeNode[] => {
     const { tasks, byId } = latest.current;
+    // Without a list: the tasks written into the same box, Today or Week.
     return node.parentId
       ? (byId.get(node.parentId)?.children ?? [])
-      : tasks.filter((t) => t.listId === node.listId);
+      : tasks.filter((t) => t.listId === node.listId && (node.listId !== null || livesInWeek(t) === livesInWeek(node)));
   }, []);
 
   const placementFor = useCallback(
@@ -263,7 +292,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       const { tasks, byId } = latest.current;
       const notDragged = (t: TaskTreeNode) => t.id !== draggedId;
 
-      if (target.kind === "today") return null;
+      if (target.kind === "today" || target.kind === "week" || target.kind === "weekDay" || target.kind === "weekItem") return null;
       if (target.kind === "list") {
         const inList = tasks.filter((t) => t.listId === target.listId).filter(notDragged);
         return { parentId: null, listId: target.listId, index: inList.length };
@@ -289,42 +318,67 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
     if (!draft) return { parentId: null, listId: null, index: 0 };
     const siblings = draft.parentId
       ? (byId.get(draft.parentId)?.children ?? [])
-      : tasks.filter((t) => t.listId === draft.listId);
+      : tasks.filter((t) => t.listId === draft.listId && (draft.listId !== null || livesInWeek(t) === Boolean(draft.weekDay)));
     const after = siblings.findIndex((s) => s.id === draft.afterId);
     return { parentId: draft.parentId, listId: draft.listId, index: after + 1 };
   }, [draft]);
 
   const startDrag = useCallback(
-    (e: ReactPointerEvent<HTMLElement>, node: TaskTreeNode) => {
+    (e: ReactPointerEvent<HTMLElement>, node: TaskTreeNode, round?: string) => {
       if (e.button !== 0) return;
       e.preventDefault();
       const handle = e.currentTarget;
       const own = handle.closest("li");
       let target: DropTarget | null = null;
-      const scroller = edgeScroller();
-      handle.setPointerCapture(e.pointerId);
-      setDraggingId(node.id);
-
-      const onMove = (ev: PointerEvent) => {
-        scroller.update(ev.clientY);
-        const next = hitTest(ev.clientX, ev.clientY, own);
+      let pointer = { x: e.clientX, y: e.clientY };
+      const retarget = () => {
+        const next = hitTest(pointer.x, pointer.y, own);
         if (sameTarget(next, target)) return;
         target = next;
         setDropTarget(next);
       };
+      const scroller = edgeScroller();
+      // Near the top or bottom of the Week tab's days, they scroll on, with the pointer held still too.
+      const area = areaScroller(retarget);
+      handle.setPointerCapture(e.pointerId);
+      setDraggingId(node.id);
+
+      const onMove = (ev: PointerEvent) => {
+        pointer = { x: ev.clientX, y: ev.clientY };
+        // The page scrolls at the window's edge, unless the week is scrolling there already.
+        scroller.update(area.update(ev.clientX, ev.clientY) ? window.innerHeight / 2 : ev.clientY);
+        retarget();
+      };
       const finish = (drop: boolean) => {
         scroller.stop();
+        area.stop();
         handle.removeEventListener("pointermove", onMove);
         handle.removeEventListener("pointerup", onUp);
         handle.removeEventListener("pointercancel", onCancel);
         setDraggingId(null);
         setDropTarget(null);
         // Today is a view: dropping a list's task on it (or among the tasks written there) marks it for today and leaves it in its list.
-        const livesInToday = (t: TaskTreeNode | undefined) => Boolean(t) && !t!.parentId && !t!.listId;
-        const amongTodays =
-          target?.kind === "task" && target.zone !== "inside" && livesInToday(latest.current.byId.get(target.id));
+        const over = target?.kind === "task" ? latest.current.byId.get(target.id) : undefined;
+        const amongTodays = target?.kind === "task" && target.zone !== "inside" && over !== undefined && livesInToday(over);
         if (drop && (target?.kind === "today" || (amongTodays && !livesInToday(node)))) {
           return setToday.mutate({ id: node.id, today: true });
+        }
+        // So is Week, with an order of its own on each day: a task dropped there takes that place, and stays in its list.
+        if (drop && (target?.kind === "week" || target?.kind === "weekDay" || target?.kind === "weekItem")) {
+          const column =
+            target.kind === "week"
+              ? null
+              : target.kind === "weekDay"
+                ? document.querySelector<HTMLElement>(`[data-week-day="${target.day}"]`)
+                : document.querySelector(`[data-week-item="${target.id}"]`)?.closest<HTMLElement>("[data-week-day]");
+          const day = column?.dataset.weekDay ?? localDate();
+          // A task on a schedule isn't put on a day: its round is moved there (the one dragged; from a list, its current one).
+          const isScheduled = !node.parentId && node.repeatEvery !== null && node.nextDue !== null && node.weekDay === null;
+          if (isScheduled) return moveRound.mutate({ id: node.id, from: round ?? currentRound(node, localDate())!.planned, to: day });
+          if (!column || target.kind === "week") return placeInWeek.mutate({ id: node.id, day });
+          const shown = [...column.querySelectorAll<HTMLElement>("[data-week-item]")].map((el) => el.dataset.weekItem!).filter((id) => id !== node.id);
+          const at = target.kind === "weekDay" ? shown.length : shown.indexOf(target.id) + (target.zone === "after" ? 1 : 0);
+          return placeInWeek.mutate({ id: node.id, day, after: shown[at - 1] ?? null });
         }
         const placement = drop && target ? placementFor(target, node.id) : null;
         if (placement) move.mutate({ id: node.id, placement });
@@ -336,11 +390,25 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       handle.addEventListener("pointerup", onUp);
       handle.addEventListener("pointercancel", onCancel);
     },
-    [move, placementFor, setToday],
+    [move, placementFor, setToday, placeInWeek, moveRound],
   );
 
   const moveBy = useCallback(
     (node: TaskTreeNode, direction: -1 | 1) => {
+      // A task written into Week moves in the order of its day, among the rows shown, ticked or open like itself.
+      if (livesInWeek(node) && rootId === null) {
+        const today = localDate();
+        const day = weekColumn(node, today);
+        // Only what the user put there has an order to change: what came in by itself is left out.
+        const order = (weekDays(latest.current.tasks, today, ticked, "never").find((d) => d.day === day)?.items ?? [])
+          .filter((item) => !item.auto && (ticked !== "bottom" || item.node.isComplete === node.isComplete))
+          .map((item) => item.node.id);
+        const at = order.indexOf(node.id);
+        if (at < 0 || !order[at + direction]) return;
+        const after = direction === -1 ? (order[at - 2] ?? null) : order[at + 1];
+        placeInWeek.mutateAsync({ id: node.id, day, after }).then(() => focusTaskEditor(node.id), () => {});
+        return;
+      }
       const siblings = siblingsOf(node);
       // The swap is with the row next to it on screen. Ticked tasks shown under the open ones: step over siblings of
       // the other kind. Otherwise rows are in their own order, and a list leaves out the ticked ones it no longer shows.
@@ -355,7 +423,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       // The row is re-inserted in the DOM, which drops focus; put it back.
       move.mutateAsync({ id: node.id, placement }).then(() => focusTaskEditor(node.id), () => {});
     },
-    [move, siblingsOf, ticked, byDeadline, rootId],
+    [move, placeInWeek, siblingsOf, ticked, byDeadline, rootId],
   );
 
   const value: TreeContextValue = {
@@ -386,7 +454,9 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       removeList.error ??
       restoreList.error ??
       // A refused tick or press shows in the popup next to the click instead.
-      setToday.error,
+      setToday.error ??
+      placeInWeek.error ??
+      moveRound.error,
   };
   return <TreeContext.Provider value={value}>{children}</TreeContext.Provider>;
 }

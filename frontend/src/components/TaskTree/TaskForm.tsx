@@ -4,16 +4,17 @@ import { ShortSyntaxEditor } from "./ShortSyntaxEditor";
 import { useTree } from "./TreeContext";
 
 interface Props {
-  /** Where new tasks go: the top level of a list, or under a task (on its own page). Neither = a task that lives only in Today. */
+  /** Where new tasks go: the top level of a list, or under a task (on its own page). Neither = a task that lives only in Today, or on a day of Week with `weekDay`. */
   listId?: string;
   parentId?: string;
+  weekDay?: string;
   placeholder: string;
   /** Names the field for keyboard navigation; defaults to "add:<list or parent>". */
   editorId?: string;
 }
 
 /** The always-present field at the bottom of a list or task page: Enter adds a task and stays ready for the next. Shortcuts typed into it (#tag, @date, ...) are set on the task. */
-export function TaskForm({ listId, parentId, placeholder, editorId }: Props) {
+export function TaskForm({ listId, parentId, weekDay, placeholder, editorId }: Props) {
   const [title, setTitle] = useState("");
   const createTask = useAddTask();
   const { newTaskLabels } = useTree();
@@ -23,7 +24,7 @@ export function TaskForm({ listId, parentId, placeholder, editorId }: Props) {
     if (e.key !== "Enter" || e.shiftKey || !title.trim() || createTask.isPending) return;
     const submitted = title;
     setTitle("");
-    createTask.mutate({ text: submitted, listId, parentId, ...newTaskLabels }, { onError: () => setTitle(submitted) });
+    createTask.mutate({ text: submitted, listId, parentId, weekDay, ...newTaskLabels }, { onError: () => setTitle(submitted) });
   }
 
   return (

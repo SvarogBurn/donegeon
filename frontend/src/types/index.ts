@@ -108,6 +108,10 @@ export interface Task {
   pointsToSubtasks: boolean;
   /** The day it was marked for Today; null = not in Today. */
   todaySince: string | null;
+  /** The day of the Week box it is planned for; null = not in it. */
+  weekDay: string | null;
+  /** Its place on that day of the Week box, apart from its place in its list. */
+  weekPosition: number;
   /** Top-level tasks only: done again and again with a button instead of ticked once. */
   isPersistent: boolean;
   /** A persistent task on a schedule: due again every so many units. null = no schedule. */
@@ -115,6 +119,10 @@ export interface Task {
   repeatUnit: RepeatUnit;
   /** The next round is counted from the day it was done, instead of keeping to the planned days. */
   repeatAfterDone: boolean;
+  /** Keeping to the planned days: every round missed is still to be done, one press each, instead of skipped. */
+  repeatMakeUp: boolean;
+  /** Rounds moved to another day in the Week box: planned day -> the day it is done on instead. Null = none. */
+  roundMoves: Record<string, string> | null;
   /** The day the next round is due, "YYYY-MM-DD"; set while repeatEvery is. */
   nextDue: string | null;
   position: number;

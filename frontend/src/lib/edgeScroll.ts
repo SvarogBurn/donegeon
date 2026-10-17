@@ -28,3 +28,46 @@ export function edgeScroller() {
     },
   };
 }
+
+/** How close to the top or bottom edge of a scrolling part of a box the pointer must be for it to scroll. */
+const AREA_PX = 40;
+
+/**
+ * Scrolls a part of a box that scrolls on its own (`[data-week-scroll]`: the Week tab's days) while something is
+ * dragged near its top or bottom edge, so a task can be taken to a day out of sight. `onScroll` is told each time
+ * it moved, as what is under the pointer changes with it.
+ */
+export function areaScroller(onScroll: () => void) {
+  let area: HTMLElement | null = null;
+  let speed = 0;
+  let frame = 0;
+  const tick = () => {
+    if (!area || speed === 0) return void (frame = 0);
+    const before = area.scrollTop;
+    area.scrollTop += speed;
+    if (area.scrollTop !== before) onScroll();
+    frame = requestAnimationFrame(tick);
+  };
+  return {
+    /**
+     * Call with the pointer's clientX and clientY on every move. Says whether the part is scrolling: then the page
+     * should hold still, or the two would move together under the pointer.
+     */
+    update(x: number, y: number): boolean {
+      area = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-week-scroll]") ?? null;
+      const rect = area?.getBoundingClientRect();
+      const fromTop = rect ? y - rect.top : Infinity;
+      const fromBottom = rect ? rect.bottom - y : Infinity;
+      speed = fromTop < AREA_PX ? -Math.ceil((AREA_PX - fromTop) / 3) : fromBottom < AREA_PX ? Math.ceil((AREA_PX - fromBottom) / 3) : 0;
+      // At its end it can't go further that way: then the page may.
+      if (area && ((speed < 0 && area.scrollTop <= 0) || (speed > 0 && area.scrollTop + area.clientHeight >= area.scrollHeight - 1))) speed = 0;
+      if (speed !== 0 && frame === 0) frame = requestAnimationFrame(tick);
+      return speed !== 0;
+    },
+    stop() {
+      speed = 0;
+      cancelAnimationFrame(frame);
+      frame = 0;
+    },
+  };
+}

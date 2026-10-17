@@ -11,6 +11,7 @@ import { findNode, toggleInCountdown, toggleInTrees, type CompletionChange } fro
 import { NAME_FOLDER_EVENT } from "../lib/folders";
 import { refuse } from "../lib/refusal";
 import { parseShortSyntax, type SyntaxContext } from "../lib/shortSyntax";
+import { weekColumn } from "../lib/week";
 import type { DashboardLayout } from "../lib/tileLayout";
 import type { Countdown, DonePage, Folder, Goal, List, Tag, TaskTreeNode, User } from "../types";
 import { ME } from "./useAuth";
@@ -251,6 +252,81 @@ export function useSetToday() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: TASKS }),
   });
 }
+/** Every node of the trees through `change`. */
+const mapNodes = (nodes: TaskTreeNode[], change: (node: TaskTreeNode) => TaskTreeNode): TaskTreeNode[] =>
+  nodes.map((node) => change({ ...node, children: mapNodes(node.children, change) }));
+
+const allNodes = (nodes: TaskTreeNode[]): TaskTreeNode[] => nodes.flatMap((node) => [node, ...allNodes(node.children)]);
+
+/** The order of `day` in the Week box with `id` taken out and put back after `after` (null = first, undefined = last). */
+function dayOrderWith(trees: TaskTreeNode[], id: string, day: string, after: string | null | undefined) {
+  const today = localDate();
+  const order = allNodes(trees)
+    .filter((node) => node.weekDay !== null && node.id !== id && weekColumn(node, today) === day)
+    .sort((a, b) => a.weekPosition - b.weekPosition)
+    .map((node) => node.id);
+  const at = after === undefined || (after !== null && !order.includes(after)) ? order.length : after === null ? 0 : order.indexOf(after) + 1;
+  order.splice(at, 0, id);
+  return new Map(order.map((taskId, position) => [taskId, position]));
+}
+
+/** Changes the Week box at once, before the server answers, and rolls back if it fails. */
+function useWeekMutation<TArgs extends { id: string }>(mutationFn: (args: TArgs) => Promise<unknown>, change: (trees: TaskTreeNode[], args: TArgs) => TaskTreeNode[]) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onMutate: async (args: TArgs) => {
+      await queryClient.cancelQueries({ queryKey: TASKS });
+      const trees = queryClient.getQueryData<TaskTreeNode[]>(TASKS);
+      if (!trees) return;
+      queryClient.setQueryData(TASKS, change(trees, args));
+      return { trees };
+    },
+    onError: (_error, _args, saved) => saved && queryClient.setQueryData(TASKS, saved.trees),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: TASKS }),
+  });
+}
+
+/** The trees with `id` on `day` of the Week box after `after`, as the server's placeInWeek does it. */
+function placedInWeek(trees: TaskTreeNode[], id: string, day: string, after: string | null | undefined) {
+  const order = dayOrderWith(trees, id, day, after);
+  return mapNodes(trees, (node) =>
+    node.id === id ? { ...node, weekDay: day, weekPosition: order.get(id)! } : order.has(node.id) ? { ...node, weekPosition: order.get(node.id)! } : node,
+  );
+}
+
+/** In or out of the Week box; one coming in goes last on today. */
+export const useSetWeek = () =>
+  useWeekMutation(
+    ({ id, week }: { id: string; week: boolean }) => tasksApi.updateTask(id, { week }),
+    (trees, { id, week }) =>
+      !week
+        ? mapNodes(trees, (node) => (node.id === id ? { ...node, weekDay: null } : node))
+        : findNode(trees, id)?.weekDay
+          ? trees
+          : placedInWeek(trees, id, localDate(), undefined),
+  );
+
+/** A round of a task on a schedule moved to another day in Week (`to` = `from`: back on its own day). */
+export const useMoveRound = () =>
+  useWeekMutation(
+    ({ id, from, to }: { id: string; from: string; to: string }) => tasksApi.moveRound(id, from, to),
+    (trees, { id, from, to }) =>
+      mapNodes(trees, (node) => {
+        if (node.id !== id) return node;
+        const { [from]: _, ...others } = node.roundMoves ?? {};
+        const moves = from === to ? others : { ...others, [from]: to };
+        return { ...node, roundMoves: Object.keys(moves).length > 0 ? moves : null };
+      }),
+  );
+
+/** A place in the Week box: on `day`, right after `after` (null = first, undefined = last); a task not in it yet comes in. */
+export const usePlaceInWeek = () =>
+  useWeekMutation(
+    ({ id, day, after }: { id: string; day: string; after?: string | null }) => tasksApi.placeInWeek(id, day, after),
+    (trees, { id, day, after }) => placedInWeek(trees, id, day, after),
+  );
+
 export const useMoveTask = () =>
   useInvalidating(
     ({ id, placement }: { id: string; placement: tasksApi.TaskPlacement }) => tasksApi.moveTask(id, placement),

@@ -1,13 +1,13 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { Router, type Request } from "express";
 import { z } from "zod";
 import { HttpError, notFound } from "../lib/httpError.js";
-import { isLocalDate } from "../lib/localDate.js";
+import { isLocalDate, mondayOf } from "../lib/localDate.js";
 import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
 import { addDays, countdownForTask, todayPace } from "../services/countdown.service.js";
 import { bookTask, MAX_POINTS, reverseBooking, reverseTaskBooking, subtaskValue, taskValue } from "../services/points.service.js";
-import { dueAfter } from "../services/repeat.service.js";
+import { dueAfter, movesFrom, roundMovesOf } from "../services/repeat.service.js";
 import {
   buildTree,
   completionPatch,
@@ -25,7 +25,7 @@ const localDate = z.string().refine(isLocalDate, "Dates must look like 2026-10-0
 const taskInput = z.object({
   title,
   notes,
-  /** parentId (a subtask), listId (a top-level task in a list), or neither: a task that lives only in Today. */
+  /** parentId (a subtask), listId (a top-level task in a list), or neither: a task that lives only in Today (or in Week, with `weekDay`). */
   parentId: z.string().uuid().nullish(),
   listId: z.string().uuid().nullish(),
   goalIds: z.array(z.string().uuid()).max(50).optional(),
@@ -38,6 +38,9 @@ const taskInput = z.object({
   /** What the short syntax of the add fields can set from the start; each means what it does in taskPatch. */
   points: z.number().int().min(0, "Points can't be negative").max(MAX_POINTS).optional(),
   today: z.boolean().optional(),
+  /** In the Week box from the start, on this day, after `weekAfter` there (null = first; left out = last). */
+  weekDay: localDate.optional(),
+  weekAfter: z.string().uuid().nullish(),
   repeatEvery: z.number().int().min(1, "Repeat every 1 or more").max(999).optional(),
   repeatUnit: z.enum(["day", "week", "month"]).optional(),
   nextDue: localDate.optional(),
@@ -58,6 +61,8 @@ const taskPatch = z.object({
   pointsToSubtasks: z.boolean().optional(),
   /** In or out of the Today box. */
   today: z.boolean().optional(),
+  /** In or out of the Week box; one coming in goes last on today. */
+  week: z.boolean().optional(),
   /** Main tasks only: done again and again instead of once. */
   isPersistent: z.boolean().optional(),
   /** Main tasks only: due again every so many days, weeks or months (which makes it persistent); null = no schedule. */
@@ -65,6 +70,8 @@ const taskPatch = z.object({
   repeatUnit: z.enum(["day", "week", "month"]).optional(),
   /** Count the next round from the day it was done instead of keeping to the planned days. */
   repeatAfterDone: z.boolean().optional(),
+  /** Keeping to the planned days: every missed round is still to be done, instead of skipped. */
+  repeatMakeUp: z.boolean().optional(),
   /** The day the next round is due; today when a schedule is first set. */
   nextDue: localDate.optional(),
 });
@@ -123,10 +130,14 @@ async function placeAmongSiblings(
   listId: string | null,
   at: number | undefined,
 ) {
+  // Without a list, the tasks written into Today and those written into Week are ordered apart.
+  const inWeek = !parentId && !listId && (await tx.task.findUniqueOrThrow({ where: { id: taskId } })).weekDay !== null;
   const siblings = await tx.task.findMany({
     where: {
       deletedAt: null,
-      ...(parentId ? { userId: owner, parentId } : { userId: owner, parentId: null, listId }),
+      ...(parentId
+        ? { userId: owner, parentId }
+        : { userId: owner, parentId: null, listId, ...(!listId && { weekDay: inWeek ? { not: null } : null }) }),
     },
     orderBy: [{ position: "asc" }, { createdAt: "asc" }],
     select: { id: true },
@@ -134,6 +145,32 @@ async function placeAmongSiblings(
   const others = siblings.map((s) => s.id).filter((id) => id !== taskId);
   const order = insertAt(others, taskId, at ?? others.length);
   await Promise.all(order.map((id, position) => tx.task.update({ where: { id }, data: { position } })));
+}
+
+/**
+ * Puts `taskId` on `day` of the Week box, right after `afterId` there (null = first, undefined = last), and
+ * rewrites the order of that day. Each day has an order of its own, apart from the task's place in its list.
+ * The Monday of this week (`today`'s) also holds what is still open from the weeks before.
+ */
+async function placeInWeek(
+  tx: Prisma.TransactionClient,
+  owner: string,
+  taskId: string,
+  day: string,
+  afterId: string | null | undefined,
+  today: string,
+) {
+  const onDay = await tx.task.findMany({
+    where: { userId: owner, deletedAt: null, id: { not: taskId }, weekDay: day === mondayOf(today) ? { lte: day } : day },
+    orderBy: [{ weekPosition: "asc" }, { createdAt: "asc" }],
+    select: { id: true },
+  });
+  const others = onDay.map((t) => t.id);
+  const after = afterId ? others.indexOf(afterId) : -1;
+  // A task that is no longer there (deleted or moved meanwhile) to go after: then last.
+  const order = insertAt(others, taskId, afterId === undefined || (afterId && after < 0) ? others.length : after + 1);
+  await tx.task.update({ where: { id: taskId }, data: { weekDay: day } });
+  await Promise.all(order.map((id, weekPosition) => tx.task.update({ where: { id }, data: { weekPosition } })));
 }
 
 /** What a task is read with for the trees: its goals and tags, and those of its presses that match `presses`. */
@@ -222,7 +259,14 @@ tasksRouter.get("/", async (req, res) => {
   const since = addDays(req.localDate, -KEPT_WHEN_DONE_DAYS);
   const tasks = await wholeTrees(
     owner,
-    { OR: [{ parentId: null, isComplete: false }, { completedOn: { gte: since } }] },
+    // The Week box keeps showing what was ticked in it until the week is over.
+    {
+      OR: [
+        { parentId: null, isComplete: false },
+        { completedOn: { gte: since } },
+        { weekDay: { not: null }, completedOn: { gte: mondayOf(req.localDate) } },
+      ],
+    },
     { day: { gte: since } },
   );
   res.json({ tasks: await asTrees(owner, tasks, req.localDate) });
@@ -387,8 +431,8 @@ tasksRouter.post("/", async (req, res) => {
         startDate: req.localDate,
         deadlineDate: input.deadlineDate,
         deadlineType: input.deadlineDate ? (input.deadlineType ?? "soft") : undefined,
-        // Without a list or a parent it was written straight into Today, and lives only there until moved to a list.
-        todaySince: input.today || !(parentId || listId) ? req.localDate : null,
+        // Without a list or a parent it was written straight into Today (or Week), and lives only there until moved to a list.
+        todaySince: input.today || (!(parentId || listId) && !input.weekDay) ? req.localDate : null,
         points: input.points,
         // A schedule makes the task persistent, due today unless another day was given.
         ...(input.repeatEvery && {
@@ -401,8 +445,9 @@ tasksRouter.post("/", async (req, res) => {
         tags: { connect: (input.tagIds ?? []).map((id) => ({ id })) },
       },
     });
+    if (input.weekDay) await placeInWeek(tx, owner, created.id, input.weekDay, input.weekAfter, req.localDate);
     await placeAmongSiblings(tx, owner, created.id, parentId, listId, input.index);
-    return created;
+    return input.weekDay ? tx.task.findUniqueOrThrow({ where: { id: created.id } }) : created;
   });
   res.status(201).json({ task });
 });
@@ -429,10 +474,16 @@ tasksRouter.patch("/:id", async (req, res) => {
     if (task.parentId) throw new HttpError(400, "Only a main task can hand its points down to its subtasks");
     data.pointsToSubtasks = input.pointsToSubtasks;
   }
-  if (input.today === false && !task.parentId && !task.listId) {
+  // A task without a list lives in Today or in Week, so it can't leave the last of them.
+  const inNoList = !task.parentId && !task.listId;
+  if (input.today === false && inNoList && !task.weekDay) {
     throw new HttpError(400, "This task only lives in Today. Move it to a list first, or delete it.");
   }
+  if (input.week === false && inNoList && !task.todaySince) {
+    throw new HttpError(400, "This task only lives in Week. Move it to a list first, or delete it.");
+  }
   if (input.today !== undefined) data.todaySince = input.today ? (task.todaySince ?? req.localDate) : null;
+  if (input.week === false) data.weekDay = null;
 
   // A schedule only makes sense on a task that is done again and again, so setting one makes the task persistent.
   const isPersistent = input.isPersistent ?? (input.repeatEvery ? true : task.isPersistent);
@@ -445,6 +496,9 @@ tasksRouter.patch("/:id", async (req, res) => {
   }
   data.isPersistent = isPersistent;
   const repeatEvery = input.repeatEvery === undefined ? task.repeatEvery : input.repeatEvery;
+  // A changed schedule has other rounds: moved ones are forgotten.
+  const reschedules = [input.repeatEvery, input.repeatUnit, input.repeatAfterDone, input.nextDue].some((v) => v !== undefined);
+  if (!isPersistent || !repeatEvery || reschedules) data.roundMoves = Prisma.DbNull;
   if (!isPersistent || !repeatEvery) {
     data.repeatEvery = null;
     data.nextDue = null;
@@ -452,6 +506,7 @@ tasksRouter.patch("/:id", async (req, res) => {
     data.repeatEvery = repeatEvery;
     data.repeatUnit = input.repeatUnit;
     data.repeatAfterDone = input.repeatAfterDone;
+    data.repeatMakeUp = input.repeatMakeUp;
     data.nextDue = input.nextDue ?? task.nextDue ?? req.localDate;
   }
 
@@ -464,7 +519,37 @@ tasksRouter.patch("/:id", async (req, res) => {
     if (input.deadlineDate && !input.deadlineType && !task.deadlineType) data.deadlineType = "hard";
   }
 
-  res.json({ task: await prisma.task.update({ where: { id: task.id }, data }) });
+  const updated = await prisma.$transaction(async (tx) => {
+    const changed = await tx.task.update({ where: { id: task.id }, data });
+    if (!input.week || task.weekDay) return changed;
+    await placeInWeek(tx, task.userId, task.id, req.localDate, undefined, req.localDate);
+    return tx.task.findUniqueOrThrow({ where: { id: task.id } });
+  });
+  res.json({ task: updated });
+});
+
+// A round of a task on a schedule moved to another day in the Week box: the one planned on `from` is done on `to`
+// (back on its own day when `to` is `from`). Only that round moves; the ones after it keep their planned days.
+tasksRouter.post("/:id/round", async (req, res) => {
+  const { from, to } = z.object({ from: localDate, to: localDate }).parse(req.body);
+  const task = await ownTask(req, req.params.id);
+  if (!task.repeatEvery || !task.nextDue) throw new HttpError(400, "Only a task on a schedule has rounds to move");
+  const { [from]: _, ...others } = roundMovesOf(task.roundMoves);
+  const moves = from === to ? others : { ...others, [from]: to };
+  const updated = await prisma.task.update({
+    where: { id: task.id },
+    data: { roundMoves: Object.keys(moves).length > 0 ? moves : Prisma.DbNull },
+  });
+  res.json({ task: updated });
+});
+
+// A place in the Week box: on `day`, right after `after` there (null = first, left out = last). A task not yet in
+// the box comes into it.
+tasksRouter.post("/:id/week", async (req, res) => {
+  const { day, after } = z.object({ day: localDate, after: z.string().uuid().nullish() }).parse(req.body);
+  const task = await ownTask(req, req.params.id);
+  await prisma.$transaction((tx) => placeInWeek(tx, task.userId, task.id, day, after, req.localDate));
+  res.status(204).end();
 });
 
 // Flips completion for this one node only; parents and children are untouched.
@@ -517,9 +602,10 @@ tasksRouter.post("/:id/completions", async (req, res) => {
   const completion = await prisma.$transaction(async (tx) => {
     const booked = await bookTask(tx, task);
     if (repeatEvery && nextDue) {
+      const next = dueAfter({ ...task, repeatEvery, nextDue }, req.localDate);
       await tx.task.update({
         where: { id: task.id },
-        data: { nextDue: dueAfter({ ...task, repeatEvery, nextDue }, req.localDate) },
+        data: { nextDue: next, roundMoves: movesFrom(task.roundMoves, next) ?? Prisma.DbNull },
       });
     }
     await tx.task.updateMany({

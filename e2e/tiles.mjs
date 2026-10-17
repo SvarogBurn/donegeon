@@ -54,13 +54,13 @@ const row = (t) => p.locator(`[data-task-row]:has(textarea:text-is("${t}"))`).fi
 await p.setViewportSize({ width: 1500, height: 3200 }); await wait();
 await p.locator('[data-task-editor^="add:"]').first().click(); await p.keyboard.type("Exam"); await p.keyboard.press("Enter"); await wait(); await p.keyboard.press("Escape");
 await row("Exam").locator('[aria-label="Task options"]').click(); await wait(300);
-await row("Exam").locator('[role=dialog] [aria-label^="Deadline date"]').fill(soon); await p.keyboard.press("Enter"); await wait(800); await p.keyboard.press("Escape"); await p.mouse.click(5, 400); await wait();
+await p.locator('[role=dialog][aria-label="Task options"] [aria-label^="Deadline date"]').fill(soon); await p.keyboard.press("Enter"); await wait(800); await p.keyboard.press("Escape"); await p.mouse.click(5, 400); await wait();
 await drag("done", below("today")); await drag(rewards, below("today"));
 out("with a deadline, its boxes exist; two columns in use", (await tile("deadlines").count()) === 1 && (await shape()).split(" | ").length === 2, await shape());
 await drag("deadlines", newColumn);
 out("All deadlines alone in a third column", (await shape()).endsWith(" | deadlines"), await shape());
 await row("Exam").locator('[aria-label="Task options"]').click(); await wait(300);
-await row("Exam").locator('[role=dialog] >> text=Remove').click(); await wait(800); await p.keyboard.press("Escape"); await p.mouse.click(5, 400); await wait();
+await p.locator('[role=dialog][aria-label="Task options"] >> text=Remove').click(); await wait(800); await p.keyboard.press("Escape"); await p.mouse.click(5, 400); await wait();
 out("deadline removed: that column is gone from the screen", (await tile("deadlines").count()) === 0 && (await shape()).split(" | ").length === 2, await shape());
 await drag("tags", newColumn);
 out("a tile dragged to a new column lands in a third column, not back under the first", (await shape()).endsWith(" | tags"), await shape());

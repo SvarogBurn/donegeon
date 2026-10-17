@@ -9,7 +9,7 @@ const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `$
 const dmy = (n) => day(n).split("-").reverse().join("/");
 const short = (n) => `${dmy(n).slice(0, 6)}${day(n).slice(2, 4)}`;
 const row = (title) => p.locator(`[data-task-row]:has(textarea:text-is("${title}"))`).first();
-const openMenu = async (title) => { await row(title).locator('[aria-label="Task options"]').click(); return row(title).locator('[role=dialog]'); };
+const openMenu = async (title) => { await row(title).locator('[aria-label="Task options"]').click(); return p.locator('[role=dialog][aria-label="Task options"]'); };
 const table = p.locator('[aria-label="All deadlines"]');
 const lines = () => table.locator("tbody tr").evaluateAll(trs => trs.map(tr => [...tr.cells].map(c => c.textContent).join("|")));
 
@@ -23,7 +23,8 @@ async function bigTask(title, subtasks, inDays, soft = false) {
   for (let i = 1; i <= subtasks; i++) { await p.keyboard.type(`${title} ${i}`); await p.keyboard.press("Enter"); await wait(300); }
   await p.keyboard.press("Escape"); await wait(300);
   const m = await openMenu(title); await m.locator('input[aria-label^="Deadline date"]').fill(dmy(inDays)); await p.keyboard.press("Enter"); await wait();
-  if (soft) { await m.locator('button:text-is("Soft")').click(); await wait(); }
+  // Enter saved the date and closed the menu.
+  if (soft) { await openMenu(title); await m.locator('button:text-is("Soft")').click(); await wait(); }
   await p.keyboard.press("Escape"); await wait(400);
 }
 await bigTask("Exam", 6, 7);           // 7 tasks over 7 days: 1 per day

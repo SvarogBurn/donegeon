@@ -10,7 +10,9 @@ const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `$
 const row = (title) => p.locator(`[data-task-row]:has(textarea:text-is("${title}"))`).first();
 // The dev-date override: the app treats this day as today.
 const pretend = async (n) => { await p.evaluate((d) => d ? localStorage.setItem("donegeon.devDate", d) : localStorage.removeItem("donegeon.devDate"), n === 0 ? null : day(n)); await p.reload(); await p.waitForSelector("[data-task-row]"); await wait(); };
-const openMenu = async (title) => { await row(title).locator('[aria-label="Task options"]').click(); return row(title).locator("[role=dialog]"); };
+const openMenu = async (title) => { await row(title).locator('[aria-label="Task options"]').click(); return p.locator("[role=dialog][aria-label='Task options']"); };
+// Enter in a field of the menu saves it and closes the menu: open it again to go on.
+const reopen = async (title) => { if ((await p.locator("[role=dialog][aria-label='Task options']").count()) === 0) { await row(title).locator('[aria-label="Task options"]').click(); await wait(300); } };
 const today = p.locator('section[aria-label="Today"]');
 const inToday = (title) => today.locator(`[data-today-item]:has-text("${title}")`).count();
 const due = (title) => row(title).locator("[data-next-due]").getAttribute("data-next-due");
@@ -27,7 +29,7 @@ let m = await openMenu("Shot");
 const offered = await m.locator('[aria-label^="Repeat every"]').count();
 await m.locator('label:has-text("Persistent") input').click(); await wait(600);
 out("the schedule is offered once Persistent is ticked", offered === 0 && await m.locator('[aria-label^="Repeat every"]').count() === 1);
-await m.locator('[aria-label^="Repeat every"]').fill("3"); await p.keyboard.press("Enter"); await wait(600);
+await m.locator('[aria-label^="Repeat every"]').fill("3"); await p.keyboard.press("Enter"); await wait(600); await reopen("Shot");
 out("with a schedule the task is due today", await due("Shot") === day(0) && await chip("Shot") === "due today", await chip("Shot"));
 out("the menu shows the next day and what it is counted from", (await m.locator('[aria-label^="Next due date"]').inputValue()) === day(0).split("-").reverse().join("/") && await m.locator('button:text-is("Planned days")').getAttribute("aria-pressed") === "true");
 await p.keyboard.press("Escape"); await wait(200);
@@ -44,27 +46,38 @@ await pretend(20);
 out("the day before: still waiting", (await chip("Shot")).startsWith("next ") && await inToday("Shot") === 0);
 await pretend(21);
 out("three weeks on: due, in Today", await chip("Shot") === "due today" && await inToday("Shot") === 1, await chip("Shot"));
-await pretend(23);
-out("two days late: due since its day", (await chip("Shot")).startsWith("due since ") && await today.locator("[data-today-item] [data-carried='2']").count() === 1, await chip("Shot"));
+// Late within the round's own week: still due. (A round left open into the next week is dropped instead, see week.mjs;
+// when the round falls on a Sunday there is no later day in its week, so the task makes up rounds for this part.)
+const monday = (n) => { const d = new Date(); d.setDate(d.getDate() + n); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toLocaleDateString("sv"); };
+const late = [23, 22].find((n) => monday(n) === monday(21));
+if (late === undefined) { m = await openMenu("Shot"); await m.locator('button:text-is("Make up each")').click(); await wait(600); await p.keyboard.press("Escape"); await wait(200); }
+await pretend(late ?? 23);
+out("late within its week: due since its day", (await chip("Shot")).startsWith("due since ") && await today.locator(`[data-today-item] [data-carried='${(late ?? 23) - 21}']`).count() === 1, await chip("Shot"));
 await today.locator("[data-today-item] .repeat-button").click(); await wait(600);
 out("planned days: done late from Today, the next round keeps its day", await due("Shot") === day(42), await due("Shot"));
 
 await pretend(44);
 m = await openMenu("Shot");
-await m.locator('button:text-is("After done")').click(); await wait(600); await p.keyboard.press("Escape"); await wait(200);
+out("keeping to planned days, missed rounds are skipped unless chosen otherwise", await m.locator('[data-menu-part="missed"] button:text-is("Skip, flag !")').getAttribute("aria-pressed") === "true");
+await m.locator('button:text-is("Make up each")').click(); await wait(600);
+out("…or made up", await m.locator('[data-menu-part="missed"] button:text-is("Make up each")').getAttribute("aria-pressed") === "true");
+await m.locator('button:text-is("Skip, flag !")').click(); await wait(600);
+await m.locator('button:text-is("After done")').click(); await wait(600);
+out("counted from the day it was done, there are no missed rounds to choose about", await m.locator('[data-menu-part="missed"]').count() === 0);
+await p.keyboard.press("Escape"); await wait(200);
 await press("Shot");
 out("after done: counted from the day it was done", await due("Shot") === day(65), await due("Shot"));
 
 // The next day can be set by hand; days and months work too.
 m = await openMenu("Shot");
-await m.locator('[aria-label^="Next due date"]').fill(day(50).split("-").reverse().join("/")); await p.keyboard.press("Enter"); await wait(600);
+await m.locator('[aria-label^="Next due date"]').fill(day(50).split("-").reverse().join("/")); await p.keyboard.press("Enter"); await wait(600); await reopen("Shot");
 out("the next day can be typed", await due("Shot") === day(50), await due("Shot"));
 await m.locator('[aria-label="Days, weeks or months"]').selectOption("month"); await wait(600);
-await m.locator('[aria-label^="Repeat every"]').fill("1"); await p.keyboard.press("Enter"); await wait(600);
+await m.locator('[aria-label^="Repeat every"]').fill("1"); await p.keyboard.press("Enter"); await wait(600); await reopen("Shot");
 out("every month", await row("Shot").locator("[data-next-due]").getAttribute("title") === "Repeats every month", await row("Shot").locator("[data-next-due]").getAttribute("title"));
-await m.locator('[aria-label^="Repeat every"]').fill(""); await p.keyboard.press("Enter"); await wait(600);
+await m.locator('[aria-label^="Repeat every"]').fill(""); await p.keyboard.press("Enter"); await wait(600); await reopen("Shot");
 out("emptying the number takes the schedule off; the task stays persistent", await row("Shot").locator("[data-next-due]").count() === 0 && await m.locator('label:has-text("Persistent") input').isChecked());
-await m.locator('[aria-label^="Repeat every"]').fill("2"); await p.keyboard.press("Enter"); await wait(600);
+await m.locator('[aria-label^="Repeat every"]').fill("2"); await p.keyboard.press("Enter"); await wait(600); await reopen("Shot");
 await m.locator('label:has-text("Persistent") input').click(); await wait(600);
 const gone = await row("Shot").locator("[data-next-due]").count() === 0 && await row("Shot").locator(".repeat-button").count() === 0 && await m.locator('[aria-label^="Repeat every"]').count() === 0;
 await m.locator('label:has-text("Persistent") input').click(); await wait(600);
@@ -73,7 +86,7 @@ await p.keyboard.press("Escape"); await wait(200);
 
 // A task with a deadline can't repeat.
 m = await openMenu("Laundry");
-await m.locator('input[aria-label^="Deadline date"]').fill(day(50).split("-").reverse().join("/")); await p.keyboard.press("Enter"); await wait(600);
+await m.locator('input[aria-label^="Deadline date"]').fill(day(50).split("-").reverse().join("/")); await p.keyboard.press("Enter"); await wait(600); await reopen("Laundry");
 await m.locator('label:has-text("Persistent") input').click(); await wait(600);
 out("a task with a deadline can't be persistent, so it gets no schedule", await m.locator("text=can't have a deadline").count() >= 1 && await m.locator('[aria-label^="Repeat every"]').count() === 0);
 await p.keyboard.press("Escape");

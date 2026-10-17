@@ -1,5 +1,5 @@
 import { addDays } from "./dates";
-import { addInterval, isDue } from "./repeat";
+import { addInterval, currentRound, movedDay } from "./repeat";
 import { hasTaskPage } from "./taskPage";
 import type { StatRow, TaskTreeNode } from "../types";
 import { plainTitle } from "./markup";
@@ -81,10 +81,14 @@ export function planByDay(trees: TaskTreeNode[], today: string, until: string): 
         const isOverdue = node.deadlineDate < today && !node.isComplete;
         put(isOverdue ? today : node.deadlineDate, { ...item, kind: isOverdue ? "overdue" : "deadline" });
       } else if (isMain && node.nextDue && node.repeatEvery) {
-        const first = isDue(node, today) ? today : node.nextDue;
+        // A round dropped from an earlier week (skipping missed rounds) is not to be done: its round this week is.
+        const round = currentRound(node, today)!;
+        const first = round.day <= today ? today : round.day;
         put(first, { ...item, kind: first === today ? "due" : "next" });
-        for (let day = addInterval(first, node.repeatEvery, node.repeatUnit); day <= until; day = addInterval(day, node.repeatEvery, node.repeatUnit)) {
-          put(day, { ...item, kind: "round" });
+        // The planned days on, each where it was moved to, if it was.
+        for (let day = addInterval(round.planned, node.repeatEvery, node.repeatUnit); day <= until; day = addInterval(day, node.repeatEvery, node.repeatUnit)) {
+          const at = movedDay(node, day);
+          if (at > first) put(at, { ...item, kind: "round" });
         }
       } else if (node.todaySince !== null && (!node.isComplete || node.completedOn === today)) {
         put(today, { ...item, kind: "today" });

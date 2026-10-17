@@ -5,7 +5,7 @@ import { localDate } from "../../api/client";
 import { useLists, useTaskTrees } from "../../hooks/useTasks";
 import { daysBetween, formatDay, formatFullDay, formatPace } from "../../lib/dates";
 import { firstLine } from "../../lib/calendar";
-import { repeatLabel } from "../../lib/repeat";
+import { currentRound, repeatLabel } from "../../lib/repeat";
 import { findTaskRow, pathIdsTo, showOnPage } from "../../lib/showOnPage";
 import { ValueChip } from "../Points/ValueChip";
 import type { Info } from "./calendarData";
@@ -49,6 +49,7 @@ export function TaskInfo({ info, onClose }: { info: Info; onClose: () => void })
     const { node, path, listId, kind } = info.plan;
     const list = lists.find((other) => other.id === listId);
     const left = node.deadlineDate ? daysBetween(today, node.deadlineDate) : 0;
+    const round = currentRound(node, today);
     title = node.title;
     pageId = info.plan.pageId;
     if (!listId) place = "Today";
@@ -69,7 +70,8 @@ export function TaskInfo({ info, onClose }: { info: Info; onClose: () => void })
         )}
         {node.repeatEvery && node.nextDue && (
           <Row label="Repeats">
-            {repeatLabel(node)} · {node.nextDue <= today ? (node.nextDue === today ? "due today" : `due since ${formatDay(node.nextDue)}`) : `next ${formatFullDay(node.nextDue)}`}
+            {repeatLabel(node)} · {round!.day <= today ? (round!.day === today ? "due today" : `due since ${formatDay(round!.day)}`) : `next ${formatFullDay(round!.day)}`}
+            {round!.missed && ` · not done since ${formatDay(node.nextDue)}`}
             {kind === "round" && ` · on ${formatDay(info.day)} if kept to`}
           </Row>
         )}

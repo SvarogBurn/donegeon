@@ -1,9 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { localDate } from "../../api/client";
 import { useAddTask, useSyntaxContext, useToggleTask } from "../../hooks/useTasks";
 import { firstLine, daysFrom, type DoneItem, type PlanItem } from "../../lib/calendar";
 import { addDays, daysBetween, formatDay } from "../../lib/dates";
-import { repeatLabel } from "../../lib/repeat";
+import { currentRound, repeatLabel } from "../../lib/repeat";
 import { parseShortSyntax } from "../../lib/shortSyntax";
 import type { List } from "../../types";
 import { PixelCheckbox } from "../PixelCheckbox";
@@ -13,6 +13,7 @@ import { useTree } from "../TaskTree/TreeContext";
 import { TileFrame } from "../Tiles/TileFrame";
 import { CAL_BOXES, isOpen, pickDay, useCalendar, useDayPicked, type Info } from "./calendarData";
 import { TaskInfo } from "./TaskInfo";
+import { DayList, panStrip, stepStrip, STRIP } from "./dayStrip";
 import { RichText } from "../RichText";
 import { plainTitle } from "../../lib/markup";
 
@@ -24,43 +25,8 @@ const MORE_DAYS = 14;
 const MAX_STRETCH = 60;
 /** The list the last task written into a day went to. */
 const LIST_KEY = "donegeon.calendarList";
-/** How far the pointer moves before a press on the row is a drag of it. */
-const DRAG_PX = 5;
 
 const CHIP = "pixel-chip px-1.5 py-0.5 text-[10px] whitespace-nowrap";
-/** A day's list grows this tall and no taller; an edge of it fades where there is more past it. */
-const LIST =
-  "max-h-[min(60dvh,24rem)] overflow-x-hidden overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden data-more-above:mask-t-from-[calc(100%-1.5rem)] data-more-below:mask-b-from-[calc(100%-1.5rem)]";
-
-/** Marks which ways a day's list has more than it shows. */
-function markMore(list: HTMLElement) {
-  list.toggleAttribute("data-more-above", list.scrollTop > 0);
-  list.toggleAttribute("data-more-below", list.scrollTop + list.clientHeight < list.scrollHeight - 1);
-}
-
-/**
- * What is on a day. A long one scrolls within its own height, with no scroll bar, like the row:
- * by the wheel, a swipe, or dragging it.
- */
-function DayList({ className, children }: { className: string; children: ReactNode }) {
-  const list = useRef<HTMLUListElement>(null);
-
-  // What is in the list changes without it being scrolled, and so does the room it has.
-  useLayoutEffect(() => markMore(list.current!));
-  useEffect(() => {
-    // Held on to: the list is still told of its size once more as it is taken off the page, its ref by then empty.
-    const el = list.current!;
-    const sized = new ResizeObserver(() => markMore(el));
-    sized.observe(el);
-    return () => sized.disconnect();
-  }, []);
-
-  return (
-    <ul ref={list} data-day-list onScroll={(e) => markMore(e.currentTarget)} className={`${LIST} ${className}`}>
-      {children}
-    </ul>
-  );
-}
 
 /** One thing to do on a day: ticked (or, a task on a schedule that is due, pressed) from here; its name opens more about it. */
 function PlanRow({ item, today, listName, onInfo }: { item: PlanItem; today: string; listName: string | undefined; onInfo: () => void }) {
@@ -108,7 +74,9 @@ function PlanRow({ item, today, listName, onInfo }: { item: PlanItem; today: str
           {kind === "deadline" && node.deadlineType === "hard" && (
             <span className={`${CHIP} bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300`}>hard deadline</span>
           )}
-          {kind === "due" && node.nextDue! < today && <span className="text-amber-700 dark:text-amber-400">due since {formatDay(node.nextDue!)}</span>}
+          {kind === "due" && currentRound(node, today)!.day < today && (
+            <span className="text-amber-700 dark:text-amber-400">due since {formatDay(currentRound(node, today)!.day)}</span>
+          )}
           {(kind === "due" || isAhead) && <span>{repeatLabel(node)}</span>}
           {kind === "today" && <span className={`${CHIP} bg-stone-200 text-stone-700 dark:bg-stone-700 dark:text-stone-200`}>Today</span>}
         </p>
@@ -343,52 +311,6 @@ export function DaysBox() {
     return () => seen.disconnect();
   }, [range.from, range.to, isLoaded]);
 
-  /** As many whole days on as the row shows at once, less one, so the eye keeps a day to hold on to. */
-  function step(direction: -1 | 1) {
-    const row = strip.current;
-    const width = row?.querySelector<HTMLElement>("[data-day]")?.offsetWidth;
-    if (!row || !width) return;
-    const at = Math.round(row.scrollLeft / width);
-    row.scrollTo({ left: (at + direction * Math.max(1, Math.floor(row.clientWidth / width) - 1)) * width, behavior: "smooth" });
-  }
-
-  // A mouse has nothing to swipe with: the row is dragged by any part of it that isn't a button or a field.
-  // Dragged up or down over a day with more than it shows, it is that day's list that moves instead.
-  function startPan(e: ReactPointerEvent<HTMLDivElement>) {
-    if (e.pointerType !== "mouse" || e.button !== 0 || (e.target as Element).closest("button, input, select, a, label")) return;
-    const row = e.currentTarget;
-    const list = (e.target as Element).closest<HTMLElement>("[data-day-list]");
-    const tall = list && list.scrollHeight > list.clientHeight ? list : null;
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const startLeft = row.scrollLeft;
-    const startTop = tall?.scrollTop ?? 0;
-    // Which way the drag goes is settled once, by its first few pixels.
-    let moving: HTMLElement | null = null;
-    const onMove = (ev: PointerEvent) => {
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
-      if (!moving) {
-        const isUpDown = tall !== null && Math.abs(dy) > Math.abs(dx);
-        if (Math.abs(isUpDown ? dy : dx) < DRAG_PX) return;
-        moving = isUpDown ? tall : row;
-        row.setPointerCapture(e.pointerId);
-        row.dataset.panning = "";
-      }
-      if (moving === row) row.scrollLeft = startLeft - dx;
-      else moving.scrollTop = startTop - dy;
-    };
-    const onEnd = () => {
-      delete row.dataset.panning;
-      row.removeEventListener("pointermove", onMove);
-      row.removeEventListener("pointerup", onEnd);
-      row.removeEventListener("pointercancel", onEnd);
-    };
-    row.addEventListener("pointermove", onMove);
-    row.addEventListener("pointerup", onEnd);
-    row.addEventListener("pointercancel", onEnd);
-  }
-
   if (error || !isLoaded || !lists) {
     return (
       <TileFrame title={CAL_BOXES.days} aria-label="Days">
@@ -400,13 +322,13 @@ export function DaysBox() {
   return (
     <TileFrame title={CAL_BOXES.days} aria-label="Days">
       <div className="flex items-center justify-center gap-1">
-        <button type="button" className="btn-quiet glyph px-3 py-1 text-2xl" aria-label="Earlier days" onClick={() => step(-1)}>
+        <button type="button" className="btn-quiet glyph px-3 py-1 text-2xl" aria-label="Earlier days" onClick={() => stepStrip(strip.current, -1)}>
           ‹
         </button>
         <button type="button" className="btn-quiet w-24 text-center" data-days-today onClick={() => pickDay(today)}>
           Today
         </button>
-        <button type="button" className="btn-quiet glyph px-3 py-1 text-2xl" aria-label="Later days" onClick={() => step(1)}>
+        <button type="button" className="btn-quiet glyph px-3 py-1 text-2xl" aria-label="Later days" onClick={() => stepStrip(strip.current, 1)}>
           ›
         </button>
       </div>
@@ -414,8 +336,8 @@ export function DaysBox() {
       <div
         ref={strip}
         data-day-strip
-        onPointerDown={startPan}
-        className="relative flex cursor-grab items-stretch overflow-x-auto [scrollbar-width:none] data-panning:cursor-grabbing data-panning:select-none [&::-webkit-scrollbar]:hidden"
+        onPointerDown={panStrip}
+        className={STRIP}
       >
         <span ref={earlier} className="-mr-px w-px flex-none" aria-hidden />
         {daysFrom(range.from, range.to).map((day) => (

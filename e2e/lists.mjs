@@ -20,7 +20,7 @@ await p.keyboard.press("ArrowUp"); await p.keyboard.press("Control+Enter"); awai
 // goal tags: empty by default, available on a subtask
 await p.fill('[aria-label="New goal name"]', "Fitness"); await p.keyboard.press("Enter"); await wait();
 await row("Small").locator('[aria-label="Task options"]').click();
-const sel = row("Small").locator('[role=dialog] label:has-text("Fitness") input');
+const sel = p.locator('[role=dialog][aria-label="Task options"] label:has-text("Fitness") input');
 out("goal tag is empty by default, also offered on subtasks", !(await sel.isChecked()) && (await p.locator('[title^="Goal:"]').count()) === 0);
 await sel.click(); await wait(); await p.keyboard.press("Escape");
 out("subtask tagged with a goal; Goals box counts it", await row("Small").locator('[title="Goal: Fitness"]').isVisible());

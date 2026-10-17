@@ -10,7 +10,7 @@ const api = (url, method, body) => p.evaluate(async ([url, method, body]) => {
   return res.status === 204 ? null : res.json();
 }, [url, method, body]);
 const row = (title) => p.locator(`[data-task-row]:has(textarea:text-is("${title}"))`).first();
-const menu = row("Task").locator("[role=dialog]");
+const menu = p.locator("[role=dialog][aria-label='Task options']");
 const open = async () => { await row("Task").locator('[aria-label="Task options"]').click(); await wait(250); };
 const isOpen = async () => (await menu.count()) === 1;
 const rows = () => p.locator("[data-task-row]").count();

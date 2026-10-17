@@ -32,7 +32,7 @@ import {
   useUpdateFolder,
 } from "../hooks/useTasks";
 import { countLabels, isFiltering, NO_FILTER, toggleId, type LabelFilter } from "../lib/labels";
-import { calOfView, listView, statOfView } from "../lib/folders";
+import { calOfView, listView, statOfView, TODAY_VIEW } from "../lib/folders";
 import { STAT_BOXES, StatBoxView, StatBoxesProvider } from "../components/Stats/StatsPanel";
 import { NEW_LIST_TILE, normalizeLayout, withHidden, type DashboardLayout } from "../lib/tileLayout";
 
@@ -125,7 +125,8 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
         />
       ),
     },
-    { key: "today", name: "Today", node: <TodayBox tasks={tasks.data} /> },
+    // Can be dropped on a folder's tab too: a copy, shown there as well.
+    { key: "today", view: TODAY_VIEW, name: "Today", node: <TodayBox tasks={tasks.data} /> },
     ...listTiles,
     newListTile,
     {
@@ -154,6 +155,7 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   // the stats box on the Stats page. A view whose list is gone (or filtered out) shows nothing.
   const viewTiles = (folder?.views ?? []).flatMap((view): (Tile & { label?: string })[] => {
     const stat = statOfView(view);
+    if (view === TODAY_VIEW) return [{ key: view, view, name: "Today", label: "Today", node: <TodayBox tasks={tasks.data} /> }];
     if (calOfView(view) !== null) return calTile(view);
     if (stat === null) return listTiles.filter((tile) => tile.key === view);
     if (!(stat in STAT_BOXES)) return [];

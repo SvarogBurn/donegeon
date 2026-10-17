@@ -15,7 +15,7 @@ const balance = async () => Number(await p.locator("[data-nav-balance]").getAttr
 const chip = (title) => row(title).locator("[data-value-chip]").innerText();
 const titles = async (c) => c.locator("[data-task-row] textarea").evaluateAll((els) => els.map((e) => e.value).join(","));
 const add = async (c, title) => { await c.locator('[data-task-editor^="add:"]').click(); await p.keyboard.type(title); await p.keyboard.press("Enter"); await wait(); };
-const menu = async (title) => { await row(title).locator('[aria-label="Task options"]').click(); return row(title).locator("[role=dialog]"); };
+const menu = async (title) => { await row(title).locator('[aria-label="Task options"]').click(); return p.locator("[role=dialog][aria-label='Task options']"); };
 const pretend = async (n) => { await p.evaluate((d) => d ? localStorage.setItem("donegeon.devDate", d) : localStorage.removeItem("donegeon.devDate"), n === 0 ? null : day(n)); await p.reload(); await p.waitForSelector("section[data-drop-list]"); await wait(); await expandAll(); };
 const today = p.locator('[aria-label="Today"]');
 

@@ -9,7 +9,7 @@ const outline = () => p.evaluate(() => [...document.querySelectorAll("[data-task
 // Tasks start with their subtasks hidden; this opens them all (without moving the focus).
 const expandAll = async () => { while (await p.evaluate(() => { const closed = [...document.querySelectorAll('[aria-label="Expand subtasks"]:enabled')]; closed.forEach((b) => b.click()); return closed.length; })) await p.waitForTimeout(50); };
 const row = (t) => p.locator(`[data-task-row]:has(textarea:text-is("${t}"))`).first();
-const label = async (task, name) => { await row(task).locator('[aria-label="Task options"]').click(); await row(task).locator(`[role=dialog] label:has-text("${name}") input`).click(); await wait(); await p.keyboard.press("Escape"); };
+const label = async (task, name) => { await row(task).locator('[aria-label="Task options"]').click(); await p.locator(`[role=dialog][aria-label="Task options"] label:has-text("${name}") input`).click(); await wait(); await p.keyboard.press("Escape"); };
 const pill = (box, name) => p.locator(`[aria-label="${box}"] li:has-text("${name}") button[aria-pressed]`);
 await p.goto("http://localhost:5173/"); await p.waitForSelector("text=Create an account");
 await p.click("text=Create an account"); await p.waitForSelector('button:text-is("Sign up")');

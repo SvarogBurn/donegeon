@@ -23,11 +23,13 @@ export interface TaskChanges {
   /** Main tasks only. */
   pointsToSubtasks?: boolean;
   today?: boolean;
+  week?: boolean;
   isPersistent?: boolean;
   /** null = no schedule. A number also makes the task persistent. */
   repeatEvery?: number | null;
   repeatUnit?: RepeatUnit;
   repeatAfterDone?: boolean;
+  repeatMakeUp?: boolean;
   nextDue?: string;
 }
 
@@ -53,6 +55,9 @@ export interface NewTask {
   points?: number;
   /** In the Today box from the start. */
   today?: boolean;
+  /** In the Week box from the start, on this day, after `weekAfter` there (null = first; left out = last). Without a list or a parent it lives there. */
+  weekDay?: string;
+  weekAfter?: string | null;
   /** Main tasks only: makes it persistent, due every so many units from `nextDue` (today if left out). */
   repeatEvery?: number;
   repeatUnit?: RepeatUnit;
@@ -79,6 +84,10 @@ export const saveLayout = (page: LayoutPage, layout: DashboardLayout) => api(lay
 export const getPoints = () => api<PointsSummary>("/points");
 export const setTodayPoints = (points: number) => api("/points/today", { method: "PUT", body: { points } });
 export const moveTask = (id: string, placement: TaskPlacement) => api(`/tasks/${id}/move`, { body: placement });
+/** A round of a task on a schedule moved to another day: the one planned on `from` is done on `to` (`from` = back on its day). */
+export const moveRound = (id: string, from: string, to: string) => api(`/tasks/${id}/round`, { body: { from, to } });
+/** A place in the Week box: on `day`, right after `after` (null = first, undefined = last); a task not in it yet comes in. */
+export const placeInWeek = (id: string, day: string, after: string | null | undefined) => api(`/tasks/${id}/week`, { body: { day, after } });
 export const deleteTask = (id: string) => api(`/tasks/${id}`, { method: "DELETE" });
 export const restoreTask = (id: string) => api(`/tasks/${id}/restore`, { method: "POST" });
 

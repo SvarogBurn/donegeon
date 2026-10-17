@@ -8,7 +8,7 @@ const wait = (ms = 450) => p.waitForTimeout(ms);
 const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const dmy = (n) => day(n).split("-").reverse().join("/");
 const row = (title) => p.locator(`[data-task-row]:has(textarea:text-is("${title}"))`).first();
-const openMenu = async (title) => { await row(title).locator('[aria-label="Task options"]').click(); return row(title).locator('[role=dialog]'); };
+const openMenu = async (title) => { await row(title).locator('[aria-label="Task options"]').click(); return p.locator('[role=dialog][aria-label="Task options"]'); };
 const pill = (title) => row(title).locator('[title^="Hard deadline"], [title^="Soft deadline"]').first();
 const bg = (loc) => loc.evaluate(el => getComputedStyle(el).backgroundColor);
 const path = () => new URL(p.url()).pathname;

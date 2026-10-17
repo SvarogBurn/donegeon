@@ -7,7 +7,7 @@ console.log("USER", user);
 const out = (n, ok, d = "") => console.log(ok ? "PASS" : "FAIL", n, d === "" ? "" : "-> " + d);
 const wait = (ms = 450) => p.waitForTimeout(ms);
 const row = (title) => p.locator(`[data-task-row]:has(textarea:text-is("${title}"))`).first();
-const openMenu = async (title) => { await row(title).locator('[aria-label="Task options"]').click(); return row(title).locator("[role=dialog]"); };
+const openMenu = async (title) => { await row(title).locator('[aria-label="Task options"]').click(); return p.locator("[role=dialog][aria-label='Task options']"); };
 const chip = async (title) => (await row(title).locator("[data-value-chip]").count()) ? row(title).locator("[data-value-chip]").innerText() : "";
 const chips = async () => `${await chip("A")}|${await chip("B")}|${await chip("C")}`;
 const balance = () => p.evaluate(async () => (await (await fetch("/api/points")).json()).balance);

@@ -16,7 +16,7 @@ describe("addInterval", () => {
 });
 
 describe("dueAfter", () => {
-  const planned = { repeatEvery: 3, repeatUnit: "week", repeatAfterDone: false, nextDue: "2026-10-05" } as const;
+  const planned = { repeatEvery: 3, repeatUnit: "week", repeatAfterDone: false, repeatMakeUp: false, nextDue: "2026-10-05" } as const;
 
   it("on the planned days: the next one, however late it was done", () => {
     expect(dueAfter(planned, "2026-10-05")).toBe("2026-10-26");
@@ -30,6 +30,28 @@ describe("dueAfter", () => {
 
   it("on the planned days: done early, it is the round after the one done", () => {
     expect(dueAfter(planned, "2026-10-01")).toBe("2026-10-26");
+  });
+
+  it("skipping: a round from an earlier week is dropped, so an early press is for this week's round", () => {
+    const weekly = { ...planned, repeatEvery: 1, nextDue: "2026-10-08" } as const;
+    // Thursday 8 Oct left open; Monday 19 Oct: this week's round is Thursday 22, done early.
+    expect(dueAfter(weekly, "2026-10-19")).toBe("2026-10-29");
+    // Done on the day or late within the week: the round after it, as ever.
+    expect(dueAfter(weekly, "2026-10-22")).toBe("2026-10-29");
+    expect(dueAfter(weekly, "2026-10-24")).toBe("2026-10-29");
+  });
+
+  it("skipping: a round moved into this week is not dropped, and the rhythm keeps its planned days", () => {
+    const weekly = { ...planned, repeatEvery: 1, nextDue: "2026-10-15", roundMoves: { "2026-10-15": "2026-10-19" } } as const;
+    // Thursday 15 Oct moved to Monday 19 Oct, done Tuesday 20: the next is Thursday 22, its planned day.
+    expect(dueAfter(weekly, "2026-10-20")).toBe("2026-10-22");
+  });
+
+  it("making up missed rounds: each press does the oldest, however late", () => {
+    const makeUp = { ...planned, repeatMakeUp: true };
+    expect(dueAfter(makeUp, "2026-11-20")).toBe("2026-10-26");
+    expect(dueAfter({ ...makeUp, nextDue: "2026-10-26" }, "2026-11-20")).toBe("2026-11-16");
+    expect(dueAfter(makeUp, "2026-10-01")).toBe("2026-10-26");
   });
 
   it("after done: counted from the day it was done", () => {

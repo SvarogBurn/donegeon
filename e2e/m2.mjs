@@ -13,7 +13,7 @@ const expandAll = async () => { while (await p.evaluate(() => { const closed = [
 const card = (name) => p.locator(`section[data-drop-list]:has(input[aria-label="List name"])`).filter({ has: p.locator(`input[aria-label="List name"]`).and(p.locator(`[value]`)) }).filter({ hasText: "" }).locator("xpath=.").filter({ has: p.locator(`xpath=.//input[@aria-label="List name"]`) });
 const listCard = async (name) => { const cards = p.locator("section[data-drop-list]"); for (let i = 0; i < await cards.count(); i++) if (await cards.nth(i).locator('input[aria-label="List name"]').inputValue() === name) return cards.nth(i); throw new Error("no list " + name); };
 const row = (title) => p.locator(`[data-task-row]:has(textarea:text-is("${title}"))`).first();
-const openMenu = async (title) => { await row(title).locator('[aria-label="Task options"]').click(); return row(title).locator('[role=dialog]'); };
+const openMenu = async (title) => { await row(title).locator('[aria-label="Task options"]').click(); return p.locator('[role=dialog][aria-label="Task options"]'); };
 const cells = (tr) => tr.locator("td").allInnerTexts();
 
 await p.goto("http://localhost:5173/"); await p.waitForSelector("text=Create an account");
@@ -52,6 +52,8 @@ await menu.locator('label:has-text("Pass exams") input').click(); await wait();
 out("goal assigned to the main task", await row("Math exam").locator('[title="Goal: Pass exams"]').isVisible());
 // hard deadline in 5 days
 await menu.locator('input[aria-label^="Deadline date"]').fill(dmy(5)); await p.keyboard.press("Enter"); await wait();
+// Enter saved the date and closed the menu.
+menu = await openMenu("Math exam");
 out("deadline defaults to hard and shows a dd/mm pill", (await menu.locator('button[aria-pressed=true]').innerText()) === "Hard" && (await row("Math exam").locator('[title^="Hard deadline"]').innerText()) === dmy(5).slice(0, 5));
 await p.keyboard.press("Escape");
 const pressure = p.locator('[aria-label="Deadline pressure"]');
@@ -85,7 +87,7 @@ out("pressure reflects the tick: 4 outstanding, 0.8 per day", (await pressure.in
 // soft deadline on another task: reminder only
 const home = await listCard("Home");
 await home.locator('[data-task-editor^="add:"]').click(); await p.keyboard.type("Tidy desk"); await p.keyboard.press("Enter"); await wait();
-menu = await openMenu("Tidy desk"); await menu.locator('input[aria-label^="Deadline date"]').fill(dmy(1)); await p.keyboard.press("Enter"); await wait(); await menu.locator('button:text-is("Soft")').click(); await wait(); await p.keyboard.press("Escape");
+menu = await openMenu("Tidy desk"); await menu.locator('input[aria-label^="Deadline date"]').fill(dmy(1)); await p.keyboard.press("Enter"); await wait(); menu = await openMenu("Tidy desk"); await menu.locator('button:text-is("Soft")').click(); await wait(); await p.keyboard.press("Escape");
 out("soft deadline: pill, not counted in pressure, not counted in pressure", (await row("Tidy desk").locator("a").count()) === 0 && (await row("Tidy desk").locator('[title^="Soft deadline"]').count()) === 1 && (await pressure.locator("li").count()) === 1, `${await row("Tidy desk").locator("a").count()} links, ${await row("Tidy desk").locator('[title^="Soft deadline"]').count()} soft, ${await pressure.locator("li").count()} pressure items`);
 
 // drag between lists + deadline depth rule

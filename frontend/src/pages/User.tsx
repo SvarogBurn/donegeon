@@ -32,9 +32,9 @@ const DEADLINE_TODAY_CHOICES: [DeadlineToday, string][] = [
 ];
 
 const DEADLINE_TODAY_NOTES: Record<DeadlineToday, string> = {
-  never: "A task is in Today when you put it there, or when it is on a schedule and due.",
-  day: "A task or subtask with a deadline, hard or soft, comes into Today by itself on the day of its deadline, and stays there until it is done.",
-  dayBefore: "A task or subtask with a deadline, hard or soft, comes into Today by itself the day before its deadline, and stays there until it is done.",
+  never: "A task is in Today (or on a day of Week) when you put it there, or when it is on a schedule and due.",
+  day: "A task or subtask with a deadline, hard or soft, comes into Today by itself on the day of its deadline, and stays there until it is done. In Week it is on the day of its deadline.",
+  dayBefore: "A task or subtask with a deadline, hard or soft, comes into Today by itself the day before its deadline, and stays there until it is done. In Week it is on the day of its deadline.",
 };
 
 /** Days in a row with at least one task done and the tasks done this year, as the Stats page counts them with no filter set. Nothing while it loads. */

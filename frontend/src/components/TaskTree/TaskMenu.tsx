@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { PixelCheckbox } from "../PixelCheckbox";
-import { useGoals, useLists, useSetToday, useTags, useUpdateTask } from "../../hooks/useTasks";
+import { useGoals, useLists, useMoveRound, usePlaceInWeek, useSetToday, useSetWeek, useTags, useUpdateTask } from "../../hooks/useTasks";
+import { localDate } from "../../api/client";
+import { addDays } from "../../lib/dates";
 import { toggleId } from "../../lib/labels";
 import { pointsFieldWidth, typedPoints } from "../../lib/points";
-import { REPEAT_UNITS } from "../../lib/repeat";
+import { currentRound, mondayOf, REPEAT_UNITS } from "../../lib/repeat";
 import type { RepeatUnit, TaskTreeNode } from "../../types";
 import { DateField, DeadlineFields } from "./DeadlineFields";
 import { useTree } from "./TreeContext";
@@ -76,11 +79,23 @@ function Labels({ node }: { node: TaskTreeNode }) {
 
 const CHECK_ROW = "flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-stone-100 dark:hover:bg-stone-800";
 
-/** Today and its own point amount (any task), and for main tasks: whether it is persistent and whether its subtasks get its points. */
+/** Today, Week and its own point amount (any task), and for main tasks: whether it is persistent and whether its subtasks get its points. */
 function Doing({ node }: { node: TaskTreeNode }) {
   const { data: lists = [] } = useLists();
   const update = useUpdateTask();
   const setToday = useSetToday();
+  const setWeek = useSetWeek();
+  const placeInWeek = usePlaceInWeek();
+  const moveRound = useMoveRound();
+  const today = localDate();
+  const nextMonday = addDays(mondayOf(today), 7);
+  // A task on a schedule comes into Week by itself; what can be done about it is putting this week's round off.
+  const round = !node.parentId && node.weekDay === null ? currentRound(node, today) : null;
+  const roundPutOff = round !== null && round.day >= nextMonday && node.roundMoves?.[round.planned] !== undefined;
+  // Without a list, a task lives in Today or in Week: it can't leave the last of them.
+  const canLeaveWeek = Boolean(node.parentId || node.listId || node.todaySince);
+  const inThisWeek = node.weekDay !== null && node.weekDay < nextMonday;
+  const inNextWeek = node.weekDay !== null && node.weekDay >= nextMonday;
   const list = lists.find((l) => l.id === node.listId);
   const isReward = node.valueKind === "reward";
   const isSubtask = node.parentId !== null;
@@ -99,8 +114,8 @@ function Doing({ node }: { node: TaskTreeNode }) {
 
   return (
     <div className="space-y-1">
-      {/* A task written straight into Today has no list to go back to, so it can't be taken out. */}
-      {(node.parentId || node.listId) && (
+      {/* A task written straight into Today or Week has no list to go back to, so it can't be taken out of the last of them. */}
+      {(node.parentId || node.listId || node.weekDay) && (
         <label className={CHECK_ROW} data-menu-part="today">
           <PixelCheckbox
             small
@@ -108,6 +123,38 @@ function Doing({ node }: { node: TaskTreeNode }) {
             onChange={(e) => setToday.mutate({ id: node.id, today: e.target.checked })}
           />
           Do today
+        </label>
+      )}
+      {round === null && (canLeaveWeek || node.weekDay) && (
+        <>
+          <label className={CHECK_ROW} data-menu-part="week" title="On today in the Week tab of the Today box; drag it to another day there. Ticked, it stays until Monday">
+            <PixelCheckbox
+              small
+              checked={inThisWeek}
+              disabled={inThisWeek && !canLeaveWeek}
+              onChange={(e) => (e.target.checked ? placeInWeek.mutate({ id: node.id, day: today }) : setWeek.mutate({ id: node.id, week: false }))}
+            />
+            Do this week
+          </label>
+          <label className={CHECK_ROW} data-menu-part="next-week" title="In the Next week part of the Week tab, under Sunday; on Monday it is on Monday">
+            <PixelCheckbox
+              small
+              checked={inNextWeek}
+              disabled={inNextWeek && !canLeaveWeek}
+              onChange={(e) => (e.target.checked ? placeInWeek.mutate({ id: node.id, day: nextMonday }) : setWeek.mutate({ id: node.id, week: false }))}
+            />
+            Do next week
+          </label>
+        </>
+      )}
+      {round !== null && (round.day < nextMonday || roundPutOff) && (
+        <label className={CHECK_ROW} data-menu-part="next-week" title="This week's round is put off to next week (Monday); the rounds after it keep their days">
+          <PixelCheckbox
+            small
+            checked={roundPutOff}
+            onChange={(e) => moveRound.mutate({ id: node.id, from: round.planned, to: e.target.checked ? nextMonday : round.planned })}
+          />
+          Do next week (this round)
         </label>
       )}
       {!node.parentId && (
@@ -147,8 +194,8 @@ function Doing({ node }: { node: TaskTreeNode }) {
           {isReward ? "Subtasks cost this too" : "Subtasks earn this too"}
         </label>
       )}
-      {(update.error ?? setToday.error) && (
-        <p className="text-xs text-red-600">{(update.error ?? setToday.error)!.message}</p>
+      {(update.error ?? setToday.error ?? setWeek.error ?? placeInWeek.error ?? moveRound.error) && (
+        <p className="text-xs text-red-600">{(update.error ?? setToday.error ?? setWeek.error ?? placeInWeek.error ?? moveRound.error)!.message}</p>
       )}
     </div>
   );
@@ -157,6 +204,19 @@ function Doing({ node }: { node: TaskTreeNode }) {
 const REPEAT_FROM = [
   { afterDone: false, label: "Planned days", hint: "Keeps to its days: done late, the next round still comes on the planned day." },
   { afterDone: true, label: "After done", hint: "The next round is counted from the day you did it." },
+];
+
+const MISSED = [
+  {
+    makeUp: false,
+    label: "Skip, flag !",
+    hint: "A round you miss doesn't have to be made up. Missed in an earlier week, it is dropped: the task is on its planned days as ever, and a red ! on Monday in Week reminds you it wasn't done. Within the week it stays due until done.",
+  },
+  {
+    makeUp: true,
+    label: "Make up each",
+    hint: "Every round you miss is still to be done: each press does the oldest one. Two weeks skipped on a weekly task is two presses to catch up.",
+  },
 ];
 
 /**
@@ -170,7 +230,7 @@ function Repeat({ node }: { node: TaskTreeNode }) {
   useEffect(() => setEvery(node.repeatEvery === null ? "" : String(node.repeatEvery)), [node.repeatEvery]);
   useEffect(() => setUnit(node.repeatUnit), [node.repeatUnit]);
   const isOn = node.repeatEvery !== null;
-  const save = (changes: { repeatEvery?: number | null; repeatUnit?: RepeatUnit; repeatAfterDone?: boolean; nextDue?: string }) =>
+  const save = (changes: { repeatEvery?: number | null; repeatUnit?: RepeatUnit; repeatAfterDone?: boolean; repeatMakeUp?: boolean; nextDue?: string }) =>
     update.mutate({ id: node.id, changes });
 
   function saveEvery() {
@@ -232,6 +292,26 @@ function Repeat({ node }: { node: TaskTreeNode }) {
             ))}
           </div>
           <p className="text-stone-500">{REPEAT_FROM.find((option) => option.afterDone === node.repeatAfterDone)!.hint}</p>
+          {/* Counted from the day it was done, a round can't be missed: it waits until it is done. */}
+          {!node.repeatAfterDone && (
+            <>
+              <div className="flex gap-1" role="group" aria-label="Rounds that were missed" data-menu-part="missed">
+                {MISSED.map((option) => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    title={option.hint}
+                    aria-pressed={node.repeatMakeUp === option.makeUp}
+                    onClick={() => save({ repeatMakeUp: option.makeUp })}
+                    className={`nes-btn btn-small flex-1 ${node.repeatMakeUp === option.makeUp ? "is-primary" : ""}`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-stone-500">{MISSED.find((option) => option.makeUp === node.repeatMakeUp)!.hint}</p>
+            </>
+          )}
         </>
       ) : (
         <p className="px-1 text-stone-500">Fill in a number to make it come back on a schedule.</p>
@@ -250,16 +330,38 @@ export function TaskMenu({ node, depth, onAddSubtask }: Props) {
   const tree = useTree();
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
-  // Opened from a row low on the screen it would hang off the bottom: the page scrolls just enough to show all of it.
   const menu = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (isOpen) menu.current?.scrollIntoView({ block: "nearest" });
+  // Under its button, in the page's own coordinates. The menu is put on the page itself (a portal), so no box it
+  // is opened in can cut it off: the Week tab's days scroll on their own, and would.
+  const [place, setPlace] = useState<{ top: number; left: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const measure = () => {
+      const button = ref.current?.getBoundingClientRect();
+      // Its right edge on the button's (the class shifts it back by its own width); counted from the left, so a
+      // scroll bar on the page doesn't move it.
+      if (button) setPlace({ top: button.bottom + window.scrollY + 4, left: button.right + window.scrollX });
+    };
+    measure();
+    // A box scrolled under it (the week's days) takes its button along: the menu follows.
+    window.addEventListener("scroll", measure, true);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", measure, true);
+      window.removeEventListener("resize", measure);
+    };
   }, [isOpen]);
+  // Opened from a row low on the screen it would hang off the bottom: the page scrolls just enough to show all of it.
+  useEffect(() => {
+    if (isOpen && place) menu.current?.scrollIntoView({ block: "nearest" });
+    // Once, when it opens and has its place; not each time it follows its button.
+  }, [isOpen, place === null]);
 
   useEffect(() => {
     if (!isOpen) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setIsOpen(false);
+      const target = e.target as Node;
+      if (!ref.current?.contains(target) && !menu.current?.contains(target)) setIsOpen(false);
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setIsOpen(false);
@@ -293,43 +395,47 @@ export function TaskMenu({ node, depth, onAddSubtask }: Props) {
       >
         ⋯
       </button>
-      {isOpen && (
-        // On a phone it is a sheet along the bottom of the screen: beside its button it would hang off the edge.
-        // It lies over the task bar (z-50), so a menu opened low on the screen is not cut off by it.
-        <div
-          ref={menu}
-          className="card absolute top-full right-0 z-50 mt-1 w-64 space-y-3 !p-3 shadow-lg max-sm:fixed max-sm:inset-x-2 max-sm:top-auto max-sm:bottom-2 max-sm:z-50 max-sm:mt-0 max-sm:max-h-[75dvh] max-sm:w-auto max-sm:overflow-y-auto"
-          role="dialog"
-          aria-label="Task options"
-        >
-          <Doing node={node} />
-          {/* A schedule is for tasks done again and again, so it is offered once Persistent is ticked. */}
-          {!node.parentId && node.isPersistent && (
-            <div className="space-y-1 text-xs">
-              <span className="font-medium">Repeat</span>
-              <Repeat node={node} />
+      {isOpen &&
+        place &&
+        createPortal(
+          // On a phone it is a sheet along the bottom of the screen: beside its button it would hang off the edge.
+          // It lies over the task bar (z-50), so a menu opened low on the screen is not cut off by it.
+          <div
+            ref={menu}
+            style={{ "--menu-top": `${place.top}px`, "--menu-left": `${place.left}px` } as CSSProperties}
+            className="card absolute top-(--menu-top) left-(--menu-left) z-50 w-64 -translate-x-full max-sm:translate-x-0 space-y-3 !p-3 shadow-lg max-sm:fixed max-sm:inset-x-2 max-sm:top-auto max-sm:bottom-2 max-sm:z-50 max-sm:max-h-[75dvh] max-sm:w-auto max-sm:overflow-y-auto"
+            role="dialog"
+            aria-label="Task options"
+          >
+            <Doing node={node} />
+            {/* A schedule is for tasks done again and again, so it is offered once Persistent is ticked. */}
+            {!node.parentId && node.isPersistent && (
+              <div className="space-y-1 text-xs">
+                <span className="font-medium">Repeat</span>
+                <Repeat node={node} />
+              </div>
+            )}
+            <Labels node={node} />
+            {depth <= 1 && !node.isPersistent && (
+              <div className="space-y-1 text-xs" data-menu-part="deadline">
+                <span className="font-medium">Deadline</span>
+                <DeadlineFields task={node} />
+              </div>
+            )}
+            <div className="flex justify-between border-t border-stone-200 pt-2 dark:border-stone-800">
+              <button type="button" className="btn-quiet" onClick={() => (setIsOpen(false), onAddSubtask())}>
+                Add subtask
+              </button>
+              <button type="button" className="btn-quiet !text-red-600" onClick={() => (setIsOpen(false), tree.deleteTask(node))}>
+                Delete task
+              </button>
             </div>
-          )}
-          <Labels node={node} />
-          {depth <= 1 && !node.isPersistent && (
-            <div className="space-y-1 text-xs" data-menu-part="deadline">
-              <span className="font-medium">Deadline</span>
-              <DeadlineFields task={node} />
-            </div>
-          )}
-          <div className="flex justify-between border-t border-stone-200 pt-2 dark:border-stone-800">
-            <button type="button" className="btn-quiet" onClick={() => (setIsOpen(false), onAddSubtask())}>
-              Add subtask
+            {/* Everything above is saved as it is changed (a typed field when it is left); OK just says so and closes. Enter does the same. */}
+            <button type="button" className="nes-btn is-primary btn" title="Changes are saved; close this menu (Enter)" onClick={() => setIsOpen(false)}>
+              OK
             </button>
-            <button type="button" className="btn-quiet !text-red-600" onClick={() => (setIsOpen(false), tree.deleteTask(node))}>
-              Delete task
-            </button>
-          </div>
-          {/* Everything above is saved as it is changed (a typed field when it is left); OK just says so and closes. Enter does the same. */}
-          <button type="button" className="nes-btn is-primary btn" title="Changes are saved; close this menu (Enter)" onClick={() => setIsOpen(false)}>
-            OK
-          </button>
-        </div>
+          </div>,
+        document.body,
       )}
     </span>
   );

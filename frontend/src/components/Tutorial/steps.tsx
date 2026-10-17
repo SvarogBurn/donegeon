@@ -237,7 +237,7 @@ export const STEPS: Step[] = [
   },
   {
     needsTask: true,
-    text: () => <>Here are the points you earn or loose. Every task can have its own amount, subtasks too. Leave it empty and it'll have the points from the list by default.</>,
+    text: () => <>Here are the points you earn or lose. Every task can have its own amount, subtasks too. Leave it empty and it'll have the points from the list by default.</>,
     target: (ctx) => [part("points"), MENU, dots(ctx)],
     button: "Next",
   },
