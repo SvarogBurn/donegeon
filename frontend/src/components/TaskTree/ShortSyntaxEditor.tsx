@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type KeyboardEvent } from "react";
 import { Link } from "react-router";
 import { useSyntaxContext } from "../../hooks/useTasks";
-import { activeToken, parseShortSyntax, type Suggestion, type SyntaxToken } from "../../lib/shortSyntax";
+import { activeToken, parseTitleEdit, type Suggestion, type SyntaxToken } from "../../lib/shortSyntax";
 import { TitleEditor } from "./TitleEditor";
 
 const CHIP_STYLES: Record<SyntaxToken["kind"], string> = {
@@ -34,15 +34,16 @@ export function SyntaxChips({ tokens, className = "" }: { tokens: SyntaxToken[];
 interface Props extends ComponentProps<typeof TitleEditor> {
   /** The task the new one goes under, if any: a subtask can't take every shortcut. */
   parentId?: string | null;
+  /** For a task that exists: its saved title, whose text stays text (parseTitleEdit). */
+  before?: string;
 }
 
 /**
- * The title field of a task that is being added. It reads the shortcuts typed into it (#tag, ^goal, @date, ...):
- * while one is being typed a dropdown offers what could finish it (↑ ↓ to move, Enter or Tab to pick, Esc to
- * close), and the chips under the field show what the task will get. Adding the task is the owner's doing, with
- * useAddTask.
+ * The title field of a task. It reads the shortcuts typed into it (#tag, ^goal, @date, ...): while one is being
+ * typed a dropdown offers what could finish it (↑ ↓ to move, Enter or Tab to pick, Esc to close), and the chips
+ * under the field show what the task will get. Saving is the owner's doing, with useAddTask or useEditTask.
  */
-export function ShortSyntaxEditor({ parentId, value, onChange, onBlur, onFocus, ref, ...rest }: Props) {
+export function ShortSyntaxEditor({ parentId, before = "", value, onChange, onBlur, onFocus, ref, ...rest }: Props) {
   const ctx = useSyntaxContext(parentId);
   const field = useRef<HTMLTextAreaElement | null>(null);
   const [caret, setCaret] = useState(0);
@@ -53,7 +54,7 @@ export function ShortSyntaxEditor({ parentId, value, onChange, onBlur, onFocus, 
   /** Where the caret goes once a pick is written into the field. */
   const caretAfterPick = useRef<number | null>(null);
 
-  const tokens = useMemo(() => parseShortSyntax(value, ctx).tokens, [value, ctx]);
+  const tokens = useMemo(() => parseTitleEdit(value, before, ctx).tokens, [value, before, ctx]);
   const token = useMemo(() => (isFocused ? activeToken(value, Math.min(caret, value.length), ctx) : null), [isFocused, value, caret, ctx]);
   // Nothing to offer once what is typed is all there is to it.
   const options = token && token.start !== closedAt ? token.suggestions : [];
@@ -92,7 +93,7 @@ export function ShortSyntaxEditor({ parentId, value, onChange, onBlur, onFocus, 
   }
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <TitleEditor
         {...rest}
         ref={(el) => {
@@ -122,7 +123,8 @@ export function ShortSyntaxEditor({ parentId, value, onChange, onBlur, onFocus, 
         aria-expanded={isOpen}
       />
       {isOpen && (
-        <div className="card absolute top-full left-0 z-50 mt-1 w-64 max-w-full !p-1 shadow-lg" data-syntax-options>
+        // A fitted title can be a word wide; the dropdown is not held to it.
+        <div className={`card absolute top-full left-0 z-50 mt-1 w-64 ${rest.fitText ? "max-w-[calc(100vw-4rem)]" : "max-w-full"} !p-1 shadow-lg`} data-syntax-options>
           <ul role="listbox" aria-label="Shortcuts">
             {options.map((option, i) => (
               <li

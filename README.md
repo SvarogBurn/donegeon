@@ -63,7 +63,7 @@ A main task can carry a note. While its title is being edited a grey notes icon 
 
 ## Typing shortcuts
 
-While adding a task (a list's add field, a new row, the Today box, a day of the calendar), these can be typed anywhere in the title. They are taken out of the title and set on the task; chips under the field show what it will get, and a dropdown offers what could finish the one being typed.
+While adding a task (a list's add field, a new row, the Today box, a day of the calendar) or editing the title of one there is, these can be typed anywhere in the title. They are taken out of the title and set on the task; chips under the field show what it will get, and a dropdown offers what could finish the one being typed. On a task there is, a tag or goal joins the ones it has, a note goes under the note it has, a date, points or a schedule replace its own, and `/list` moves it to the end of that list; text that was in the title already stays text.
 
 | Type | What it does |
 |---|---|
@@ -78,7 +78,7 @@ While adding a task (a list's add field, a new row, the Today box, a day of the 
 | `// note` | everything after it is the task's note (main tasks) |
 | `\` in front | keeps a shortcut as plain text |
 
-Dates: `tomorrow` (`tmr`), a weekday (`fri`, the next one), `next week`, `next month`, `in 3 days`, `3d`, `2w`, `25/12`, `25/12/26`, `25 dec`; after `~` also `today`. A shortcut counts only at the start of a word, and only when adding a task, not when renaming one. Deadlines are for main tasks and their direct subtasks; lists and repeats for main tasks. The same table is in the app, in the Cheat sheet box of the user page.
+Dates: `tomorrow` (`tmr`), a weekday (`fri`, the next one), `next week`, `next month`, `in 3 days`, `3d`, `2w`, `25/12`, `25/12/26`, `25 dec`; after `~` also `today`. A shortcut counts only at the start of a word. Deadlines are for main tasks and their direct subtasks; lists and repeats for main tasks. The same table is in the app, in the Cheat sheet box of the user page.
 
 ## Styling a title
 

@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { PixelCheckbox } from "../PixelCheckbox";
 import { useNavigate } from "react-router";
-import { useAddTask, useGoals, useTags, useUpdateTask } from "../../hooks/useTasks";
+import { useAddTask, useEditTask, useGoals, useTags } from "../../hooks/useTasks";
 import { localDate } from "../../api/client";
 import { formatDay } from "../../lib/dates";
 import { soonestFirst } from "../../lib/deadlines";
@@ -14,7 +14,7 @@ import { DeadlineBadge } from "./DeadlineBadge";
 import { PressCopies } from "./PressCopies";
 import { ShortSyntaxEditor } from "./ShortSyntaxEditor";
 import { TaskMenu } from "./TaskMenu";
-import { focusNeighbor, TitleEditor } from "./TitleEditor";
+import { focusNeighbor } from "./TitleEditor";
 import { useTree } from "./TreeContext";
 import { plainTitle } from "../../lib/markup";
 import { livesInWeek, weekColumn } from "../../lib/week";
@@ -75,7 +75,7 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
   const [title, setTitle] = useState(node.title);
   useEffect(() => setTitle(node.title), [node.title]);
 
-  const rename = useUpdateTask();
+  const rename = useEditTask();
   const error = rename.error;
 
   // A main task can carry a note: its icon beside the title shows it at the side of the page.
@@ -99,7 +99,8 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
   function saveTitle() {
     const next = title.trim();
     if (!next) setTitle(node.title);
-    else if (next !== node.title) rename.mutate({ id: node.id, changes: { title: next } });
+    // Shortcuts typed into it are taken out, so the title shown can be the one it had before.
+    else if (next !== node.title) rename.mutate({ node, text: next }, { onSuccess: (task) => setTitle(task.title) });
   }
 
   function addSubtask() {
@@ -185,7 +186,9 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
         )}
 
         <div className="flex min-w-32 flex-1 items-start gap-1">
-          <TitleEditor
+          <ShortSyntaxEditor
+            parentId={node.parentId}
+            before={node.title}
             editorId={node.id}
             fitText
             value={title}

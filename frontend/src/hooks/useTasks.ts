@@ -10,7 +10,7 @@ import { taskDone } from "../lib/breakReminder";
 import { findNode, toggleInCountdown, toggleInTrees, type CompletionChange } from "../lib/optimisticToggle";
 import { NAME_FOLDER_EVENT } from "../lib/folders";
 import { refuse } from "../lib/refusal";
-import { parseShortSyntax, type SyntaxContext } from "../lib/shortSyntax";
+import { parseShortSyntax, parseTitleEdit, type SyntaxContext } from "../lib/shortSyntax";
 import { weekColumn } from "../lib/week";
 import type { DashboardLayout } from "../lib/tileLayout";
 import type { Countdown, DonePage, Folder, Goal, List, Tag, TaskTreeNode, User } from "../types";
@@ -163,6 +163,49 @@ export function useAddTask() {
         nextDue: typed.repeat?.nextDue,
         notes: typed.notes,
       });
+    },
+    onSettled: () => Promise.all([...TASK_DATA, TAGS, GOALS].map((queryKey) => queryClient.invalidateQueries({ queryKey }))),
+  });
+}
+
+/**
+ * Saves the edited title of a task that exists. Shortcuts typed into it are taken out and set on the task, as when
+ * adding one: tags and goals join the ones it has, a typed note goes under the note it has, a deadline, points or a
+ * schedule take the place of its own, and /list moves it to the end of that list. What stood in the title already
+ * stays text (parseTitleEdit).
+ */
+export function useEditTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ node, text }: { node: TaskTreeNode; text: string }) => {
+      const [tags, goals, lists] = await Promise.all([
+        queryClient.ensureQueryData<Tag[]>({ queryKey: TAGS, queryFn: tagsApi.listTags }),
+        queryClient.ensureQueryData<Goal[]>({ queryKey: GOALS, queryFn: goalsApi.listGoals }),
+        queryClient.ensureQueryData<List[]>({ queryKey: LISTS, queryFn: listsApi.listLists }),
+      ]);
+      const trees = queryClient.getQueryData<TaskTreeNode[]>(TASKS) ?? [];
+      const typed = parseTitleEdit(text, node.title, { today: localDate(), tags, goals, lists, depth: depthUnder(trees, node.parentId) });
+      if (!typed.title) throw new Error("A task needs a title too, not only shortcuts");
+
+      const newTags = await Promise.all(typed.newTags.map(tagsApi.createTag));
+      const newGoals = await Promise.all(typed.newGoals.map((name) => goalsApi.createGoal({ name })));
+      const tagIds = [...new Set([...node.tagIds, ...typed.tagIds, ...newTags.map((tag) => tag.id)])];
+      const goalIds = [...new Set([...node.goalIds, ...typed.goalIds, ...newGoals.map((goal) => goal.id)])];
+      const task = await tasksApi.updateTask(node.id, {
+        title: typed.title,
+        ...(tagIds.length > node.tagIds.length && { tagIds }),
+        ...(goalIds.length > node.goalIds.length && { goalIds }),
+        ...(typed.deadlineDate && { deadlineDate: typed.deadlineDate, deadlineType: typed.deadlineType }),
+        points: typed.points,
+        today: typed.today || undefined,
+        ...(typed.repeat && { repeatEvery: typed.repeat.every, repeatUnit: typed.repeat.unit, nextDue: typed.repeat.nextDue }),
+        ...(typed.notes && { notes: node.notes ? `${node.notes}\n${typed.notes}` : typed.notes }),
+      });
+      if (typed.listId !== undefined && typed.listId !== node.listId) {
+        const last = trees.filter((tree) => tree.listId === typed.listId).length;
+        await tasksApi.moveTask(node.id, { parentId: null, listId: typed.listId, index: last });
+      }
+      return task;
     },
     onSettled: () => Promise.all([...TASK_DATA, TAGS, GOALS].map((queryKey) => queryClient.invalidateQueries({ queryKey }))),
   });

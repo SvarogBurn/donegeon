@@ -54,10 +54,11 @@ export function Cheatsheet() {
 
   return (
     <TileFrame id="shortcuts" title="Cheat sheet" aria-label="Cheat sheet" data-cheatsheet>
-      <h3 className={HEADING}>While typing a new task</h3>
+      <h3 className={HEADING}>While typing a task</h3>
       <p className="text-xs text-stone-500">
-        Type these anywhere in the title of a task you are adding. They are taken out of the title and set on the task; the chips under the
-        field show what it will get.
+        Type these anywhere in the title of a task, new or old. They are taken out of the title and set on the task; the chips under the
+        field show what it will get. On an old task a tag or goal joins the ones it has, a note goes under its note, and what stood in the
+        title already stays text.
       </p>
       <ul className="divide-y-2 divide-stone-200 dark:divide-stone-800" data-syntax-help>
         {SYNTAX_HELP.map(([type, does, example]) => (

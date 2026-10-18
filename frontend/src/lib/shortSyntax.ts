@@ -78,7 +78,7 @@ function readName(rest: string, known: Named[]): { name: string; id?: string } |
 }
 
 /**
- * Reads the shortcuts typed into a new task's title: #tag, ^goal, @date (hard deadline), ~date (soft deadline),
+ * Reads the shortcuts typed into a task's title: #tag, ^goal, @date (hard deadline), ~date (soft deadline),
  * @today / @now (do today), @every ... (a schedule), 5p (points), /list and // note (the rest of the text, on a
  * main task). Each counts only at the start of a
  * word. What can't apply (a second deadline, a schedule on a subtask, a list nobody made, ...) stays in the title
@@ -158,6 +158,21 @@ export function parseShortSyntax(text: string, ctx: SyntaxContext): ParsedTask {
   }
   parsed.title = (title + text.slice(from)).replace(/[ \t]+$/gm, "").trim();
   return parsed;
+}
+
+/**
+ * Reads the edited title of a task that exists: shortcuts typed into it count as when adding one, but what stood in
+ * the title already (`before`) stays text, even where it reads as a shortcut ("Fix #home sign", kept plain with a
+ * backslash when it was added).
+ */
+export function parseTitleEdit(text: string, before: string, ctx: SyntaxContext): ParsedTask {
+  const plain = parseShortSyntax(before, ctx).tokens.map(({ start, end }) => before.slice(start, end));
+  if (plain.length === 0) return parseShortSyntax(text, ctx);
+  const wasThere = (at: number) =>
+    isWordStart(text, at) && plain.some((shortcut) => text.startsWith(shortcut, at) && /^(\s|$)/.test(text.slice(at + shortcut.length)));
+  let kept = "";
+  for (let at = 0; at < text.length; at++) kept += (wasThere(at) ? "\\" : "") + text[at];
+  return parseShortSyntax(kept, ctx);
 }
 
 /** One line of the dropdown under the field. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeToken, parseShortSyntax, type SyntaxContext } from "./shortSyntax";
+import { activeToken, parseShortSyntax, parseTitleEdit, type SyntaxContext } from "./shortSyntax";
 
 // A Friday.
 const ctx: SyntaxContext = {
@@ -139,6 +139,26 @@ describe("parseShortSyntax", () => {
     expect(parse("see https://x.org").title).toBe("see https://x.org");
     expect(parse("a \\// b").title).toBe("a // b");
     expect(parse("a \\// b").notes).toBeUndefined();
+  });
+});
+
+describe("parseTitleEdit", () => {
+  it("reads shortcuts typed into a title that exists", () => {
+    expect(parseTitleEdit("Buy milk #home @fri 5p", "Buy milk", ctx)).toMatchObject({
+      title: "Buy milk",
+      tagIds: ["t1"],
+      deadlineDate: "2026-10-16",
+      points: 5,
+    });
+  });
+
+  it("keeps as text what stood in the title already", () => {
+    const parsed = parseTitleEdit("Fix #home sign #urgent", "Fix #home sign", ctx);
+    expect(parsed).toMatchObject({ title: "Fix #home sign", tagIds: [], newTags: ["urgent"] });
+    expect(parsed.tokens.map((token) => token.kind)).toEqual(["tag"]);
+    expect(parseTitleEdit("Fix #home", "Fix #home", ctx).tokens).toEqual([]);
+    // Only the same shortcut, not one that begins like it.
+    expect(parseTitleEdit("Meet @fri @friday", "Meet @fri", ctx)).toMatchObject({ title: "Meet @fri", deadlineDate: "2026-10-16" });
   });
 });
 
