@@ -4,9 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#ffffff" />
+    <!-- The phone's status and navigation bars take the page's colour (stone-100 / stone-950) in either theme. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f5f4" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0c0a09" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <script>
       // iOS zooms the page into any field whose text is under 16px, which is all of them in the pixel font.
       // A maximum scale stops that there and still lets you pinch to zoom; other phones would lose the pinch.
