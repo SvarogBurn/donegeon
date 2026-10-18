@@ -11,7 +11,7 @@ import { ColorChoices } from "../ColorChoices";
 const HOLD_MS = 500;
 
 /** A folder's name and its icon's colour, and removing the folder. Opens above its tab. */
-function FolderEditor({ folder, onClose }: { folder: Folder; onClose: () => void }) {
+function FolderEditor({ folder, opensBelow, onClose }: { folder: Folder; opensBelow: boolean; onClose: () => void }) {
   const update = useUpdateFolder();
   const remove = useDeleteFolder();
   const navigate = useNavigate();
@@ -39,10 +39,11 @@ function FolderEditor({ folder, onClose }: { folder: Folder; onClose: () => void
   }
 
   return (
-    // On a phone the tabs scroll sideways, which would cut it off: there it is laid across the screen, just above the bar.
+    // On a phone the tabs scroll sideways, which would cut it off: there it is laid across the screen, just above the bar
+    // (or just under the installed app's top strip).
     <div
       ref={ref}
-      className="card absolute bottom-full left-0 z-50 mb-2 w-52 space-y-2 !p-2 text-xs shadow-lg max-sm:fixed max-sm:inset-x-2 max-sm:bottom-[calc(var(--bar-h,5rem)+0.5rem)] max-sm:mb-0 max-sm:w-auto"
+      className={`card absolute left-0 z-50 w-52 space-y-2 !p-2 text-xs shadow-lg max-sm:fixed max-sm:inset-x-2 max-sm:w-auto ${opensBelow ? "top-full mt-2 max-sm:top-[calc(var(--top-h,4rem)+0.5rem)] max-sm:mt-0" : "bottom-full mb-2 max-sm:bottom-[calc(var(--bar-h,5rem)+0.5rem)] max-sm:mb-0"}`}
       role="dialog"
       aria-label={`Folder "${folder.name}"`}
     >
@@ -83,7 +84,7 @@ function FolderEditor({ folder, onClose }: { folder: Folder; onClose: () => void
   );
 }
 
-function FolderTab({ folder, tab, isEditing, onEdit }: { folder: Folder; tab: (state: { isActive: boolean }) => string; isEditing: boolean; onEdit: (id: string | null) => void }) {
+function FolderTab({ folder, tab, opensBelow, isEditing, onEdit }: { folder: Folder; tab: (state: { isActive: boolean }) => string; opensBelow: boolean; isEditing: boolean; onEdit: (id: string | null) => void }) {
   const isOpenPage = useMatch(`/folders/${folder.id}`) !== null;
   const hold = useRef(0);
   const held = useRef(false);
@@ -134,7 +135,7 @@ function FolderTab({ folder, tab, isEditing, onEdit }: { folder: Folder; tab: (s
         <span className="tab-icon tab-icon-folder" style={folder.color ? { backgroundImage: folderIn(folder.color) } : undefined} aria-hidden />
         <span className="max-w-16 truncate sm:max-w-24">{folder.name}</span>
       </NavLink>
-      {isEditing && <FolderEditor folder={folder} onClose={() => onEdit(null)} />}
+      {isEditing && <FolderEditor folder={folder} opensBelow={opensBelow} onClose={() => onEdit(null)} />}
     </span>
   );
 }
@@ -145,6 +146,8 @@ interface Props {
   isNewShown: boolean;
   /** The "New" tab has done its job and goes away again. */
   onNewUsed: () => void;
+  /** The tabs are along the top of the screen (the installed app), so a folder's name and colour open under its tab. */
+  opensBelow?: boolean;
 }
 
 /**
@@ -154,7 +157,7 @@ interface Props {
  * is called up, or such a tile is being dragged (.new-folder-slot in index.css).
  * A new folder opens its name for typing.
  */
-export function FolderTabs({ tab, isNewShown, onNewUsed }: Props) {
+export function FolderTabs({ tab, isNewShown, onNewUsed, opensBelow = false }: Props) {
   const { data: folders = [] } = useFolders();
   const create = useCreateFolder();
   const online = useOnline();
@@ -169,7 +172,7 @@ export function FolderTabs({ tab, isNewShown, onNewUsed }: Props) {
   return (
     <>
       {folders.map((folder) => (
-        <FolderTab key={folder.id} folder={folder} tab={tab} isEditing={editingId === folder.id} onEdit={setEditingId} />
+        <FolderTab key={folder.id} folder={folder} tab={tab} opensBelow={opensBelow} isEditing={editingId === folder.id} onEdit={setEditingId} />
       ))}
       <span className="new-folder-slot" data-shown={isNewShown || undefined}>
         <button

@@ -12,6 +12,7 @@ import { installFrameTones } from "./lib/frameTones";
 import { changesWaiting, CHANGES_SCOPE, registerChanges } from "./lib/offline/changes";
 import { installOnlineManager } from "./lib/offline/online";
 import { reportFailure } from "./lib/serverStatus";
+import { installStandalone } from "./lib/standalone";
 import "@fontsource/press-start-2p";
 // index.css first: it declares the cascade-layer order that styles/nes.scss slots into.
 import "./index.css";
@@ -20,6 +21,7 @@ import { registerSW } from "virtual:pwa-register";
 
 installFrameTones();
 installOnlineManager();
+installStandalone();
 // The app's files are kept on the device by a service worker (vite.config.ts); a new deploy reloads into itself.
 registerSW({ immediate: true });
 

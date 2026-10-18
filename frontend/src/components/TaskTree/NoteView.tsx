@@ -106,14 +106,14 @@ export function NotePanel({ node, edit, onClose }: { node: TaskTreeNode; edit: b
       ref={pane}
       aria-label="Note"
       data-note-panel={node.id}
-      className="fixed top-4 right-4 z-40 w-[24rem] max-sm:inset-x-2 max-sm:top-auto max-sm:bottom-[calc(var(--bar-h,5rem)+0.5rem)] max-sm:w-auto"
+      className="fixed top-[calc(var(--top-h,0px)+1rem)] right-4 z-40 w-[24rem] max-sm:inset-x-2 max-sm:top-auto max-sm:bottom-[calc(var(--bar-h,5rem)+0.5rem)] max-sm:w-auto"
     >
       {/* The frame is as tall as there is room for; a longer note scrolls inside it, so the frame's art stays whole. */}
       <NoteFrame
         node={node}
         title="Note"
         aria-label="Note box"
-        className="note-pane max-h-[calc(100dvh-var(--bar-h,5rem)-2rem)] max-sm:max-h-[60dvh]"
+        className="note-pane max-h-[calc(100dvh-var(--bar-h,5rem)-var(--top-h,0px)-2rem)] max-sm:max-h-[60dvh]"
         actions={<button type="button" className="tile-button tile-button-x" aria-label="Close the note" title="Close (Esc)" onClick={onClose} />}
       >
         <p className="text-sm font-bold break-words whitespace-pre-line">

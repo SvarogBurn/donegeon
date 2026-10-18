@@ -47,8 +47,10 @@ interface Hit {
 interface Props {
   /** Picking a goal or a tag from the results filters the page's lists by it. */
   onPickLabel: (key: "goalIds" | "tagIds", id: string) => void;
-  /** Takes the search off the page; like a box, it is brought back from the "Hidden" row. */
-  onHide: () => void;
+  /** Takes the search off the page; like a box, it is brought back from the "Hidden" row. Without it the search can't be hidden. */
+  onHide?: () => void;
+  /** It sits in the installed app's top strip: the results open across the screen under it. */
+  inBar?: boolean;
 }
 
 /**
@@ -57,7 +59,7 @@ interface Props {
  * which looks through the titles of every one there is, the ones finished long ago too. A subtask that is found
  * is shown in its place: the tasks above it are unfolded and it is the one marked.
  */
-export function SiteSearch({ onPickLabel, onHide }: Props) {
+export function SiteSearch({ onPickLabel, onHide, inBar = false }: Props) {
   const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
   const [text, setText] = useState("");
@@ -138,7 +140,7 @@ export function SiteSearch({ onPickLabel, onHide }: Props) {
   }
 
   return (
-    <div ref={ref} className="relative mx-auto max-w-md" data-site-search>
+    <div ref={ref} className={inBar ? "relative mx-auto min-w-0 max-w-xl flex-1" : "relative mx-auto max-w-md"} data-site-search>
       <div className="pixel-round-edge p-0.5">
         <label className="pixel-round search-pill">
           <input
@@ -164,17 +166,19 @@ export function SiteSearch({ onPickLabel, onHide }: Props) {
             }}
           />
           {/* The boxes' own minimize button, which is drawn for a band of this blue. */}
-          <button
-            type="button"
-            className="tile-button tile-button-min !mt-0"
-            aria-label="Hide the search"
-            title="Hide the search; bring it back from the Hidden row at the bottom of the page"
-            onClick={onHide}
-          />
+          {onHide && (
+            <button
+              type="button"
+              className="tile-button tile-button-min !mt-0"
+              aria-label="Hide the search"
+              title="Hide the search; bring it back from the Hidden row at the bottom of the page"
+              onClick={onHide}
+            />
+          )}
         </label>
       </div>
       {isOpen && typed !== "" && (
-        <div className="card absolute inset-x-0 top-full z-30 mt-1 max-h-[min(60vh,28rem)] overflow-y-auto !p-2 shadow-lg" role="dialog" aria-label="Search results" aria-live="polite" data-search-results>
+        <div className={`card absolute inset-x-0 top-full z-30 mt-1 max-h-[min(60vh,28rem)] ${inBar ? "max-sm:fixed max-sm:inset-x-2 max-sm:top-[calc(var(--top-h,4rem)+0.25rem)] max-sm:z-50" : ""} overflow-y-auto !p-2 shadow-lg`} role="dialog" aria-label="Search results" aria-live="polite" data-search-results>
           {hits.length > 0 && (
             <ul className="space-y-0.5">
               {hits.map((hit) => {

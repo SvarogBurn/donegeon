@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Navigate } from "react-router";
+import { useEffect, useState } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router";
 import { CalBoxView } from "../components/Calendar/CalBoxView";
 import { CAL_BOXES } from "../components/Calendar/calendarData";
 import { CombinedTable } from "../components/Countdown/CombinedTable";
@@ -8,6 +8,7 @@ import { DoneLog } from "../components/Done/DoneLog";
 import { LabelsPanel } from "../components/Labels/LabelsPanel";
 import { ListCard, ListForm, listCards } from "../components/Lists/ListBoard";
 import { SiteSearch } from "../components/Search/SiteSearch";
+import type { PickLabelState } from "../components/layout/AppBars";
 import { HiddenRow } from "../components/Tiles/HiddenRow";
 import { TileGrid, type Tile } from "../components/Tiles/TileGrid";
 import { TreeProvider } from "../components/TaskTree/TreeContext";
@@ -34,6 +35,7 @@ import {
 import { countLabels, isFiltering, NO_FILTER, toggleId, type LabelFilter } from "../lib/labels";
 import { calOfView, listView, statOfView, TODAY_VIEW } from "../lib/folders";
 import { useOnline } from "../lib/offline/online";
+import { useStandalone } from "../lib/standalone";
 import { STAT_BOXES, StatBoxView, StatBoxesProvider } from "../components/Stats/StatsPanel";
 import { NEW_LIST_TILE, normalizeLayout, withHidden, type DashboardLayout } from "../lib/tileLayout";
 
@@ -71,6 +73,17 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   const saveLayout = useSaveLayout();
   const ticked = useTickedTasks();
   const [picked, setPicked] = useState<LabelFilter>(NO_FILTER);
+  // The installed app has the search in its top strip instead; a goal or tag picked there arrives here with the page.
+  const isStandalone = useStandalone();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const pickLabel = (location.state as PickLabelState | null)?.pickLabel;
+  useEffect(() => {
+    if (!pickLabel) return;
+    const { key, id } = pickLabel;
+    setPicked((now) => (now[key].includes(id) ? now : { ...now, [key]: [...now[key], id] }));
+    navigate(location.pathname, { replace: true, state: null });
+  }, [pickLabel, location.pathname, navigate]);
 
   const error = goals.error ?? tags.error ?? lists.error ?? tasks.error ?? folders.error;
   if (error) return <p className="text-sm text-red-600">Couldn't load your tasks: {error.message}</p>;
@@ -174,7 +187,7 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   const shownTiles = allTiles.filter((tile) => !isHidden(tile));
   const isSearchHidden = (saved.hidden ?? []).includes(SEARCH);
   const hiddenTiles = [
-    ...(isSearchHidden ? [{ key: SEARCH, label: "Search" }] : []),
+    ...(isSearchHidden && !isStandalone ? [{ key: SEARCH, label: "Search" }] : []),
     ...allTiles.filter(isHidden).map((tile) => ({ key: tile.key, label: tile.label ?? LABELS[tile.key] ?? tile.name })),
   ];
 
@@ -183,7 +196,7 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   return (
     <TreeProvider tasks={tasks.data} newTaskLabels={filter}>
       <div className="space-y-4">
-        {!isSearchHidden && (
+        {!isSearchHidden && !isStandalone && (
           <SiteSearch
             onPickLabel={(key, id) => !filter[key].includes(id) && setPicked({ ...filter, [key]: [...filter[key], id] })}
             onHide={() => save(withHidden(saved, SEARCH, true))}

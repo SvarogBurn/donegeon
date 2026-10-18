@@ -1,7 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
+import { useRef } from "react";
 import { Link, NavLink } from "react-router";
 import { usePoints } from "../../hooks/useTasks";
+import { useStandalone } from "../../lib/standalone";
 import type { User } from "../../types";
+import { AppBars } from "./AppBars";
+import { useNewFolderTab, usePublishedHeight } from "./barHooks";
 import { Clock } from "./Clock";
 import { FolderTabs } from "./FolderTabs";
 
@@ -10,55 +13,21 @@ const tab = ({ isActive }: { isActive: boolean }) =>
   `flex flex-col items-center gap-0.5 px-1.5 pt-1 pb-0.5 font-pixel text-[8px] sm:px-2 ${isActive ? "bg-stone-200/80 text-[#3544a1] dark:bg-stone-800/80 dark:text-[#cbdbfc]" : "text-stone-900 hover:bg-stone-200/50 dark:text-stone-100 dark:hover:bg-stone-800/50"}`;
 
 export function NavBar({ user }: { user: User }) {
+  const isStandalone = useStandalone();
+  return isStandalone ? <AppBars user={user} /> : <TaskBar user={user} />;
+}
+
+function TaskBar({ user }: { user: User }) {
   const { data: points } = usePoints();
-
-  // The bar's height changes (it wraps on narrow screens), so it is published as --bar-h for
-  // whatever must stay clear of it: the page's bottom padding and the undo bar.
   const bar = useRef<HTMLElement>(null);
-  useLayoutEffect(() => {
-    const el = bar.current;
-    if (!el) return;
-    const root = document.documentElement;
-    const publish = () => root.style.setProperty("--bar-h", `${el.offsetHeight}px`);
-    publish();
-    const observer = new ResizeObserver(publish);
-    observer.observe(el);
-    return () => {
-      observer.disconnect();
-      root.style.removeProperty("--bar-h");
-    };
-  }, []);
-
-  // The "New folder" tab is out of sight until the bar's empty space is clicked, right-clicked or held;
-  // it goes away again once used, with Escape, or with a click anywhere else.
-  const [isNewShown, setIsNewShown] = useState(false);
-  const onEmptySpace = (e: MouseEvent) => !(e.target as Element).closest("a, button, input, [role=dialog]");
-  useEffect(() => {
-    if (!isNewShown) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (!bar.current?.contains(e.target as Node)) setIsNewShown(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && setIsNewShown(false);
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [isNewShown]);
+  usePublishedHeight(bar, "--bar-h");
+  const { isNewShown, onNewUsed, handlers } = useNewFolderTab(bar);
 
   return (
     // A task bar: fixed along the bottom of the screen, 70% opaque, while the page scrolls above it (AppShell leaves room for it).
     <header
       ref={bar}
-      data-new-folder-shown={isNewShown || undefined}
-      onClick={(e) => onEmptySpace(e) && setIsNewShown(!isNewShown)}
-      // A hold on a touch screen arrives as this, as a right-click does.
-      onContextMenu={(e) => {
-        if (!onEmptySpace(e)) return;
-        e.preventDefault();
-        setIsNewShown(true);
-      }}
+      {...handlers}
       className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-stone-300 bg-white/70 pb-[env(safe-area-inset-bottom)] dark:border-stone-700 dark:bg-stone-900/70"
     >
       {/*
@@ -81,7 +50,7 @@ export function NavBar({ user }: { user: User }) {
             <span className="tab-icon tab-icon-calendar" aria-hidden />
             Calendar
           </NavLink>
-          <FolderTabs tab={tab} isNewShown={isNewShown} onNewUsed={() => setIsNewShown(false)} />
+          <FolderTabs tab={tab} isNewShown={isNewShown} onNewUsed={onNewUsed} />
         </nav>
         <Link to="/" className="logo h-[42px] max-sm:hidden" aria-label="Donegeon" />
         <div className="flex flex-none items-center justify-end gap-x-2 text-sm sm:gap-x-3">

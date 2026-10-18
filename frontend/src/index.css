@@ -41,6 +41,14 @@
   html {
     scrollbar-gutter: stable;
   }
+  /* The installed app scrolls like a phone app: no scrollbar, and no room kept for one. */
+  html[data-standalone] {
+    scrollbar-width: none;
+    scrollbar-gutter: auto;
+  }
+  html[data-standalone]::-webkit-scrollbar {
+    display: none;
+  }
   body {
     @apply bg-stone-100 text-sm text-stone-900 dark:bg-stone-950 dark:text-stone-100;
     /* The pixel font has one weight; a faked bold smears its pixels. */
@@ -265,6 +273,14 @@
     @apply block size-[21px] sm:size-[42px];
     background: center / contain no-repeat;
     image-rendering: pixelated;
+  }
+  /* A folder in the installed app's top strip (AppBars) keeps the small icon on any screen. */
+  .folder-chip .tab-icon {
+    @apply size-[21px];
+  }
+  /* Its name has more room than under a bottom-bar icon (the tab's own max-w-16 is a utility, so this has to insist). */
+  .folder-chip .truncate {
+    max-width: 9rem !important;
   }
   .tab-icon-tasks {
     background-image: url("../../assets/icons/21x21task_icon_v2.svg");
