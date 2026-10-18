@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useCreateList, useUpdateList } from "../../hooks/useTasks";
-import { frameIn, isLight, KIND_COLORS, listColor, sliderIn } from "../../lib/frameTones";
+import { KIND_COLORS, listColor, listFrame, sliderIn } from "../../lib/frameTones";
 import { filterTree, isFiltering, type LabelFilter } from "../../lib/labels";
 import { pointsFieldWidth, typedPoints } from "../../lib/points";
 import { isShown } from "../../lib/recent";
@@ -209,7 +209,7 @@ export function ListCard({ list, tasks, taskCount }: ListCardProps) {
       data-list-color={listColor(list)}
       className={isDropTarget ? "ring-2 ring-emerald-600" : ""}
       // A picked colour recolours the frame's band; the title on it turns dark when the colour is a light one.
-      style={list.color ? ({ "--frame": frameIn(list.color), "--band-text": isLight(list.color) ? "#222034" : "#fff" } as CSSProperties) : undefined}
+      style={listFrame(list).style}
       actions={
         <button
           type="button"
@@ -219,7 +219,7 @@ export function ListCard({ list, tasks, taskCount }: ListCardProps) {
           onClick={askDelete}
         />
       }
-      tone={isReward ? "reward" : "blue"}
+      tone={listFrame(list).tone}
       title={
         <input
           className="w-full bg-transparent outline-none focus:ring-2 focus:ring-white/50"

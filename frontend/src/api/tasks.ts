@@ -62,6 +62,8 @@ export interface NewTask {
   repeatEvery?: number;
   repeatUnit?: RepeatUnit;
   nextDue?: string;
+  /** Main tasks only. */
+  notes?: string;
 }
 export const createTask = (body: NewTask) => api<{ task: Task }>("/tasks", { body }).then((r) => r.task);
 export const updateTask = (id: string, body: TaskChanges) =>

@@ -10,6 +10,7 @@ import { findTaskRow, pathIdsTo, showOnPage } from "../../lib/showOnPage";
 import { ValueChip } from "../Points/ValueChip";
 import type { Info } from "./calendarData";
 import { RichText } from "../RichText";
+import { NoteText } from "../TaskTree/NoteText";
 
 const days = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
 
@@ -93,7 +94,11 @@ export function TaskInfo({ info, onClose }: { info: Info; onClose: () => void })
             <ValueChip node={node} />
           </Row>
         )}
-        {node.notes && <Row label="Notes">{node.notes}</Row>}
+        {node.notes && (
+          <Row label="Note">
+            <NoteText text={node.notes} />
+          </Row>
+        )}
         {node.isComplete && node.completedOn && <Row label="Done">{formatFullDay(node.completedOn)}</Row>}
       </>
     );

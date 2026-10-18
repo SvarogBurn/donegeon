@@ -1,6 +1,7 @@
 import frameSvg from "../../../assets/140x140border_blue_v3.svg?raw";
 import sliderSvg from "../../../assets/buttons/20x10slider_blue_v1.svg?raw";
 import folderSvg from "../../../assets/icons/21x21folder_icon_v1.svg?raw";
+import type { CSSProperties } from "react";
 import type { List } from "../types";
 
 /**
@@ -73,6 +74,15 @@ function recolour(art: string, artDark: string, bright: string, name: string, ar
 
 /** The tile frame with its band in any colour, as a CSS url(); made once per colour. */
 export const frameIn = (hex: string) => recolour(frameSvg, BAND_DARK, hex, "frame");
+/**
+ * What a list's frame looks like, for its own box and for anything shown as being in it (a task's note): the
+ * reward tone for a reward list, and the band in the list's picked colour, its title dark on a light one.
+ */
+export function listFrame(list: Pick<List, "kind" | "color"> | undefined): { tone: "blue" | "reward"; style?: CSSProperties } {
+  const tone = list?.kind === "reward" ? "reward" : "blue";
+  if (!list?.color) return { tone };
+  return { tone, style: { "--frame": frameIn(list.color), "--band-text": isLight(list.color) ? "#222034" : "#fff" } as CSSProperties };
+}
 /** The Task / Reward switch's track in any colour. */
 export const sliderIn = (hex: string) => recolour(sliderSvg, SLIDER_DARK, hex, "slider");
 

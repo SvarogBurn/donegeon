@@ -59,6 +59,8 @@ In a task:
 
 On the dashboard a task's subtasks start hidden: click the arrow at the left of its row to show them. They are shown from the start on the task's own page and while a goal or tag filter is on.
 
+A main task can carry a note. While its title is being edited a grey notes icon shows beside it (the ⋯ menu has **Note** too, and `// …` typed with a new task writes one): click it and the note opens in a pane at the side of the page (along the bottom on a phone), framed in its list's colour; a long note scrolls inside it. Once the note has text the icon stays on the row in colour; click it to read the note, and **Edit** to write in it. Leaving the field or `Esc` saves it; emptying it removes the note. A click outside the pane, `Esc` or × closes it. In a note, the title markup works (`**bold**` and the rest, `Ctrl+B/I/U`), and a line starting `* `, `- ` or `1. ` is a list item: `Enter` starts the next one, `Enter` on an empty one ends the list, `Tab` / `Shift+Tab` nest it. A task with a note has its own page too (click its row), with the note at the bottom (bottom left on a wide screen).
+
 ## Typing shortcuts
 
 While adding a task (a list's add field, a new row, the Today box, a day of the calendar), these can be typed anywhere in the title. They are taken out of the title and set on the task; chips under the field show what it will get, and a dropdown offers what could finish the one being typed.
@@ -73,6 +75,7 @@ While adding a task (a list's add field, a new row, the Today box, a day of the 
 | `@every …` | repeats: `@daily`, `@weekly`, `@monthly`, `@every 2 weeks`, `@every fri` |
 | `5p` | its points |
 | `/list` | puts it in that list |
+| `// note` | everything after it is the task's note (main tasks) |
 | `\` in front | keeps a shortcut as plain text |
 
 Dates: `tomorrow` (`tmr`), a weekday (`fri`, the next one), `next week`, `next month`, `in 3 days`, `3d`, `2w`, `25/12`, `25/12/26`, `25 dec`; after `~` also `today`. A shortcut counts only at the start of a word, and only when adding a task, not when renaming one. Deadlines are for main tasks and their direct subtasks; lists and repeats for main tasks. The same table is in the app, in the Cheat sheet box of the user page.

@@ -33,6 +33,7 @@ import {
   useUndoPress,
 } from "../../hooks/useTasks";
 import type { List, TaskTreeNode, TickedTasks } from "../../types";
+import { NotePanel } from "./NoteView";
 import { focusTaskEditor } from "./TitleEditor";
 
 /** The not-yet-saved task row opened by Enter / Ctrl+Enter. */
@@ -100,6 +101,11 @@ interface TreeContextValue {
   /** What Ctrl+Z / the undo bar can still take back, oldest first. */
   undoable: Undoable[];
   undo: () => void;
+  /** The task whose note is open at the side of the page; `edit`: opened to be written in. */
+  openNote: { id: string; edit: boolean } | null;
+  /** Shows a main task's note at the side of the page (the one before closes); `edit` for a task with no note yet. */
+  showNote: (id: string, edit: boolean) => void;
+  closeNote: () => void;
   error: Error | null;
 }
 
@@ -174,6 +180,9 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [undoable, setUndoable] = useState<Undoable[]>([]);
+  const [openNote, setOpenNote] = useState<{ id: string; edit: boolean } | null>(null);
+  const showNote = useCallback((id: string, edit: boolean) => setOpenNote({ id, edit }), []);
+  const closeNote = useCallback(() => setOpenNote(null), []);
   const ticked = useTickedTasks();
   const byDeadline = useSortByDeadline();
   const move = useMoveTask();
@@ -486,6 +495,9 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
     takeBackPress,
     undoable,
     undo,
+    openNote,
+    showNote,
+    closeNote,
     error:
       move.error ??
       remove.error ??
@@ -497,5 +509,12 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       placeInWeek.error ??
       moveRound.error,
   };
-  return <TreeContext.Provider value={value}>{children}</TreeContext.Provider>;
+  // A deleted task takes its note along.
+  const noteNode = openNote ? byId.get(openNote.id) : undefined;
+  return (
+    <TreeContext.Provider value={value}>
+      {children}
+      {openNote && noteNode && <NotePanel node={noteNode} edit={openNote.edit} onClose={closeNote} />}
+    </TreeContext.Provider>
+  );
 }

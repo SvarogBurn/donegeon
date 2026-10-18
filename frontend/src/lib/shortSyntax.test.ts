@@ -122,6 +122,24 @@ describe("parseShortSyntax", () => {
       { start: 13, end: 15, kind: "points", label: "5 pts" },
     ]);
   });
+
+  it("reads // as the note: the rest of the text, shortcuts and lines and all", () => {
+    expect(parse("Pack #home // * passport #tickets\n* @fri charger")).toMatchObject({
+      title: "Pack",
+      tagIds: ["t1"],
+      newTags: [],
+      notes: "* passport #tickets\n* @fri charger",
+    });
+    expect(parse("Pack // ").notes).toBeUndefined();
+    expect(parse("Pack //")).toMatchObject({ title: "Pack //", tokens: [] });
+  });
+
+  it("keeps // as text on a subtask, inside a word, or after a backslash", () => {
+    expect(parse("Pack // bag", 1).title).toBe("Pack // bag");
+    expect(parse("see https://x.org").title).toBe("see https://x.org");
+    expect(parse("a \\// b").title).toBe("a // b");
+    expect(parse("a \\// b").notes).toBeUndefined();
+  });
 });
 
 describe("activeToken", () => {
@@ -154,5 +172,10 @@ describe("activeToken", () => {
   it("offers a subtask no list and no schedule", () => {
     expect(inserts("x /", 1)).toEqual([]);
     expect(inserts("x @da", 1)).toEqual([]);
+  });
+
+  it("offers nothing inside the note", () => {
+    expect(at("Pack // bring #ho")).toBeNull();
+    expect(inserts("Pack #ho")).toEqual(["#home", "#ho"]);
   });
 });

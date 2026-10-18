@@ -16,6 +16,8 @@ interface Props {
   /** 0 = main task, 1 = its direct subtask, ... */
   depth: number;
   onAddSubtask: () => void;
+  /** Main tasks: opens the note under the row. */
+  onOpenNote?: () => void;
 }
 
 interface LabelPickerProps {
@@ -323,10 +325,10 @@ function Repeat({ node }: { node: TaskTreeNode }) {
 
 /**
  * The "⋯" on each row: today / persistent / points, a schedule, goals and tags (any task,
- * none by default), deadline (main tasks and their direct subtasks), and the
- * touch-friendly equivalents of Ctrl+Enter and Delete.
+ * none by default), deadline (main tasks and their direct subtasks), the note (main
+ * tasks), and the touch-friendly equivalents of Ctrl+Enter and Delete.
  */
-export function TaskMenu({ node, depth, onAddSubtask }: Props) {
+export function TaskMenu({ node, depth, onAddSubtask, onOpenNote }: Props) {
   const tree = useTree();
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
@@ -426,6 +428,12 @@ export function TaskMenu({ node, depth, onAddSubtask }: Props) {
               <button type="button" className="btn-quiet" onClick={() => (setIsOpen(false), onAddSubtask())}>
                 Add subtask
               </button>
+              {onOpenNote && (
+                <button type="button" className="btn-quiet inline-flex items-center gap-1" data-menu-part="note" onClick={() => (setIsOpen(false), onOpenNote())}>
+                  <span aria-hidden className={`notes-button ${node.notes ? "" : "opacity-45 grayscale"}`} />
+                  Note
+                </button>
+              )}
               <button type="button" className="btn-quiet !text-red-600" onClick={() => (setIsOpen(false), tree.deleteTask(node))}>
                 Delete task
               </button>

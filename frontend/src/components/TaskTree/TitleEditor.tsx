@@ -120,7 +120,8 @@ export function TitleEditor({ value, onChange, editorId, onKeyDown, className = 
         setIsFocused(false);
         onBlur?.(e);
       }}
-      className={`block w-full resize-none overflow-hidden rounded bg-transparent px-1.5 py-1 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600/30 dark:focus:bg-stone-950 ${fitText ? "col-start-1 row-start-1 h-full" : ""} ${className} ${showsStyled ? "!text-transparent" : ""}`}
+      // A fitted field adds no width of its own (a textarea would be 20 characters wide): the copy of the text sizes it.
+      className={`block resize-none overflow-hidden rounded bg-transparent px-1.5 py-1 text-sm outline-none focus:bg-white focus:ring-2 focus:ring-emerald-600/30 dark:focus:bg-stone-950 ${fitText ? "col-start-1 row-start-1 h-full w-0 min-w-full" : "w-full"} ${className} ${showsStyled ? "!text-transparent" : ""}`}
     />
   );
   if (!fitText) return textarea;

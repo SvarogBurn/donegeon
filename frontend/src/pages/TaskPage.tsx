@@ -3,6 +3,7 @@ import { Link, Navigate, useParams } from "react-router";
 import { CountdownTable } from "../components/Countdown/CountdownTable";
 import { DeadlineFields } from "../components/TaskTree/DeadlineFields";
 import { TaskForm } from "../components/TaskTree/TaskForm";
+import { NoteFrame, NoteView } from "../components/TaskTree/NoteView";
 import { TaskTree } from "../components/TaskTree/TaskNode";
 import { TreeProvider } from "../components/TaskTree/TreeContext";
 import { TileFrame } from "../components/Tiles/TileFrame";
@@ -27,7 +28,7 @@ export function CountdownRedirect() {
   return <Navigate to={`/tasks/${taskId}`} replace />;
 }
 
-/** A big task's own page (see hasTaskPage): its countdown table beside its tree. */
+/** A task's own page (see hasTaskPage): its note and countdown table beside its tree. */
 export function TaskPage() {
   const { taskId = "" } = useParams();
   const tasks = useTaskTrees();
@@ -64,7 +65,8 @@ export function TaskPage() {
               )}
             </header>
 
-            <div className="grid items-start gap-4 lg:grid-cols-2">
+            {/* On a wide screen the countdown is on the left with the note under it, the tasks on the right; narrow, the note comes last. */}
+            <div className="grid items-start gap-4 lg:grid-cols-2 lg:grid-rows-[auto_1fr]">
               <section aria-label="Countdown" className="min-w-0">
                 {table ? (
                   <CountdownTable countdown={table} />
@@ -80,11 +82,17 @@ export function TaskPage() {
                   <p className="text-sm text-stone-500">Loading…</p>
                 )}
               </section>
-              <TileFrame title="Tasks" aria-label="Tasks" className="min-w-0">
+              <TileFrame title="Tasks" aria-label="Tasks" className="min-w-0 lg:row-span-2">
                 <TreeError />
                 <TaskTree nodes={[found.node]} parentId={found.node.parentId} listId={found.node.listId} depth={found.depth} />
                 <TaskForm parentId={found.node.id} placeholder="Add a subtask, then press Enter" />
               </TileFrame>
+              {/* Notes are for main tasks; the box is there once the task has one (its icon or ⋯ menu adds one). */}
+              {!found.node.parentId && found.node.notes && (
+                <NoteFrame node={found.node} title="Note" aria-label="Note" className="min-w-0 lg:col-start-1 lg:row-start-2">
+                  <NoteView key={found.node.id} node={found.node} />
+                </NoteFrame>
+              )}
             </div>
           </>
         )}

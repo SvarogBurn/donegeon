@@ -10,6 +10,7 @@ per check. They are scripts, not a test runner suite.
 | `combined.mjs` | dashboard "All deadlines" table: paces added up, deadline marker rows |
 | `done.mjs` | dashboard "Done" box: stepping day by day, calendar pick, no future days; Done page (opened by clicking the box): subtasks under the day they were ticked |
 | `labels.mjs` | several goals and tags per task, filtering |
+| `notes.mjs` | notes on main tasks: the grey icon only while the title is edited (none on subtasks), the side pane (written in, then read; Edit / Done; Esc; a click outside closes and saves; framed in the list's colour; a long note scrolls inside the whole frame), lists (Enter carries on, Tab nests, an empty item ends) and bold shown, the icon in colour over a reload, Note in the ⋯ menu, emptying removes it, the task's own page with its note at the bottom left (written there too), `//` typed with a task |
 | `lists.mjs` | default list, deleting lists with undo, goal tags on subtasks |
 | `del.mjs` | Delete key on tasks |
 | `undo.mjs` | Ctrl+Z after deleting tasks |

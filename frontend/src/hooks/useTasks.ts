@@ -161,6 +161,7 @@ export function useAddTask() {
         repeatEvery: typed.repeat?.every,
         repeatUnit: typed.repeat?.unit,
         nextDue: typed.repeat?.nextDue,
+        notes: typed.notes,
       });
     },
     onSettled: () => Promise.all([...TASK_DATA, TAGS, GOALS].map((queryKey) => queryClient.invalidateQueries({ queryKey }))),

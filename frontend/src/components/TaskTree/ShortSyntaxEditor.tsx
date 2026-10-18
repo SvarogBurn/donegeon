@@ -13,6 +13,8 @@ const CHIP_STYLES: Record<SyntaxToken["kind"], string> = {
   repeat: "bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300",
   points: "bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300",
   list: "bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300",
+  // The notes icon's paper yellow.
+  note: "bg-[#EFD276] text-stone-800",
 };
 
 /** What the shortcuts typed into a new task will set on it, as chips under the field. Nothing without shortcuts. */

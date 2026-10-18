@@ -408,6 +408,63 @@
     background: #3f3f74 url("../../assets/7x7repeating_task_v1.svg") center / 14px 14px no-repeat;
     image-rendering: pixelated;
   }
+  /*
+   * A main task's note (10x10 art pixels, 2px each). With no note yet it is grey, and shown only while the
+   * task is being edited (or its empty note is open); once the note has text it stays on the row in colour.
+   */
+  .notes-button {
+    @apply block size-5 flex-none cursor-pointer hover:brightness-110;
+    background: url("../../assets/icons/10x10notes_icon_v1.svg") center / 20px 20px no-repeat;
+    image-rendering: pixelated;
+  }
+  .notes-button[data-empty] {
+    filter: grayscale(1);
+    opacity: 0.45;
+  }
+  .notes-button[data-empty]:hover {
+    opacity: 1;
+  }
+  .notes-button[data-empty]:not([aria-expanded="true"]) {
+    display: none;
+  }
+  [data-task-row]:focus-within .notes-button[data-empty] {
+    display: block;
+  }
+  /*
+   * A note, read or written: square paper with a hard 2px edge, like the chips. Written in, the edge turns the
+   * art's light blue, as the search field's does.
+   */
+  .note-paper {
+    @apply bg-[#fffbea] text-sm text-stone-900 dark:bg-stone-950 dark:text-stone-100;
+    box-shadow:
+      -2px 0 #212529,
+      2px 0 #212529,
+      0 -2px #212529,
+      0 2px #212529;
+    margin: 2px;
+    padding: 6px 8px;
+  }
+  textarea.note-paper {
+    @apply block w-[calc(100%-4px)] resize-none overflow-hidden outline-none placeholder:text-stone-400;
+  }
+  textarea.note-paper:focus {
+    box-shadow:
+      -2px 0 #639bff,
+      2px 0 #639bff,
+      0 -2px #639bff,
+      0 2px #639bff;
+  }
+  /* The note pane's frame: capped in height, its inside scrolls. */
+  .note-pane {
+    @apply flex flex-col;
+  }
+  .note-pane > .tile-body {
+    @apply min-h-0 overflow-y-auto;
+  }
+  /* A list item's bullet: one square of the notes icon's blue. */
+  .note-bullet {
+    @apply mt-[0.45em] inline-block size-1.5 flex-none bg-[#639bff];
+  }
   .tile-button-x {
     background-image: url("../../assets/buttons/7x7x_blue_v1.svg");
   }

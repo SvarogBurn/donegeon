@@ -19,7 +19,7 @@ export interface SyntaxContext {
   depth: number;
 }
 
-export type TokenKind = "tag" | "goal" | "hard" | "soft" | "today" | "repeat" | "points" | "list";
+export type TokenKind = "tag" | "goal" | "hard" | "soft" | "today" | "repeat" | "points" | "list" | "note";
 
 /** One shortcut found in the text: where it was typed, and what it says in the preview under the field. */
 export interface SyntaxToken {
@@ -43,6 +43,8 @@ export interface ParsedTask {
   points?: number;
   listId?: string;
   repeat?: { every: number; unit: RepeatUnit; nextDue: string };
+  /** Everything typed after "//" (main tasks only). */
+  notes?: string;
   tokens: SyntaxToken[];
 }
 
@@ -53,6 +55,13 @@ const MAX_DEADLINE_DEPTH = 1;
 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const isWordStart = (text: string, at: number) => at === 0 || /\s/.test(text[at - 1]);
+/** Where a note starts: the first "//" at the start of a word, in a main task. Null for none. */
+function noteStart(text: string, depth: number): number | null {
+  if (depth > 0) return null;
+  for (let at = 0; at < text.length - 1; at++) if (text.startsWith("//", at) && isWordStart(text, at)) return at;
+  return null;
+}
+const NOTE_LABEL_LENGTH = 24;
 const repeatText = (every: number, unit: RepeatUnit) => (every === 1 ? `every ${unit}` : `every ${every} ${unit}s`);
 
 /**
@@ -70,7 +79,8 @@ function readName(rest: string, known: Named[]): { name: string; id?: string } |
 
 /**
  * Reads the shortcuts typed into a new task's title: #tag, ^goal, @date (hard deadline), ~date (soft deadline),
- * @today / @now (do today), @every ... (a schedule), 5p (points) and /list. Each counts only at the start of a
+ * @today / @now (do today), @every ... (a schedule), 5p (points), /list and // note (the rest of the text, on a
+ * main task). Each counts only at the start of a
  * word. What can't apply (a second deadline, a schedule on a subtask, a list nobody made, ...) stays in the title
  * as it was typed, so nothing goes missing without a trace.
  */
@@ -85,12 +95,21 @@ export function parseShortSyntax(text: string, ctx: SyntaxContext): ParsedTask {
   };
   const canHaveDeadline = () => ctx.depth <= MAX_DEADLINE_DEPTH && !parsed.deadlineDate && !parsed.repeat;
 
+  const note = noteStart(text, ctx.depth);
   for (let at = 0; at < text.length; at++) {
     if (!isWordStart(text, at)) continue;
     const mark = text[at];
     const rest = text.slice(at + 1);
 
-    if (mark === "\\" && (TRIGGERS.includes(rest[0] ?? " ") || /^\d+p(\s|$)/i.test(rest))) {
+    if (at === note) {
+      // The rest is the note, shortcuts and all. Just "//" with nothing after it is no note yet.
+      const notes = text.slice(at + 2).trim();
+      if (!notes) continue;
+      parsed.notes = notes;
+      const first = notes.split("\n")[0];
+      take(at, text.length - at, "note", `note: ${first.length > NOTE_LABEL_LENGTH ? first.slice(0, NOTE_LABEL_LENGTH) + "…" : first}`);
+      break;
+    } else if (mark === "\\" && (TRIGGERS.includes(rest[0] ?? " ") || /^\d+p(\s|$)/i.test(rest))) {
       cuts.push([at, at + 1]);
     } else if (mark === "#" || mark === "^") {
       const isTag = mark === "#";
@@ -196,6 +215,9 @@ function suggestionsFor(mark: string, query: string, ctx: SyntaxContext): Sugges
  * One word of it always counts; more words only while they can still become something ("#deep wo", "@in 3").
  */
 export function activeToken(text: string, caret: number, ctx: SyntaxContext): ActiveToken | null {
+  // In the note everything is words: nothing is offered.
+  const note = noteStart(text, ctx.depth);
+  if (note !== null && note < caret) return null;
   const lineStart = text.lastIndexOf("\n", caret - 1) + 1;
   for (let start = caret - 1; start >= lineStart; start--) {
     if (!TRIGGERS.includes(text[start]) || !isWordStart(text, start)) continue;
@@ -217,6 +239,7 @@ export const SYNTAX_HELP: [type: string, does: string, example: string][] = [
   ["@every …", "Repeats: @daily, @weekly, @monthly, @every 2 weeks, @every fri.", "Vacuum @every 2 weeks"],
   ["5p", "Its points, instead of the list's amount.", "Clean the oven 20p"],
   ["/list", "Puts it in that list, whichever box you type in.", "Buy milk /Chores"],
+  ["// note", "The rest of what you type is the task's note (main tasks). Lists (* or - at a line's start) and **bold** and the like work in it.", "Call the plumber // ask about the boiler"],
   ["\\", "In front of a shortcut keeps it as plain text.", "Fix \\#home sign"],
 ];
 

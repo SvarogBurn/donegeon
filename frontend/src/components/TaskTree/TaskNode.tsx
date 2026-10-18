@@ -78,6 +78,12 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
   const rename = useUpdateTask();
   const error = rename.error;
 
+  // A main task can carry a note: its icon beside the title shows it at the side of the page.
+  const canNote = !node.parentId;
+  const hasNote = Boolean(node.notes);
+  const noteShown = tree.openNote?.id === node.id;
+  const toggleNote = () => (noteShown ? tree.closeNote() : tree.showNote(node.id, !hasNote));
+
   const isPersistent = node.isPersistent && !node.parentId;
   const today = localDate();
   const pressedToday = node.completions.filter((press) => press.day === today).length;
@@ -178,7 +184,7 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
           />
         )}
 
-        <div className="min-w-32 flex-1">
+        <div className="flex min-w-32 flex-1 items-start gap-1">
           <TitleEditor
             editorId={node.id}
             fitText
@@ -190,6 +196,19 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
             // A scheduled task that is done for now is greyed until its next day.
             className={node.isComplete ? "text-stone-400 line-through" : isWaiting(node, today) ? "text-stone-400" : ""}
           />
+          {canNote && (
+            <button
+              type="button"
+              className="notes-button mt-1"
+              data-empty={hasNote ? undefined : ""}
+              aria-expanded={noteShown}
+              aria-label={noteShown ? "Close the note" : hasNote ? "Show the note" : "Add a note"}
+              title={noteShown ? "Close the note" : hasNote ? "Show the note" : "Add a note; once it has text it stays here"}
+              // Keeps the title focused, so the grey icon (shown only while the title is edited) is still there when the click lands.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={toggleNote}
+            />
+          )}
         </div>
 
         <span className="flex flex-wrap items-center justify-end gap-1.5 pt-1">
@@ -223,7 +242,7 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
             </span>
           )}
           <ValueChip node={node} />
-          <TaskMenu node={node} depth={depth} onAddSubtask={addSubtask} />
+          <TaskMenu node={node} depth={depth} onAddSubtask={addSubtask} onOpenNote={canNote ? () => tree.showNote(node.id, !hasNote) : undefined} />
           <button
             type="button"
             className="btn-quiet cursor-grab touch-none glyph select-none active:cursor-grabbing"
