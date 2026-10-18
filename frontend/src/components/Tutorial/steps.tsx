@@ -398,7 +398,8 @@ export const STEPS: Step[] = [
         lists by it.
       </>
     ),
-    target: () => ["[data-site-search]"],
+    // The installed app has only the spyglass in its top strip until it is tapped.
+    target: () => [document.querySelector("[data-site-search]") ? "[data-site-search]" : 'header [aria-label="Search"]'],
     // Minimized away: nothing to point at.
     skip: (ctx) => ctx.hiddenBoxes.includes("search"),
     button: "Next",

@@ -67,6 +67,8 @@ model User {
   statsLayout     Json?
   // The same for the Calendar page, which has one column: the order of its boxes.
   calendarLayout  Json?
+  // The same for the Notes page: its note boxes.
+  notesLayout     Json?
   // What a task written straight into Today (so in no list) is worth, unless it has its own amount.
   todayPoints     Int      @default(2)
   // What the lists do with a ticked task.
@@ -92,6 +94,8 @@ model User {
   pointTransactions PointTransaction[]
   taskCompletions   TaskCompletion[]
   feedback          Feedback[]
+  notes             Note[]
+  noteFolders       NoteFolder[]
 }
 
 model Goal {
@@ -285,6 +289,43 @@ model Feedback {
   createdAt DateTime     @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// A note of its own, not on any task: written on the Notes page. It can sit in one of the Notes page's folders
+// (noteFolderId), and be shown in the task bar's folders too, like a list (Folder.views "note:<id>").
+model Note {
+  id           String    @id @default(uuid())
+  userId       String
+  // May be empty: the box then says "Note".
+  title        String    @default("")
+  text         String    @default("")
+  noteFolderId String?
+  position     Int       @default(0)
+  // Soft delete, as for tasks: it can be brought back for RESTORABLE_MS, then purgeDeleted removes it.
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder NoteFolder? @relation(fields: [noteFolderId], references: [id], onDelete: SetNull)
+
+  @@index([userId, deletedAt])
+}
+
+// A folder for notes only, along the top of the Notes page. Removing it puts its notes back under "All".
+model NoteFolder {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  // The colour of its icon, "#rrggbb"; null = the icon as drawn.
+  color     String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes Note[]
 
   @@index([userId])
 }

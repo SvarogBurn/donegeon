@@ -4,6 +4,7 @@ import { AuthPage } from "./pages/AuthPage";
 import { CalendarPage } from "./pages/Calendar";
 import { Dashboard } from "./pages/Dashboard";
 import { DonePage } from "./pages/Done";
+import { NotesPage } from "./pages/Notes";
 import { PointsPage } from "./pages/Points";
 import { StatsPage } from "./pages/Stats";
 import { CountdownRedirect, TaskPage } from "./pages/TaskPage";
@@ -26,6 +27,7 @@ export function App() {
         <Route path="done" element={<DonePage />} />
         <Route path="stats" element={<StatsPage />} />
         <Route path="calendar" element={<CalendarPage />} />
+        <Route path="notes" element={<NotesPage />} />
         <Route path="points" element={<PointsPage />} />
         <Route path="user" element={<UserPage />} />
         <Route path="tasks/:taskId" element={<TaskPage />} />

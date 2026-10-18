@@ -100,6 +100,22 @@ await icon("Trip").click(); await wait(150);
 out("// typed with a task becomes its note", (await panel.locator("[data-note-item]").allInnerTexts()).join("|") === "passport|#charger" && (await row("Trip").locator('[title="Tag: travel"]').count()) === 1);
 
 out("the side pane is framed in the list's colour", ((await p.locator('[aria-label="Note box"]').getAttribute("style")) ?? "").includes("--frame"));
+// Headings.
+await panel.locator('button:text-is("Edit")').click();
+await field.fill("# Big plan\nSome words\n## **Mid** part\n### Small\n#tag line\n\\# literal\n* item"); await leave(); await wait();
+const heads = await panel.locator("[data-note-heading]").evaluateAll((els) => els.map((el) => `${el.tagName}:${el.dataset.noteHeading}:${el.textContent}:${parseFloat(getComputedStyle(el).fontSize)}`));
+out("# ## ### are headings, biggest first", heads.length === 3 && heads[0].startsWith("H3:1:Big plan") && heads[1].startsWith("H4:2:Mid part") && heads[2].startsWith("H5:3:Small") && parseFloat(heads[0].split(":")[3]) > parseFloat(heads[1].split(":")[3]), JSON.stringify(heads));
+out("…with their markup", (await panel.locator('[data-note-heading="2"] b').innerText()) === "Mid");
+const texts = await panel.locator("[data-note-text] > p").allInnerTexts();
+out("a tag and an escaped hash stay text", texts.includes("#tag line") && texts.includes("# literal"), JSON.stringify(texts));
+await panel.screenshot({ path: "notes-headings.png" });
+await p.emulateMedia({ colorScheme: "dark" }); await wait(150);
+await panel.screenshot({ path: "notes-headings-dark.png" });
+await p.emulateMedia({ colorScheme: "light" });
+await p.evaluate(() => document.documentElement.dataset.font = "plain"); await wait(150);
+await panel.screenshot({ path: "notes-headings-plain.png" });
+await p.evaluate(() => delete document.documentElement.dataset.font);
+
 await panel.locator('button:text-is("Edit")').click();
 await field.fill(Array.from({ length: 60 }, (_, i) => `* line ${i} with words enough to wrap around`).join("\n")); await leave(); await wait();
 const fit = await p.locator('[aria-label="Note box"]').evaluate((frame) => {

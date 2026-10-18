@@ -26,6 +26,32 @@ describe("parseNote", () => {
   });
 });
 
+describe("parseNote headings", () => {
+  it("reads one to three hashes as heading levels, deeper ones as the third", () => {
+    expect(parseNote("# Big\n## Mid\n### Small\n###### Tiny\n   ## Indented\n## Plan ##")).toEqual([
+      { kind: "heading", level: 1, text: "Big" },
+      { kind: "heading", level: 2, text: "Mid" },
+      { kind: "heading", level: 3, text: "Small" },
+      { kind: "heading", level: 3, text: "Tiny" },
+      { kind: "heading", level: 2, text: "Indented" },
+      { kind: "heading", level: 2, text: "Plan" },
+    ]);
+  });
+
+  it("keeps the heading's markup", () => {
+    expect(parseNote("# **Big** plan")).toEqual([{ kind: "heading", level: 1, text: "**Big** plan" }]);
+  });
+
+  it("keeps tags, a lone hash, seven hashes and an escaped hash as text", () => {
+    expect(parseNote("#tag line\n#\n####### seven\n\\# literal")).toEqual([
+      { kind: "text", text: "#tag line" },
+      { kind: "text", text: "#" },
+      { kind: "text", text: "####### seven" },
+      { kind: "text", text: "# literal" },
+    ]);
+  });
+});
+
 describe("itemPrefix and enterOnLine", () => {
   it("finds a list line's marker", () => {
     expect(itemPrefix("  * milk")).toBe("  * ");

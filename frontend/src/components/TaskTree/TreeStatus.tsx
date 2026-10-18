@@ -11,6 +11,7 @@ const WHAT: Record<Undoable["kind"], string> = {
   list: "Deleted list",
   finished: "Finished",
   press: "Counted",
+  note: "Deleted note",
 };
 
 /** Shown for a few seconds after a delete, a finished task or a "done it" press; Ctrl+Z does the same as the button. */

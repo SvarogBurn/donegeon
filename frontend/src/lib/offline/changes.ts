@@ -1,11 +1,12 @@
 import { onlineManager, type InfiniteData, type Mutation, type QueryClient, type QueryKey } from "@tanstack/react-query";
 import { ApiError, clockNow, isUnreachable, type When } from "../../api/client";
 import * as goalsApi from "../../api/goals";
+import * as notesApi from "../../api/notes";
 import * as tagsApi from "../../api/tags";
 import * as tasksApi from "../../api/tasks";
-import { COUNTDOWN, DONE, GOALS, POINTS, TAGS, TASK_DATA, TASKS } from "../../hooks/queryKeys";
+import { COUNTDOWN, DONE, GOALS, NOTES, POINTS, TAGS, TASK_DATA, TASKS } from "../../hooks/queryKeys";
 import { ME } from "../../hooks/useAuth";
-import type { Countdown, DonePage, Goal, List, PointsSummary, Tag, TaskPress, TaskTreeNode, User } from "../../types";
+import type { Countdown, DonePage, Goal, List, Note, NoteFolder, PointsSummary, Tag, TaskPress, TaskTreeNode, User } from "../../types";
 import { taskDone } from "../breakReminder";
 import {
   draftNode,
@@ -74,7 +75,16 @@ export const CHANGE = {
   move: ["change", "move"],
   delete: ["change", "delete"],
   restore: ["change", "restore"],
+  noteAdd: ["change", "noteAdd"],
+  noteEdit: ["change", "noteEdit"],
+  noteDelete: ["change", "noteDelete"],
+  noteRestore: ["change", "noteRestore"],
 } as const;
+
+export interface NoteEditChange {
+  id: string;
+  changes: notesApi.NoteChanges;
+}
 
 /** An id for a row made on the device. crypto.randomUUID is missing on a plain-http page (the dev server opened on a phone). */
 export function newId(): string {
@@ -155,6 +165,26 @@ const deletedSpots = new Map<string, Spot>();
 const beforePress = new Map<string, TaskTreeNode>();
 
 const quoted = (title: string) => `“${title}”`;
+
+/** What the Notes page holds: the notes and its folders, in one answer. */
+export interface NotesData {
+  notes: Note[];
+  noteFolders: NoteFolder[];
+}
+
+/** Saves what the notes hold now and applies `change` to them. */
+async function changeNotes(queryClient: QueryClient, change: (notes: Note[]) => Note[]): Promise<Saved> {
+  await queryClient.cancelQueries({ queryKey: NOTES });
+  const before = queryClient.getQueryData<NotesData>(NOTES);
+  if (!before) return [];
+  queryClient.setQueryData<NotesData>(NOTES, { ...before, notes: change(before.notes) });
+  return [[NOTES, before]];
+}
+
+/** Deleted notes as they were, so an undo made offline can put them back. */
+const deletedNotes = new Map<string, Note>();
+
+const noteName = (title: string | undefined) => (title ? `the note ${quoted(title)}` : "a note");
 
 const specs: Record<keyof typeof CHANGE, Spec<any>> = {
   add: {
@@ -352,6 +382,47 @@ const specs: Record<keyof typeof CHANGE, Spec<any>> = {
       }),
     refresh: TASK_DATA,
     name: (_change, title) => `bringing back ${quoted(title)}`,
+  },
+  // A new note goes first, as the server puts it.
+  noteAdd: {
+    send: ({ when, ...note }: Change<notesApi.NewNote>) => notesApi.createNote(note, when),
+    show: (queryClient, { when, ...note }: Change<notesApi.NewNote>) =>
+      changeNotes(queryClient, (all) => [
+        { title: "", text: "", noteFolderId: null, ...note, position: Math.min(1, ...all.map((n) => n.position)) - 1, createdAt: when.at, updatedAt: when.at },
+        ...all,
+      ]),
+    refresh: [NOTES],
+    name: ({ title }: Change<notesApi.NewNote>) => `the new note${title ? ` ${quoted(title)}` : ""}`,
+  },
+  noteEdit: {
+    send: ({ id, changes, when }: Change<NoteEditChange>) => notesApi.updateNote(id, changes, when),
+    show: (queryClient, { id, changes, when }: Change<NoteEditChange>) =>
+      changeNotes(queryClient, (all) => all.map((note) => (note.id === id ? { ...note, ...changes, updatedAt: when.at } : note))),
+    refresh: [NOTES],
+    name: ({ changes }: Change<NoteEditChange>) => `the change to ${noteName(changes.title)}`,
+  },
+  noteDelete: {
+    send: ({ id, when }: Change<{ id: string }>) => notesApi.deleteNote(id, when),
+    show: (queryClient, { id }: Change<{ id: string }>) =>
+      changeNotes(queryClient, (all) => {
+        const note = all.find((n) => n.id === id);
+        if (note) deletedNotes.set(id, note);
+        return all.filter((n) => n.id !== id);
+      }),
+    refresh: [NOTES],
+    name: () => "deleting a note",
+  },
+  noteRestore: {
+    send: ({ id, when }: Change<{ id: string }>) => notesApi.restoreNote(id, when),
+    show: (queryClient, { id }: Change<{ id: string }>) =>
+      changeNotes(queryClient, (all) => {
+        const note = deletedNotes.get(id);
+        if (!note || all.some((n) => n.id === id)) return all;
+        deletedNotes.delete(id);
+        return [...all, note].sort((a, b) => a.position - b.position);
+      }),
+    refresh: [NOTES],
+    name: () => "bringing back a note",
   },
 };
 

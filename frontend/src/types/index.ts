@@ -83,6 +83,28 @@ export interface Folder {
   views: string[];
 }
 
+/** A note of its own, not on any task (the Notes page). */
+export interface Note {
+  id: string;
+  /** May be empty: its box then says "Note". */
+  title: string;
+  text: string;
+  /** The Notes page folder it is in; null = only under "All". */
+  noteFolderId: string | null;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A folder for notes only, along the top of the Notes page. */
+export interface NoteFolder {
+  id: string;
+  name: string;
+  /** The colour of its icon, "#rrggbb"; null = the icon as drawn. */
+  color: string | null;
+  position: number;
+}
+
 export type RepeatUnit = "day" | "week" | "month";
 
 export interface Task {

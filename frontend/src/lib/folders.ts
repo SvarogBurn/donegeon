@@ -4,7 +4,7 @@
  */
 export const NAME_FOLDER_EVENT = "donegeon:name-folder";
 
-/** A folder's views are named by key: a list's, a box of the stats', a box of the calendar's, or the Today box. */
+/** A folder's views are named by key: a list's, a note's, a box of the stats', a box of the calendar's, or the Today box. */
 export const TODAY_VIEW = "box:today";
 export const listView = (listId: string) => `list:${listId}`;
 export const statView = (name: string) => `stat:${name}`;
@@ -18,3 +18,7 @@ const CAL_PREFIX = "cal:";
 export const calView = (name: string) => `${CAL_PREFIX}${name}`;
 /** The calendar box a view shows, or null for any other view. */
 export const calOfView = (view: string) => (view.startsWith(CAL_PREFIX) ? view.slice(CAL_PREFIX.length) : null);
+const NOTE_PREFIX = "note:";
+export const noteView = (noteId: string) => `${NOTE_PREFIX}${noteId}`;
+/** The note a view shows, or null for any other view. */
+export const noteOfView = (view: string) => (view.startsWith(NOTE_PREFIX) ? view.slice(NOTE_PREFIX.length) : null);

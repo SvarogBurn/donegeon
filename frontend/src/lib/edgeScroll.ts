@@ -33,8 +33,9 @@ export function edgeScroller() {
 const AREA_PX = 40;
 
 /**
- * Scrolls a part of a box that scrolls on its own (`[data-week-scroll]`: the Week tab's days) while something is
- * dragged near its top or bottom edge, so a task can be taken to a day out of sight. `onScroll` is told each time
+ * Scrolls a part of a box that scrolls on its own (`[data-week-scroll]`: the Week tab's days; `[data-box-scroll]`: a
+ * box's tasks, capped on a phone) while something is dragged near its top or bottom edge, so a task can be taken to a
+ * day or a place out of sight. `onScroll` is told each time
  * it moved, as what is under the pointer changes with it.
  */
 export function areaScroller(onScroll: () => void) {
@@ -54,7 +55,10 @@ export function areaScroller(onScroll: () => void) {
      * should hold still, or the two would move together under the pointer.
      */
     update(x: number, y: number): boolean {
-      area = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-week-scroll]") ?? null;
+      // The innermost part under the pointer that has more than it shows.
+      let el = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-week-scroll], [data-box-scroll]") ?? null;
+      while (el && el.scrollHeight <= el.clientHeight) el = el.parentElement?.closest<HTMLElement>("[data-week-scroll], [data-box-scroll]") ?? null;
+      area = el;
       const rect = area?.getBoundingClientRect();
       const fromTop = rect ? y - rect.top : Infinity;
       const fromBottom = rect ? rect.bottom - y : Infinity;

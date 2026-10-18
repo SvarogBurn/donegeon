@@ -2,27 +2,32 @@ import { useSyncExternalStore } from "react";
 
 /**
  * Whether the app runs installed (opened from its icon, in a window of its own) rather than in a browser tab.
- * The installed app has its own layout: a strip along the top with the account, search, folders and points, and
- * a bottom bar of just the three page icons (AppBars). CSS sees it as html[data-standalone].
+ * The installed app has its own layout: a strip along the top with the points, folders, search and account, and
+ * a bottom bar of the pages and a "+" (AppBars). CSS sees it as html[data-standalone].
  */
 const query = window.matchMedia("(display-mode: standalone), (display-mode: fullscreen)");
 // An iPhone's home-screen app says so here instead.
 const isIosHomeScreen = (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
-export const isStandalone = () => isIosHomeScreen || query.matches;
+// Dev only: open any page with ?standalone to fake the installed app in a browser tab (?standalone=0 to stop).
+// It lasts for the tab, so moving between pages keeps it. Gone from production builds.
+const isFaked = import.meta.env.DEV && fakeStandalone();
 
-/** The colour of the installed app's bars, which the phone's own status and navigation bars take too. */
-export const BAR_COLOR = { light: "#ffffff", dark: "#1c1c33" };
-
-function mark() {
-  const on = isStandalone();
-  document.documentElement.toggleAttribute("data-standalone", on);
-  // In a browser tab the phone's bars take the page's colour (index.html); installed, they take the app bars'.
-  for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
-    meta.dataset.page ??= meta.content;
-    meta.content = on ? (meta.media.includes("dark") ? BAR_COLOR.dark : BAR_COLOR.light) : meta.dataset.page;
+function fakeStandalone() {
+  const param = new URLSearchParams(location.search).get("standalone");
+  try {
+    if (param !== null) sessionStorage.setItem("fakeStandalone", param === "0" ? "" : "1");
+    return sessionStorage.getItem("fakeStandalone") === "1";
+  } catch {
+    return param !== null && param !== "0";
   }
 }
+
+export const isStandalone = () => isFaked || isIosHomeScreen || query.matches;
+
+// The phone's own status and navigation bars take the page's colour (index.html's theme-color), which the app's bars
+// have too, installed or not.
+const mark = () => document.documentElement.toggleAttribute("data-standalone", isStandalone());
 
 /** Called once at start-up. */
 export function installStandalone() {

@@ -1,13 +1,25 @@
 import { parseNote } from "../../lib/noteText";
 import { RichText } from "../RichText";
 
-/** A note as it reads: its lines with their markup, list items with a square bullet or their number, indented by level. */
+const HEADING_TAG = { 1: "h3", 2: "h4", 3: "h5" } as const;
+
+/** A note as it reads: its lines with their markup, headings, list items with a square bullet or their number, indented by level. */
 export function NoteText({ text, className = "" }: { text: string; className?: string }) {
   return (
     <div className={`space-y-0.5 break-words ${className}`} data-note-text>
       {parseNote(text).map((line, i) =>
         line.kind === "blank" ? (
           <div key={i} className="h-3" />
+        ) : line.kind === "heading" ? (
+          // A level under the page's own headings, so the page's outline stays whole.
+          (() => {
+            const Tag = HEADING_TAG[line.level];
+            return (
+              <Tag key={i} className={`note-heading note-heading-${line.level}`} data-note-heading={line.level}>
+                <RichText text={line.text} />
+              </Tag>
+            );
+          })()
         ) : line.kind === "text" ? (
           <p key={i} className="whitespace-pre-wrap">
             <RichText text={line.text} />

@@ -4,13 +4,9 @@ import { usePoints } from "../../hooks/useTasks";
 import { useStandalone } from "../../lib/standalone";
 import type { User } from "../../types";
 import { AppBars } from "./AppBars";
-import { useNewFolderTab, usePublishedHeight } from "./barHooks";
+import { barTab as tab, useNewFolderTab, usePublishedHeight } from "./barHooks";
 import { Clock } from "./Clock";
 import { FolderTabs } from "./FolderTabs";
-
-// The label under each icon: near-black, and the frame's blue on the page that is open.
-const tab = ({ isActive }: { isActive: boolean }) =>
-  `flex flex-col items-center gap-0.5 px-1.5 pt-1 pb-0.5 font-pixel text-[8px] sm:px-2 ${isActive ? "bg-stone-200/80 text-[#3544a1] dark:bg-stone-800/80 dark:text-[#cbdbfc]" : "text-stone-900 hover:bg-stone-200/50 dark:text-stone-100 dark:hover:bg-stone-800/50"}`;
 
 export function NavBar({ user }: { user: User }) {
   const isStandalone = useStandalone();
@@ -49,6 +45,10 @@ function TaskBar({ user }: { user: User }) {
           <NavLink to="/calendar" className={tab} aria-label="Calendar">
             <span className="tab-icon tab-icon-calendar" aria-hidden />
             Calendar
+          </NavLink>
+          <NavLink to="/notes" className={tab} aria-label="Notes">
+            <span className="tab-icon tab-icon-notes" aria-hidden />
+            Notes
           </NavLink>
           <FolderTabs tab={tab} isNewShown={isNewShown} onNewUsed={onNewUsed} />
         </nav>

@@ -18,11 +18,12 @@ export const isRestorable = (deletedAt: Date, now = Date.now()) => deletedAt >= 
 export const tooLateToRestore = () => new HttpError(410, "Too late to bring it back: it was deleted for good");
 
 /**
- * Removes for good every task and list, of every user, deleted longer ago than RESTORABLE_MS. Subtasks,
+ * Removes for good every task, list and note, of every user, deleted longer ago than RESTORABLE_MS. Subtasks,
  * presses and the tasks of a removed list go with them (cascade). Ledger rows stay, with their title.
  */
 export async function purgeDeleted(now = Date.now()) {
   const before = restorableSince(now);
   await prisma.list.deleteMany({ where: { deletedAt: { lt: before } } });
   await prisma.task.deleteMany({ where: { deletedAt: { lt: before } } });
+  await prisma.note.deleteMany({ where: { deletedAt: { lt: before } } });
 }

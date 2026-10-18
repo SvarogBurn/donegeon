@@ -6,6 +6,8 @@ export const GOALS = ["goals"];
 export const TAGS = ["tags"];
 export const LISTS = ["lists"];
 export const FOLDERS = ["folders"];
+// The free-standing notes and the Notes page's folders, in one answer.
+export const NOTES = ["notes"];
 export const COUNTDOWN = ["countdown"];
 export const PRESSURE = ["pressure"];
 export const POINTS = ["points"];

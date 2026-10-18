@@ -3,15 +3,16 @@ import { useCallback, useMemo, useState } from "react";
 import * as foldersApi from "../api/folders";
 import * as goalsApi from "../api/goals";
 import * as listsApi from "../api/lists";
+import * as notesApi from "../api/notes";
 import * as tagsApi from "../api/tags";
 import * as tasksApi from "../api/tasks";
 import { localDate, whenNow } from "../api/client";
 import { NAME_FOLDER_EVENT } from "../lib/folders";
-import { CHANGE, newId, type AddChange, type Change, type EditChange, type PressChange } from "../lib/offline/changes";
+import { CHANGE, newId, type AddChange, type Change, type EditChange, type NoteEditChange, type NotesData, type PressChange } from "../lib/offline/changes";
 import { parseShortSyntax, parseTitleEdit, type SyntaxContext } from "../lib/shortSyntax";
 import type { DashboardLayout } from "../lib/tileLayout";
 import type { Folder, Goal, List, Tag, TaskTreeNode } from "../types";
-import { COUNTDOWN, DONE, FOLDERS, GOALS, LAYOUT, LISTS, POINTS, PRESSURE, STATS, TAGS, TASK_DATA, TASKS } from "./queryKeys";
+import { COUNTDOWN, DONE, FOLDERS, GOALS, LAYOUT, LISTS, NOTES, POINTS, PRESSURE, STATS, TAGS, TASK_DATA, TASKS } from "./queryKeys";
 
 export const useTaskTrees = () => useQuery({ queryKey: TASKS, queryFn: tasksApi.listTaskTrees });
 /** The Done page: a few days of ticks at a time, newest first; fetchNextPage brings the days before. */
@@ -285,6 +286,40 @@ export function useDropOnTab(openFolderId: string | null = null) {
   }
   return { dropOnTab, error: createFolder.error ?? updateFolder.error };
 }
+
+/** The free-standing notes and the Notes page's folders. */
+export const useNotes = () => useQuery<NotesData>({ queryKey: NOTES, queryFn: notesApi.listNotes });
+// Writing notes works offline too (lib/offline/changes); a new note's id is made here, so it can be written in at once.
+export function useAddNote() {
+  const change = useChange<notesApi.NewNote>(CHANGE.noteAdd);
+  const { mutate } = change;
+  const add = useCallback((note: Omit<notesApi.NewNote, "id"> = {}) => {
+    const id = newId();
+    mutate({ ...note, id });
+    return id;
+  }, [mutate]);
+  return { ...change, mutate: add };
+}
+export const useEditNote = () => useChange<NoteEditChange>(CHANGE.noteEdit);
+export const useDeleteNote = () => useChange<{ id: string }>(CHANGE.noteDelete);
+export const useRestoreNote = () => useChange<{ id: string }>(CHANGE.noteRestore);
+// The Notes page's folders need a connection, like the task bar's.
+export const useCreateNoteFolder = () => useInvalidating(notesApi.createNoteFolder, [NOTES]);
+/** Name or colour: shows at once and is saved in the background. */
+export function useUpdateNoteFolder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, changes }: { id: string; changes: notesApi.NoteFolderChanges }) => notesApi.updateNoteFolder(id, changes),
+    onMutate: ({ id, changes }) => {
+      queryClient.setQueryData<NotesData>(NOTES, (data) =>
+        data && { ...data, noteFolders: data.noteFolders.map((folder) => (folder.id === id ? { ...folder, ...changes } : folder)) },
+      );
+    },
+    onError: () => queryClient.invalidateQueries({ queryKey: NOTES }),
+  });
+}
+// Its notes stay, back under "All".
+export const useDeleteNoteFolder = () => useInvalidating(notesApi.deleteNoteFolder, [NOTES]);
 
 // A list made on a folder's page is shown by that folder.
 export const useCreateList = () => useInvalidating(listsApi.createList, [LISTS, FOLDERS]);

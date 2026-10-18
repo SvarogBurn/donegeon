@@ -267,7 +267,10 @@ export function ListCard({ list, tasks, taskCount }: ListCardProps) {
         </NeedsConnection>
       </header>
       {update.error && <p className="text-xs text-red-600">{update.error.message}</p>}
-      <TaskTree nodes={tasks} parentId={null} listId={list.id} />
+      {/* On a phone the tasks are capped in height and scroll inside the box (index.css .box-scroll). */}
+      <div className="box-scroll" data-box-scroll>
+        <TaskTree nodes={tasks} parentId={null} listId={list.id} />
+      </div>
       <TaskForm listId={list.id} placeholder={isReward ? "Add a reward, then press Enter" : "Add a task, then press Enter"} />
       {confirming && (
         <ConfirmDelete

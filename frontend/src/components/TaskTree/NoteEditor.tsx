@@ -9,6 +9,8 @@ interface Props {
   onDone: (stop: boolean) => void;
   ref?: Ref<HTMLTextAreaElement>;
   className?: string;
+  /** What the field is called; a task's note by default. */
+  label?: string;
 }
 
 const MARKER_KEYS: Record<string, string> = { b: "**", i: "*", u: "__" };
@@ -19,7 +21,7 @@ const MARKER_KEYS: Record<string, string> = { b: "**", i: "*", u: "__" };
  * Ctrl+B / I / U put markup around the selection as in a title. Leaving the field saves it; Escape saves and stops.
  * Not a task editor, so ↑ / ↓ between titles step over it.
  */
-export function NoteEditor({ value, onChange, onDone, ref, className = "" }: Props) {
+export function NoteEditor({ value, onChange, onDone, ref, className = "", label = "Task note" }: Props) {
   const innerRef = useRef<HTMLTextAreaElement>(null);
   const stop = useRef(false);
   /** Where the caret goes once a change made by a key is in the field. */
@@ -88,7 +90,7 @@ export function NoteEditor({ value, onChange, onDone, ref, className = "" }: Pro
         stop.current = false;
       }}
       placeholder={"Note. * or - starts a list"}
-      aria-label="Task note"
+      aria-label={label}
       className={`note-paper ${className}`}
     />
   );

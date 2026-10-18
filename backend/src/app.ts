@@ -15,6 +15,7 @@ import { foldersRouter } from "./routes/folders.routes.js";
 import { goalsRouter } from "./routes/goals.routes.js";
 import { layoutRouter } from "./routes/layout.routes.js";
 import { listsRouter } from "./routes/lists.routes.js";
+import { notesRouter } from "./routes/notes.routes.js";
 import { pointsRouter } from "./routes/points.routes.js";
 import { tagsRouter } from "./routes/tags.routes.js";
 import { tasksRouter } from "./routes/tasks.routes.js";
@@ -57,6 +58,7 @@ export function createApp() {
   api.use("/lists", requireAuth, listsRouter);
   api.use("/folders", requireAuth, foldersRouter);
   api.use("/tasks", requireAuth, tasksRouter);
+  api.use("/notes", requireAuth, notesRouter);
   api.use("/dashboard", requireAuth, dashboardRouter);
   api.use("/points", requireAuth, pointsRouter);
   api.use("/layout", requireAuth, layoutRouter);

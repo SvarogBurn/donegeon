@@ -362,6 +362,72 @@
     @apply bg-size-[15px] sm:bg-size-[30px];
     background-image: url("../../assets/icons/21x21user_icon_v2.svg");
   }
+  /* The notes icon is 10x10 art pixels: 4px each in a 42px square, 2px each in a 21px one (fixed sizes say which with bg-size). */
+  .tab-icon-notes {
+    @apply bg-size-[20px] sm:bg-size-[40px];
+    background-image: url("../../assets/icons/10x10notes_icon_v1.svg");
+  }
+  /*
+   * The installed app's top strip (AppBars): the spyglass and the account, as drawn (15x15 art pixels, pale), whole
+   * pixels only. The art is pale for dark backgrounds; on the light theme it is shown black.
+   */
+  .bar-glyph {
+    @apply block flex-none cursor-pointer;
+    background: center / contain no-repeat;
+    image-rendering: pixelated;
+  }
+  @media (prefers-color-scheme: light) {
+    .bar-glyph {
+      filter: brightness(0);
+    }
+  }
+  .bar-glyph-search {
+    @apply size-6;
+    background-image: url("../../assets/icons/15x15spyglas_v1.svg");
+    background-size: 15px;
+  }
+  .bar-glyph-user {
+    @apply size-[15px];
+    background-image: url("../../assets/icons/21x21user_icon_v2.svg");
+  }
+  .bar-glyph-link.active {
+    @apply bg-stone-200/80 dark:bg-stone-800/80;
+  }
+  /*
+   * The installed app's bars (AppBars): the task bar's white (stone-900 on the dark theme), a little see-through, and a
+   * thin line. Variables, so the notch under the "+" (drawn as an SVG) has exactly the same colours.
+   */
+  :root {
+    --bar-fill: rgb(255 255 255 / 0.7);
+    --bar-edge: var(--color-stone-300);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bar-fill: rgb(28 25 23 / 0.7);
+      --bar-edge: var(--color-stone-700);
+    }
+  }
+  .app-bar-fill {
+    background-color: var(--bar-fill);
+    border-color: var(--bar-edge);
+  }
+  /* The bottom bar's "+": a NES button like the others, in the pale blue of the art, the "+" in the frames' near-black. */
+  .nes-btn.plus-button {
+    @apply m-0 flex size-9 items-center justify-center p-0 text-xl leading-none;
+    color: #222034;
+    background-color: #cbdbfc;
+  }
+  .nes-btn.plus-button::after {
+    box-shadow: inset -4px -4px color-mix(in srgb, #cbdbfc 65%, #000);
+  }
+  .nes-btn.plus-button:hover,
+  .nes-btn.plus-button[aria-expanded="true"] {
+    background-color: color-mix(in srgb, #cbdbfc 90%, #000);
+  }
+  .nes-btn.plus-button:hover::after,
+  .nes-btn.plus-button[aria-expanded="true"]::after {
+    box-shadow: inset -6px -6px color-mix(in srgb, #cbdbfc 65%, #000);
+  }
   /*
    * Rounded the pixel-art way: the corners are cut in steps of one block (--p), along a quarter circle 10 blocks
    * in radius. On something 20 blocks tall that makes a pill.
@@ -401,6 +467,37 @@
   }
   .pixel-round-edge:focus-within {
     --edge: #639bff;
+  }
+  /* In the installed app's top strip: slim, and in the page's own colours, the spyglass at one pixel per art pixel. */
+  .pixel-round-edge[data-in-bar] {
+    --edge: var(--color-stone-300);
+  }
+  .pixel-round-edge[data-in-bar]:focus-within {
+    --edge: #57534e;
+  }
+  [data-in-bar] .search-pill {
+    @apply bg-white text-stone-900 dark:bg-stone-900 dark:text-stone-100;
+    height: 30px;
+    padding: 0 10px 0 8px;
+  }
+  [data-in-bar] .search-pill::before {
+    @apply size-[15px];
+  }
+  [data-in-bar] .search-pill > input {
+    @apply placeholder:text-stone-400;
+  }
+  @media (prefers-color-scheme: light) {
+    [data-in-bar] .search-pill::before {
+      filter: brightness(0);
+    }
+  }
+  @media (prefers-color-scheme: dark) {
+    .pixel-round-edge[data-in-bar] {
+      --edge: var(--color-stone-700);
+    }
+    .pixel-round-edge[data-in-bar]:focus-within {
+      --edge: #a8a29e;
+    }
   }
   /* The task or box a search result led to, for a moment. */
   [data-found] {
@@ -486,6 +583,22 @@
   .note-bullet {
     @apply mt-[0.45em] inline-block size-1.5 flex-none bg-[#639bff];
   }
+  /*
+   * A note's headings ("# ", "## ", "### "): the first two bigger, the third the note's own size in the frames' blue.
+   * The first is underlined with a 2px rule of the bullets' blue. Theme sizes, so the plain font scales them too.
+   */
+  .note-heading {
+    @apply mt-2 first:mt-0;
+  }
+  .note-heading-1 {
+    @apply border-b-2 border-[#639bff] pb-1 text-xl;
+  }
+  .note-heading-2 {
+    @apply text-lg;
+  }
+  .note-heading-3 {
+    @apply text-sm text-[#3544a1] dark:text-[#cbdbfc];
+  }
   .tile-button-x {
     background-image: url("../../assets/buttons/7x7x_blue_v1.svg");
   }
@@ -501,6 +614,17 @@
   }
   .tile-body {
     padding: calc(3 * var(--u)) calc(4 * var(--u));
+  }
+  /*
+   * On a phone a box's tasks (or a note's text) stop at about half the screen and scroll inside the box, so the page
+   * still gives an overview; the field to add a task stays under them. At its ends the page scrolls on.
+   */
+  @media (max-width: 640px) {
+    .box-scroll {
+      max-height: 50svh;
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
   }
 
   /* Used together with NES.css's own class: "nes-input input", "nes-btn is-primary btn". These only fit them to the app. */
@@ -666,6 +790,15 @@
     font-synthesis: style;
   }
   [data-font="plain"] :is(.tile-body, .card) .markup-bold {
+    text-shadow: none;
+  }
+  /* The ordinary font has a real bold for a note's headings; the pixel font's size and colour have to do. */
+  [data-font="plain"] .note-heading {
+    font-weight: 700;
+  }
+  /* Already bold: **bold** inside it would only smear it. */
+  [data-font="plain"] .note-heading .markup-bold {
+    font-weight: inherit;
     text-shadow: none;
   }
   /* Symbols the pixel font doesn't have (⋯ ⠿ × ▦ ‹ ›): the system font, at a size that reads. */

@@ -67,7 +67,8 @@ function savedFor(layout: DashboardLayout, n: number): string[][] | null {
 /**
  * Every tile's place on a screen that fits `n` columns. `keys` are the tiles
  * that exist right now, in their default order; one the layout doesn't know
- * yet is added: a new list just above the "New list" field, anything else at
+ * yet is added: a new list just above the "New list" field, a new note at the
+ * top of the first column (the newest note first), anything else at
  * the end of the first column. Tiles not in `keys` (a list hidden by a filter,
  * the deadline boxes while there is no deadline) keep their place for when
  * they come back — except that a column holding nothing but such tiles is
@@ -87,11 +88,13 @@ export function arrange(layout: DashboardLayout, n: number, keys: string[], know
   );
   if (columns.length === 0) columns.push([]);
 
+  let notesAt = 0;
   for (const key of known) {
     if (seen.has(key)) continue;
     seen.add(key);
     const formColumn = key.startsWith("list:") ? columns.find((column) => column.includes(NEW_LIST_TILE)) : undefined;
     if (formColumn) formColumn.splice(formColumn.indexOf(NEW_LIST_TILE), 0, key);
+    else if (key.startsWith("note:")) columns[0].splice(notesAt++, 0, key);
     else columns[0].push(key);
   }
 

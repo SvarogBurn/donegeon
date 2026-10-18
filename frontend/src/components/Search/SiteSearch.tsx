@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
-import { useFolders, useGoals, useLists, useTags, useTaskSearch, useTaskTrees } from "../../hooks/useTasks";
+import { useFolders, useGoals, useLists, useNotes, useTags, useTaskSearch, useTaskTrees } from "../../hooks/useTasks";
 import { formatDay } from "../../lib/dates";
-import { listView } from "../../lib/folders";
+import { listView, noteView } from "../../lib/folders";
 import { useOnline } from "../../lib/offline/online";
 import { findNode } from "../../lib/optimisticToggle";
 import { findTaskRow, showOnPage } from "../../lib/showOnPage";
@@ -19,6 +19,7 @@ const PLACES: [title: string, path: string, tile: string | null, words?: string]
   ["Stats", "/stats", null, "statistics charts"],
   ["Calendar", "/calendar", null, "days month planner upcoming"],
   ["Done", "/done", null, "finished history log"],
+  ["Notes", "/notes", null, "note write jot memo"],
   ["Points", "/points", null, "balance history rewards"],
   ["Account", "/user", null, "user settings log out password feedback tutorial cheat sheet shortcuts keyboard syntax help"],
   ["Today", "/", "today"],
@@ -49,8 +50,12 @@ interface Props {
   onPickLabel: (key: "goalIds" | "tagIds", id: string) => void;
   /** Takes the search off the page; like a box, it is brought back from the "Hidden" row. Without it the search can't be hidden. */
   onHide?: () => void;
-  /** It sits in the installed app's top strip: the results open across the screen under it. */
+  /** It sits in the installed app's top strip: slim, and the results open across the screen under it. */
   inBar?: boolean;
+  /** Opened from the strip's spyglass: typed in straight away. */
+  autoFocus?: boolean;
+  /** Done with: a result was picked, Escape, or a tap elsewhere (the strip then shows its folders again). */
+  onClose?: () => void;
 }
 
 /**
@@ -59,7 +64,7 @@ interface Props {
  * which looks through the titles of every one there is, the ones finished long ago too. A subtask that is found
  * is shown in its place: the tasks above it are unfolded and it is the one marked.
  */
-export function SiteSearch({ onPickLabel, onHide, inBar = false }: Props) {
+export function SiteSearch({ onPickLabel, onHide, inBar = false, autoFocus = false, onClose }: Props) {
   const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
   const [text, setText] = useState("");
@@ -74,11 +79,13 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false }: Props) {
   useEffect(() => {
     if (!isOpen) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setIsOpen(false);
+      if (ref.current?.contains(e.target as Node)) return;
+      setIsOpen(false);
+      onClose?.();
     };
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   const search = useTaskSearch(q);
   const online = useOnline();
@@ -86,6 +93,7 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false }: Props) {
   const { data: folders = [] } = useFolders();
   const { data: goals = [] } = useGoals();
   const { data: tags = [] } = useTags();
+  const { data: notesData } = useNotes();
   // What the Tasks page shows: a task that is in here can be gone to.
   const { data: trees = [] } = useTaskTrees();
 
@@ -109,6 +117,14 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false }: Props) {
         ...folders.filter((folder) => has(folder.name)).map((folder) => ({ key: `folder:${folder.id}`, title: folder.name, kind: "Folder", go: goTo(`/folders/${folder.id}`) })),
         ...lists.filter((list) => has(list.name)).map((list) => ({ key: listView(list.id), title: list.name, kind: list.kind === "reward" ? "Reward list" : "List", go: goTo("/", tile(listView(list.id))) })),
         ...goals.filter((goal) => has(goal.name)).map((goal) => ({ key: `goal:${goal.id}`, title: goal.name, kind: "Goal", hint: "Show only the tasks with this goal", go: () => onPickLabel("goalIds", goal.id) })),
+        ...(notesData?.notes ?? [])
+          .filter((note) => has(note.title, note.text))
+          .map((note) => ({
+            key: noteView(note.id),
+            title: note.title || note.text.split("\n")[0].slice(0, 80) || "Note",
+            kind: "Note",
+            go: goTo("/notes", () => document.querySelector<HTMLElement>(`[data-note="${note.id}"]`)),
+          })),
         ...tags.filter((tag) => has(tag.name)).map((tag) => ({ key: `tag:${tag.id}`, title: tag.name, kind: "Tag", hint: "Show only the tasks with this tag", go: () => onPickLabel("tagIds", tag.id) })),
       ];
 
@@ -136,12 +152,13 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false }: Props) {
     if (!hit.go) return;
     setIsOpen(false);
     setText("");
+    onClose?.();
     hit.go();
   }
 
   return (
     <div ref={ref} className={inBar ? "relative mx-auto min-w-0 max-w-xl flex-1" : "relative mx-auto max-w-md"} data-site-search>
-      <div className="pixel-round-edge p-0.5">
+      <div className="pixel-round-edge p-0.5" data-in-bar={inBar || undefined}>
         <label className="pixel-round search-pill">
           <input
             type="text"
@@ -157,8 +174,12 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false }: Props) {
               setIsOpen(true);
             }}
             onFocus={() => setIsOpen(true)}
+            autoFocus={autoFocus}
             onKeyDown={(e) => {
-              if (e.key === "Escape") setIsOpen(false);
+              if (e.key === "Escape") {
+                setIsOpen(false);
+                onClose?.();
+              }
               // Enter goes to the first result there is somewhere to go for.
               if (e.key !== "Enter") return;
               const first = hits.find((hit) => hit.go);

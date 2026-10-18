@@ -340,15 +340,18 @@ function TodayTab({ tasks }: { tasks: TaskTreeNode[] }) {
           Nothing picked for today. Drag a task here by its ⠿ handle, or choose “Do today” in its ⋯ menu; it stays in its list.
         </p>
       )}
-      {items.length > 0 && (
-        <ul>
-          {items.map((item) => (
-            <PickedRow key={item.node.id} {...item} today={today} box="today" carried={daysBetween(item.since, today)} />
-          ))}
-        </ul>
-      )}
-      <div data-today-own>
-        <TaskTree nodes={own} parentId={null} listId={null} />
+      {/* On a phone the tasks are capped in height and scroll inside the box (index.css .box-scroll). */}
+      <div className="box-scroll space-y-3" data-box-scroll>
+        {items.length > 0 && (
+          <ul>
+            {items.map((item) => (
+              <PickedRow key={item.node.id} {...item} today={today} box="today" carried={daysBetween(item.since, today)} />
+            ))}
+          </ul>
+        )}
+        <div data-today-own>
+          <TaskTree nodes={own} parentId={null} listId={null} />
+        </div>
       </div>
       <TaskForm editorId="today-add" placeholder="Add a task just for today, then press Enter" />
     </>

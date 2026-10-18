@@ -7,6 +7,7 @@ import { PressureSummary } from "../components/Countdown/PressureSummary";
 import { DoneLog } from "../components/Done/DoneLog";
 import { LabelsPanel } from "../components/Labels/LabelsPanel";
 import { ListCard, ListForm, listCards } from "../components/Lists/ListBoard";
+import { NoteBox } from "../components/Notes/NoteBox";
 import { SiteSearch } from "../components/Search/SiteSearch";
 import type { PickLabelState } from "../components/layout/AppBars";
 import { HiddenRow } from "../components/Tiles/HiddenRow";
@@ -26,6 +27,7 @@ import {
   useGoals,
   useLayout,
   useLists,
+  useNotes,
   usePressure,
   useSaveLayout,
   useTags,
@@ -33,7 +35,7 @@ import {
   useUpdateFolder,
 } from "../hooks/useTasks";
 import { countLabels, isFiltering, NO_FILTER, toggleId, type LabelFilter } from "../lib/labels";
-import { calOfView, listView, statOfView, TODAY_VIEW } from "../lib/folders";
+import { calOfView, listView, noteOfView, statOfView, TODAY_VIEW } from "../lib/folders";
 import { useOnline } from "../lib/offline/online";
 import { useStandalone } from "../lib/standalone";
 import { STAT_BOXES, StatBoxView, StatBoxesProvider } from "../components/Stats/StatsPanel";
@@ -72,6 +74,8 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   const layout = useLayout();
   const saveLayout = useSaveLayout();
   const ticked = useTickedTasks();
+  // Only a folder's page shows notes: those dropped on its tab.
+  const notes = useNotes();
   const [picked, setPicked] = useState<LabelFilter>(NO_FILTER);
   // The installed app has the search in its top strip instead; a goal or tag picked there arrives here with the page.
   const isStandalone = useStandalone();
@@ -167,11 +171,16 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
     ...(saved.extras ?? []).flatMap(calTile),
   ];
   // A folder's page: its views, in the order they were added. Each is a copy: the list is on the Tasks page too,
-  // the stats box on the Stats page. A view whose list is gone (or filtered out) shows nothing.
+  // the stats box on the Stats page, the note on the Notes page. A view whose list or note is gone (or filtered out) shows nothing.
   const viewTiles = (folder?.views ?? []).flatMap((view): (Tile & { label?: string })[] => {
     const stat = statOfView(view);
     if (view === TODAY_VIEW) return [{ key: view, view, name: "Today", label: "Today", node: <TodayBox tasks={tasks.data} /> }];
     if (calOfView(view) !== null) return calTile(view);
+    const noteId = noteOfView(view);
+    if (noteId !== null) {
+      const note = notes.data?.notes.find((n) => n.id === noteId);
+      return note ? [{ key: view, view, name: `note "${note.title || "Note"}"`, label: note.title || "Note", node: <NoteBox note={note} /> }] : [];
+    }
     if (stat === null) return listTiles.filter((tile) => tile.key === view);
     if (!(stat in STAT_BOXES)) return [];
     return [{ key: view, view, name: STAT_BOXES[stat], label: STAT_BOXES[stat], node: <StatBoxView name={stat} /> }];
