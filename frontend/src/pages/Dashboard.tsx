@@ -7,7 +7,7 @@ import { PressureSummary } from "../components/Countdown/PressureSummary";
 import { DoneLog } from "../components/Done/DoneLog";
 import { LabelsPanel } from "../components/Labels/LabelsPanel";
 import { ListCard, ListForm, listCards } from "../components/Lists/ListBoard";
-import { NoteBox } from "../components/Notes/NoteBox";
+import { NoteCard } from "../components/Notes/NoteCard";
 import { SiteSearch } from "../components/Search/SiteSearch";
 import type { PickLabelState } from "../components/layout/AppBars";
 import { HiddenRow } from "../components/Tiles/HiddenRow";
@@ -179,7 +179,8 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
     const noteId = noteOfView(view);
     if (noteId !== null) {
       const note = notes.data?.notes.find((n) => n.id === noteId);
-      return note ? [{ key: view, view, name: `note "${note.title || "Note"}"`, label: note.title || "Note", node: <NoteBox note={note} /> }] : [];
+      // A small card, two side by side where the column has room for them.
+      return note ? [{ key: view, view, name: `note "${note.title || "Note"}"`, label: note.title || "Note", half: true, node: <NoteCard note={note} /> }] : [];
     }
     if (stat === null) return listTiles.filter((tile) => tile.key === view);
     if (!(stat in STAT_BOXES)) return [];

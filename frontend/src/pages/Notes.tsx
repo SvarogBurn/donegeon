@@ -1,26 +1,14 @@
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { ColorChoices } from "../components/ColorChoices";
 import { NeedsConnection } from "../components/NeedsConnection";
-import { NoteBox } from "../components/Notes/NoteBox";
-import { TreeProvider } from "../components/TaskTree/TreeContext";
-import { TreeError, UndoBar } from "../components/TaskTree/TreeStatus";
-import { TileGrid } from "../components/Tiles/TileGrid";
-import {
-  useAddNote,
-  useCreateNoteFolder,
-  useDeleteNoteFolder,
-  useDropOnTab,
-  useEditNote,
-  useLayout,
-  useNotes,
-  useSaveLayout,
-  useTaskTrees,
-  useUpdateNoteFolder,
-} from "../hooks/useTasks";
+import { NoteCard } from "../components/Notes/NoteCard";
+import type { NoteScreenState } from "../components/Notes/NoteScreen";
+import { TileControlsContext } from "../components/Tiles/TileFrame";
+import { useTabDrag } from "../components/Tiles/useTabDrag";
+import { useAddNote, useCreateNoteFolder, useDeleteNoteFolder, useDropOnTab, useEditNote, useNotes, useUpdateNoteFolder } from "../hooks/useTasks";
 import { noteView } from "../lib/folders";
 import { FOLDER_COLOR, folderIn } from "../lib/frameTones";
-import { normalizeLayout } from "../lib/tileLayout";
 import type { NoteFolder } from "../types";
 
 /** How long a folder is held down before its name and colour open. */
@@ -144,82 +132,79 @@ function NoteFolderChip({ folder, isActive, isEditing, onPick, onEdit }: { folde
 }
 
 /**
- * The Notes page: notes of their own, on no task. Along the top, the page's own folders for notes (All, then the
- * user's); a click shows that folder's notes, and a note's box dropped on one goes into it. A note's box dropped on a
- * folder of the task bar is shown in that folder too, like a list.
+ * The Notes page: notes of their own, on no task, as small cards, two to a row on a phone (a tap opens one on a screen of
+ * its own). Along the top, the page's own folders for notes (All, then the user's); a click shows that folder's notes,
+ * and a card dragged by its tab button onto one goes into it. Dragged onto a folder of the top strip, it is shown in
+ * that folder too, like a list.
  */
 export function NotesPage() {
-  const tasks = useTaskTrees();
   const notes = useNotes();
-  const layout = useLayout("notes");
-  const saveLayout = useSaveLayout("notes");
   const drop = useDropOnTab();
   const addNote = useAddNote();
   const editNote = useEditNote();
   const createFolder = useCreateNoteFolder();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [madeId, setMadeId] = useState<string | null>(null);
+  const startDrag = useTabDrag(
+    (id, tab) => (tab.startsWith(NOTES_TAB) ? editNote.mutate({ id, changes: { noteFolderId: tab.slice(NOTES_TAB.length) || null } }) : drop.dropOnTab(noteView(id), tab)),
+    // Newest first: there is no order of the user's own to change.
+    () => {},
+  );
 
-  const error = notes.error ?? tasks.error;
-  if (error) return <p className="text-sm text-red-600">Couldn't load your notes: {error.message}</p>;
-  if (!notes.data || !tasks.data || layout.isLoading) return <p className="text-sm text-stone-500">Loading…</p>;
+  if (notes.error) return <p className="text-sm text-red-600">Couldn't load your notes: {notes.error.message}</p>;
+  if (!notes.data) return <p className="text-sm text-stone-500">Loading…</p>;
   const { noteFolders } = notes.data;
   // A folder that was removed shows All.
   const pickedId = noteFolders.some((folder) => folder.id === params.get("folder")) ? params.get("folder") : null;
   const pick = (id: string | null) => setParams(id ? { folder: id } : {}, { replace: true });
   const shown = notes.data.notes.filter((note) => pickedId === null || note.noteFolderId === pickedId);
 
-  const tiles = shown.map((note) => ({
-    key: noteView(note.id),
-    view: noteView(note.id),
-    name: `note "${note.title || "Note"}"`,
-    node: <NoteBox note={note} startEditing={note.id === madeId} />,
-  }));
-
-  function dropOnTab(view: string, tab: string) {
-    if (!tab.startsWith(NOTES_TAB)) return drop.dropOnTab(view, tab);
-    editNote.mutate({ id: view.slice("note:".length), changes: { noteFolderId: tab.slice(NOTES_TAB.length) || null } });
-  }
-
   return (
-    <TreeProvider tasks={tasks.data}>
-      <div className="space-y-4">
-        <nav className="flex items-center gap-1 overflow-x-auto pb-1" aria-label="Note folders">
-          <button type="button" className={chip(pickedId === null)} data-tab-drop={NOTES_TAB} aria-pressed={pickedId === null} title="Every note. Drop a note here to take it out of its folder." onClick={() => pick(null)}>
-            <span className="tab-icon tab-icon-notes !size-[21px] !bg-size-[20px]" aria-hidden />
-            All
+    <div className="space-y-4">
+      <nav className="flex items-center gap-1 overflow-x-auto pb-1" aria-label="Note folders">
+        <button type="button" className={chip(pickedId === null)} data-tab-drop={NOTES_TAB} aria-pressed={pickedId === null} title="Every note. Drop a note here to take it out of its folder." onClick={() => pick(null)}>
+          <span className="tab-icon tab-icon-notes !size-[21px] !bg-size-[20px]" aria-hidden />
+          All
+        </button>
+        {noteFolders.map((folder) => (
+          <NoteFolderChip key={folder.id} folder={folder} isActive={pickedId === folder.id} isEditing={editingId === folder.id} onPick={() => pick(folder.id)} onEdit={setEditingId} />
+        ))}
+        <NeedsConnection>
+          <button
+            type="button"
+            className={chip(false)}
+            title="A folder for notes, here at the top of the Notes page"
+            disabled={createFolder.isPending}
+            onClick={() => createFolder.mutate({}, { onSuccess: (made) => (pick(made.id), setEditingId(made.id)) })}
+          >
+            <span className="tab-icon tab-icon-folder !size-[21px] opacity-50" aria-hidden />+ Folder
           </button>
-          {noteFolders.map((folder) => (
-            <NoteFolderChip key={folder.id} folder={folder} isActive={pickedId === folder.id} isEditing={editingId === folder.id} onPick={() => pick(folder.id)} onEdit={setEditingId} />
-          ))}
-          <NeedsConnection>
-            <button
-              type="button"
-              className={chip(false)}
-              title="A folder for notes, here at the top of the Notes page"
-              disabled={createFolder.isPending}
-              onClick={() => createFolder.mutate({}, { onSuccess: (made) => (pick(made.id), setEditingId(made.id)) })}
-            >
-              <span className="tab-icon tab-icon-folder !size-[21px] opacity-50" aria-hidden />+ Folder
-            </button>
-          </NeedsConnection>
-        </nav>
-        {createFolder.error && <p className="text-sm text-red-600">{createFolder.error.message}</p>}
-        <TreeError />
-        <div className="flex justify-center">
-          <button type="button" className="nes-btn btn-small" onClick={() => setMadeId(addNote.mutate({ noteFolderId: pickedId }))}>
-            + New note
-          </button>
-        </div>
-        {shown.length === 0 ? (
-          <p className="text-center text-sm text-stone-500">{pickedId ? "No notes in this folder yet: drop one on it, or write a new one here." : "No notes yet."}</p>
-        ) : (
-          <TileGrid tiles={tiles} layout={normalizeLayout(layout.data)} onChange={(next) => saveLayout.mutate(next)} onDropOnTab={dropOnTab} />
-        )}
-        {drop.error && <p className="text-center text-sm text-red-600">Couldn't change the folder: {drop.error.message}</p>}
-        <UndoBar />
+        </NeedsConnection>
+      </nav>
+      {createFolder.error && <p className="text-sm text-red-600">{createFolder.error.message}</p>}
+      <div className="flex justify-center">
+        {/* Made in the folder that is shown, and opened to be written in. */}
+        <button type="button" className="nes-btn btn-small" onClick={() => navigate(`/notes/${addNote.mutate({ noteFolderId: pickedId })}`, { state: { fresh: true } satisfies NoteScreenState })}>
+          + New note
+        </button>
       </div>
-    </TreeProvider>
+      {shown.length === 0 ? (
+        <p className="text-center text-sm text-stone-500">{pickedId ? "No notes in this folder yet: drop one on it, or write a new one here." : "No notes yet."}</p>
+      ) : (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6" aria-label="Notes">
+          {shown.map((note) => (
+            <li key={note.id} data-box={note.id}>
+              <TileControlsContext.Provider
+                value={{ name: `note "${note.title || "Note"}"`, isPinned: false, onDragStart: (e) => startDrag(e, note.id), dragTitle: "Drag onto a folder: one at the top of this page puts it in there, one of the top strip shows it there too" }}
+              >
+                <NoteCard note={note} />
+              </TileControlsContext.Provider>
+            </li>
+          ))}
+        </ul>
+      )}
+      {drop.error && <p className="text-center text-sm text-red-600">Couldn't change the folder: {drop.error.message}</p>}
+    </div>
   );
 }

@@ -123,7 +123,7 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false, autoFocus = fal
             key: noteView(note.id),
             title: note.title || note.text.split("\n")[0].slice(0, 80) || "Note",
             kind: "Note",
-            go: goTo("/notes", () => document.querySelector<HTMLElement>(`[data-note="${note.id}"]`)),
+            go: goTo(`/notes/${note.id}`),
           })),
         ...tags.filter((tag) => has(tag.name)).map((tag) => ({ key: `tag:${tag.id}`, title: tag.name, kind: "Tag", hint: "Show only the tasks with this tag", go: () => onPickLabel("tagIds", tag.id) })),
       ];

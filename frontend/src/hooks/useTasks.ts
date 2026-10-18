@@ -302,7 +302,6 @@ export function useAddNote() {
 }
 export const useEditNote = () => useChange<NoteEditChange>(CHANGE.noteEdit);
 export const useDeleteNote = () => useChange<{ id: string }>(CHANGE.noteDelete);
-export const useRestoreNote = () => useChange<{ id: string }>(CHANGE.noteRestore);
 // The Notes page's folders need a connection, like the task bar's.
 export const useCreateNoteFolder = () => useInvalidating(notesApi.createNoteFolder, [NOTES]);
 /** Name or colour: shows at once and is saved in the background. */

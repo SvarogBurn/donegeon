@@ -21,40 +21,41 @@ const BAR = "fixed inset-x-0 z-40 transition-transform duration-200 motion-reduc
 const folderTab = ({ isActive }: { isActive: boolean }) =>
   `folder-chip flex items-center gap-1.5 px-2 py-1 font-pixel text-[8px] ${isActive ? "bg-stone-200/80 text-[#3544a1] dark:bg-stone-800/80 dark:text-[#cbdbfc]" : "text-stone-900 hover:bg-stone-200/50 dark:text-stone-100 dark:hover:bg-stone-800/50"}`;
 
+/** The "+" button's size, how far it stands up above the bar's top edge, and the gap around it in the notch. */
+const PLUS = 44;
+const PLUS_ABOVE = 24;
+const GAP = 4;
+/** NES.css draws a button's pixel border this far outside its box. */
+const NES_OUTSET = 4;
+/** The notch follows the button's square: as wide as it plus the gap each side, as deep as the part of it in the bar plus the gap. */
+const NOTCH_HALF = PLUS / 2 + NES_OUTSET + GAP;
+const NOTCH_DEPTH = PLUS - PLUS_ABOVE + NES_OUTSET + GAP;
 /** Width of the notch piece in the middle of the bottom bar, where the "+" sits. */
-const NOTCH_W = 76;
-/**
- * Half the width of the notch in each 3px row from the bar's top edge down: a cradle with stepped sides for the "+",
- * wide at the top and narrowing to its floor, which is the row after the last.
- */
-const NOTCH_ROWS = [36, 33, 30, 27, 27, 24];
-const STEP = 3;
+const NOTCH_W = 2 * NOTCH_HALF + 8;
 
 /**
- * The middle of the bottom bar's top edge, with the notch the "+" sits in cut out of it, drawn in blocks of 3px: the
- * bar's colour, and its 1px line following the steps. Blocks don't overlap, so the see-through colour stays even.
+ * The middle of the bottom bar's top edge, with a notch the shape of the "+" cut out of it: the bar's colour, and its
+ * 1px line going down one side, along the floor and up the other. Pieces don't overlap, so the see-through colour stays even.
  */
 function Notch() {
-  const mid = NOTCH_W / 2;
-  const depth = NOTCH_ROWS.length * STEP;
-  const fill: [number, number, number, number][] = [];
-  const edge: [number, number, number, number][] = [];
-  NOTCH_ROWS.forEach((half, i) => {
-    const y = i * STEP;
-    // The bar on either side of the notch in this row, with the line down its inner side.
-    fill.push([0, y, mid - half, STEP], [mid + half, y, mid - half, STEP]);
-    edge.push([mid - half - 1, y, 1, STEP], [mid + half, y, 1, STEP]);
-    // Where the row below is narrower, the line runs along the top of the bar that steps in there (the floor, at the last).
-    const below = NOTCH_ROWS[i + 1] ?? 0;
-    edge.push([mid - half - 1, y + STEP, half - below + 1, 1], [mid + below, y + STEP, half - below + 1, 1]);
-  });
-  // The floor's first row of pixels, under its line.
-  fill.push([0, depth, NOTCH_W, 1]);
-  // The top edge to either side of the notch.
-  edge.push([0, 0, mid - NOTCH_ROWS[0], 1], [mid + NOTCH_ROWS[0], 0, mid - NOTCH_ROWS[0], 1]);
+  const side = NOTCH_W / 2 - NOTCH_HALF;
+  const right = NOTCH_W - side;
+  // [x, y, width, height]: the bar either side of the notch and its floor; then the line along all of it.
+  const fill = [
+    [0, 0, side, NOTCH_DEPTH],
+    [right, 0, side, NOTCH_DEPTH],
+    [0, NOTCH_DEPTH, NOTCH_W, 1],
+  ];
+  const edge = [
+    [0, 0, side, 1],
+    [right, 0, side, 1],
+    [side - 1, 0, 1, NOTCH_DEPTH + 1],
+    [right, 0, 1, NOTCH_DEPTH + 1],
+    [side - 1, NOTCH_DEPTH, right - side + 2, 1],
+  ];
   return (
     <div className="flex flex-none flex-col" style={{ width: NOTCH_W }} aria-hidden>
-      <svg width={NOTCH_W} height={depth + 1} viewBox={`0 0 ${NOTCH_W} ${depth + 1}`} shapeRendering="crispEdges" className="block flex-none">
+      <svg width={NOTCH_W} height={NOTCH_DEPTH + 1} viewBox={`0 0 ${NOTCH_W} ${NOTCH_DEPTH + 1}`} shapeRendering="crispEdges" className="block flex-none">
         {fill.map(([x, y, w, h], i) => (
           <rect key={`f${i}`} x={x} y={y} width={w} height={h} className="fill-[var(--bar-fill)]" />
         ))}
@@ -62,15 +63,15 @@ function Notch() {
           <rect key={`e${i}`} x={x} y={y} width={w} height={h} className="fill-[var(--bar-edge)]" />
         ))}
       </svg>
-      {/* The notch's floor and the bar under it. */}
+      {/* Under the notch's floor: the bar. */}
       <div className="app-bar-fill flex-1" />
     </div>
   );
 }
 
 /**
- * The installed app's bars (in a browser tab it has NavBar's task bar instead). Along the top: the points, the folders,
- * a small spyglass that opens the search across the strip (the Tasks page then doesn't show one), and the account.
+ * The installed app's bars (in a browser tab it has NavBar's task bar instead). Along the top: the folders from the far
+ * left, the points, a small spyglass that opens the search across the strip (the Tasks page then doesn't show one), and the account.
  * Along the bottom: the pages with their names, and in the middle a "+" button standing up out of a notch in the bar,
  * for a task just for today. Both slide away while the page is scrolled down and come back on the way up, as in a
  * phone app. The clock isn't shown, but still runs: it is what reloads everything when the day changes.
@@ -98,7 +99,20 @@ export function AppBars({ user }: { user: User }) {
         className={`${BAR} app-bar-fill top-0 border-b pt-[env(safe-area-inset-top)] ${isHidden ? "-translate-y-full" : ""}`}
         data-bar-hidden={isHidden || undefined}
       >
-        <div className="flex items-center gap-2 px-3 py-1">
+        <div className="flex items-center gap-2 py-1 pr-3">
+          {isSearching ? (
+            <SiteSearch
+              inBar
+              autoFocus
+              onClose={() => setIsSearching(false)}
+              onPickLabel={(key, id) => navigate("/", { state: { pickLabel: { key, id } } satisfies PickLabelState })}
+            />
+          ) : (
+            // From the far left; many folders scroll sideways in one row.
+            <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]" aria-label="Folders">
+              <FolderTabs tab={folderTab} isNewShown={isNewShown} onNewUsed={onNewUsed} opensBelow />
+            </nav>
+          )}
           {/* The balance: the number, with "pts" underneath. */}
           {points && (
             <NavLink
@@ -113,19 +127,6 @@ export function AppBars({ user }: { user: User }) {
               <span className="text-xs leading-none">{points.balance}</span>
               <span className="mt-0.5 text-[8px]">{points.balance === 1 ? "pt" : "pts"}</span>
             </NavLink>
-          )}
-          {isSearching ? (
-            <SiteSearch
-              inBar
-              autoFocus
-              onClose={() => setIsSearching(false)}
-              onPickLabel={(key, id) => navigate("/", { state: { pickLabel: { key, id } } satisfies PickLabelState })}
-            />
-          ) : (
-            // Many folders scroll sideways in one row.
-            <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]" aria-label="Folders">
-              <FolderTabs tab={folderTab} isNewShown={isNewShown} onNewUsed={onNewUsed} opensBelow />
-            </nav>
           )}
           {!isSearching && (
             <button type="button" className="bar-glyph bar-glyph-search flex-none" aria-label="Search" title="Search the whole site" onClick={() => setIsSearching(true)} />
@@ -165,10 +166,11 @@ export function AppBars({ user }: { user: User }) {
             Notes
           </NavLink>
         </nav>
-        {/* Most of it above the bar's top edge, the rest down in the notch with a gap all round. */}
+        {/* Half of it above the bar's top edge, the rest down in the notch with a gap all round. */}
         <button
           type="button"
-          className="nes-btn plus-button absolute top-0 left-1/2 -translate-x-1/2 -translate-y-[26px]"
+          className="nes-btn plus-button absolute top-0 left-1/2"
+          style={{ width: PLUS, height: PLUS, translate: `-50% -${PLUS_ABOVE}px` }}
           data-quick-add
           aria-label="New task for today"
           aria-expanded={isAdding}

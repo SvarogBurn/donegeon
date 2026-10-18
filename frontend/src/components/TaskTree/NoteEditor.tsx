@@ -11,6 +11,8 @@ interface Props {
   className?: string;
   /** What the field is called; a task's note by default. */
   label?: string;
+  /** Without the paper and its edge: plain text on the page (a note on a screen of its own). */
+  bare?: boolean;
 }
 
 const MARKER_KEYS: Record<string, string> = { b: "**", i: "*", u: "__" };
@@ -21,7 +23,7 @@ const MARKER_KEYS: Record<string, string> = { b: "**", i: "*", u: "__" };
  * Ctrl+B / I / U put markup around the selection as in a title. Leaving the field saves it; Escape saves and stops.
  * Not a task editor, so ↑ / ↓ between titles step over it.
  */
-export function NoteEditor({ value, onChange, onDone, ref, className = "", label = "Task note" }: Props) {
+export function NoteEditor({ value, onChange, onDone, ref, className = "", label = "Task note", bare = false }: Props) {
   const innerRef = useRef<HTMLTextAreaElement>(null);
   const stop = useRef(false);
   /** Where the caret goes once a change made by a key is in the field. */
@@ -91,7 +93,7 @@ export function NoteEditor({ value, onChange, onDone, ref, className = "", label
       }}
       placeholder={"Note. * or - starts a list"}
       aria-label={label}
-      className={`note-paper ${className}`}
+      className={`${bare ? "block w-full resize-none overflow-hidden bg-transparent outline-none placeholder:text-stone-400" : "note-paper"} ${className}`}
     />
   );
 }

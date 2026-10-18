@@ -21,20 +21,18 @@ import { currentRound } from "../../lib/repeat";
 import { localDate } from "../../api/client";
 import {
   useDeleteList,
-  useDeleteNote,
   useDeleteTask,
   useMoveTask,
   useMoveRound,
   usePlaceInWeek,
   usePressTask,
   useRestoreList,
-  useRestoreNote,
   useRestoreTask,
   useSetToday,
   useToggleTask,
   useUndoPress,
 } from "../../hooks/useTasks";
-import type { List, Note, TaskTreeNode, TickedTasks } from "../../types";
+import type { List, TaskTreeNode, TickedTasks } from "../../types";
 import { NotePanel } from "./NoteView";
 import { focusTaskEditor } from "./TitleEditor";
 import { newId } from "../../lib/offline/changes";
@@ -96,8 +94,6 @@ interface TreeContextValue {
   deleteTask: (node: TaskTreeNode) => void;
   /** Deletes the list with all its tasks; undoable the same way. */
   deleteList: (list: List) => void;
-  /** Deletes a note of the Notes page; undoable the same way. */
-  deleteNote: (note: Note) => void;
   /**
    * Ticks a task, or unticks a ticked one. A tick that takes it out of sight (a main task, which goes to the Done
    * page, or any task when ticked ones are hidden) offers the undo, so a slip doesn't mean a trip there.
@@ -122,7 +118,7 @@ interface TreeContextValue {
 
 /** `until`: when it stops being undoable (Date.now() time). */
 export type Undoable = { title: string; id: string; until: number } & (
-  | { kind: "task" | "list" | "finished" | "note" }
+  | { kind: "task" | "list" | "finished" }
   | { kind: "press"; completionId: string }
 );
 
@@ -207,8 +203,6 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
   const restore = useRestoreTask();
   const removeList = useDeleteList();
   const restoreList = useRestoreList();
-  const removeNote = useDeleteNote();
-  const restoreNote = useRestoreNote();
 
   const byId = useMemo(() => {
     const map = new Map<string, TaskTreeNode>();
@@ -265,15 +259,6 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
     [removeList, offer],
   );
 
-  const deleteNote = useCallback(
-    (note: Note) => {
-      // Gone from the page at once, offline too, like a task.
-      removeNote.mutate({ id: note.id });
-      offer({ kind: "note", id: note.id, title: note.title || "Note" });
-    },
-    [removeNote, offer],
-  );
-
   const tick = useCallback(
     (node: TaskTreeNode) => {
       const done = !node.isComplete;
@@ -314,8 +299,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
     setUndoable((stack) => stack.slice(0, -1));
     if (last.kind === "list") {
       restoreList.mutate(last.id);
-    } else if (last.kind === "note") {
-      restoreNote.mutate({ id: last.id });
+
     } else if (last.kind === "press") {
       undoPress.mutate({ id: last.id, completionId: last.completionId });
     } else if (last.kind === "finished") {
@@ -325,7 +309,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       focusWhenShown.current = last.id;
       restore.mutate({ id: last.id });
     }
-  }, [undoable, restore, restoreList, restoreNote, undoPress, toggle, byId]);
+  }, [undoable, restore, restoreList, undoPress, toggle, byId]);
 
   // While something is undoable, Ctrl+Z means "take it back" rather than undoing typing.
   useEffect(() => {
@@ -517,7 +501,6 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
     moveBy,
     deleteTask,
     deleteList,
-    deleteNote,
     tick,
     isBusy: (id) => busy.current.has(id),
     pressTask,

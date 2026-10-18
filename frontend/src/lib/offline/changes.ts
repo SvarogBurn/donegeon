@@ -78,7 +78,6 @@ export const CHANGE = {
   noteAdd: ["change", "noteAdd"],
   noteEdit: ["change", "noteEdit"],
   noteDelete: ["change", "noteDelete"],
-  noteRestore: ["change", "noteRestore"],
 } as const;
 
 export interface NoteEditChange {
@@ -180,9 +179,6 @@ async function changeNotes(queryClient: QueryClient, change: (notes: Note[]) => 
   queryClient.setQueryData<NotesData>(NOTES, { ...before, notes: change(before.notes) });
   return [[NOTES, before]];
 }
-
-/** Deleted notes as they were, so an undo made offline can put them back. */
-const deletedNotes = new Map<string, Note>();
 
 const noteName = (title: string | undefined) => (title ? `the note ${quoted(title)}` : "a note");
 
@@ -404,25 +400,9 @@ const specs: Record<keyof typeof CHANGE, Spec<any>> = {
   noteDelete: {
     send: ({ id, when }: Change<{ id: string }>) => notesApi.deleteNote(id, when),
     show: (queryClient, { id }: Change<{ id: string }>) =>
-      changeNotes(queryClient, (all) => {
-        const note = all.find((n) => n.id === id);
-        if (note) deletedNotes.set(id, note);
-        return all.filter((n) => n.id !== id);
-      }),
+      changeNotes(queryClient, (all) => all.filter((n) => n.id !== id)),
     refresh: [NOTES],
     name: () => "deleting a note",
-  },
-  noteRestore: {
-    send: ({ id, when }: Change<{ id: string }>) => notesApi.restoreNote(id, when),
-    show: (queryClient, { id }: Change<{ id: string }>) =>
-      changeNotes(queryClient, (all) => {
-        const note = deletedNotes.get(id);
-        if (!note || all.some((n) => n.id === id)) return all;
-        deletedNotes.delete(id);
-        return [...all, note].sort((a, b) => a.position - b.position);
-      }),
-    refresh: [NOTES],
-    name: () => "bringing back a note",
   },
 };
 

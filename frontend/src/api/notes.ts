@@ -21,7 +21,6 @@ export const createNote = (body: NewNote, when?: When) => api<{ note: Note }>("/
 export const updateNote = (id: string, body: NoteChanges, when?: When) =>
   api<{ note: Note }>(`/notes/${id}`, { method: "PATCH", body, when }).then((r) => r.note);
 export const deleteNote = (id: string, when?: When) => api(`/notes/${id}`, { method: "DELETE", when });
-export const restoreNote = (id: string, when?: When) => api(`/notes/${id}/restore`, { method: "POST", when });
 
 export const createNoteFolder = (body: NoteFolderChanges = {}) =>
   api<{ noteFolder: NoteFolder }>("/notes/folders", { body }).then((r) => r.noteFolder);

@@ -1,5 +1,5 @@
 // The installed app's layout (display-mode: standalone, faked here by answering matchMedia): the top strip with the
-// points, folders, a small spyglass and the account (in that order), the bottom bar of the pages with their names (21px
+// folders (from the far left), points, a small spyglass and the account (in that order), the bottom bar of the pages with their names (21px
 // icons) and a pale-blue NES "+" standing up out of a notch in the middle that adds a task to Today, both bars a little
 // see-through in the task bar's colours and sliding away while the page is scrolled down and back on the way up, no clock, no search on the Tasks page until the spyglass opens it in the strip, a goal picked there
 // filtering the Tasks page, the page's own colour for the phone's bars, and no scrollbar. A long list stops at about
@@ -52,9 +52,9 @@ for (const [name, viewport, dark] of [["phone", { width: 390, height: 844 }, fal
   out(`${name}: no clock shown`, !(await p.locator('[aria-label="Time and date"]').isVisible()));
   out(`${name}: no search until the spyglass`, (await p.locator("[data-site-search]").count()) === 0);
   const order = await p.locator(STRIP).evaluate((strip) =>
-    ['[aria-label="Points"]', 'nav[aria-label="Folders"]', '[aria-label="Search"]', '[aria-label="Account"]'].map((s) => Math.round(strip.querySelector(s).getBoundingClientRect().left)),
+    ['nav[aria-label="Folders"]', '[aria-label="Points"]', '[aria-label="Search"]', '[aria-label="Account"]'].map((s) => Math.round(strip.querySelector(s).getBoundingClientRect().left)),
   );
-  out(`${name}: strip is points, folders, spyglass, account`, order.every((x, i) => i === 0 || x > order[i - 1]), JSON.stringify(order));
+  out(`${name}: strip is folders (from the far left), points, spyglass, account`, order[0] === 0 && order.every((x, i) => i === 0 || x > order[i - 1]), JSON.stringify(order));
   const words = await p.locator('header nav[aria-label="Pages"]').innerText();
   out(`${name}: bottom tabs have their names`, ["Tasks", "Stats", "Calendar", "Notes"].every((w) => words.includes(w)), JSON.stringify(words));
   const bar = await p.locator(`${BAR} .app-bar-fill`).first().evaluate((el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el).borderTopWidth]);

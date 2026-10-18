@@ -413,7 +413,7 @@
   }
   /* The bottom bar's "+": a NES button like the others, in the pale blue of the art, the "+" in the frames' near-black. */
   .nes-btn.plus-button {
-    @apply m-0 flex size-9 items-center justify-center p-0 text-xl leading-none;
+    @apply m-0 flex items-center justify-center p-0 text-2xl leading-none;
     color: #222034;
     background-color: #cbdbfc;
   }
@@ -561,6 +561,11 @@
       0 2px #212529;
     margin: 2px;
     padding: 6px 8px;
+  }
+  /* A note's card on the Notes page: all the same small size, two to a row on a phone; what doesn't fit is cut off. */
+  .note-card {
+    @apply h-28 overflow-hidden hover:brightness-[0.97];
+    width: calc(100% - 4px);
   }
   textarea.note-paper {
     @apply block w-[calc(100%-4px)] resize-none overflow-hidden outline-none placeholder:text-stone-400;
