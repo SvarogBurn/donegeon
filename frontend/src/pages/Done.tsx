@@ -33,7 +33,7 @@ function FinishedTask({ node, listName }: { node: TaskTreeNode; listName: string
       <div className="flex flex-wrap items-start gap-x-2 gap-y-1 text-sm">
         <PixelCheckbox
           checked
-          disabled={toggle.isPending}
+          disabled={toggle.isPending && !toggle.isPaused}
           onChange={() => toggle.mutate({ id: node.id, done: false })}
           aria-label={`Mark "${plainTitle(node.title)}" not done`}
           title="Untick to make it open again"
@@ -68,7 +68,7 @@ function TickedSubtask({ node, path, listName }: { node: TaskTreeNode; path: str
       <div className="flex flex-wrap items-start gap-x-2 gap-y-1 text-sm">
         <PixelCheckbox
           checked
-          disabled={toggle.isPending}
+          disabled={toggle.isPending && !toggle.isPaused}
           onChange={() => toggle.mutate({ id: node.id, done: false })}
           aria-label={`Mark "${plainTitle(node.title)}" not done`}
           title="Untick to make it open again"

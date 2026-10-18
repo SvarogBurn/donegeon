@@ -10,14 +10,21 @@ export function useMe() {
   const query = useQuery({
     queryKey: ME,
     queryFn: () =>
-      authApi.getMe().catch((err) => {
-        if (err instanceof ApiError && err.status === 401) return null;
-        throw err;
-      }),
+      authApi.getMe().then(
+        (user) => {
+          keepFor(user.id);
+          return user;
+        },
+        (err) => {
+          if (err instanceof ApiError && err.status === 401) return null;
+          throw err;
+        },
+      ),
     retry: false,
     staleTime: Infinity,
   });
-  return { user: query.data, isLoading: query.isLoading, error: query.error };
+  // Pending, not loading: while the phone's kept copy is read in, or offline with nothing kept, nothing is being fetched either.
+  return { user: query.data, isLoading: query.isPending && !query.isError, error: query.error };
 }
 
 /** What the lists do with a ticked task; under the open ones unless the user chose otherwise on their page. */
@@ -48,13 +55,38 @@ export function useUpdateMe() {
   });
 }
 
+/** Whose data the device keeps: changes made offline wait for that account to log back in, and only that one. */
+const KEPT_FOR_KEY = "donegeon.keptFor";
+
+function keptFor(): string | null {
+  try {
+    return localStorage.getItem(KEPT_FOR_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function keepFor(userId: string | null) {
+  try {
+    if (userId) localStorage.setItem(KEPT_FOR_KEY, userId);
+    else localStorage.removeItem(KEPT_FOR_KEY);
+  } catch {
+    // Without storage the cache is dropped at every login, which is only slower.
+  }
+}
+
 export function useLogin(mode: "login" | "signup") {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: mode === "login" ? authApi.login : authApi.signup,
     onSuccess: (user) => {
-      // Drop anything cached for a previous account before showing this one.
-      queryClient.clear();
+      // Drop anything cached for a previous account before showing this one. The same account logging back in (its
+      // session ran out) keeps it: its changes still waiting are sent now.
+      if (keptFor() === user.id) {
+        void queryClient.resumePausedMutations();
+        void queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== ME[0] });
+      } else queryClient.clear();
+      keepFor(user.id);
       queryClient.setQueryData(ME, user);
     },
   });
@@ -65,6 +97,8 @@ function forgetAccount(queryClient: QueryClient) {
   // Not clear(): that drops the "me" query out from under AppShell, which then never hears it changed.
   queryClient.setQueryData(ME, null);
   queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== ME[0] });
+  queryClient.getMutationCache().clear();
+  keepFor(null);
 }
 
 export function useLogout() {

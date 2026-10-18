@@ -3,6 +3,7 @@ import { NavLink, useMatch, useNavigate } from "react-router";
 import { useCreateFolder, useDeleteFolder, useFolders, useUpdateFolder } from "../../hooks/useTasks";
 import { FOLDER_COLOR, folderIn } from "../../lib/frameTones";
 import { NAME_FOLDER_EVENT } from "../../lib/folders";
+import { useOnline } from "../../lib/offline/online";
 import type { Folder } from "../../types";
 import { ColorChoices } from "../ColorChoices";
 
@@ -156,6 +157,7 @@ interface Props {
 export function FolderTabs({ tab, isNewShown, onNewUsed }: Props) {
   const { data: folders = [] } = useFolders();
   const create = useCreateFolder();
+  const online = useOnline();
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -176,7 +178,7 @@ export function FolderTabs({ tab, isNewShown, onNewUsed }: Props) {
           data-tab-drop="new"
           aria-label="New folder"
           title="A new folder: a tab of its own showing some of your lists and stats. Drop a list or a stats box here to start one with it."
-          disabled={create.isPending}
+          disabled={create.isPending || !online}
           onClick={() => {
             onNewUsed();
             create.mutate({}, { onSuccess: (made) => setEditingId(made.id) });

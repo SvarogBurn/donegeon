@@ -110,7 +110,7 @@ function AddOnDay({ day, lists, onClose }: { day: string; lists: List[]; onClose
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (!title.trim() || createTask.isPending) return;
+    if (!title.trim()) return;
     const submitted = title;
     setTitle("");
     try {

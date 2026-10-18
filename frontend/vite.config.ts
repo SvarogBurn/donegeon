@@ -5,11 +5,30 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { SassString } from "sass";
 import { defineConfig } from "vite";
+import { VitePWA } from "vite-plugin-pwa";
 
 const nesRoot = path.dirname(createRequire(import.meta.url).resolve("nes.css/package.json"));
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    // A service worker keeps the built app on the phone, so it opens with no connection (the data comes from the
+    // query cache kept in IndexedDB, see main.tsx). It never answers /api. A deploy reaches the phone on its next
+    // open: the new worker takes over and the page reloads into it (see main.tsx). Not in dev.
+    VitePWA({
+      registerType: "autoUpdate",
+      injectRegister: false,
+      // public/manifest.webmanifest, linked from index.html.
+      manifest: false,
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        navigateFallback: "/index.html",
+        navigateFallbackDenylist: [/^\/api\//],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+      },
+    }),
+  ],
   css: {
     preprocessorOptions: {
       scss: {

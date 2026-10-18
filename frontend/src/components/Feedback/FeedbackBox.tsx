@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { sendFeedback } from "../../api/feedback";
+import { useOnline } from "../../lib/offline/online";
 import type { FeedbackKind } from "../../types";
 import { TileFrame } from "../Tiles/TileFrame";
 
@@ -19,6 +20,7 @@ export function FeedbackBox({ username }: { username: string }) {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const queryClient = useQueryClient();
+  const online = useOnline();
   const send = useMutation({
     mutationFn: sendFeedback,
     onSuccess: () => {
@@ -97,7 +99,7 @@ export function FeedbackBox({ username }: { username: string }) {
             </p>
           )}
           {send.error && <p className="text-xs text-red-600">{send.error.message}</p>}
-          <button type="submit" className="nes-btn is-primary btn !w-auto" disabled={!message.trim() || send.isPending}>
+          <button type="submit" className="nes-btn is-primary btn !w-auto" disabled={!message.trim() || send.isPending || !online}>
             Send
           </button>
         </div>

@@ -1,6 +1,6 @@
 import type { CombinedCountdown, Countdown, DonePage, PointsSummary, PressureSummary, RepeatUnit, SearchResult, StatRow, Task, TaskTreeNode } from "../types";
 import type { DashboardLayout } from "../lib/tileLayout";
-import { api } from "./client";
+import { api, type When } from "./client";
 
 /** A place in the tree: under a parent task, or at the top level of a list. */
 export interface TaskPlacement {
@@ -65,20 +65,21 @@ export interface NewTask {
   /** Main tasks only. */
   notes?: string;
 }
-export const createTask = (body: NewTask) => api<{ task: Task }>("/tasks", { body }).then((r) => r.task);
-export const updateTask = (id: string, body: TaskChanges) =>
-  api<{ task: Task }>(`/tasks/${id}`, { method: "PATCH", body }).then((r) => r.task);
+/** `id`: made on the device, so a task written offline has it at once (and a second send makes no second task). */
+export const createTask = (body: NewTask & { id?: string }, when?: When) => api<{ task: Task }>("/tasks", { body, when }).then((r) => r.task);
+export const updateTask = (id: string, body: TaskChanges, when?: When) =>
+  api<{ task: Task }>(`/tasks/${id}`, { method: "PATCH", body, when }).then((r) => r.task);
 /** Ticks (`done`) or unticks a task. Saying what it should be, not "flip it", so a request sent twice changes nothing. */
-export const toggleTask = (id: string, done: boolean) =>
-  api<{ task: Task; doneToday: number }>(`/tasks/${id}/toggle`, { method: "PATCH", body: { done } }).then((r) => ({ ...r.task, doneToday: r.doneToday }));
+export const toggleTask = (id: string, done: boolean, when?: When) =>
+  api<{ task: Task; doneToday: number }>(`/tasks/${id}/toggle`, { method: "PATCH", body: { done }, when }).then((r) => ({ ...r.task, doneToday: r.doneToday }));
 /** One press of a persistent task's "done it" button, and its undo. */
-export const pressTask = (id: string) =>
-  api<{ completion: { id: string; day: string }; doneToday: number }>(`/tasks/${id}/completions`, { method: "POST" }).then((r) => ({
+export const pressTask = (id: string, completionId?: string, when?: When) =>
+  api<{ completion: { id: string; day: string }; doneToday: number }>(`/tasks/${id}/completions`, { body: { id: completionId }, when }).then((r) => ({
     ...r.completion,
     doneToday: r.doneToday,
   }));
-export const undoPress = (id: string, completionId: string) =>
-  api(`/tasks/${id}/completions/${completionId}`, { method: "DELETE" });
+export const undoPress = (id: string, completionId: string, when?: When) =>
+  api(`/tasks/${id}/completions/${completionId}`, { method: "DELETE", when });
 /** Which page's boxes: the dashboard's, the stats boxes on the Stats page, or the Calendar page's. */
 export type LayoutPage = "dashboard" | "stats" | "calendar";
 const layoutPath = (page: LayoutPage) => (page === "dashboard" ? "/layout" : `/layout/${page}`);
@@ -86,13 +87,14 @@ export const getLayout = (page: LayoutPage) => api<{ layout: DashboardLayout | n
 export const saveLayout = (page: LayoutPage, layout: DashboardLayout) => api(layoutPath(page), { method: "PUT", body: layout });
 export const getPoints = () => api<PointsSummary>("/points");
 export const setTodayPoints = (points: number) => api("/points/today", { method: "PUT", body: { points } });
-export const moveTask = (id: string, placement: TaskPlacement) => api(`/tasks/${id}/move`, { body: placement });
+export const moveTask = (id: string, placement: TaskPlacement, when?: When) => api(`/tasks/${id}/move`, { body: placement, when });
 /** A round of a task on a schedule moved to another day: the one planned on `from` is done on `to` (`from` = back on its day). */
-export const moveRound = (id: string, from: string, to: string) => api(`/tasks/${id}/round`, { body: { from, to } });
+export const moveRound = (id: string, from: string, to: string, when?: When) => api(`/tasks/${id}/round`, { body: { from, to }, when });
 /** A place in the Week box: on `day`, right after `after` (null = first, undefined = last); a task not in it yet comes in. */
-export const placeInWeek = (id: string, day: string, after: string | null | undefined) => api(`/tasks/${id}/week`, { body: { day, after } });
-export const deleteTask = (id: string) => api(`/tasks/${id}`, { method: "DELETE" });
-export const restoreTask = (id: string) => api(`/tasks/${id}/restore`, { method: "POST" });
+export const placeInWeek = (id: string, day: string, after: string | null | undefined, when?: When) =>
+  api(`/tasks/${id}/week`, { body: { day, after }, when });
+export const deleteTask = (id: string, when?: When) => api(`/tasks/${id}`, { method: "DELETE", when });
+export const restoreTask = (id: string, when?: When) => api(`/tasks/${id}/restore`, { method: "POST", when });
 
 export const getCountdown = (id: string) => api<{ countdown: Countdown }>(`/tasks/${id}/countdown`).then((r) => r.countdown);
 export const getPressure = () => api<{ pressure: PressureSummary }>("/dashboard").then((r) => r.pressure);

@@ -45,19 +45,18 @@ out("the tick was saved, once", toggles(reached) === 1, String(toggles(reached))
 await p.reload(); await p.waitForSelector("[data-task-row]");
 out("both are there after a reload", (await ticked("A")) && (await row("D").count()) === 1);
 
-// The connection cut under a tick: it may have arrived, so it is not sent again; the tick comes off and the page says so.
+// The connection cut under a tick: it is sent again until it gets through (the server takes a tick sent twice as one),
+// and the tick stays on meanwhile.
 mode = "drop"; fresh();
 await row("B").locator("input[type=checkbox]").click();
-await lost().waitFor({ timeout: 5000 }).catch(() => {});
-out("says the change was lost", /connection dropped/.test(await lost().innerText().catch(() => "")), await lost().innerText().catch(() => "nothing"));
-mode = "ok"; await wait(1200);
-out("sent once, never again", toggles(asked) === 1, String(toggles(asked)));
-out("the tick came off again", !(await ticked("B")));
-out("no second notice next to the click", (await p.locator("[data-refusal]").count()) === 0);
-await wait(8500);
-out("it stays until dismissed", await lost().isVisible());
-await lost().locator("button").click();
-out("the notice can be dismissed", (await lost().count()) === 0);
+await wait(2500);
+out("sent again while the connection drops", toggles(asked) >= 2 && toggles(reached) === 0, `${toggles(asked)} asked, ${toggles(reached)} reached`);
+out("the tick stays on meanwhile", await ticked("B"));
+mode = "ok"; await wait(5000);
+out("saved once it gets through", toggles(reached) === 1, String(toggles(reached)));
+out("nothing said about it", (await lost().count()) === 0 && (await p.locator("[data-refusal]").count()) === 0);
+await p.reload(); await p.waitForSelector("[data-task-row]");
+out("the tick is there after a reload", await ticked("B"));
 await p.close();
 
 // The clock in hand, for the minutes of waiting.
@@ -79,12 +78,13 @@ for (let i = 0; i < 4 && !(await notice("down").count()); i++) { await p.clock.f
 out("gives up: can't reach the server", /Can't reach the server/.test(await notice("down").innerText().catch(() => "")), await p.locator("[data-server-status]").innerText().catch(() => "nothing"));
 await p.clock.fastForward("03:00"); await wait();
 out("goes on saying so while it asks again by itself", (await notice("down").count()) === 1 && (await notice("waking").count()) === 0);
-out("the tick is told lost and comes off", /wasn't saved/.test(await lost().innerText().catch(() => "")) && !(await ticked("C")));
+out("the tick waits on the device, still on", /1 change waiting/.test(await notice("down").innerText().catch(() => "")) && (await ticked("C")) && (await lost().count()) === 0, await notice("down").innerText().catch(() => "nothing"));
 out("it never reached the server", toggles(reached) === 0);
 mode = "ok"; await p.click("text=Try again");
 await notice("up").waitFor({ timeout: 3000 }).catch(() => {});
 out("Try again finds it", (await notice("down").count()) === 0 && (await notice("waking").count()) === 0);
-await row("C").locator("input[type=checkbox]").click(); await wait(800);
+await p.clock.fastForward("00:30"); await wait(1500);
+out("and the waiting tick is saved, once", toggles(reached) === 1, String(toggles(reached)));
 await p.reload(); await p.waitForSelector("[data-task-row]");
-out("and changes are saved again", await ticked("C"));
+out("it is there after a reload", await ticked("C"));
 await b.close();

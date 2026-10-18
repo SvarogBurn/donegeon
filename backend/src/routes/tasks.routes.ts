@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { Router, type Request } from "express";
 import { z } from "zod";
+import { alreadyMade } from "../lib/clientId.js";
 import { isRestorable, tooLateToRestore } from "../lib/deleted.js";
 import { HttpError, notFound } from "../lib/httpError.js";
 import { isLocalDate, mondayOf } from "../lib/localDate.js";
@@ -25,6 +26,8 @@ const index = z.number().int().min(0);
 const localDate = z.string().refine(isLocalDate, "Dates must look like 2026-10-02");
 
 const taskInput = z.object({
+  /** Made on the device for a task written offline; see lib/clientId. */
+  id: z.string().uuid().optional(),
   title,
   notes,
   /** parentId (a subtask), listId (a top-level task in a list), or neither: a task that lives only in Today (or in Week, with `weekDay`). */
@@ -408,6 +411,8 @@ tasksRouter.get("/:id/countdown", async (req, res) => {
 tasksRouter.post("/", async (req, res) => {
   const input = taskInput.parse(req.body);
   const owner = userId(req);
+  const made = input.id && alreadyMade(await prisma.task.findUnique({ where: { id: input.id } }), owner);
+  if (made) return void res.json({ task: made });
   const parentId = input.parentId ?? null;
   const listId = input.listId ?? null;
 
@@ -426,10 +431,12 @@ tasksRouter.post("/", async (req, res) => {
   const task = await prisma.$transaction(async (tx) => {
     const created = await tx.task.create({
       data: {
+        id: input.id,
         userId: owner,
         parentId,
         listId,
         title: input.title,
+        createdAt: req.clientTime,
         notes: input.notes || null,
         startDate: req.localDate,
         deadlineDate: input.deadlineDate,
@@ -577,7 +584,7 @@ tasksRouter.patch("/:id/toggle", async (req, res) => {
     // round (the second waits for it, then matches nothing), so the points are booked or reversed once.
     const { count } = await tx.task.updateMany({
       where: { id: task.id, isComplete: !next, deletedAt: null },
-      data: completionPatch(task, next, new Date(), req.localDate),
+      data: completionPatch(task, next, req.clientTime, req.localDate),
     });
     if (count === 1) {
       // A refused booking (not enough points, over the cap) throws, which takes the tick back too.
@@ -602,7 +609,13 @@ async function doneToday(owner: string, day: string) {
 // and unticks its subtasks for the next round. The task itself stays open; on a
 // schedule, it is due again one interval on.
 tasksRouter.post("/:id/completions", async (req, res) => {
+  // `id`: made on the device for a press made offline; see lib/clientId.
+  const { id } = z.object({ id: z.string().uuid().optional() }).parse(req.body ?? {});
   const task = await ownTask(req, req.params.id);
+  const made = id && alreadyMade(await prisma.taskCompletion.findUnique({ where: { id } }), task.userId);
+  if (made) {
+    return void res.json({ completion: { id: made.id, day: made.day }, doneToday: await doneToday(task.userId, req.localDate) });
+  }
   if (!task.isPersistent || task.parentId) throw new HttpError(400, "Only persistent tasks can be done again and again");
   const ticked = await prisma.task.findMany({
     where: { id: { in: await idsBelow(prisma, task.id) }, completedAt: { not: null }, completedOn: { not: null } },
@@ -627,6 +640,8 @@ tasksRouter.post("/:id/completions", async (req, res) => {
     });
     return tx.taskCompletion.create({
       data: {
+        id,
+        createdAt: req.clientTime,
         userId: task.userId,
         taskId: task.id,
         day: req.localDate,
@@ -649,7 +664,8 @@ tasksRouter.delete("/:id/completions/:completionId", async (req, res) => {
   const completion = await prisma.taskCompletion.findFirst({
     where: { id: req.params.completionId, taskId: task.id },
   });
-  if (!completion) throw notFound("Completion");
+  // Undone already: an undo sent again.
+  if (!completion) return void res.status(204).end();
   const unticked = untickedSchema.catch([]).parse(completion.unticked);
 
   await prisma.$transaction(async (tx) => {
@@ -724,7 +740,10 @@ tasksRouter.post("/:id/move", async (req, res) => {
 // Soft-deletes the task and everything beneath it, stamped with one shared
 // time so restore can tell this delete apart from earlier ones in the subtree.
 tasksRouter.delete("/:id", async (req, res) => {
-  const task = await ownTask(req, req.params.id);
+  const task = await prisma.task.findFirst({ where: { id: req.params.id, userId: userId(req) } });
+  if (!task) throw notFound("Task");
+  // Deleted already: a delete sent again.
+  if (task.deletedAt) return void res.status(204).end();
   await prisma.task.updateMany({
     where: { id: { in: (await findSubtree(prisma, [task.id])).map((t) => t.id) } },
     data: { deletedAt: new Date() },
@@ -735,10 +754,10 @@ tasksRouter.delete("/:id", async (req, res) => {
 // Undo of a delete: brings back the task and the subtasks deleted with it, within a minute of the delete.
 tasksRouter.post("/:id/restore", async (req, res) => {
   const owner = userId(req);
-  const task = await prisma.task.findFirst({
-    where: { id: req.params.id, userId: owner, deletedAt: { not: null } },
-  });
+  const task = await prisma.task.findFirst({ where: { id: req.params.id, userId: owner } });
   if (!task) throw notFound("Deleted task");
+  // Not deleted (any more): a restore sent again.
+  if (!task.deletedAt) return void res.status(204).end();
   if (!isRestorable(task.deletedAt!)) throw tooLateToRestore();
   if (task.parentId) {
     const parent = await prisma.task.findFirst({ where: { id: task.parentId, deletedAt: null } });

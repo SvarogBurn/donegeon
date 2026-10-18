@@ -8,6 +8,8 @@ import { Cheatsheet } from "../components/Help/Cheatsheet";
 import { PixelCheckbox } from "../components/PixelCheckbox";
 import { TileFrame } from "../components/Tiles/TileFrame";
 import { useDeleteAccount, useLogout, useMe, useUpdateMe } from "../hooks/useAuth";
+import { useOnline } from "../lib/offline/online";
+import { NeedsConnection } from "../components/NeedsConnection";
 import { useLists, useStatRows } from "../hooks/useTasks";
 import { typedPoints } from "../lib/points";
 import { collectStats, countByDay, periodCounts, streaks } from "../lib/stats";
@@ -198,6 +200,7 @@ export function UserPage() {
   const logout = useLogout();
   const update = useUpdateMe();
   const navigate = useNavigate();
+  const online = useOnline();
   const [deleting, setDeleting] = useState(false);
   if (!user) return null;
 
@@ -211,17 +214,18 @@ export function UserPage() {
           </p>
         </div>
         <Streak />
-        <button type="button" className="nes-btn btn" disabled={logout.isPending} onClick={() => logout.mutate()}>
+        <button type="button" className="nes-btn btn" disabled={logout.isPending || !online} title={online ? undefined : "Needs a connection"} onClick={() => logout.mutate()}>
           Log out
         </button>
         {logout.error && <p className="text-xs text-red-600">{logout.error.message}</p>}
-        <button type="button" className="nes-btn is-error btn" data-delete-account-open onClick={() => setDeleting(true)}>
+        <button type="button" className="nes-btn is-error btn" data-delete-account-open disabled={!online} onClick={() => setDeleting(true)}>
           Delete account
         </button>
         {deleting && <DeleteAccount username={user.username} onCancel={() => setDeleting(false)} />}
       </TileFrame>
       {/* Every setting of the account's goes in this box. */}
       <TileFrame title="Settings" aria-label="Settings">
+        <NeedsConnection>
         <label className="flex flex-wrap items-center gap-2 text-xs">
           Ticked tasks
           <select
@@ -306,6 +310,7 @@ export function UserPage() {
           Repeat the tutorial
         </button>
         {update.error && <p className="text-xs text-red-600">{update.error.message}</p>}
+        </NeedsConnection>
       </TileFrame>
       <FeedbackBox username={user.username} />
       <Cheatsheet />

@@ -78,3 +78,25 @@ export function roundsDue(task: Rounds, today: string): number {
   for (let day = task.nextDue; day <= today; day = addInterval(day, task.repeatEvery, task.repeatUnit)) if (movedDay(task, day) <= today) count++;
   return count;
 }
+
+/** The moves of rounds still to come, as the server keeps them after a press (movesFrom in repeat.service.ts). */
+export function movesFrom(moves: Task["roundMoves"], nextDue: string): Task["roundMoves"] {
+  const left = Object.entries(moves ?? {}).filter(([planned]) => planned >= nextDue);
+  return left.length > 0 ? Object.fromEntries(left) : null;
+}
+
+/**
+ * When a task on a schedule is due again after a press on `doneOn`, as the server works it out (dueAfter in
+ * repeat.service.ts); shown at once, before the server answers, and for a press made offline.
+ */
+export function dueAfter(task: Rounds & { repeatEvery: number; nextDue: string }, doneOn: string): string {
+  const { repeatEvery, repeatUnit } = task;
+  if (task.repeatAfterDone) return addInterval(doneOn, repeatEvery, repeatUnit);
+  if (task.repeatMakeUp) return addInterval(task.nextDue, repeatEvery, repeatUnit);
+  const monday = mondayOf(doneOn);
+  let round = task.nextDue;
+  while (movedDay(task, round) < monday) round = addInterval(round, repeatEvery, repeatUnit);
+  let next = addInterval(round, repeatEvery, repeatUnit);
+  while (next <= doneOn) next = addInterval(next, repeatEvery, repeatUnit);
+  return next;
+}

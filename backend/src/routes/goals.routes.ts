@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { alreadyMade } from "../lib/clientId.js";
 import { notFound } from "../lib/httpError.js";
 import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
@@ -28,9 +29,13 @@ goalsRouter.get("/", async (req, res) => {
 });
 
 goalsRouter.post("/", async (req, res) => {
-  const { name, description } = goalInput.parse(req.body);
+  // `id`: made on the device for a goal typed offline; see lib/clientId.
+  const { name, description, id } = goalInput.extend({ id: z.string().uuid().optional() }).parse(req.body);
+  const owner = userId(req);
+  const made = id && alreadyMade(await prisma.goal.findUnique({ where: { id } }), owner);
+  if (made) return void res.json({ goal: made });
   const goal = await prisma.goal.create({
-    data: { userId: userId(req), name, description: description || null },
+    data: { id, userId: owner, name, description: description || null, createdAt: req.clientTime },
   });
   res.status(201).json({ goal });
 });

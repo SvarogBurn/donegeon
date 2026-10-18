@@ -33,6 +33,7 @@ import {
 } from "../hooks/useTasks";
 import { countLabels, isFiltering, NO_FILTER, toggleId, type LabelFilter } from "../lib/labels";
 import { calOfView, listView, statOfView, TODAY_VIEW } from "../lib/folders";
+import { useOnline } from "../lib/offline/online";
 import { STAT_BOXES, StatBoxView, StatBoxesProvider } from "../components/Stats/StatsPanel";
 import { NEW_LIST_TILE, normalizeLayout, withHidden, type DashboardLayout } from "../lib/tileLayout";
 
@@ -60,6 +61,7 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   const lists = useLists();
   const tasks = useTaskTrees();
   const createGoal = useCreateGoal();
+  const online = useOnline();
   const deleteGoal = useDeleteGoal();
   const createTag = useCreateTag();
   const deleteTag = useDeleteTag();
@@ -120,7 +122,7 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
           onToggle={(id) => setPicked({ ...filter, goalIds: toggleId(filter.goalIds, id) })}
           onCreate={(name) => createGoal.mutate({ name })}
           onDelete={(id) => deleteGoal.mutate(id)}
-          isBusy={createGoal.isPending || deleteGoal.isPending}
+          isBusy={createGoal.isPending || deleteGoal.isPending || !online}
           error={createGoal.error ?? deleteGoal.error}
         />
       ),
@@ -142,7 +144,7 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
           onToggle={(id) => setPicked({ ...filter, tagIds: toggleId(filter.tagIds, id) })}
           onCreate={(name) => createTag.mutate(name)}
           onDelete={(id) => deleteTag.mutate(id)}
-          isBusy={createTag.isPending || deleteTag.isPending}
+          isBusy={createTag.isPending || deleteTag.isPending || !online}
           error={createTag.error ?? deleteTag.error}
         />
       ),

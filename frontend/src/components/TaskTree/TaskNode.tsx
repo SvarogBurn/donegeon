@@ -77,6 +77,9 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
 
   const rename = useEditTask();
   const error = rename.error;
+  // The text last saved: Enter saves and the blur after it would save it again before the first one shows.
+  const savedText = useRef<string | null>(null);
+  useEffect(() => void (savedText.current = null), [node.title]);
 
   // A main task can carry a note: its icon beside the title shows it at the side of the page.
   const canNote = !node.parentId;
@@ -100,7 +103,10 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
     const next = title.trim();
     if (!next) setTitle(node.title);
     // Shortcuts typed into it are taken out, so the title shown can be the one it had before.
-    else if (next !== node.title) rename.mutate({ node, text: next }, { onSuccess: (task) => setTitle(task.title) });
+    else if (next !== node.title && next !== savedText.current) {
+      savedText.current = next;
+      rename.mutate({ node, text: next }, { onApplied: setTitle, onError: () => (savedText.current = null) });
+    }
   }
 
   function addSubtask() {
@@ -291,10 +297,10 @@ export function DraftRow() {
   /** Saves the row, then opens the next one: below it, or beneath it as its first subtask. */
   async function submit(next: "sibling" | "subtask") {
     const title = tree.draftText.trim();
-    if (!title || createTask.isPending) return;
+    if (!title) return;
     tree.setDraftText("");
     try {
-      const created = await createTask.mutateAsync({ text: title, ...placement() });
+      const created = { id: await createTask.add({ text: title, ...placement() }) };
       tree.setDraft(
         next === "subtask"
           ? { parentId: created.id, listId: null, afterId: null }

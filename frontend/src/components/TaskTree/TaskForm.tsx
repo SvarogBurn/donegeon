@@ -21,7 +21,7 @@ export function TaskForm({ listId, parentId, weekDay, placeholder, editorId }: P
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Escape") setTitle("");
-    if (e.key !== "Enter" || e.shiftKey || !title.trim() || createTask.isPending) return;
+    if (e.key !== "Enter" || e.shiftKey || !title.trim()) return;
     const submitted = title;
     setTitle("");
     createTask.mutate({ text: submitted, listId, parentId, weekDay, ...newTaskLabels }, { onError: () => setTitle(submitted) });

@@ -70,10 +70,22 @@ export function localDate(): string {
   return getDevDate() ?? clockDate();
 }
 
+/**
+ * When a change was made: the app's day and the moment. Sent with it, so a change made offline and sent later
+ * counts on the day it was made (see lib/offline/changes).
+ */
+export interface When {
+  day: string;
+  at: string;
+}
+
+export const whenNow = (): When => ({ day: localDate(), at: clockNow().toISOString() });
+
 /** What the host answers in the server's place; the app itself never sends these. */
 const HOST_ERRORS = [502, 503, 504];
 const RETRIES = 2;
 const UNREACHABLE = "Can't reach the server";
+const OFFLINE = "You're offline";
 const NOT_SAVED = "The server didn't answer, so this wasn't saved";
 const DROPPED = "The connection dropped while saving. Check whether it went through";
 
@@ -87,12 +99,14 @@ export function isUnreachable(error: unknown): boolean {
  * answered in its place. A change is sent again only when it certainly never arrived (502, 503): after a
  * dropped connection or a timeout (504) it may have, and a new task sent twice is two tasks.
  */
-export async function api<T = void>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
+export async function api<T = void>(path: string, options: { method?: string; body?: unknown; when?: When } = {}): Promise<T> {
   const method = options.method ?? (options.body === undefined ? "GET" : "POST");
   const reads = method === "GET";
   let res: Response;
   for (let attempt = 0; ; attempt++) {
     const again = attempt < RETRIES;
+    // No connection at all: no use waking a server that can't be reached.
+    if (navigator.onLine === false) throw new ApiError(0, reads ? OFFLINE : NOT_SAVED);
     await ensureAwake(attempt > 0).catch(() => {
       throw new ApiError(0, reads ? UNREACHABLE : NOT_SAVED);
     });
@@ -100,7 +114,8 @@ export async function api<T = void>(path: string, options: { method?: string; bo
       res = await fetch(`/api${path}`, {
         method,
         headers: {
-          "X-Local-Date": localDate(),
+          "X-Local-Date": options.when?.day ?? localDate(),
+          ...(options.when && { "X-Client-Time": options.when.at }),
           ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
         },
         body: options.body === undefined ? undefined : JSON.stringify(options.body),

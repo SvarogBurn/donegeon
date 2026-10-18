@@ -1,34 +1,17 @@
-import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { keepPreviousData, onlineManager, useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useCallback, useMemo, useState } from "react";
 import * as foldersApi from "../api/folders";
 import * as goalsApi from "../api/goals";
 import * as listsApi from "../api/lists";
 import * as tagsApi from "../api/tags";
 import * as tasksApi from "../api/tasks";
-import { localDate } from "../api/client";
-import { taskDone } from "../lib/breakReminder";
-import { findNode, toggleInCountdown, toggleInTrees, type CompletionChange } from "../lib/optimisticToggle";
+import { localDate, whenNow } from "../api/client";
 import { NAME_FOLDER_EVENT } from "../lib/folders";
-import { refuse } from "../lib/refusal";
+import { CHANGE, newId, type AddChange, type Change, type EditChange, type PressChange } from "../lib/offline/changes";
 import { parseShortSyntax, parseTitleEdit, type SyntaxContext } from "../lib/shortSyntax";
-import { weekColumn } from "../lib/week";
 import type { DashboardLayout } from "../lib/tileLayout";
-import type { Countdown, DonePage, Folder, Goal, List, Tag, TaskTreeNode, User } from "../types";
-import { ME } from "./useAuth";
-
-const TASKS = ["tasks"];
-// What was done before yesterday is loaded apart from the task trees. These sit under their key, so whatever refreshes the trees refreshes them.
-const DONE = [...TASKS, "done"];
-const STATS = [...TASKS, "stats"];
-const GOALS = ["goals"];
-const TAGS = ["tags"];
-const LISTS = ["lists"];
-const FOLDERS = ["folders"];
-const COUNTDOWN = ["countdown"];
-const PRESSURE = ["pressure"];
-const POINTS = ["points"];
-// Any change to a task can change the countdown tables, the dashboard totals and the point balance.
-const TASK_DATA = [TASKS, COUNTDOWN, PRESSURE, POINTS];
+import type { Folder, Goal, List, Tag, TaskTreeNode } from "../types";
+import { COUNTDOWN, DONE, FOLDERS, GOALS, LAYOUT, LISTS, POINTS, PRESSURE, STATS, TAGS, TASK_DATA, TASKS } from "./queryKeys";
 
 export const useTaskTrees = () => useQuery({ queryKey: TASKS, queryFn: tasksApi.listTaskTrees });
 /** The Done page: a few days of ticks at a time, newest first; fetchNextPage brings the days before. */
@@ -51,7 +34,6 @@ export const useGoals = () => useQuery({ queryKey: GOALS, queryFn: goalsApi.list
 export const useTags = () => useQuery({ queryKey: TAGS, queryFn: tagsApi.listTags });
 export const useLists = () => useQuery({ queryKey: LISTS, queryFn: listsApi.listLists });
 export const useFolders = () => useQuery({ queryKey: FOLDERS, queryFn: foldersApi.listFolders });
-const LAYOUT = ["layout"];
 export const useLayout = (page: tasksApi.LayoutPage = "dashboard") =>
   useQuery({ queryKey: [...LAYOUT, page], queryFn: () => tasksApi.getLayout(page) });
 /** The new arrangement shows at once and is saved in the background. */
@@ -76,21 +58,15 @@ export const useCombinedCountdown = () => useQuery({ queryKey: [...COUNTDOWN, "a
 export const useCountdown = (taskId: string, enabled = true) =>
   useQuery({ queryKey: [...COUNTDOWN, taskId], queryFn: () => tasksApi.getCountdown(taskId), retry: false, enabled });
 
-// mutateAsync resolves only after the refetch, so callers can rely on fresh data.
-/** After how many tasks done in a day the user wants to be reminded to take a break; null = never. */
-const breakEvery = (queryClient: QueryClient) => queryClient.getQueryData<User | null>(ME)?.breakEvery ?? null;
-
 /** `onError`: for the mutations whose refusal shows in the popup next to the click. */
 function useInvalidating<TArgs, TResult>(mutationFn: (args: TArgs) => Promise<TResult>, keys: string[][], onError?: (error: Error) => void) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn,
+    mutationFn: (args: TArgs) => mutationFn(args),
     onError,
     onSettled: () => Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey }))),
   });
 }
-
-export const useCreateTask = () => useInvalidating(tasksApi.createTask, TASK_DATA);
 
 /** How deep a task under `parentId` sits: 0 for a main task. A parent that isn't among the loaded trees counts as a main task. */
 function depthUnder(trees: TaskTreeNode[], parentId: string | null | undefined) {
@@ -118,6 +94,29 @@ export function useSyntaxContext(parentId?: string | null): SyntaxContext {
   );
 }
 
+/**
+ * One of the everyday changes to tasks that also work offline (lib/offline/changes: how each is sent and shown at
+ * once). `mutate` stamps it with the day and moment it was made. It may wait to be sent, so nothing should wait
+ * for it: what it changes is on the page already.
+ */
+function useChange<V>(key: readonly string[]) {
+  const mutation = useMutation<unknown, Error, Change<V>>({ mutationKey: [...key] });
+  const { mutate: send } = mutation;
+  const mutate = useCallback((change: V, options?: { onError?: (error: Error) => void }) => send({ ...change, when: whenNow() }, options), [send]);
+  return { ...mutation, mutate };
+}
+
+/** The tags, goals and lists the shortcuts are read against: those kept on the device when offline, rather than waiting for the server. */
+async function syntaxLists(queryClient: QueryClient) {
+  const get = <T,>(queryKey: string[], queryFn: () => Promise<T[]>) =>
+    onlineManager.isOnline() ? queryClient.ensureQueryData<T[]>({ queryKey, queryFn }) : Promise.resolve(queryClient.getQueryData<T[]>(queryKey) ?? []);
+  // Asked for if they were never loaded: a name must not be taken for new because its list is missing.
+  const [tags, goals, lists] = await Promise.all([get<Tag>(TAGS, tagsApi.listTags), get<Goal>(GOALS, goalsApi.listGoals), get<List>(LISTS, listsApi.listLists)]);
+  return { tags, goals, lists, trees: queryClient.getQueryData<TaskTreeNode[]>(TASKS) ?? [] };
+}
+
+const labelsNamed = (names: string[]) => names.map((name) => ({ id: newId(), name }));
+
 /** A new task as it was typed, shortcuts and all, and where it goes. */
 export interface TypedTask extends Omit<tasksApi.NewTask, "title"> {
   text: string;
@@ -127,262 +126,125 @@ export interface TypedTask extends Omit<tasksApi.NewTask, "title"> {
  * Adds a task from what was typed into an add field: the shortcuts in it (#tag, @date, ... see lib/shortSyntax)
  * are taken out of the title and set on the task, in the one request that makes it. Tags and goals named for the
  * first time are made first. What the caller passes (the filter's labels, the calendar's day, the box's list) is
- * what holds unless a shortcut says otherwise.
+ * what holds unless a shortcut says otherwise. `add` resolves with the new task's id once it shows.
  */
 export function useAddTask() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ text, ...place }: TypedTask) => {
-      // Asked for if they were never loaded: a name must not be taken for new because its list is missing.
-      const [tags, goals, lists] = await Promise.all([
-        queryClient.ensureQueryData<Tag[]>({ queryKey: TAGS, queryFn: tagsApi.listTags }),
-        queryClient.ensureQueryData<Goal[]>({ queryKey: GOALS, queryFn: goalsApi.listGoals }),
-        queryClient.ensureQueryData<List[]>({ queryKey: LISTS, queryFn: listsApi.listLists }),
-      ]);
-      const depth = depthUnder(queryClient.getQueryData<TaskTreeNode[]>(TASKS) ?? [], place.parentId);
-      const typed = parseShortSyntax(text, { today: localDate(), tags, goals, lists, depth });
-      if (!typed.title) throw new Error("A task needs a title too, not only shortcuts");
+  const change = useChange<AddChange>(CHANGE.add);
+  const [typo, setTypo] = useState<Error | null>(null);
+  const { mutate } = change;
 
-      const newTags = await Promise.all(typed.newTags.map(tagsApi.createTag));
-      const newGoals = await Promise.all(typed.newGoals.map((name) => goalsApi.createGoal({ name })));
-      const movesList = typed.listId !== undefined && typed.listId !== place.listId;
-      return tasksApi.createTask({
-        ...place,
-        title: typed.title,
-        // In another list than the one typed in, it goes to the end: the place was counted for this one.
-        ...(movesList && { listId: typed.listId, index: undefined }),
-        tagIds: [...new Set([...(place.tagIds ?? []), ...typed.tagIds, ...newTags.map((tag) => tag.id)])],
-        goalIds: [...new Set([...(place.goalIds ?? []), ...typed.goalIds, ...newGoals.map((goal) => goal.id)])],
-        // A schedule and a deadline don't go together, so a typed schedule drops the day the caller gave.
-        deadlineDate: typed.repeat ? undefined : (typed.deadlineDate ?? place.deadlineDate),
-        deadlineType: typed.deadlineDate ? typed.deadlineType : place.deadlineType,
-        points: typed.points,
-        today: typed.today || undefined,
-        repeatEvery: typed.repeat?.every,
-        repeatUnit: typed.repeat?.unit,
-        nextDue: typed.repeat?.nextDue,
-        notes: typed.notes,
-      });
+  const add = useCallback(
+    async ({ text, ...place }: TypedTask, options?: { onError?: (error: Error) => void }): Promise<string> => {
+      try {
+        const { tags, goals, lists, trees } = await syntaxLists(queryClient);
+        const typed = parseShortSyntax(text, { today: localDate(), tags, goals, lists, depth: depthUnder(trees, place.parentId) });
+        if (!typed.title) throw new Error("A task needs a title too, not only shortcuts");
+        setTypo(null);
+        const newTags = labelsNamed(typed.newTags);
+        const newGoals = labelsNamed(typed.newGoals);
+        const movesList = typed.listId !== undefined && typed.listId !== place.listId;
+        const task = {
+          ...place,
+          id: newId(),
+          title: typed.title,
+          // In another list than the one typed in, it goes to the end: the place was counted for this one.
+          ...(movesList && { listId: typed.listId, index: undefined }),
+          tagIds: [...new Set([...(place.tagIds ?? []), ...typed.tagIds, ...newTags.map((tag) => tag.id)])],
+          goalIds: [...new Set([...(place.goalIds ?? []), ...typed.goalIds, ...newGoals.map((goal) => goal.id)])],
+          // A schedule and a deadline don't go together, so a typed schedule drops the day the caller gave.
+          deadlineDate: typed.repeat ? undefined : (typed.deadlineDate ?? place.deadlineDate),
+          deadlineType: typed.deadlineDate ? typed.deadlineType : place.deadlineType,
+          points: typed.points,
+          today: typed.today || undefined,
+          repeatEvery: typed.repeat?.every,
+          repeatUnit: typed.repeat?.unit,
+          nextDue: typed.repeat?.nextDue,
+          notes: typed.notes,
+        };
+        mutate({ tags: newTags, goals: newGoals, task }, options);
+        return task.id;
+      } catch (error) {
+        setTypo(error as Error);
+        options?.onError?.(error as Error);
+        throw error;
+      }
     },
-    onSettled: () => Promise.all([...TASK_DATA, TAGS, GOALS].map((queryKey) => queryClient.invalidateQueries({ queryKey }))),
-  });
+    [queryClient, mutate],
+  );
+  return { add, mutate: (typed: TypedTask, options?: { onError?: (error: Error) => void }) => void add(typed, options).catch(() => {}), error: typo ?? change.error };
 }
 
 /**
  * Saves the edited title of a task that exists. Shortcuts typed into it are taken out and set on the task, as when
  * adding one: tags and goals join the ones it has, a typed note goes under the note it has, a deadline, points or a
  * schedule take the place of its own, and /list moves it to the end of that list. What stood in the title already
- * stays text (parseTitleEdit).
+ * stays text (parseTitleEdit). `onApplied` hears the title as it is saved, shortcuts taken out.
  */
 export function useEditTask() {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ node, text }: { node: TaskTreeNode; text: string }) => {
-      const [tags, goals, lists] = await Promise.all([
-        queryClient.ensureQueryData<Tag[]>({ queryKey: TAGS, queryFn: tagsApi.listTags }),
-        queryClient.ensureQueryData<Goal[]>({ queryKey: GOALS, queryFn: goalsApi.listGoals }),
-        queryClient.ensureQueryData<List[]>({ queryKey: LISTS, queryFn: listsApi.listLists }),
-      ]);
-      const trees = queryClient.getQueryData<TaskTreeNode[]>(TASKS) ?? [];
-      const typed = parseTitleEdit(text, node.title, { today: localDate(), tags, goals, lists, depth: depthUnder(trees, node.parentId) });
-      if (!typed.title) throw new Error("A task needs a title too, not only shortcuts");
+  const change = useChange<EditChange>(CHANGE.edit);
+  const [typo, setTypo] = useState<Error | null>(null);
+  const { mutate } = change;
 
-      const newTags = await Promise.all(typed.newTags.map(tagsApi.createTag));
-      const newGoals = await Promise.all(typed.newGoals.map((name) => goalsApi.createGoal({ name })));
-      const tagIds = [...new Set([...node.tagIds, ...typed.tagIds, ...newTags.map((tag) => tag.id)])];
-      const goalIds = [...new Set([...node.goalIds, ...typed.goalIds, ...newGoals.map((goal) => goal.id)])];
-      const task = await tasksApi.updateTask(node.id, {
-        title: typed.title,
-        ...(tagIds.length > node.tagIds.length && { tagIds }),
-        ...(goalIds.length > node.goalIds.length && { goalIds }),
-        ...(typed.deadlineDate && { deadlineDate: typed.deadlineDate, deadlineType: typed.deadlineType }),
-        points: typed.points,
-        today: typed.today || undefined,
-        ...(typed.repeat && { repeatEvery: typed.repeat.every, repeatUnit: typed.repeat.unit, nextDue: typed.repeat.nextDue }),
-        ...(typed.notes && { notes: node.notes ? `${node.notes}\n${typed.notes}` : typed.notes }),
-      });
-      if (typed.listId !== undefined && typed.listId !== node.listId) {
-        const last = trees.filter((tree) => tree.listId === typed.listId).length;
-        await tasksApi.moveTask(node.id, { parentId: null, listId: typed.listId, index: last });
+  const edit = useCallback(
+    async ({ node, text }: { node: TaskTreeNode; text: string }, options?: { onApplied?: (title: string) => void; onError?: (error: Error) => void }) => {
+      try {
+        const { tags, goals, lists, trees } = await syntaxLists(queryClient);
+        const typed = parseTitleEdit(text, node.title, { today: localDate(), tags, goals, lists, depth: depthUnder(trees, node.parentId) });
+        if (!typed.title) throw new Error("A task needs a title too, not only shortcuts");
+        setTypo(null);
+        const newTags = labelsNamed(typed.newTags);
+        const newGoals = labelsNamed(typed.newGoals);
+        const tagIds = [...new Set([...node.tagIds, ...typed.tagIds, ...newTags.map((tag) => tag.id)])];
+        const goalIds = [...new Set([...node.goalIds, ...typed.goalIds, ...newGoals.map((goal) => goal.id)])];
+        const changes: tasksApi.TaskChanges = {
+          title: typed.title,
+          ...(tagIds.length > node.tagIds.length && { tagIds }),
+          ...(goalIds.length > node.goalIds.length && { goalIds }),
+          ...(typed.deadlineDate && { deadlineDate: typed.deadlineDate, deadlineType: typed.deadlineType }),
+          points: typed.points,
+          today: typed.today || undefined,
+          ...(typed.repeat && { repeatEvery: typed.repeat.every, repeatUnit: typed.repeat.unit, nextDue: typed.repeat.nextDue }),
+          ...(typed.notes && { notes: node.notes ? `${node.notes}\n${typed.notes}` : typed.notes }),
+        };
+        const moves = typed.listId !== undefined && typed.listId !== node.listId;
+        const last = moves ? trees.filter((tree) => tree.listId === typed.listId && tree.id !== node.id).length : 0;
+        mutate({ id: node.id, tags: newTags, goals: newGoals, changes, move: moves ? { parentId: null, listId: typed.listId!, index: last } : null }, options);
+        options?.onApplied?.(typed.title);
+      } catch (error) {
+        setTypo(error as Error);
+        options?.onError?.(error as Error);
       }
-      return task;
     },
-    onSettled: () => Promise.all([...TASK_DATA, TAGS, GOALS].map((queryKey) => queryClient.invalidateQueries({ queryKey }))),
-  });
-}
-/**
- * Ticking shows at once: the row, its parents' "x/y done", deadline pills and
- * any open countdown table change before the server answers, and roll back if it fails.
- */
-export function useToggleTask() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, done }: { id: string; done: boolean }) => tasksApi.toggleTask(id, done),
-    onMutate: async ({ id, done: ticks }) => {
-      await Promise.all([TASKS, COUNTDOWN, PRESSURE].map((queryKey) => queryClient.cancelQueries({ queryKey })));
-      const trees = queryClient.getQueryData<TaskTreeNode[]>(TASKS);
-      // The Done page unticks tasks finished long ago, which only its own pages hold.
-      const done = queryClient.getQueryData<InfiniteData<DonePage>>(DONE);
-      const node = findNode(trees ?? [], id) ?? findNode(done?.pages.flatMap((page) => page.tasks) ?? [], id);
-      // Already so: the server changes nothing either.
-      if (!node || node.isComplete === ticks) return;
-
-      const today = localDate();
-      const change: CompletionChange = { id, was: node.completedOn, now: ticks ? today : null };
-      const countdowns = queryClient.getQueriesData<Countdown>({ queryKey: COUNTDOWN });
-      if (trees) queryClient.setQueryData(TASKS, toggleInTrees(trees, change, today));
-      if (done) {
-        const pages = done.pages.map((page) => ({ ...page, tasks: toggleInTrees(page.tasks, change, today) }));
-        queryClient.setQueryData(DONE, { ...done, pages });
-      }
-      for (const [queryKey, countdown] of countdowns) {
-        const owner = findNode(trees ?? [], String(queryKey[1]));
-        if (countdown && owner && findNode([owner], id)) queryClient.setQueryData(queryKey, toggleInCountdown(countdown, change));
-      }
-      return { trees, done, countdowns };
-    },
-    onError: (error, _args, saved) => {
-      refuse(error);
-      if (!saved) return;
-      if (saved.trees) queryClient.setQueryData(TASKS, saved.trees);
-      if (saved.done) queryClient.setQueryData(DONE, saved.done);
-      for (const [queryKey, countdown] of saved.countdowns) queryClient.setQueryData(queryKey, countdown);
-    },
-    // An untick is not a task done.
-    onSuccess: (task) => task.isComplete && taskDone(task.doneToday, breakEvery(queryClient)),
-    onSettled: () => Promise.all(TASK_DATA.map((queryKey) => queryClient.invalidateQueries({ queryKey }))),
-  });
-}
-export function usePressTask() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: tasksApi.pressTask,
-    onError: refuse,
-    onSuccess: (press) => taskDone(press.doneToday, breakEvery(queryClient)),
-    onSettled: () => Promise.all(TASK_DATA.map((queryKey) => queryClient.invalidateQueries({ queryKey }))),
-  });
-}
-export const useUndoPress = () =>
-  useInvalidating(
-    ({ id, completionId }: { id: string; completionId: string }) => tasksApi.undoPress(id, completionId),
-    TASK_DATA,
-    refuse,
+    [queryClient, mutate],
   );
-export const useDeleteTask = () => useInvalidating(tasksApi.deleteTask, TASK_DATA);
-export const useRestoreTask = () => useInvalidating(tasksApi.restoreTask, TASK_DATA);
-export const useUpdateTask = () =>
-  useInvalidating(
-    ({ id, changes }: { id: string; changes: tasksApi.TaskChanges }) => tasksApi.updateTask(id, changes),
-    TASK_DATA,
-  );
-/** In or out of Today. Shows at once, before the server answers, and rolls back if it fails. */
-export function useSetToday() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, today }: { id: string; today: boolean }) => tasksApi.updateTask(id, { today }),
-    onMutate: async ({ id, today }) => {
-      await queryClient.cancelQueries({ queryKey: TASKS });
-      const trees = queryClient.getQueryData<TaskTreeNode[]>(TASKS);
-      if (!trees) return;
-      const mark = (nodes: TaskTreeNode[]): TaskTreeNode[] =>
-        nodes.map((node) =>
-          node.id === id
-            ? { ...node, todaySince: today ? (node.todaySince ?? localDate()) : null }
-            : { ...node, children: mark(node.children) },
-        );
-      queryClient.setQueryData(TASKS, mark(trees));
-      return { trees };
-    },
-    onError: (_error, _args, saved) => saved && queryClient.setQueryData(TASKS, saved.trees),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: TASKS }),
-  });
-}
-/** Every node of the trees through `change`. */
-const mapNodes = (nodes: TaskTreeNode[], change: (node: TaskTreeNode) => TaskTreeNode): TaskTreeNode[] =>
-  nodes.map((node) => change({ ...node, children: mapNodes(node.children, change) }));
-
-const allNodes = (nodes: TaskTreeNode[]): TaskTreeNode[] => nodes.flatMap((node) => [node, ...allNodes(node.children)]);
-
-/** The order of `day` in the Week box with `id` taken out and put back after `after` (null = first, undefined = last). */
-function dayOrderWith(trees: TaskTreeNode[], id: string, day: string, after: string | null | undefined) {
-  const today = localDate();
-  const order = allNodes(trees)
-    .filter((node) => node.weekDay !== null && node.id !== id && weekColumn(node, today) === day)
-    .sort((a, b) => a.weekPosition - b.weekPosition)
-    .map((node) => node.id);
-  const at = after === undefined || (after !== null && !order.includes(after)) ? order.length : after === null ? 0 : order.indexOf(after) + 1;
-  order.splice(at, 0, id);
-  return new Map(order.map((taskId, position) => [taskId, position]));
+  return { mutate: (args: { node: TaskTreeNode; text: string }, options?: { onApplied?: (title: string) => void; onError?: (error: Error) => void }) => void edit(args, options), error: typo ?? change.error };
 }
 
-/** Changes the Week box at once, before the server answers, and rolls back if it fails. */
-function useWeekMutation<TArgs extends { id: string }>(mutationFn: (args: TArgs) => Promise<unknown>, change: (trees: TaskTreeNode[], args: TArgs) => TaskTreeNode[]) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn,
-    onMutate: async (args: TArgs) => {
-      await queryClient.cancelQueries({ queryKey: TASKS });
-      const trees = queryClient.getQueryData<TaskTreeNode[]>(TASKS);
-      if (!trees) return;
-      queryClient.setQueryData(TASKS, change(trees, args));
-      return { trees };
-    },
-    onError: (_error, _args, saved) => saved && queryClient.setQueryData(TASKS, saved.trees),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: TASKS }),
-  });
-}
-
-/** The trees with `id` on `day` of the Week box after `after`, as the server's placeInWeek does it. */
-function placedInWeek(trees: TaskTreeNode[], id: string, day: string, after: string | null | undefined) {
-  const order = dayOrderWith(trees, id, day, after);
-  return mapNodes(trees, (node) =>
-    node.id === id ? { ...node, weekDay: day, weekPosition: order.get(id)! } : order.has(node.id) ? { ...node, weekPosition: order.get(node.id)! } : node,
-  );
-}
-
+/** Ticks (`done`) or unticks a task; shows at once, with its parents' counts, deadline pills and open countdown tables. */
+export const useToggleTask = () => useChange<{ id: string; done: boolean }>(CHANGE.toggle);
+/** One press of a persistent task's "done it" button; `completionId` is made by the caller (newId), for its undo. */
+export const usePressTask = () => useChange<PressChange>(CHANGE.press);
+export const useUndoPress = () => useChange<PressChange>(CHANGE.undoPress);
+export const useDeleteTask = () => useChange<{ id: string }>(CHANGE.delete);
+export const useRestoreTask = () => useChange<{ id: string }>(CHANGE.restore);
+export const useUpdateTask = () => useChange<{ id: string; changes: tasksApi.TaskChanges }>(CHANGE.update);
+/** In or out of Today. */
+export const useSetToday = () => useChange<{ id: string; today: boolean }>(CHANGE.today);
 /** In or out of the Week box; one coming in goes last on today. */
-export const useSetWeek = () =>
-  useWeekMutation(
-    ({ id, week }: { id: string; week: boolean }) => tasksApi.updateTask(id, { week }),
-    (trees, { id, week }) =>
-      !week
-        ? mapNodes(trees, (node) => (node.id === id ? { ...node, weekDay: null } : node))
-        : findNode(trees, id)?.weekDay
-          ? trees
-          : placedInWeek(trees, id, localDate(), undefined),
-  );
-
+export const useSetWeek = () => useChange<{ id: string; week: boolean }>(CHANGE.week);
 /** A round of a task on a schedule moved to another day in Week (`to` = `from`: back on its own day). */
-export const useMoveRound = () =>
-  useWeekMutation(
-    ({ id, from, to }: { id: string; from: string; to: string }) => tasksApi.moveRound(id, from, to),
-    (trees, { id, from, to }) =>
-      mapNodes(trees, (node) => {
-        if (node.id !== id) return node;
-        const { [from]: _, ...others } = node.roundMoves ?? {};
-        const moves = from === to ? others : { ...others, [from]: to };
-        return { ...node, roundMoves: Object.keys(moves).length > 0 ? moves : null };
-      }),
-  );
-
+export const useMoveRound = () => useChange<{ id: string; from: string; to: string }>(CHANGE.round);
 /** A place in the Week box: on `day`, right after `after` (null = first, undefined = last); a task not in it yet comes in. */
-export const usePlaceInWeek = () =>
-  useWeekMutation(
-    ({ id, day, after }: { id: string; day: string; after?: string | null }) => tasksApi.placeInWeek(id, day, after),
-    (trees, { id, day, after }) => placedInWeek(trees, id, day, after),
-  );
+export const usePlaceInWeek = () => useChange<{ id: string; day: string; after?: string | null }>(CHANGE.placeInWeek);
+export const useMoveTask = () => useChange<{ id: string; placement: tasksApi.TaskPlacement }>(CHANGE.move);
 
-export const useMoveTask = () =>
-  useInvalidating(
-    ({ id, placement }: { id: string; placement: tasksApi.TaskPlacement }) => tasksApi.moveTask(id, placement),
-    TASK_DATA,
-  );
-
-export const useCreateGoal = () => useInvalidating(goalsApi.createGoal, [GOALS]);
+export const useCreateGoal = () => useInvalidating((body: { name: string; description?: string | null }) => goalsApi.createGoal(body), [GOALS]);
 // Deleting a goal unlinks it from its tasks.
 export const useDeleteGoal = () => useInvalidating(goalsApi.deleteGoal, [GOALS, TASKS]);
 
-export const useCreateTag = () => useInvalidating(tagsApi.createTag, [TAGS]);
+export const useCreateTag = () => useInvalidating((name: string) => tagsApi.createTag(name), [TAGS]);
 export const useDeleteTag = () => useInvalidating(tagsApi.deleteTag, [TAGS, TASKS]);
 
 // A folder made by dropping a box on "New" shows that box.

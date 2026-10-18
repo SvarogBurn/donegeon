@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useCreateList, useUpdateList } from "../../hooks/useTasks";
+import { useOnline } from "../../lib/offline/online";
+import { NeedsConnection } from "../NeedsConnection";
 import { KIND_COLORS, listColor, listFrame, sliderIn } from "../../lib/frameTones";
 import { filterTree, isFiltering, type LabelFilter } from "../../lib/labels";
 import { pointsFieldWidth, typedPoints } from "../../lib/points";
@@ -176,6 +178,8 @@ interface ListCardProps {
 
 export function ListCard({ list, tasks, taskCount }: ListCardProps) {
   const update = useUpdateList();
+  // Lists are changed online only; their tasks work offline too.
+  const online = useOnline();
   const { dropTarget, deleteList } = useTree();
   const [name, setName] = useState(list.name);
   useEffect(() => setName(list.name), [list.name]);
@@ -215,7 +219,8 @@ export function ListCard({ list, tasks, taskCount }: ListCardProps) {
           type="button"
           className="tile-button tile-button-x"
           aria-label={`Delete list "${list.name}"`}
-          title="Delete this list and its tasks (Ctrl+Z to undo)"
+          title={online ? "Delete this list and its tasks (Ctrl+Z to undo)" : "Needs a connection"}
+          disabled={!online}
           onClick={askDelete}
         />
       }
@@ -242,10 +247,12 @@ export function ListCard({ list, tasks, taskCount }: ListCardProps) {
           }}
           aria-label="List name"
           maxLength={200}
+          disabled={!online}
         />
       }
     >
       <header className="flex flex-wrap items-center gap-2">
+        <NeedsConnection>
         <KindFields
           kind={list.kind}
           points={points}
@@ -257,6 +264,7 @@ export function ListCard({ list, tasks, taskCount }: ListCardProps) {
         >
           <ColorPicker list={list} onPick={(color) => update.mutate({ id: list.id, changes: { color } })} />
         </KindFields>
+        </NeedsConnection>
       </header>
       {update.error && <p className="text-xs text-red-600">{update.error.message}</p>}
       <TaskTree nodes={tasks} parentId={null} listId={list.id} />
@@ -303,6 +311,7 @@ export function ListForm({ folderId = null }: { folderId?: string | null }) {
 
   return (
     <TileFrame title="New list" tone="setup">
+      <NeedsConnection>
       <form onSubmit={submit} className="flex flex-wrap items-center gap-2">
         <input
           className="nes-input input min-w-40 flex-1 max-sm:basis-full"
@@ -320,6 +329,7 @@ export function ListForm({ folderId = null }: { folderId?: string | null }) {
         </button>
         {createList.error && <p className="w-full text-xs text-red-600">{createList.error.message}</p>}
       </form>
+      </NeedsConnection>
     </TileFrame>
   );
 }

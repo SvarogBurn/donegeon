@@ -47,6 +47,11 @@
     font-synthesis: none;
     -webkit-font-smoothing: none;
   }
+  /* What needs a connection, while offline (components/NeedsConnection): its direct children, so it greys once. */
+  fieldset:disabled > * {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 }
 
 /*

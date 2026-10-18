@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { useFolders, useGoals, useLists, useTags, useTaskSearch, useTaskTrees } from "../../hooks/useTasks";
 import { formatDay } from "../../lib/dates";
 import { listView } from "../../lib/folders";
+import { useOnline } from "../../lib/offline/online";
 import { findNode } from "../../lib/optimisticToggle";
 import { findTaskRow, showOnPage } from "../../lib/showOnPage";
 import type { SearchResult } from "../../types";
@@ -78,6 +79,7 @@ export function SiteSearch({ onPickLabel, onHide }: Props) {
   }, [isOpen]);
 
   const search = useTaskSearch(q);
+  const online = useOnline();
   const { data: lists = [] } = useLists();
   const { data: folders = [] } = useFolders();
   const { data: goals = [] } = useGoals();
@@ -212,6 +214,8 @@ export function SiteSearch({ onPickLabel, onHide }: Props) {
           )}
           {search.error ? (
             <p className="p-1 text-xs text-red-600">Couldn't search your tasks: {search.error.message}</p>
+          ) : !online ? (
+            <p className="p-1 text-xs text-stone-500">Searching your tasks needs a connection.</p>
           ) : isSearching ? (
             <p className="p-1 text-xs text-stone-500">Searching your tasks…</p>
           ) : hits.length === 0 ? (

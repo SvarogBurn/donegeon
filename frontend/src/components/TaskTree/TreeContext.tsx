@@ -35,6 +35,13 @@ import {
 import type { List, TaskTreeNode, TickedTasks } from "../../types";
 import { NotePanel } from "./NoteView";
 import { focusTaskEditor } from "./TitleEditor";
+import { newId } from "../../lib/offline/changes";
+
+/** How long a ticked or pressed task's control waits before a second click counts. */
+const DOUBLE_CLICK_MS = 600;
+
+/** Once the change just shown is on the page: a moved row is put back in the DOM, which drops its focus. */
+const afterRender = (then: () => void) => requestAnimationFrame(() => requestAnimationFrame(then));
 
 /** The not-yet-saved task row opened by Enter / Ctrl+Enter. */
 export interface Draft {
@@ -92,7 +99,7 @@ interface TreeContextValue {
    * page, or any task when ticked ones are hidden) offers the undo, so a slip doesn't mean a trip there.
    */
   tick: (node: TaskTreeNode) => void;
-  /** A tick or press of this task is on its way to the server: its checkbox or button waits, so a double click counts once. */
+  /** This task was just ticked or pressed: its checkbox or button waits a moment, so a double click counts once. */
   isBusy: (id: string) => boolean;
   /** One press of a persistent task's "done it" button; undoable. */
   pressTask: (node: TaskTreeNode) => void;
@@ -218,29 +225,26 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
 
   const offer = useCallback((item: Offer) => setUndoable((stack) => [...stack, { ...item, until: Date.now() + UNDO_WINDOW_MS } as Undoable]), []);
 
-  // The tasks whose tick or press is on its way. A ref, so a second click in the same instant already finds it;
-  // the re-render shows the control waiting.
+  // The tasks just ticked or pressed. A ref, so a second click in the same instant already finds it; the re-render
+  // shows the control waiting. Not until the server answers: offline, that may be hours (see lib/offline/changes).
   const busy = useRef(new Set<string>());
   const [, rerender] = useReducer((n: number) => n + 1, 0);
-  const once = useCallback((id: string, send: () => Promise<unknown>) => {
+  const once = useCallback((id: string, send: () => void) => {
     if (busy.current.has(id)) return;
     busy.current.add(id);
     rerender();
-    send()
-      .catch(() => {})
-      .finally(() => {
-        busy.current.delete(id);
-        rerender();
-      });
+    send();
+    setTimeout(() => {
+      busy.current.delete(id);
+      rerender();
+    }, DOUBLE_CLICK_MS);
   }, []);
 
   const deleteTask = useCallback(
     (node: TaskTreeNode) => {
-      // Offered for undo only once the server has really deleted it.
-      remove.mutateAsync(node.id).then(
-        () => offer({ kind: "task", id: node.id, title: node.title }),
-        () => {},
-      );
+      // Gone from the page at once, offline too; an undo is sent after the delete, whenever that goes out.
+      remove.mutate({ id: node.id });
+      offer({ kind: "task", id: node.id, title: node.title });
     },
     [remove, offer],
   );
@@ -259,18 +263,23 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
     (node: TaskTreeNode) => {
       const done = !node.isComplete;
       const leavesSight = done && (!node.parentId || ticked === "hide");
-      once(node.id, () =>
-        toggle.mutateAsync({ id: node.id, done }).then(() => leavesSight && offer({ kind: "finished", id: node.id, title: node.title })),
-      );
+      // Shown at once, and it may wait to be sent while offline: the undo is offered now.
+      once(node.id, () => {
+        toggle.mutate({ id: node.id, done });
+        if (leavesSight) offer({ kind: "finished", id: node.id, title: node.title });
+      });
     },
     [toggle, ticked, once, offer],
   );
 
   const pressTask = useCallback(
     (node: TaskTreeNode) => {
-      once(node.id, () =>
-        press.mutateAsync(node.id).then((completion) => offer({ kind: "press", id: node.id, title: node.title, completionId: completion.id })),
-      );
+      // The press gets its id here, so its undo can be offered (and sent) before the server has it.
+      once(node.id, () => {
+        const completionId = newId();
+        press.mutate({ id: node.id, completionId });
+        offer({ kind: "press", id: node.id, title: node.title, completionId });
+      });
     },
     [press, once, offer],
   );
@@ -297,7 +306,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       if (byId.get(last.id)?.isComplete) toggle.mutate({ id: last.id, done: false });
     } else {
       focusWhenShown.current = last.id;
-      restore.mutate(last.id);
+      restore.mutate({ id: last.id });
     }
   }, [undoable, restore, restoreList, undoPress, toggle, byId]);
 
@@ -453,7 +462,8 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
         const at = order.indexOf(node.id);
         if (at < 0 || !order[at + direction]) return;
         const after = direction === -1 ? (order[at - 2] ?? null) : order[at + 1];
-        placeInWeek.mutateAsync({ id: node.id, day, after }).then(() => focusTaskEditor(node.id), () => {});
+        placeInWeek.mutate({ id: node.id, day, after });
+        afterRender(() => focusTaskEditor(node.id));
         return;
       }
       const siblings = siblingsOf(node);
@@ -468,7 +478,8 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       if (index < 0 || index >= siblings.length) return;
       const placement = { parentId: node.parentId, listId: node.parentId ? null : node.listId, index };
       // The row is re-inserted in the DOM, which drops focus; put it back.
-      move.mutateAsync({ id: node.id, placement }).then(() => focusTaskEditor(node.id), () => {});
+      move.mutate({ id: node.id, placement });
+      afterRender(() => focusTaskEditor(node.id));
     },
     [move, placeInWeek, siblingsOf, ticked, byDeadline, rootId],
   );
