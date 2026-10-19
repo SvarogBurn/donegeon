@@ -95,6 +95,8 @@ interface SwitchedAmountProps {
 function SwitchedAmount({ label, value, first, onSave, amountLabel, name, note }: SwitchedAmountProps) {
   const [text, setText] = useState(value === null ? "" : String(value));
   useEffect(() => setText(value === null ? "" : String(value)), [value]);
+  // Only switching it on goes straight to its amount; opening the page with it on doesn't (on a phone that pops up the keyboard).
+  const [isJustSwitched, setIsJustSwitched] = useState(false);
 
   function done() {
     // Nothing typed, or 0, is no amount: back to the saved one.
@@ -107,7 +109,15 @@ function SwitchedAmount({ label, value, first, onSave, amountLabel, name, note }
     <>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <label className="flex items-center gap-2">
-          <PixelCheckbox small checked={value !== null} onChange={(e) => onSave(e.target.checked ? first : null)} {...{ [`data-${name}-switch`]: true }} />
+          <PixelCheckbox
+            small
+            checked={value !== null}
+            onChange={(e) => {
+              setIsJustSwitched(e.target.checked);
+              onSave(e.target.checked ? first : null);
+            }}
+            {...{ [`data-${name}-switch`]: true }}
+          />
           {label}
         </label>
         {value !== null && (
@@ -115,8 +125,7 @@ function SwitchedAmount({ label, value, first, onSave, amountLabel, name, note }
             className="w-28 border-2 border-stone-300 bg-white px-1 py-1 text-xs text-stone-900 tabular-nums dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
             type="text"
             inputMode="numeric"
-            // Switching it on goes straight to its amount.
-            autoFocus
+            autoFocus={isJustSwitched}
             onFocus={(e) => e.currentTarget.select()}
             value={text}
             onChange={(e) => setText(typedPoints(e.target.value))}
