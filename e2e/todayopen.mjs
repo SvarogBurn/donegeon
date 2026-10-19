@@ -81,7 +81,23 @@ out("under Today is the bin of what was put off to next week", await bin.isVisib
   await p.mouse.move(h.x + h.width / 2, h.y + h.height / 2); await p.mouse.down();
   await p.mouse.move(t.x + t.width / 2, t.y + t.height / 2, { steps: 20 }); await wait(200); await p.mouse.up(); await wait(900);
 }
-const onDay = (await api("/tasks", "GET")).tasks.find((t) => t.id === old).weekDay;
-out("…and a task dragged there is put off", onDay === nextMonday && await bin.locator(`[data-week-item="${old}"]`).count() === 1, onDay);
+const putOff = (await api("/tasks", "GET")).tasks.find((t) => t.id === old);
+out("…and a task dragged there is put off", putOff.weekDay === nextMonday && await bin.locator(`[data-week-item="${old}"]`).count() === 1, putOff.weekDay);
+out("…out of Today, its days carried over forgotten", putOff.todaySince === null && await item(old).count() === 0 && await bin.locator(`[data-week-item="${old}"] [data-carried]`).count() === 0, putOff.todaySince);
+
+// A carried-over row of Today goes into the bin by its own handle.
+const waited = await add("Fix bike", { listId }); await twoDaysAgo(`/tasks/${waited}`, { today: true });
+await home();
+{
+  const handle = item(waited).locator('[aria-label^="Drag"]');
+  await handle.scrollIntoViewIfNeeded();
+  const h = await handle.boundingBox(); const t = await bin.locator("header").boundingBox();
+  await p.mouse.move(h.x + h.width / 2, h.y + h.height / 2); await p.mouse.down();
+  await p.mouse.move(t.x + t.width / 2, t.y + t.height / 2, { steps: 20 }); await wait(200); await p.mouse.up(); await wait(900);
+}
+const fromToday = (await api("/tasks", "GET")).tasks.find((t) => t.id === waited);
+out("a carried-over row of Today dragged by its handle into the bin is put off and leaves Today",
+  fromToday.weekDay === nextMonday && fromToday.todaySince === null && await item(waited).count() === 0 && await bin.locator(`[data-week-item="${waited}"]`).count() === 1,
+  `${fromToday.weekDay} ${fromToday.todaySince}`);
 
 await b.close();

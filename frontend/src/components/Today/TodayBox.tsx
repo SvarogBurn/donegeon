@@ -235,16 +235,30 @@ function PickedRow({ node, path, today, box, carried, auto, missed = false, roun
             </>
           ) : (
             // A task that is here because it is due, or its deadline near, leaves by being done, not by hand.
-            <button
-              type="button"
-              className="btn-quiet glyph disabled:invisible"
-              disabled={node.todaySince === null}
-              aria-label={`Take "${name}" out of Today`}
-              title="Take out of Today (the task itself stays where it is)"
-              onClick={() => setToday.mutate({ id: node.id, today: false })}
-            >
-              ×
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn-quiet glyph disabled:invisible"
+                disabled={node.todaySince === null}
+                aria-label={`Take "${name}" out of Today`}
+                title="Take out of Today (the task itself stays where it is)"
+                onClick={() => setToday.mutate({ id: node.id, today: false })}
+              >
+                ×
+              </button>
+              {/* Dropped on the Next week bin under the day's tasks, it is put off: out of Today, its days waiting forgotten. */}
+              {node.todaySince !== null && (
+                <button
+                  type="button"
+                  className="btn-quiet cursor-grab touch-none glyph select-none active:cursor-grabbing"
+                  onPointerDown={(e) => tree.startDrag(e, node)}
+                  aria-label={`Drag "${name}"`}
+                  title="Drag to the Next week bin to put it off (it leaves Today), or to a list or the Week tab"
+                >
+                  ⠿
+                </button>
+              )}
+            </>
           )}
         </span>
       </div>

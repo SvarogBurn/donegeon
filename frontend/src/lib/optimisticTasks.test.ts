@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { List, TaskTreeNode } from "../types";
-import { draftNode, insertedInTrees, movedInTrees, patchFor, pressedInTrees, removedFromTrees } from "./optimisticTasks";
+import { draftNode, insertedInTrees, movedInTrees, patchFor, placedInWeek, pressedInTrees, removedFromTrees } from "./optimisticTasks";
 import { dueAfter } from "./repeat";
 
 const LIST: List = { id: "L", name: "List", kind: "task", defaultPoints: 3 } as List;
@@ -56,6 +56,19 @@ describe("insertedInTrees / removedFromTrees / movedInTrees", () => {
   it("moves a task to another place", () => {
     const next = movedInTrees(trees, "C", { parentId: null, listId: "L", index: 0 });
     expect(next.map((n) => n.id)).toEqual(["C", "A", "B"]);
+  });
+});
+
+describe("placedInWeek", () => {
+  // 2026-10-18 is a Sunday: the week is 12–18/10, next week starts 19/10.
+  const carried = node("A", { todaySince: "2026-10-14" });
+
+  it("keeps a task put on a day of this week in Today too", () => {
+    expect(placedInWeek([carried], "A", "2026-10-16", undefined, "2026-10-18")[0]).toMatchObject({ weekDay: "2026-10-16", todaySince: "2026-10-14" });
+  });
+
+  it("takes a task put off to next week out of Today, with how long it waited there", () => {
+    expect(placedInWeek([carried], "A", "2026-10-19", undefined, "2026-10-18")[0]).toMatchObject({ weekDay: "2026-10-19", todaySince: null });
   });
 });
 

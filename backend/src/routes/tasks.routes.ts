@@ -177,6 +177,7 @@ async function placeAmongSiblings(
  * rewrites the order of that day. Each day has an order of its own, apart from the task's place in its list.
  * The Monday of this week (`today`'s) also holds what is still open from the weeks before. Only what the box
  * shows is ordered (see weekDays in the frontend's lib/week.ts): open tasks, and those ticked this week.
+ * Put off to next week (or later), it is no longer for today: it leaves Today, and how long it waited there with it.
  */
 async function placeInWeek(
   tx: Prisma.TransactionClient,
@@ -202,7 +203,8 @@ async function placeInWeek(
   const after = afterId ? others.indexOf(afterId) : -1;
   // A task that is no longer there (deleted or moved meanwhile) to go after: then last.
   const order = insertAt(others, taskId, afterId === undefined || (afterId && after < 0) ? others.length : after + 1);
-  await tx.task.update({ where: { id: taskId }, data: { weekDay: day } });
+  const putOff = day >= addDays(monday, 7);
+  await tx.task.update({ where: { id: taskId }, data: { weekDay: day, ...(putOff && { todaySince: null }) } });
   await writeOrder(tx, "weekPosition", order, new Map(onDay.map((t) => [t.id, t.weekPosition])));
 }
 

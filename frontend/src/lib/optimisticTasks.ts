@@ -1,7 +1,8 @@
 import type { TaskChanges, NewTask, TaskPlacement } from "../api/tasks";
 import type { List, Task, TaskPress, TaskTreeNode } from "../types";
+import { addDays } from "./dates";
 import { dueAfter, movesFrom } from "./repeat";
-import { weekColumn } from "./week";
+import { mondayOf, weekColumn } from "./week";
 
 // The task trees as they will be once the server has a change: shown the moment it is made, and for as long as it
 // waits to be sent while offline. The refetch after it replaces all of it with the server's own (see lib/offline).
@@ -51,11 +52,16 @@ function dayOrderWith(trees: TaskTreeNode[], id: string, day: string, after: str
   return new Map(order.map((taskId, position) => [taskId, position]));
 }
 
-/** The trees with `id` on `day` of the Week box after `after`, as the server's placeInWeek does it. */
+/** The trees with `id` on `day` of the Week box after `after`, as the server's placeInWeek does it: put off to next week, it leaves Today. */
 export function placedInWeek(trees: TaskTreeNode[], id: string, day: string, after: string | null | undefined, today: string) {
   const order = dayOrderWith(trees, id, day, after, today);
+  const putOff = day >= addDays(mondayOf(today), 7);
   return mapNodes(trees, (node) =>
-    node.id === id ? { ...node, weekDay: day, weekPosition: order.get(id)! } : order.has(node.id) ? { ...node, weekPosition: order.get(node.id)! } : node,
+    node.id === id
+      ? { ...node, weekDay: day, weekPosition: order.get(id)!, ...(putOff && { todaySince: null }) }
+      : order.has(node.id)
+        ? { ...node, weekPosition: order.get(node.id)! }
+        : node,
   );
 }
 
