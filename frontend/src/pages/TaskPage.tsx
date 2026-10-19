@@ -87,8 +87,8 @@ export function TaskPage() {
                 <TaskTree nodes={[found.node]} parentId={found.node.parentId} listId={found.node.listId} depth={found.depth} />
                 <TaskForm parentId={found.node.id} placeholder="Add a subtask, then press Enter" />
               </TileFrame>
-              {/* Notes are for main tasks; the box is there once the task has one (its icon or ⋯ menu adds one). */}
-              {!found.node.parentId && found.node.notes && (
+              {/* The box is there once the task has a note (its icon or ⋯ menu adds one). */}
+              {found.node.notes && (
                 <NoteFrame node={found.node} title="Note" aria-label="Note" className="min-w-0 lg:col-start-1 lg:row-start-2">
                   <NoteView key={found.node.id} node={found.node} />
                 </NoteFrame>

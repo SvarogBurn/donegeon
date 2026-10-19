@@ -16,8 +16,8 @@ interface Props {
   /** 0 = main task, 1 = its direct subtask, ... */
   depth: number;
   onAddSubtask: () => void;
-  /** Main tasks: opens the note under the row. */
-  onOpenNote?: () => void;
+  /** Opens the task's note at the side of the page. */
+  onOpenNote: () => void;
 }
 
 interface LabelPickerProps {
@@ -92,7 +92,7 @@ function Doing({ node }: { node: TaskTreeNode }) {
   const today = localDate();
   const nextMonday = addDays(mondayOf(today), 7);
   // A task on a schedule comes into Week by itself; what can be done about it is putting this week's round off.
-  const round = !node.parentId && node.weekDay === null ? currentRound(node, today) : null;
+  const round = node.weekDay === null ? currentRound(node, today) : null;
   const roundPutOff = round !== null && round.day >= nextMonday && node.roundMoves?.[round.planned] !== undefined;
   // Without a list, a task lives in Today or in Week: it can't leave the last of them.
   const canLeaveWeek = Boolean(node.parentId || node.listId || node.todaySince);
@@ -159,18 +159,14 @@ function Doing({ node }: { node: TaskTreeNode }) {
           Do next week (this round)
         </label>
       )}
-      {!node.parentId && (
-        <>
-          <label className={CHECK_ROW} data-menu-part="persistent" title="Stays in its list and can be done again and again; each time counts its points.">
-            <PixelCheckbox
-              small
-              checked={node.isPersistent}
-              onChange={(e) => save({ isPersistent: e.target.checked })}
-            />
-            {isReward ? "Persistent (can be bought again)" : "Persistent (can be done again)"}
-          </label>
-        </>
-      )}
+      <label className={CHECK_ROW} data-menu-part="persistent" title="Stays in its list and can be done again and again; each time counts its points.">
+        <PixelCheckbox
+          small
+          checked={node.isPersistent}
+          onChange={(e) => save({ isPersistent: e.target.checked })}
+        />
+        {isReward ? "Persistent (can be bought again)" : "Persistent (can be done again)"}
+      </label>
       <label className="flex items-center gap-2 px-1 text-xs" data-menu-part="points">
         <span className="shrink-0">{isReward ? "Costs" : "Points"}</span>
         {/* The same dark field as a list's "N each". */}
@@ -411,7 +407,7 @@ export function TaskMenu({ node, depth, onAddSubtask, onOpenNote }: Props) {
           >
             <Doing node={node} />
             {/* A schedule is for tasks done again and again, so it is offered once Persistent is ticked. */}
-            {!node.parentId && node.isPersistent && (
+            {node.isPersistent && (
               <div className="space-y-1 text-xs">
                 <span className="font-medium">Repeat</span>
                 <Repeat node={node} />
@@ -428,12 +424,10 @@ export function TaskMenu({ node, depth, onAddSubtask, onOpenNote }: Props) {
               <button type="button" className="btn-quiet" onClick={() => (setIsOpen(false), onAddSubtask())}>
                 Add subtask
               </button>
-              {onOpenNote && (
-                <button type="button" className="btn-quiet inline-flex items-center gap-1" data-menu-part="note" onClick={() => (setIsOpen(false), onOpenNote())}>
-                  <span aria-hidden className={`notes-button ${node.notes ? "" : "opacity-45 grayscale"}`} />
-                  Note
-                </button>
-              )}
+              <button type="button" className="btn-quiet inline-flex items-center gap-1" data-menu-part="note" onClick={() => (setIsOpen(false), onOpenNote())}>
+                <span aria-hidden className={`notes-button ${node.notes ? "" : "opacity-45 grayscale"}`} />
+                Note
+              </button>
               <button type="button" className="btn-quiet !text-red-600" onClick={() => (setIsOpen(false), tree.deleteTask(node))}>
                 Delete task
               </button>

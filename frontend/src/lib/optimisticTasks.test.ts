@@ -78,6 +78,27 @@ describe("pressedInTrees", () => {
     expect(pressed.children[0].isComplete).toBe(false);
     expect(pressed.descendantDoneCount).toBe(0);
   });
+
+  it("presses a persistent subtask too, and leaves the rounds of a persistent task under it alone", () => {
+    const inner = node("I", { listId: null, parentId: "S", isComplete: true, completedOn: "2026-10-18" });
+    const nested = node("N", { listId: null, parentId: "S", isPersistent: true, children: [inner], descendantCount: 1, descendantDoneCount: 1 });
+    const sub = node("S", { listId: null, parentId: "M", isPersistent: true, children: [nested] });
+    const [main] = pressedInTrees([node("M", { children: [sub] })], "S", { id: "p", day: "2026-10-18", createdAt: ctx.at });
+    expect(main.children[0].completions.map((c) => c.id)).toEqual(["p"]);
+    expect(main.children[0].children[0].children[0].isComplete).toBe(true);
+  });
+});
+
+describe("persistent subtasks in the counts", () => {
+  it("are not counted by the tasks above them, coming or going", () => {
+    const trees = [node("B")];
+    const added = insertedInTrees(trees, node("P", { isPersistent: true, children: [node("P1")], descendantCount: 1 }), { parentId: "B", listId: null });
+    expect(added[0].descendantCount).toBe(0);
+    const under = insertedInTrees(added, node("X"), { parentId: "P", listId: null });
+    expect(under[0].descendantCount).toBe(0);
+    expect(under[0].children[0].descendantCount).toBe(2);
+    expect(removedFromTrees(under, "P").trees[0].descendantCount).toBe(0);
+  });
 });
 
 describe("dueAfter", () => {

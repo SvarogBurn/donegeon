@@ -80,12 +80,12 @@ describe("parseShortSyntax", () => {
     expect(parse("Bins @every tue")).toMatchObject({ title: "Bins", repeat: { every: 1, unit: "week", nextDue: "2026-10-13" } });
   });
 
-  it("reads @persistent on a main task, which then takes no deadline", () => {
+  it("reads @persistent on any task, which then takes no deadline", () => {
     expect(parse("Drink water @persistent")).toMatchObject({ title: "Drink water", persistent: true, tokens: [{ kind: "repeat", label: "persistent" }] });
     expect(parse("Vacuum @Persistent @weekly")).toMatchObject({ title: "Vacuum", persistent: true, repeat: { every: 1, unit: "week" } });
     expect(parse("x @persistent @fri")).toMatchObject({ title: "x @fri", persistent: true });
     expect(parse("x @fri @persistent")).toMatchObject({ title: "x @persistent", deadlineDate: "2026-10-16" });
-    expect(parse("x @persistent", 1)).toMatchObject({ title: "x @persistent", tokens: [] });
+    expect(parse("x @persistent", 2)).toMatchObject({ title: "x", persistent: true });
     expect(parse("x @persistently").persistent).toBeUndefined();
   });
 
@@ -122,6 +122,7 @@ describe("parseShortSyntax", () => {
 
   it("leaves out what a subtask can't have", () => {
     expect(parse("x @fri /chores @daily", 1)).toMatchObject({ title: "x /chores @daily", deadlineDate: "2026-10-16" });
+    expect(parse("x /chores @daily", 2)).toMatchObject({ title: "x /chores", repeat: { every: 1, unit: "day" } });
     expect(parse("x @fri #home @today 3p", 2)).toMatchObject({ title: "x @fri", tagIds: ["t1"], today: true, points: 3 });
   });
 
@@ -143,8 +144,8 @@ describe("parseShortSyntax", () => {
     expect(parse("Pack //")).toMatchObject({ title: "Pack //", tokens: [] });
   });
 
-  it("keeps // as text on a subtask, inside a word, or after a backslash", () => {
-    expect(parse("Pack // bag", 1).title).toBe("Pack // bag");
+  it("reads // as the note on a subtask too, and keeps it as text inside a word or after a backslash", () => {
+    expect(parse("Pack // bag", 1)).toMatchObject({ title: "Pack", notes: "bag" });
     expect(parse("see https://x.org").title).toBe("see https://x.org");
     expect(parse("a \\// b").title).toBe("a // b");
     expect(parse("a \\// b").notes).toBeUndefined();
@@ -198,9 +199,9 @@ describe("activeToken", () => {
     expect(at("mail bob@ex")).toBeNull();
   });
 
-  it("offers a subtask no list and no schedule", () => {
+  it("offers a subtask no list, but a schedule", () => {
     expect(inserts("x /", 1)).toEqual([]);
-    expect(inserts("x @da", 1)).toEqual([]);
+    expect(inserts("x @da", 1)).toEqual(inserts("x @da"));
   });
 
   it("offers nothing inside the note", () => {

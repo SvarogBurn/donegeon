@@ -68,7 +68,7 @@ export function Cheatsheet() {
       <p className="text-xs text-stone-500">Dates: {DATE_HELP}</p>
       <p className="text-xs text-stone-500">
         A shortcut counts at the start of a word only, so <i>bob@example.com</i> and <i>and/or</i> are left alone. Deadlines are for main
-        tasks and their direct subtasks; lists and repeats for main tasks.
+        tasks and their direct subtasks; lists for main tasks.
       </p>
       <h3 className={`border-t-2 border-stone-300 pt-3 dark:border-stone-700 ${HEADING}`}>Styling a title</h3>
       <p className="text-xs text-stone-500">

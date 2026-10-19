@@ -82,7 +82,7 @@ export function weekDays(trees: TaskTreeNode[], today: string, ticked: TickedTas
       const shown = node.isComplete ? ticked !== "hide" && node.completedOn !== null && node.completedOn >= monday : !rootFinished;
       if (node.weekDay !== null) {
         if (shown) put(node.weekDay, item);
-      } else if (path.length === 0 && node.repeatEvery && node.nextDue) {
+      } else if (node.repeatEvery && node.nextDue) {
         const round = currentRound(node, today)!;
         const missed = round.missed || round.day < monday;
         const isMoved = (planned: string) => node.roundMoves?.[planned] !== undefined;

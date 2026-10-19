@@ -2,12 +2,12 @@ import type { Prisma, Task } from "@prisma/client";
 
 export type TaskTreeNode<T> = T & {
   children: TaskTreeNode<T>[];
-  /** All descendants at every depth, not counting the node itself. */
+  /** Its descendants at every depth that are finished with it (see countedIds), not counting the node itself. */
   descendantCount: number;
   descendantDoneCount: number;
 };
 
-type TreeInput = Pick<Task, "id" | "parentId" | "position" | "createdAt" | "isComplete">;
+type TreeInput = Pick<Task, "id" | "parentId" | "position" | "createdAt" | "isComplete" | "isPersistent">;
 
 function bySiblingOrder(a: TreeInput, b: TreeInput) {
   return a.position - b.position || a.createdAt.getTime() - b.createdAt.getTime();
@@ -31,6 +31,8 @@ export function buildTree<T extends TreeInput>(tasks: T[]): TaskTreeNode<T>[] {
     node.children.sort(bySiblingOrder);
     for (const child of node.children) {
       finish(child);
+      // A persistent subtask is never finished: neither it nor its own rounds are counted by the tasks above it.
+      if (child.isPersistent) continue;
       node.descendantCount += 1 + child.descendantCount;
       node.descendantDoneCount += (child.isComplete ? 1 : 0) + child.descendantDoneCount;
     }
@@ -40,11 +42,11 @@ export function buildTree<T extends TreeInput>(tasks: T[]): TaskTreeNode<T>[] {
   return roots;
 }
 
-/** Ids of a task and everything beneath it. */
-export function subtreeIds(tasks: Pick<Task, "id" | "parentId">[], rootId: string): string[] {
+/** Ids of a task and everything beneath it, through the subtasks `follows` lets in (with everything beneath them). */
+function idsBeneath<T extends Pick<Task, "id" | "parentId">>(tasks: T[], rootId: string, follows: (task: T) => boolean): string[] {
   const childrenOf = new Map<string, string[]>();
   for (const task of tasks) {
-    if (!task.parentId) continue;
+    if (!task.parentId || !follows(task)) continue;
     const siblings = childrenOf.get(task.parentId) ?? [];
     siblings.push(task.id);
     childrenOf.set(task.parentId, siblings);
@@ -58,6 +60,17 @@ export function subtreeIds(tasks: Pick<Task, "id" | "parentId">[], rootId: strin
   }
   return ids;
 }
+
+/** Ids of a task and everything beneath it. */
+export const subtreeIds = (tasks: Pick<Task, "id" | "parentId">[], rootId: string) => idsBeneath(tasks, rootId, () => true);
+
+/**
+ * Ids of a task and everything beneath it that has to be done for it to be finished: what a deadline counts and what
+ * must be ticked before it. A persistent task under it is never finished, so it and everything beneath it (its own
+ * rounds) are left out.
+ */
+export const countedIds = (tasks: Pick<Task, "id" | "parentId" | "isPersistent">[], rootId: string) =>
+  idsBeneath(tasks, rootId, (task) => !task.isPersistent);
 
 type FinishInput = Pick<Task, "id" | "parentId" | "isComplete" | "completedOn">;
 

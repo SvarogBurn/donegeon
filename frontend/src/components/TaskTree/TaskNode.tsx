@@ -81,13 +81,11 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
   const savedText = useRef<string | null>(null);
   useEffect(() => void (savedText.current = null), [node.title]);
 
-  // A main task can carry a note: its icon beside the title shows it at the side of the page.
-  const canNote = !node.parentId;
+  // Any task can carry a note: its icon beside the title shows it at the side of the page.
   const hasNote = Boolean(node.notes);
   const noteShown = tree.openNote?.id === node.id;
   const toggleNote = () => (noteShown ? tree.closeNote() : tree.showNote(node.id, !hasNote));
 
-  const isPersistent = node.isPersistent && !node.parentId;
   const today = localDate();
   const pressedToday = node.completions.filter((press) => press.day === today).length;
   const round = currentRound(node, today);
@@ -169,7 +167,7 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
           aria-label={isOpen ? "Collapse subtasks" : "Expand subtasks"}
         />
 
-        {isPersistent ? (
+        {node.isPersistent ? (
           <button
             type="button"
             className="repeat-button mt-1.5"
@@ -205,24 +203,22 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
             // A scheduled task that is done for now is greyed until its next day.
             className={node.isComplete ? "text-stone-400 line-through" : isWaiting(node, today) ? "text-stone-400" : ""}
           />
-          {canNote && (
-            <button
-              type="button"
-              className="notes-button mt-1"
-              data-empty={hasNote ? undefined : ""}
-              aria-expanded={noteShown}
-              aria-label={noteShown ? "Close the note" : hasNote ? "Show the note" : "Add a note"}
-              title={noteShown ? "Close the note" : hasNote ? "Show the note" : "Add a note; once it has text it stays here"}
-              // Keeps the title focused, so the grey icon (shown only while the title is edited) is still there when the click lands.
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={toggleNote}
-            />
-          )}
+          <button
+            type="button"
+            className="notes-button mt-1"
+            data-empty={hasNote ? undefined : ""}
+            aria-expanded={noteShown}
+            aria-label={noteShown ? "Close the note" : hasNote ? "Show the note" : "Add a note"}
+            title={noteShown ? "Close the note" : hasNote ? "Show the note" : "Add a note; once it has text it stays here"}
+            // Keeps the title focused, so the grey icon (shown only while the title is edited) is still there when the click lands.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={toggleNote}
+          />
         </div>
 
         <span className="flex flex-wrap items-center justify-end gap-1.5 pt-1">
           <LabelChips node={node} />
-          {isPersistent && pressedToday > 0 && (
+          {node.isPersistent && pressedToday > 0 && (
             <span className="text-xs text-stone-500 tabular-nums" data-pressed-today={pressedToday}>
               ×{pressedToday} today
             </span>
@@ -251,7 +247,7 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
             </span>
           )}
           <ValueChip node={node} />
-          <TaskMenu node={node} depth={depth} onAddSubtask={addSubtask} onOpenNote={canNote ? () => tree.showNote(node.id, !hasNote) : undefined} />
+          <TaskMenu node={node} depth={depth} onAddSubtask={addSubtask} onOpenNote={() => tree.showNote(node.id, !hasNote)} />
           <button
             type="button"
             className="btn-quiet cursor-grab touch-none glyph select-none active:cursor-grabbing"

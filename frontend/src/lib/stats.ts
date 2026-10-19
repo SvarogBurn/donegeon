@@ -20,7 +20,7 @@ export interface StatTask {
   deadlineDate: string | null;
   /** Its own deadline's type, or that of the nearest task above it; what the deadline filter looks at. */
   deadlineKind: "hard" | "soft" | null;
-  /** Its main task is persistent (done again and again). */
+  /** It, or a task above it, is persistent (done again and again). */
   isPersistent: boolean;
   /** The moment it was written down, for the time of day. */
   createdAt: Date;
@@ -81,6 +81,8 @@ export function collectStats(rows: StatRow[], lists: List[]): { tasks: StatTask[
     const completedOn = node.completedOn;
     const createdAt = new Date(node.createdAt);
     const ownKind = node.deadlineDate ? (node.deadlineType ?? "hard") : null;
+    // A persistent task, or one under a persistent task (any depth): done again and again, never open work.
+    const isPersistent = node.isPersistent || (above?.isPersistent ?? false);
     const task: StatTask = {
       id: node.id,
       title: node.title,
@@ -90,12 +92,12 @@ export function collectStats(rows: StatRow[], lists: List[]): { tasks: StatTask[
       tagIds: [...new Set([...(above?.tagIds ?? []), ...node.tagIds])],
       deadlineDate: node.deadlineDate,
       deadlineKind: ownKind ?? above?.deadlineKind ?? null,
-      isPersistent: root.isPersistent,
+      isPersistent,
       createdAt,
       createdOn: node.startDate ?? localDay(createdAt),
       completedOn,
       closedOn: completedOn ?? above?.closedOn ?? null,
-      isOpen: !node.isComplete && !insideFinished && !root.isPersistent,
+      isOpen: !node.isComplete && !insideFinished && !isPersistent,
       isLoose: !node.deadlineDate && node.goalIds.length === 0 && node.tagIds.length === 0,
     };
     tasks.push(task);

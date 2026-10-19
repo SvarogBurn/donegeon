@@ -31,7 +31,9 @@ out("a main task without a note shows no icon", !(await icon("Run").isVisible())
 await titleOf("Run").focus();
 out("editing its title shows a grey icon", (await icon("Run").isVisible()) && (await icon("Run").getAttribute("data-empty")) === "");
 if (!(await row("Bread").isVisible())) await row("Shop").locator('[aria-label="Expand subtasks"]').click();
-out("a subtask has no notes icon", (await row("Bread").locator(".notes-button").count()) === 0);
+await titleOf("Bread").focus();
+out("a subtask gets the grey icon too while its title is edited", (await icon("Bread").isVisible()) && (await icon("Bread").getAttribute("data-empty")) === "");
+await blur(); await wait(150);
 
 // Writing in the side panel.
 await titleOf("Run").focus(); await icon("Run").click(); await wait(150);

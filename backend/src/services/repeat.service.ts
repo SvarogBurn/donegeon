@@ -66,7 +66,7 @@ export function dueAfter(schedule: Schedule, doneOn: string): string {
   return next;
 }
 
-/** What a row needs for staleRoundTicks: its place in the tree, its tick and, on a main task, its schedule. */
+/** What a row needs for staleRoundTicks: its place in the tree, its tick and, on a persistent task, its schedule. */
 interface RoundRow {
   id: string;
   parentId: string | null;
@@ -85,21 +85,23 @@ interface RoundRow {
  * The subtasks (any depth) still ticked from a round the Skip rule dropped by `today`. A press unticks a persistent
  * task's subtasks for the next round; a round that was never pressed but dropped (its day is before today's Monday,
  * on planned days without making rounds up: the frontend's currentRound, `missed`) starts the next one the same way.
- * Ticks from this Monday on are kept: they are for the round now open.
+ * Ticks from this Monday on are kept: they are for the round now open. A subtask's rounds are those of the nearest
+ * persistent task above it.
  */
 export function staleRoundTicks(rows: RoundRow[], today: string): string[] {
   const byId = new Map(rows.map((row) => [row.id, row]));
   const monday = mondayOf(today);
-  const rootOf = (row: RoundRow) => {
-    let root = row;
-    while (root.parentId && byId.has(root.parentId)) root = byId.get(root.parentId)!;
-    return root;
+  const roundsOf = (row: RoundRow) => {
+    for (let above = row.parentId ? byId.get(row.parentId) : undefined; above; above = above.parentId ? byId.get(above.parentId) : undefined) {
+      if (above.isPersistent) return above;
+    }
+    return null;
   };
-  const dropped = (root: RoundRow) => {
-    if (!root.isPersistent || root.parentId || !root.repeatEvery || !root.nextDue || root.repeatAfterDone || root.repeatMakeUp) return false;
-    return (roundMovesOf(root.roundMoves)[root.nextDue] ?? root.nextDue) < monday;
+  const dropped = (owner: RoundRow | null) => {
+    if (!owner || !owner.repeatEvery || !owner.nextDue || owner.repeatAfterDone || owner.repeatMakeUp) return false;
+    return (roundMovesOf(owner.roundMoves)[owner.nextDue] ?? owner.nextDue) < monday;
   };
   return rows
-    .filter((row) => row.parentId && row.isComplete && row.completedOn && row.completedOn < monday && dropped(rootOf(row)))
+    .filter((row) => !row.isPersistent && row.isComplete && row.completedOn && row.completedOn < monday && dropped(roundsOf(row)))
     .map((row) => row.id);
 }

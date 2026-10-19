@@ -23,9 +23,17 @@ function ancestorsOf(nodes: TaskTreeNode[], id: string): string[] {
   return [];
 }
 
-/** The trees with the "x/y done" counts of the tasks above `id` changed by so many tasks and done ones. */
+/**
+ * The trees with the "x/y done" counts of the tasks above `id` changed by so many tasks and done ones. A persistent
+ * task is never finished, so the tasks above it don't count what is under it: the counting stops there.
+ */
 function countedAbove(nodes: TaskTreeNode[], id: string, count: number, done: number): TaskTreeNode[] {
-  const above = new Set(ancestorsOf(nodes, id));
+  const byId = new Map(allNodes(nodes).map((node) => [node.id, node]));
+  const above = new Set<string>();
+  for (const ancestor of ancestorsOf(nodes, id)) {
+    above.add(ancestor);
+    if (byId.get(ancestor)?.isPersistent) break;
+  }
   if (above.size === 0) return nodes;
   return mapNodes(nodes, (node) =>
     above.has(node.id) ? { ...node, descendantCount: node.descendantCount + count, descendantDoneCount: node.descendantDoneCount + done } : node,
@@ -73,6 +81,8 @@ export function insertedInTrees(trees: TaskTreeNode[], node: TaskTreeNode, place
   });
   // A parent that isn't loaded: the change shows once the server has it.
   if (!found) return trees;
+  // A persistent task isn't counted by the tasks above it.
+  if (node.isPersistent) return next;
   const done = (node.isComplete ? 1 : 0) + node.descendantDoneCount;
   return countedAbove(next, placed.id, 1 + node.descendantCount, done);
 }
@@ -93,7 +103,7 @@ export function removedFromTrees(trees: TaskTreeNode[], id: string): { trees: Ta
   const spot = find(trees, null);
   if (!spot) return { trees, spot: null };
   const { node } = spot;
-  const counted = countedAbove(trees, id, -(1 + node.descendantCount), -((node.isComplete ? 1 : 0) + node.descendantDoneCount));
+  const counted = node.isPersistent ? trees : countedAbove(trees, id, -(1 + node.descendantCount), -((node.isComplete ? 1 : 0) + node.descendantDoneCount));
   const without = (nodes: TaskTreeNode[]): TaskTreeNode[] =>
     nodes.filter((other) => other.id !== id).map((other) => ({ ...other, children: without(other.children) }));
   return { trees: without(counted), spot };
@@ -123,7 +133,7 @@ export function draftNode(task: NewTask & { id: string }, { day, at, lists, toda
   const listId = parentId ? null : (task.listId ?? null);
   const list = lists.find((l) => l.id === listId);
   const handedDown = parent?.pointsToSubtasks ? parent.value : 0;
-  const scheduled = !parentId && task.repeatEvery !== undefined;
+  const scheduled = task.repeatEvery !== undefined;
   return {
     id: task.id,
     parentId,
@@ -144,7 +154,7 @@ export function draftNode(task: NewTask & { id: string }, { day, at, lists, toda
     todaySince: task.today || (!parentId && !listId && !task.weekDay) ? day : null,
     weekDay: null,
     weekPosition: 0,
-    isPersistent: scheduled || (!parentId && Boolean(task.isPersistent)),
+    isPersistent: scheduled || Boolean(task.isPersistent),
     repeatEvery: scheduled ? task.repeatEvery! : null,
     repeatUnit: task.repeatUnit ?? "day",
     repeatAfterDone: false,
@@ -193,12 +203,14 @@ export const editedInTrees = (trees: TaskTreeNode[], id: string, patch: Partial<
 
 /**
  * One press of a persistent task's "done it" button: logged, its subtasks unticked for the next round and, on a
- * schedule, due one interval on, as the server's press does it.
+ * schedule, due one interval on, as the server's press does it. A persistent task under it keeps its own rounds.
  */
 export function pressedInTrees(trees: TaskTreeNode[], id: string, press: TaskPress): TaskTreeNode[] {
   const untick = (nodes: TaskTreeNode[]): TaskTreeNode[] =>
-    nodes.map((node) => ({ ...node, isComplete: false, completedAt: null, completedOn: null, descendantDoneCount: 0, children: untick(node.children) }));
-  return trees.map((node) => {
+    nodes.map((node) =>
+      node.isPersistent ? node : { ...node, isComplete: false, completedAt: null, completedOn: null, descendantDoneCount: 0, children: untick(node.children) },
+    );
+  return mapNodes(trees, (node) => {
     if (node.id !== id) return node;
     const scheduled: Partial<Task> =
       node.repeatEvery && node.nextDue

@@ -9,14 +9,15 @@ import { NoteEditor } from "./NoteEditor";
 import { NoteText } from "./NoteText";
 
 /**
- * A main task's note: read, with Edit to write in it. Written in, it is saved on leaving the field (Done, Escape or a
- * click elsewhere) and is read again. Emptied, the task has no note. `startEditing`: open with the field, as for a
- * task with no note yet.
+ * A task's note: read, with Edit to write in it. Written in, it is saved on leaving the field (Done, Escape or a
+ * click elsewhere) and is read again. Emptied or deleted (Delete, after asking), the task has no note. `startEditing`:
+ * open with the field, as for a task with no note yet.
  */
 export function NoteView({ node, startEditing = false }: { node: TaskTreeNode; startEditing?: boolean }) {
   const update = useUpdateTask();
   const [editing, setEditing] = useState(startEditing);
   const [text, setText] = useState(node.notes ?? "");
+  const [confirming, setConfirming] = useState(false);
   // What was last sent, so the note reads as saved before the server has answered.
   const saved = useRef(node.notes ?? "");
   useEffect(() => {
@@ -40,6 +41,13 @@ export function NoteView({ node, startEditing = false }: { node: TaskTreeNode; s
     setEditing(false);
   }
 
+  function remove() {
+    update.mutate({ id: node.id, changes: { notes: null } });
+    saved.current = "";
+    setText("");
+    setConfirming(false);
+  }
+
   return (
     <div className="space-y-2" data-note-view>
       {editing ? (
@@ -50,16 +58,34 @@ export function NoteView({ node, startEditing = false }: { node: TaskTreeNode; s
         <p className="text-xs text-stone-500">No note yet.</p>
       )}
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-stone-500">{editing ? "Saved when you leave it. * or - starts a list" : ""}</span>
-        <button
-          type="button"
-          className="nes-btn btn-small"
-          // Done: leaving the field saves it. The field must not lose its focus before the click, or the button goes first.
-          onMouseDown={(e) => editing && e.preventDefault()}
-          onClick={() => (editing ? field.current?.blur() : setEditing(true))}
-        >
-          {editing ? "Done" : text ? "Edit" : "Write a note"}
-        </button>
+        {editing || !text ? (
+          <span className="text-xs text-stone-500">{editing ? "Saved when you leave it. * or - starts a list" : ""}</span>
+        ) : confirming ? (
+          <span className="flex items-center gap-2 text-xs" data-note-delete>
+            Delete this note?
+            <button type="button" className="nes-btn is-error btn-small" onClick={remove}>
+              Delete
+            </button>
+            <button type="button" className="btn-quiet" onClick={() => setConfirming(false)}>
+              Keep
+            </button>
+          </span>
+        ) : (
+          <button type="button" className="btn-quiet text-xs text-stone-500" data-note-delete onClick={() => setConfirming(true)}>
+            Delete
+          </button>
+        )}
+        {!confirming && (
+          <button
+            type="button"
+            className="nes-btn btn-small"
+            // Done: leaving the field saves it. The field must not lose its focus before the click, or the button goes first.
+            onMouseDown={(e) => editing && e.preventDefault()}
+            onClick={() => (editing ? field.current?.blur() : setEditing(true))}
+          >
+            {editing ? "Done" : text ? "Edit" : "Write a note"}
+          </button>
+        )}
       </div>
       {update.error && <p className="text-xs text-red-600">{update.error.message}</p>}
     </div>

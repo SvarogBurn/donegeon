@@ -80,7 +80,7 @@ export function planByDay(trees: TaskTreeNode[], today: string, until: string): 
       if (node.deadlineDate) {
         const isOverdue = node.deadlineDate < today && !node.isComplete;
         put(isOverdue ? today : node.deadlineDate, { ...item, kind: isOverdue ? "overdue" : "deadline" });
-      } else if (isMain && node.nextDue && node.repeatEvery) {
+      } else if (node.nextDue && node.repeatEvery) {
         // A round dropped from an earlier week (skipping missed rounds) is not to be done: its round this week is.
         const round = currentRound(node, today)!;
         const first = round.day <= today ? today : round.day;

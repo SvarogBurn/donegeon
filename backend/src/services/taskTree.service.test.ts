@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildTree, completionPatch, insertAt, subtreeIds, withFinishedRoots } from "./taskTree.service.js";
+import { buildTree, completionPatch, countedIds, insertAt, subtreeIds, withFinishedRoots } from "./taskTree.service.js";
 
 const t0 = new Date("2026-10-01T10:00:00Z");
 
-function task(id: string, parentId: string | null, position = 0, isComplete = false) {
-  return { id, parentId, position, isComplete, createdAt: t0 };
+function task(id: string, parentId: string | null, position = 0, isComplete = false, isPersistent = false) {
+  return { id, parentId, position, isComplete, isPersistent, createdAt: t0 };
 }
 
 describe("buildTree", () => {
@@ -35,6 +35,14 @@ describe("buildTree", () => {
     expect(root.children[0].descendantDoneCount).toBe(1);
   });
 
+  it("leaves a persistent subtask, and what is beneath it, out of the counts above it", () => {
+    const [root] = buildTree([task("root", null), task("p", "root", 0, false, true), task("p1", "p", 0, true), task("b", "root", 1, true)]);
+    expect(root.descendantCount).toBe(1);
+    expect(root.descendantDoneCount).toBe(1);
+    expect(root.children[0].descendantCount).toBe(1);
+    expect(root.children[0].descendantDoneCount).toBe(1);
+  });
+
   it("breaks position ties by creation time", () => {
     const tied = [
       { ...task("late", null), createdAt: new Date("2026-10-02T00:00:00Z") },
@@ -50,6 +58,15 @@ describe("subtreeIds", () => {
   it("collects a task and all its descendants", () => {
     expect(subtreeIds(tasks, "root").sort()).toEqual(["a", "a1", "root"]);
     expect(subtreeIds(tasks, "a1")).toEqual(["a1"]);
+  });
+});
+
+describe("countedIds", () => {
+  const tasks = [task("root", null), task("a", "root"), task("p", "root", 1, false, true), task("p1", "p"), task("p2", "p", 1, false, true)];
+
+  it("leaves out persistent tasks beneath, with their own subtasks, but not the task asked about", () => {
+    expect(countedIds(tasks, "root").sort()).toEqual(["a", "root"]);
+    expect(countedIds(tasks, "p").sort()).toEqual(["p", "p1"]);
   });
 });
 

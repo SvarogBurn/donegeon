@@ -30,21 +30,29 @@ export interface CompletionChange {
   now: string | null;
 }
 
-/** The trees with one task's completion flipped, its ancestors' "x/y done" and today's paces adjusted. */
+/**
+ * The trees with one task's completion flipped, its ancestors' "x/y done" and today's paces adjusted. A persistent
+ * task is never finished, so the tasks above it don't count what is under it: the counting stops there.
+ */
 export function toggleInTrees(nodes: TaskTreeNode[], { id, was, now }: CompletionChange, today: string): TaskTreeNode[] {
   const doneChange = (now ? 1 : 0) - (was ? 1 : 0);
   const remainingChange = (was && was <= today ? 1 : 0) - (now && now <= today ? 1 : 0);
 
-  const visit = (list: TaskTreeNode[]): [TaskTreeNode[], boolean] => {
+  /** The list with the change made, whether it was found in it, and whether the tasks above still count it. */
+  const visit = (list: TaskTreeNode[]): [TaskTreeNode[], boolean, boolean] => {
     let hit = false;
+    let counts = false;
     const next = list.map((node) => {
       if (node.id === id) {
         hit = true;
+        counts = !node.isPersistent;
         return { ...node, isComplete: now !== null, completedOn: now, pace: withRemaining(node.pace, remainingChange) };
       }
-      const [children, below] = visit(node.children);
+      const [children, below, countsHere] = visit(node.children);
       if (!below) return node;
       hit = true;
+      counts = countsHere && !node.isPersistent;
+      if (!countsHere) return { ...node, children };
       return {
         ...node,
         children,
@@ -52,7 +60,7 @@ export function toggleInTrees(nodes: TaskTreeNode[], { id, was, now }: Completio
         pace: withRemaining(node.pace, remainingChange),
       };
     });
-    return [hit ? next : list, hit];
+    return [hit ? next : list, hit, counts];
   };
   return visit(nodes)[0];
 }

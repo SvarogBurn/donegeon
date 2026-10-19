@@ -1,5 +1,5 @@
 import type { Task } from "@prisma/client";
-import { subtreeIds } from "./taskTree.service.js";
+import { countedIds } from "./taskTree.service.js";
 
 // Calendar days are "YYYY-MM-DD" strings; do the arithmetic in UTC so no
 // timezone or daylight-saving shift can move a day.
@@ -84,12 +84,12 @@ export function buildCountdown({ completedOn, startDate, deadlineDate, today }: 
 
 type PressureTask = Pick<
   Task,
-  "id" | "parentId" | "title" | "startDate" | "createdAt" | "deadlineDate" | "deadlineType" | "completedOn"
+  "id" | "parentId" | "title" | "startDate" | "createdAt" | "deadlineDate" | "deadlineType" | "completedOn" | "isPersistent"
 >;
 
-/** Countdown for one task: itself plus all its descendants at every depth. */
+/** Countdown for one task: itself plus its descendants at every depth (persistent ones left out: see countedIds). */
 export function countdownForTask(tasks: PressureTask[], task: PressureTask, today: string): Countdown {
-  const ids = new Set(subtreeIds(tasks, task.id));
+  const ids = new Set(countedIds(tasks, task.id));
   return buildCountdown({
     completedOn: tasks.filter((t) => ids.has(t.id)).map((t) => t.completedOn),
     startDate: task.startDate ?? task.createdAt.toISOString().slice(0, 10),
@@ -100,7 +100,7 @@ export function countdownForTask(tasks: PressureTask[], task: PressureTask, toda
 
 /** Today's pace for any task with a deadline, hard or soft: what colours its deadline pill. */
 export function todayPace(tasks: PressureTask[], task: PressureTask, today: string): Pace {
-  const ids = new Set(subtreeIds(tasks, task.id));
+  const ids = new Set(countedIds(tasks, task.id));
   const subtree = tasks.filter((t) => ids.has(t.id));
   const done = subtree.map((t) => t.completedOn).filter((day): day is string => day !== null);
   return paceOn(today, subtree.length, done, task.deadlineDate!);
@@ -207,7 +207,7 @@ export function combinedCountdown(tasks: PressureTask[], today: string): Combine
     .filter((t) => hasDeadline(t) && !t.completedOn && !(t.parentId && hasDeadline(byId.get(t.parentId))))
     .sort((a, b) => a.deadlineDate!.localeCompare(b.deadlineDate!))
     .map((task) => {
-      const ids = new Set(subtreeIds(tasks, task.id));
+      const ids = new Set(countedIds(tasks, task.id));
       const subtree = tasks.filter((t) => ids.has(t.id));
       const deadlineDate = task.deadlineDate!;
       const writtenOn = task.startDate ?? task.createdAt.toISOString().slice(0, 10);

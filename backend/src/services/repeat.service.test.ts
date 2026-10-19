@@ -101,4 +101,19 @@ describe("staleRoundTicks", () => {
     expect(staleRoundTicks([{ ...root, roundMoves: { "2026-10-07": "2026-10-20" } }, ...rows.slice(1)], "2026-10-21")).toEqual([]);
     expect(staleRoundTicks([{ ...root, repeatEvery: null, nextDue: null }, ...rows.slice(1)], "2026-10-21")).toEqual([]);
   });
+
+  it("goes by the nearest persistent task above: a persistent subtask has rounds of its own", () => {
+    // "p" is persistent without a schedule under the dropped "r", "q" a persistent subtask whose own round was dropped.
+    const main = { ...root, id: "m", isPersistent: false, repeatEvery: null, nextDue: null };
+    const nested = [
+      root,
+      { ...sub("p", "r", null), isPersistent: true },
+      sub("e", "p", "2026-10-08"),
+      main,
+      { ...root, id: "q", parentId: "m" },
+      sub("f", "q", "2026-10-08"),
+      sub("g", "m", "2026-10-08"),
+    ];
+    expect(staleRoundTicks(nested, "2026-10-21")).toEqual(["f"]);
+  });
 });

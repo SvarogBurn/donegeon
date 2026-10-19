@@ -13,6 +13,7 @@ import { dueAfter, movesFrom, roundMovesOf, staleRoundTicks } from "../services/
 import {
   buildTree,
   completionPatch,
+  countedIds,
   findDepth,
   findSubtree,
   insertAt,
@@ -46,7 +47,7 @@ const taskInput = z.object({
   /** In the Week box from the start, on this day, after `weekAfter` there (null = first; left out = last). */
   weekDay: localDate.optional(),
   weekAfter: z.string().uuid().nullish(),
-  /** Done again and again (main tasks); a schedule makes it persistent too. */
+  /** Done again and again; a schedule makes it persistent too. */
   isPersistent: z.boolean().optional(),
   repeatEvery: z.number().int().min(1, "Repeat every 1 or more").max(999).optional(),
   repeatUnit: z.enum(["day", "week", "month"]).optional(),
@@ -70,9 +71,9 @@ const taskPatch = z.object({
   today: z.boolean().optional(),
   /** In or out of the Week box; one coming in goes last on today. */
   week: z.boolean().optional(),
-  /** Main tasks only: done again and again instead of once. */
+  /** Done again and again instead of once. */
   isPersistent: z.boolean().optional(),
-  /** Main tasks only: due again every so many days, weeks or months (which makes it persistent); null = no schedule. */
+  /** Due again every so many days, weeks or months (which makes it persistent); null = no schedule. */
   repeatEvery: z.number().int().min(1, "Repeat every 1 or more").max(999).nullable().optional(),
   repeatUnit: z.enum(["day", "week", "month"]).optional(),
   /** Count the next round from the day it was done instead of keeping to the planned days. */
@@ -434,7 +435,6 @@ tasksRouter.post("/", async (req, res) => {
     throw new HttpError(400, "Deadlines can only be set on main tasks and their direct subtasks");
   }
   const isPersistent = Boolean(input.isPersistent || input.repeatEvery);
-  if (isPersistent && parentId) throw new HttpError(400, "Only main tasks can be persistent");
   if (isPersistent && input.deadlineDate) {
     throw new HttpError(400, "A persistent task is never finished, so it can't have a deadline. Remove one or the other.");
   }
@@ -510,10 +510,7 @@ tasksRouter.patch("/:id", async (req, res) => {
 
   // A schedule only makes sense on a task that is done again and again, so setting one makes the task persistent.
   const isPersistent = input.isPersistent ?? (input.repeatEvery ? true : task.isPersistent);
-  if (isPersistent && !task.isPersistent) {
-    if (task.parentId) throw new HttpError(400, "Only main tasks can be persistent");
-    if (task.isComplete) throw new HttpError(400, "Untick it first");
-  }
+  if (isPersistent && !task.isPersistent && task.isComplete) throw new HttpError(400, "Untick it first");
   if (isPersistent && (input.deadlineDate === undefined ? task.deadlineDate : input.deadlineDate)) {
     throw new HttpError(400, "A persistent task is never finished, so it can't have a deadline. Remove one or the other.");
   }
@@ -575,8 +572,18 @@ tasksRouter.post("/:id/week", async (req, res) => {
   res.status(204).end();
 });
 
-/** Ids of everything beneath a task (not the task itself) that isn't deleted. */
-const idsBelow = async (db: Prisma.TransactionClient, id: string) => (await findSubtree(db, [id])).flatMap((t) => (t.depth > 0 ? [t.id] : []));
+/**
+ * Everything beneath a task (not the task itself) that has to be done for it to be finished: a persistent task under
+ * it, never finished, is left out with what is beneath it (see countedIds).
+ */
+async function countedBelow(id: string) {
+  const below = await prisma.task.findMany({
+    where: { id: { in: (await findSubtree(prisma, [id])).map((t) => t.id) } },
+    select: { id: true, parentId: true, isPersistent: true, isComplete: true, completedAt: true, completedOn: true },
+  });
+  const counted = new Set(countedIds(below, id));
+  return below.filter((t) => t.id !== id && counted.has(t.id));
+}
 
 // Ticks (`done: true`) or unticks this one node only; parents and children are untouched. Without `done` it
 // flips. Asking for what it already is changes nothing, so a request sent twice is harmless.
@@ -588,9 +595,8 @@ tasksRouter.patch("/:id/toggle", async (req, res) => {
   const task = await ownTask(req, req.params.id);
   if (task.isPersistent) throw new HttpError(400, "A persistent task is done with its “done it” button");
   const next = done ?? !task.isComplete;
-  if (next && !task.isComplete) {
-    const open = await prisma.task.count({ where: { id: { in: await idsBelow(prisma, task.id) }, isComplete: false } });
-    if (open > 0) throw new HttpError(400, "Tick its subtasks first");
+  if (next && !task.isComplete && (await countedBelow(task.id)).some((t) => !t.isComplete)) {
+    throw new HttpError(400, "Tick its subtasks first");
   }
   const updated = await prisma.$transaction(async (tx) => {
     // The row itself is the guard: of two requests at once, only the first still finds it the other way
@@ -629,11 +635,11 @@ tasksRouter.post("/:id/completions", async (req, res) => {
   if (made) {
     return void res.json({ completion: { id: made.id, day: made.day }, doneToday: await doneToday(task.userId, req.localDate) });
   }
-  if (!task.isPersistent || task.parentId) throw new HttpError(400, "Only persistent tasks can be done again and again");
-  const ticked = await prisma.task.findMany({
-    where: { id: { in: await idsBelow(prisma, task.id) }, completedAt: { not: null }, completedOn: { not: null } },
-    select: { id: true, completedAt: true, completedOn: true },
-  });
+  if (!task.isPersistent) throw new HttpError(400, "Only persistent tasks can be done again and again");
+  // A persistent task under it keeps its own rounds, and their ticks.
+  const ticked = (await countedBelow(task.id)).flatMap((t) =>
+    t.completedAt && t.completedOn ? [{ id: t.id, completedAt: t.completedAt, completedOn: t.completedOn }] : [],
+  );
 
   const { repeatEvery, nextDue } = task;
   const dueBefore = repeatEvery && nextDue ? nextDue : null;
@@ -718,9 +724,6 @@ tasksRouter.post("/:id/move", async (req, res) => {
   } else if (task.parentId || task.listId) {
     // Only tasks written straight into Today live without a list; they can be reordered there.
     throw new HttpError(400, "Today is only a view: mark the task for today instead, it stays in its list");
-  }
-  if (input.parentId && task.isPersistent) {
-    throw new HttpError(400, `"${task.title}" is persistent, and only main tasks can be. Switch that off first.`);
   }
 
   // Refuse rather than silently drop a deadline that would end up too deep.

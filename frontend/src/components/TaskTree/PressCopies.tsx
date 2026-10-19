@@ -12,7 +12,7 @@ import { plainTitle } from "../../lib/markup";
  */
 export function PressCopies({ node, className = "" }: { node: TaskTreeNode; className?: string }) {
   const tree = useTree();
-  if (!node.isPersistent || node.parentId) return null;
+  if (!node.isPersistent) return null;
   // Hidden like any ticked task, if the user chose that; a task's own page still shows everything.
   if (tree.ticked === "hide" && tree.rootId === null) return null;
   const recent = node.completions.filter((press) => isRecent(press.day, press.createdAt)).reverse();

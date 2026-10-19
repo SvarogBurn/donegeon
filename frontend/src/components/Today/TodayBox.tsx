@@ -36,7 +36,7 @@ interface TodayItem {
 const firstLine = (title: string) => title.split("\n")[0];
 
 /**
- * Everything from the lists that is marked for Today, at any depth, plus the main tasks on a
+ * Everything from the lists that is marked for Today, at any depth, plus the tasks (any depth) on a
  * schedule that are due and, if the user chose so, the tasks whose deadline is near (`deadlines`): those come in by
  * themselves and leave when done. Open items stay from day to day;
  * a ticked one stays for the rest of the day it was ticked on (or goes at once, if the user chose to hide
@@ -49,7 +49,7 @@ function todayItems(trees: TaskTreeNode[], today: string, ticked: TickedTasks, d
       const pageId = hasTaskPage(node) ? node.id : abovePageId;
       const shown = node.isComplete ? ticked !== "hide" && node.completedOn === today : !rootFinished;
       const fromDeadline = deadlineTodayFrom(node, deadlines);
-      const since = node.todaySince ?? (path.length === 0 && isDue(node, today) ? currentRound(node, today)!.day : null) ?? (fromDeadline !== null && fromDeadline <= today ? fromDeadline : null);
+      const since = node.todaySince ?? (isDue(node, today) ? currentRound(node, today)!.day : null) ?? (fromDeadline !== null && fromDeadline <= today ? fromDeadline : null);
       if (since !== null && shown && !livesInToday(node)) found.push({ node, since, path, pageId });
       visit(node.children, [...path, plainTitle(firstLine(node.title))], rootFinished || (path.length === 0 && node.isComplete), pageId);
     }
@@ -83,7 +83,7 @@ function PickedRow({ node, path, pageId, today, box, carried, auto, missed = fal
   const navigate = useNavigate();
   const setToday = useSetToday();
   const setWeek = useSetWeek();
-  const isPersistent = node.isPersistent && !node.parentId;
+  const isPersistent = node.isPersistent;
   const pressedToday = node.completions.filter((press) => press.day === today).length;
   const error = setToday.error ?? setWeek.error;
   const hasOpenSubtasks = !node.isComplete && node.descendantDoneCount < node.descendantCount;

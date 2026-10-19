@@ -28,9 +28,10 @@ export function isShown(task: TaskTreeNode, ticked: TickedTasks, inRound = false
   return inRound || !task.completedOn || isRecent(task.completedOn, task.completedAt);
 }
 
-/** Whether `task` is a subtask, at any depth, of a persistent main task, looked up through `byId`. */
+/** Whether `task` sits, at any depth, under a persistent task, looked up through `byId`. */
 export function isInRound(task: TaskTreeNode, byId: Map<string, TaskTreeNode>): boolean {
-  let root = task;
-  while (root.parentId && byId.has(root.parentId)) root = byId.get(root.parentId)!;
-  return root !== task && root.isPersistent;
+  for (let above = task.parentId ? byId.get(task.parentId) : undefined; above; above = above.parentId ? byId.get(above.parentId) : undefined) {
+    if (above.isPersistent) return true;
+  }
+  return false;
 }

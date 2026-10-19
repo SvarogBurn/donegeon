@@ -59,7 +59,7 @@ In a task:
 
 On the dashboard a task's subtasks start hidden: click the arrow at the left of its row to show them. They are shown from the start on the task's own page and while a goal or tag filter is on.
 
-A main task can carry a note. While its title is being edited a grey notes icon shows beside it (the ⋯ menu has **Note** too, and `// …` typed with a new task writes one): click it and the note opens in a pane at the side of the page (along the bottom on a phone), framed in its list's colour; a long note scrolls inside it. Once the note has text the icon stays on the row in colour; click it to read the note, and **Edit** to write in it. Leaving the field or `Esc` saves it; emptying it removes the note. A click outside the pane, `Esc` or × closes it. In a note, the title markup works (`**bold**` and the rest, `Ctrl+B/I/U`), a line starting `# `, `## ` or `### ` is a heading (`#tag` and `\#` stay text), and a line starting `* `, `- ` or `1. ` is a list item: `Enter` starts the next one, `Enter` on an empty one ends the list, `Tab` / `Shift+Tab` nest it. A task with a note has its own page too (click its row), with the note at the bottom (bottom left on a wide screen).
+Any task, a subtask too, can carry a note. While its title is being edited a grey notes icon shows beside it (the ⋯ menu has **Note** too, and `// …` typed with a new task writes one): click it and the note opens in a pane at the side of the page (along the bottom on a phone), framed in its list's colour; a long note scrolls inside it. Once the note has text the icon stays on the row in colour; click it to read the note, and **Edit** to write in it. Leaving the field or `Esc` saves it; emptying it, or **Delete** under it (it asks first), removes the note. A click outside the pane, `Esc` or × closes it. In a note, the title markup works (`**bold**` and the rest, `Ctrl+B/I/U`), a line starting `# `, `## ` or `### ` is a heading (`#tag` and `\#` stay text), and a line starting `* `, `- ` or `1. ` is a list item: `Enter` starts the next one, `Enter` on an empty one ends the list, `Tab` / `Shift+Tab` nest it. A task with a note has its own page too (click its row), with the note at the bottom (bottom left on a wide screen).
 
 ## Typing shortcuts
 
@@ -73,13 +73,13 @@ While adding a task (a list's add field, a new row, the Today box, a day of the 
 | `~date` | soft deadline |
 | `@today` / `@now` | do today: it shows in the Today box and stays in its list |
 | `@every …` | repeats: `@daily`, `@weekly`, `@monthly`, `@every 2 weeks`, `@every fri` |
-| `@persistent` | persistent, with no schedule: a repeat button instead of a checkbox (main tasks) |
+| `@persistent` | persistent, with no schedule: a repeat button instead of a checkbox |
 | `5p` | its points |
 | `/list` | puts it in that list |
-| `// note` | everything after it is the task's note (main tasks) |
+| `// note` | everything after it is the task's note |
 | `\` in front | keeps a shortcut as plain text |
 
-Dates: `tomorrow` (`tmr`), a weekday (`fri`, the next one), `next week`, `next month`, `in 3 days`, `3d`, `2w`, `25/12`, `25/12/26`, `25 dec`; after `~` also `today`. A shortcut counts only at the start of a word. Deadlines are for main tasks and their direct subtasks; lists and repeats for main tasks. The same table is in the app, in the Cheat sheet box of the user page.
+Dates: `tomorrow` (`tmr`), a weekday (`fri`, the next one), `next week`, `next month`, `in 3 days`, `3d`, `2w`, `25/12`, `25/12/26`, `25 dec`; after `~` also `today`. A shortcut counts only at the start of a word. Deadlines are for main tasks and their direct subtasks; lists for main tasks. The same table is in the app, in the Cheat sheet box of the user page.
 
 ## Styling a title
 
@@ -102,6 +102,7 @@ The keys put the marker around the selected words, or take it off. Styles can si
 - Ticking a main task books its points and moves it to the **Done** page (click anywhere on the dashboard's Done box to open it); unticking it there puts it back and reverses the points. Subtasks show on the Done page too, each under the day it was ticked, without waiting for their main task to be finished.
 - A ticked task or subtask stays in its list, ticked, for 24 hours, so you can still untick it; after that it is only on the Done page (where it can be unticked too). A persistent task stays open; every time you press its repeat button, a ticked, crossed-off copy of it appears underneath (five presses, five copies). Untick a copy to take that one back. The copies go after 24 hours too.
 - A persistent task's subtasks repeat with it: they stay ticked in its list until the next round, and every press of the repeat button unticks them all for it. On a schedule that skips missed rounds, a round dropped without a press unticks them too (what was ticked this week stays).
+- Any task can be persistent, a subtask too (with a schedule if you like): its own subtasks then repeat with it, not with the task above. A persistent subtask is never finished, so the task above doesn't count it in its "x/y done" or its deadline, and can be ticked without it.
 - A task can only be ticked once all its subtasks are, at every depth: until then its box is greyed out.
 - Ticked tasks sit at the bottom: a ticked main task under the open ones of its list, a ticked subtask under the open subtasks of the same task. Untick one and it is back where it was. On your own page (click your name in the task bar), **Ticked tasks** in the Settings box changes that: they can stay where they are instead, or be hidden, which takes a task out of the Tasks tab and your folders the moment it is ticked (Ctrl+Z brings it back; after that, untick it on the Done page).
 - Two more choices in the Settings box: **Soonest date first** shows each list with the nearest date at the top (a deadline, or the next day of a schedule) and the tasks without a date under them, in your own order; subtasks within their task likewise. **Tasks with a deadline** can come into the Today box by themselves, on the day of their deadline or from the day before, hard or soft; like a task that is due, they leave by being done.

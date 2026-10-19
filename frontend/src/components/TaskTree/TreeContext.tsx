@@ -430,7 +430,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
                 : document.querySelector(`[data-week-item="${target.id}"]`)?.closest<HTMLElement>("[data-week-day]");
           const day = column?.dataset.weekDay ?? localDate();
           // A task on a schedule isn't put on a day: its round is moved there (the one dragged; from a list, its current one).
-          const isScheduled = !node.parentId && node.repeatEvery !== null && node.nextDue !== null && node.weekDay === null;
+          const isScheduled = node.repeatEvery !== null && node.nextDue !== null && node.weekDay === null;
           if (isScheduled) return moveRound.mutate({ id: node.id, from: round ?? currentRound(node, localDate())!.planned, to: day });
           if (!column || target.kind === "week") return placeInWeek.mutate({ id: node.id, day });
           const shown = [...column.querySelectorAll<HTMLElement>("[data-week-item]")].map((el) => el.dataset.weekItem!).filter((id) => id !== node.id);
