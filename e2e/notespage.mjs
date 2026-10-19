@@ -33,7 +33,7 @@ await p.waitForSelector("section[data-drop-list]");
 await api("/auth/me", "PATCH", { tutorialSeen: true, notesTab: true });
 await api("/folders", "POST", { name: "Work" });
 await p.reload();
-await p.locator('nav[aria-label="Pages"] [aria-label="Notes"]').click();
+await p.locator('a[aria-label="Notes"]').click();
 await p.waitForURL("**/notes");
 out("Notes page is empty at first", await p.getByText("No notes yet.").waitFor({ timeout: 5000 }).then(() => true, () => false));
 

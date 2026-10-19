@@ -50,11 +50,11 @@ out("keyboard adding still works inside a list", (await outline()) === "Math exa
 let menu = await openMenu("Math exam");
 await menu.locator('label:has-text("Pass exams") input').click(); await wait();
 out("goal assigned to the main task", await row("Math exam").locator('[title="Goal: Pass exams"]').isVisible());
-// hard deadline in 5 days
-await menu.locator('input[aria-label^="Deadline date"]').fill(dmy(5)); await p.keyboard.press("Enter"); await wait();
+// hard deadline in 4 days: 5 days of work, the deadline day counted
+await menu.locator('input[aria-label^="Deadline date"]').fill(dmy(4)); await p.keyboard.press("Enter"); await wait();
 // Enter saved the date and closed the menu.
 menu = await openMenu("Math exam");
-out("deadline defaults to hard and shows a dd/mm pill", (await menu.locator('button[aria-pressed=true]').innerText()) === "Hard" && (await row("Math exam").locator('[title^="Hard deadline"]').innerText()) === dmy(5).slice(0, 5));
+out("deadline defaults to hard and shows a dd/mm pill", (await menu.locator('button[aria-pressed=true]').innerText()) === "Hard" && (await row("Math exam").locator('[title^="Hard deadline"]').innerText()) === dmy(4).slice(0, 5));
 await p.keyboard.press("Escape");
 const pressure = p.locator('[aria-label="Deadline pressure"]');
 out("dashboard pressure: 5 outstanding, 1 per day", (await pressure.innerText()).replace(/\s+/g, " ").includes("1 tasks to do today 5 outstanding"), (await pressure.innerText()).replace(/\s+/g, " "));
@@ -65,20 +65,20 @@ out("subtask menus: depth 1 has deadline, depth 2 does not, only main has goal",
 // drill-in
 await row("Math exam").locator('[title^="Hard deadline"]').click(); await p.waitForSelector('[aria-label="Countdown"] table');
 let trs = p.locator('[aria-label="Countdown"] tbody tr');
-out("countdown: one row per day, today through deadline", (await trs.count()) === 6, await trs.count());
+out("countdown: one row per day, today through deadline", (await trs.count()) === 5, await trs.count());
 out("countdown first row = spreadsheet maths (5 days, 5 left, 1/day)", (await cells(trs.first())).slice(2).join("|") === "5||5|1", (await cells(trs.first())).join("|"));
-out("deadline day row flagged overdue", (await cells(trs.last())).slice(2).join("|") === "0||5|overdue", (await cells(trs.last())).join("|"));
+out("deadline day row is the last day, not overdue: 1 day left, all 5 due", (await cells(trs.last())).slice(2).join("|") === "1||5|5", (await cells(trs.last())).join("|"));
 out("tree shown beside the table", (await outline('[aria-label="Tasks"]')) === "Math exam,-A,-B,-C,--C1", await outline('[aria-label="Tasks"]'));
 await row("A").locator("input[type=checkbox]").click(); await wait(600);
 out("ticking a subtask updates today's row (1 done, 4 left, 0.8/day)", (await cells(p.locator('[aria-label="Countdown"] tr[data-today]'))).slice(2).join("|") === "5|1|4|0.8", (await cells(p.locator('[aria-label="Countdown"] tr[data-today]'))).join("|"));
 out("future rows keep today's remainder", (await cells(trs.nth(4))).slice(2).join("|") === "1||4|4", (await cells(trs.nth(4))).join("|"));
 await p.locator('main header input[aria-label^="Deadline date"]').fill(dmy(10)); await p.keyboard.press("Enter"); await wait(700);
-out("extending the deadline recalculates the whole table", (await trs.count()) === 11 && (await cells(p.locator('[aria-label="Countdown"] tr[data-today]'))).slice(2).join("|") === "10|1|4|0.4", `${await trs.count()} rows, ${(await cells(p.locator('[aria-label="Countdown"] tr[data-today]'))).join("|")}`);
+out("extending the deadline recalculates the whole table", (await trs.count()) === 11 && (await cells(p.locator('[aria-label="Countdown"] tr[data-today]'))).slice(2).join("|") === "11|1|4|0.4", `${await trs.count()} rows, ${(await cells(p.locator('[aria-label="Countdown"] tr[data-today]'))).join("|")}`);
 await p.locator('main header input[aria-label^="Deadline date"]').fill(dmy(-2)); await p.keyboard.press("Enter"); await wait(700);
-out("deadline in the past: rows run to today, overdue", (await trs.count()) === 3 && (await cells(p.locator('[aria-label="Countdown"] tr[data-today]'))).slice(2).join("|") === "-2|1|4|overdue", `${await trs.count()} rows, ${(await cells(p.locator('[aria-label="Countdown"] tr[data-today]'))).join("|")}`);
+out("deadline in the past: rows run to today, overdue", (await trs.count()) === 3 && (await cells(p.locator('[aria-label="Countdown"] tr[data-today]'))).slice(2).join("|") === "-1|1|4|overdue", `${await trs.count()} rows, ${(await cells(p.locator('[aria-label="Countdown"] tr[data-today]'))).join("|")}`);
 await p.locator('main header button:text-is("Soft")').click(); await wait(700);
 out("soft deadline has no countdown", await p.locator("text=No countdown").isVisible());
-await p.locator('main header button:text-is("Hard")').click(); await p.locator('main header input[aria-label^="Deadline date"]').fill(dmy(5)); await p.keyboard.press("Enter"); await wait(700);
+await p.locator('main header button:text-is("Hard")').click(); await p.locator('main header input[aria-label^="Deadline date"]').fill(dmy(4)); await p.keyboard.press("Enter"); await wait(700);
 await p.screenshot({ path: "countdown.png", fullPage: true });
 
 // back on dashboard

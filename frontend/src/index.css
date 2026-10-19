@@ -392,6 +392,18 @@
     background-image: url("../../assets/icons/15x15spyglas_v1.svg");
     background-size: 15px;
   }
+  /* The bell is 8x10 art pixels, pale like the spyglass: 2px each in the strip. */
+  .bar-glyph-bell {
+    @apply h-5 w-4;
+    background-image: url("../../assets/icons/10x8bell_icon_v1.svg");
+    background-size: 16px 20px;
+  }
+  /* Beside the browser task bar's clock it is teeny: 1px each. */
+  .bar-glyph-bell-tiny {
+    @apply h-2.5 w-2;
+    background-image: url("../../assets/icons/10x8bell_icon_v1.svg");
+    background-size: 8px 10px;
+  }
   /*
    * The installed app's bars (AppBars): the task bar's white (stone-900 on the dark theme), a little see-through, and a
    * thin line. Variables, so the notch under the "+" (drawn as an SVG) has exactly the same colours.

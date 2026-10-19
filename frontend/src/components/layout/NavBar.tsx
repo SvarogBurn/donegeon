@@ -3,6 +3,7 @@ import { Link, NavLink } from "react-router";
 import { usePoints } from "../../hooks/useTasks";
 import { useStandalone } from "../../lib/standalone";
 import type { User } from "../../types";
+import { Bell } from "../Notifications/Bell";
 import { AppBars } from "./AppBars";
 import { barTab as tab, useNewFolderTab, usePublishedHeight } from "./barHooks";
 import { Clock } from "./Clock";
@@ -70,7 +71,8 @@ function TaskBar({ user }: { user: User }) {
             <span className="tab-icon tab-icon-user" aria-hidden />
             <span className="max-w-16 truncate sm:max-w-28">{user.username}</span>
           </NavLink>
-          <Clock />
+          {/* The clock with a teeny bell beside the time: a click opens the notifications (passed deadlines, each asking for a new date). */}
+          <Bell>{(bell) => <Clock beforeTime={bell} />}</Bell>
         </div>
       </div>
     </header>

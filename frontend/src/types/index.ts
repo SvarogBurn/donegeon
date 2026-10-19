@@ -171,7 +171,7 @@ export interface PointsSummary {
 
 /** Where a task stands on one day: Days left / Left / Per day. */
 export interface Pace {
-  /** Deadline minus the day; 0 on the deadline day, negative after it. */
+  /** Days to work in, the day and the deadline day both counted: 1 on the deadline day, 0 or less after it. */
   daysLeft: number;
   remaining: number;
   /** null = work left but no days left. */

@@ -17,7 +17,7 @@ export function addDays(day: string, days: number): string {
 
 /** Where a task stands on one day: the spreadsheet's Days left / Left / Per day. */
 export interface Pace {
-  /** Deadline minus this date; zero on the deadline day, negative after it. */
+  /** Days to work in from this date, both it and the deadline day counted: 1 on the deadline day, 0 or less after it. */
   daysLeft: number;
   remaining: number;
   /** Tasks per day still needed; null when there is work left and no days left to do it in. */
@@ -26,7 +26,8 @@ export interface Pace {
 
 /** `done` holds the completion day of every finished task in the subtree. */
 function paceOn(date: string, totalTasks: number, done: string[], deadlineDate: string): Pace {
-  const daysLeft = dayDiff(date, deadlineDate);
+  // The deadline day is the last day to do the work in, not a day too late.
+  const daysLeft = dayDiff(date, deadlineDate) + 1;
   const remaining = totalTasks - done.filter((day) => day <= date).length;
   const perDay = daysLeft > 0 ? remaining / daysLeft : remaining > 0 ? null : 0;
   return { daysLeft, remaining, perDay };
@@ -179,12 +180,12 @@ interface CombinedSource {
 /**
  * A future day on the dashboard's table: the plan, i.e. today's pace kept up
  * every day until the deadline (7 tasks over 7 days reads 1 on each of them).
- * Before the deadline, Left is what is open now; from the deadline on, the plan
+ * Up to the deadline day, Left is what is open now; after it, the plan
  * has it finished. A deadline that is already overdue today stays overdue.
  */
 function plannedPace(item: CombinedSource, date: string, today: string): Pace {
   const now = paceOn(today, item.total, item.done, item.deadlineDate);
-  const daysLeft = dayDiff(date, item.deadlineDate);
+  const daysLeft = dayDiff(date, item.deadlineDate) + 1;
   if (daysLeft > 0) return { ...now, daysLeft };
   if (now.perDay === null) return { ...now, daysLeft };
   return { daysLeft, remaining: 0, perDay: 0 };

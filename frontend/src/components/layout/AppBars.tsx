@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { usePoints } from "../../hooks/useTasks";
 import type { User } from "../../types";
+import { Bell } from "../Notifications/Bell";
 import { QuickAdd } from "../QuickAdd";
 import { SiteSearch } from "../Search/SiteSearch";
 import { barTab, useHideOnScroll, useNewFolderTab, usePublishedHeight } from "./barHooks";
@@ -71,8 +72,8 @@ function Notch() {
 
 /**
  * The installed app's bars (in a browser tab it has NavBar's task bar instead). Along the top: Notes at the far left (when the setting shows it), the
- * folders after it, a small spyglass that opens the search across the strip (the Tasks page then doesn't show one), and
- * the points at the far right. Along the bottom: the pages and the account with their names, and in the middle a "+" button standing up out of a notch in the bar,
+ * folders after it, a small spyglass that opens the search across the strip (the Tasks page then doesn't show one), the
+ * bell with the notifications, and the points at the far right. Along the bottom: the pages and the account with their names, and in the middle a "+" button standing up out of a notch in the bar,
  * for a task just for today. Both slide away while the page is scrolled down and come back on the way up, as in a
  * phone app. The clock isn't shown, but still runs: it is what reloads everything when the day changes.
  */
@@ -87,7 +88,8 @@ export function AppBars({ user }: { user: User }) {
   const { isNewShown, onNewUsed, handlers } = useNewFolderTab(top);
   const [isSearching, setIsSearching] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
-  const isHidden = useHideOnScroll(isAdding || isSearching);
+  const [isBellOpen, setIsBellOpen] = useState(false);
+  const isHidden = useHideOnScroll(isAdding || isSearching || isBellOpen);
   // Another page: the search has done its job.
   useEffect(() => setIsSearching(false), [pathname]);
 
@@ -121,6 +123,8 @@ export function AppBars({ user }: { user: User }) {
               <button type="button" className="bar-glyph bar-glyph-search flex-none" aria-label="Search" title="Search the whole site" onClick={() => setIsSearching(true)} />
             </>
           )}
+          {/* Notifications open below it: passed deadlines, each asking for a new date. */}
+          <Bell inStrip onOpenChange={setIsBellOpen} />
           {/* The balance at the far right: the number, with "pts" underneath. */}
           {points && (
             <NavLink

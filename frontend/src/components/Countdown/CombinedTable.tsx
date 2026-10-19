@@ -48,23 +48,10 @@ export function CombinedTable() {
           const style = dayRow(row.date, countdown.today);
           const deadlines = countdown.items.filter((item) => item.deadlineDate === row.date);
           // A day with nothing to do and nothing done is left out (its deadline marker stays); today always shows.
+          // A deadline's marker comes under its day: that day is the last one to do the work in.
           const isEmpty = row.perDay === 0 && row.doneThatDay === 0 && !style.isToday;
           return (
             <Fragment key={row.date}>
-              {deadlines.map((item) => (
-                <tr key={item.taskId} data-deadline-marker>
-                  <td colSpan={HEADERS.length} className={`${CELL} bg-stone-100 !p-0 text-center font-semibold dark:bg-stone-800`}>
-                    <button
-                      type="button"
-                      className="block w-full cursor-pointer px-1 py-0.5 sm:px-2 hover:bg-stone-200 focus-visible:bg-stone-200 dark:hover:bg-stone-700 dark:focus-visible:bg-stone-700"
-                      title={`${item.deadlineType === "soft" ? "Soft" : "Hard"} deadline. Click to go to the task`}
-                      onClick={() => open(item.taskId)}
-                    >
-                      <RichText text={item.title.split("\n")[0]} /> deadline
-                    </button>
-                  </td>
-                </tr>
-              ))}
               {!isEmpty && (
                 <tr data-today={style.isToday || undefined} className={style.row}>
                   <DayCells date={row.date} cell={style.cell} />
@@ -80,6 +67,20 @@ export function CombinedTable() {
                   </PaceCell>
                 </tr>
               )}
+              {deadlines.map((item) => (
+                <tr key={item.taskId} data-deadline-marker>
+                  <td colSpan={HEADERS.length} className={`${CELL} bg-stone-100 !p-0 text-center font-semibold dark:bg-stone-800`}>
+                    <button
+                      type="button"
+                      className="block w-full cursor-pointer px-1 py-0.5 sm:px-2 hover:bg-stone-200 focus-visible:bg-stone-200 dark:hover:bg-stone-700 dark:focus-visible:bg-stone-700"
+                      title={`${item.deadlineType === "soft" ? "Soft" : "Hard"} deadline. Click to go to the task`}
+                      onClick={() => open(item.taskId)}
+                    >
+                      <RichText text={item.title.split("\n")[0]} /> deadline
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </Fragment>
           );
         })}

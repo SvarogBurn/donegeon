@@ -26,13 +26,13 @@ await p.keyboard.press("ArrowUp"); await p.keyboard.press("Control+Enter");
 for (let i = 1; i <= 9; i++) { await p.keyboard.type("S" + i); await p.keyboard.press("Enter"); await wait(300); }
 await p.keyboard.press("Escape"); await wait();
 
-// pill colours on the absolute scale
-await setDeadline("Exam", 2);
-out("pill: dd/mm, no flag, no outline", (await pill("Exam").innerText()) === dmy(2).slice(0, 5) && (await pill("Exam").evaluate(el => getComputedStyle(el).borderTopWidth)) === "0px", await pill("Exam").innerText());
-out("5 per day = yellow #FFD666", (await bg(pill("Exam"))) === "rgb(255, 214, 102)", await bg(pill("Exam")));
+// pill colours on the absolute scale (the deadline day counts as a day of work: 10 tasks due tomorrow = 5 a day)
 await setDeadline("Exam", 1);
+out("pill: dd/mm, no flag, no outline", (await pill("Exam").innerText()) === dmy(1).slice(0, 5) && (await pill("Exam").evaluate(el => getComputedStyle(el).borderTopWidth)) === "0px", await pill("Exam").innerText());
+out("5 per day = yellow #FFD666", (await bg(pill("Exam"))) === "rgb(255, 214, 102)", await bg(pill("Exam")));
+await setDeadline("Exam", 0);
 out("10 per day = red #FF0000", (await bg(pill("Exam"))) === "rgb(255, 0, 0)", await bg(pill("Exam")));
-await setDeadline("Exam", 10);
+await setDeadline("Exam", 9);
 out("1 per day = mostly green (blend toward yellow)", (await bg(pill("Exam"))) === "rgb(121, 192, 131)", await bg(pill("Exam")));
 let m = await openMenu("Exam"); await m.locator('button:text-is("Soft")').click(); await wait(); await p.keyboard.press("Escape"); await wait(300);
 out("soft deadline pill is coloured the same way", (await bg(pill("Exam"))) === "rgb(121, 192, 131)" && (await pill("Exam").getAttribute("title")).startsWith("Soft"), await bg(pill("Exam")));

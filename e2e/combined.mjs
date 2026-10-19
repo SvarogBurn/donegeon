@@ -27,14 +27,14 @@ async function bigTask(title, subtasks, inDays, soft = false) {
   if (soft) { await openMenu(title); await m.locator('button:text-is("Soft")').click(); await wait(); }
   await p.keyboard.press("Escape"); await wait(400);
 }
-await bigTask("Exam", 6, 7);           // 7 tasks over 7 days: 1 per day
-await bigTask("Essay", 5, 3, true);    // 6 tasks over 3 days: 2 per day (soft still counts here)
+await bigTask("Exam", 6, 6);           // 7 tasks over 7 days, today and the deadline day counted: 1 per day
+await bigTask("Essay", 5, 2, true);    // 6 tasks over 3 days: 2 per day (soft still counts here)
 
 let l = await lines();
 out("first three days: 1 + 2 = 3 per day", l.slice(0, 3).every((x) => x.endsWith("|13|3")), l.slice(0, 3).join(" / "));
 out("after the essay's deadline: 1 per day for the exam alone", l.slice(4, 8).every((x) => x.endsWith("|7|1")), l.slice(4, 8).join(" / "));
-out("merged 'Essay deadline' row just above its day", l[3] === "Essay deadline" && l[4].startsWith(`${["SUN","MON","TUE","WED","THURS","FRI","SAT"][new Date(day(3) + "T00:00:00Z").getUTCDay()]}|${short(3)}`), l.slice(3, 5).join(" / "));
-out("'Exam deadline' row closes the table; the empty 0-per-day day after it is hidden", l.at(-1) === "Exam deadline" && l.at(-2).includes(short(6)), l.slice(-2).join(" / "));
+out("merged 'Essay deadline' row just under its day, the last day of it", l[3] === "Essay deadline" && l[2].startsWith(`${["SUN","MON","TUE","WED","THURS","FRI","SAT"][new Date(day(2) + "T00:00:00Z").getUTCDay()]}|${short(2)}`), l.slice(2, 4).join(" / "));
+out("'Exam deadline' row closes the table, under its day", l.at(-1) === "Exam deadline" && l.at(-2).includes(short(6)) && l.at(-2).endsWith("|7|1"), l.slice(-2).join(" / "));
 out("summary: 13 tasks, 0 done, 13 left, 2 deadlines", JSON.stringify(await table.locator("[data-summary]").allInnerTexts()) === '["13","0","13","2"]');
 
 // finish the essay: its subtasks first (a task can't be ticked before them), then the main task; only the exam's 1 per day is left

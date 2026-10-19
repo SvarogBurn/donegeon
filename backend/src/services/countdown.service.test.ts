@@ -20,9 +20,9 @@ describe("buildCountdown", () => {
     const { rows, totalTasks } = buildCountdown({ ...base, completedOn: open, today: "2026-10-02" });
     expect(totalTasks).toBe(10);
     expect(rows).toHaveLength(10);
-    expect(rows[0]).toMatchObject({ date: "2026-10-02", daysLeft: 9, doneThatDay: 0, remaining: 10 });
-    expect(rows[0].perDay).toBeCloseTo(10 / 9);
-    expect(rows.at(-1)).toMatchObject({ date: "2026-10-11", daysLeft: 0, remaining: 10, perDay: null });
+    expect(rows[0]).toMatchObject({ date: "2026-10-02", daysLeft: 10, doneThatDay: 0, remaining: 10, perDay: 1 });
+    // The deadline day is the last day of work, not overdue: all that is left is due on it.
+    expect(rows.at(-1)).toMatchObject({ date: "2026-10-11", daysLeft: 1, remaining: 10, perDay: 10 });
   });
 
   it("counts completions on their day and keeps the remainder cumulative", () => {
@@ -30,33 +30,34 @@ describe("buildCountdown", () => {
     const { rows } = buildCountdown({ ...base, completedOn, today: "2026-10-05" });
     expect(rows.map((r) => r.doneThatDay).slice(0, 4)).toEqual([1, 0, 3, 0]);
     expect(rows.map((r) => r.remaining).slice(0, 4)).toEqual([9, 9, 6, 6]);
-    expect(rows[3].perDay).toBeCloseTo(6 / 6);
+    expect(rows[3].perDay).toBeCloseTo(6 / 7);
     // Future days keep today's remainder: the pace if nothing more gets done.
-    expect(rows[8]).toMatchObject({ date: "2026-10-10", daysLeft: 1, remaining: 6, perDay: 6 });
+    expect(rows[8]).toMatchObject({ date: "2026-10-10", daysLeft: 2, remaining: 6, perDay: 3 });
   });
 
   it("needs nothing per day once everything is done, even past the deadline", () => {
     const all = Array(10).fill("2026-10-03");
     const rows = buildCountdown({ ...base, completedOn: all, today: "2026-10-12" }).rows;
-    expect(rows.at(-1)).toMatchObject({ date: "2026-10-12", daysLeft: -1, remaining: 0, perDay: 0 });
+    expect(rows.at(-1)).toMatchObject({ date: "2026-10-12", daysLeft: 0, remaining: 0, perDay: 0 });
   });
 
-  it("extends past the deadline through today and flags it overdue", () => {
+  it("extends past the deadline through today and flags it overdue from the day after it", () => {
     const { rows } = buildCountdown({ ...base, completedOn: open, today: "2026-10-14" });
-    expect(rows.at(-1)).toMatchObject({ date: "2026-10-14", daysLeft: -3, remaining: 10, perDay: null });
+    expect(rows.find((r) => r.date === "2026-10-12")).toMatchObject({ daysLeft: 0, remaining: 10, perDay: null });
+    expect(rows.at(-1)).toMatchObject({ date: "2026-10-14", daysLeft: -2, remaining: 10, perDay: null });
   });
 
   it("recalculates cleanly when the deadline is extended", () => {
     const { rows } = buildCountdown({ ...base, deadlineDate: "2026-10-22", completedOn: open, today: "2026-10-14" });
     expect(rows).toHaveLength(21);
     const today = rows.find((r) => r.date === "2026-10-14")!;
-    expect(today).toMatchObject({ daysLeft: 8, remaining: 10, perDay: 1.25 });
+    expect(today).toMatchObject({ daysLeft: 9, remaining: 10 });
   });
 
   it("copes with a deadline before the start date", () => {
     const { rows } = buildCountdown({ startDate: "2026-10-05", deadlineDate: "2026-10-03", completedOn: [null], today: "2026-10-05" });
     expect(rows.map((r) => r.date)).toEqual(["2026-10-03", "2026-10-04", "2026-10-05"]);
-    expect(rows.every((r) => r.perDay === null)).toBe(true);
+    expect(rows.map((r) => r.perDay)).toEqual([1, null, null]);
   });
 });
 
@@ -91,14 +92,14 @@ describe("todayPressure", () => {
     expect(summary.items.map((i) => i.taskId)).toEqual(["late", "project-part", "exam"]);
     expect(summary.items.map((i) => i.remaining)).toEqual([1, 2, 2]);
     expect(summary.totalOutstanding).toBe(5);
-    // late: 1 overdue (all due now) + project-part: 2 over 2 days + exam: 2 over 10 days
-    expect(summary.perDayToday).toBeCloseTo(1 + 1 + 0.2);
+    // late: 1 overdue (all due now) + project-part: 2 over 3 days + exam: 2 over 11 days (the deadline days count)
+    expect(summary.perDayToday).toBeCloseTo(1 + 2 / 3 + 2 / 11);
     expect(summary.items[0].perDay).toBeNull();
   });
 
   it("gives any task with a deadline, soft ones too, today's pace over its own subtree", () => {
-    expect(todayPace(tasks, tasks[3], "2026-10-02")).toEqual({ daysLeft: 1, remaining: 1, perDay: 1 });
-    expect(todayPace(tasks, tasks[0], "2026-10-02")).toEqual({ daysLeft: 10, remaining: 2, perDay: 0.2 });
+    expect(todayPace(tasks, tasks[3], "2026-10-02")).toEqual({ daysLeft: 2, remaining: 1, perDay: 0.5 });
+    expect(todayPace(tasks, tasks[0], "2026-10-02")).toMatchObject({ daysLeft: 11, remaining: 2 });
   });
 });
 
@@ -120,7 +121,7 @@ describe("combinedCountdown", () => {
   const exam = [task("exam", null, { deadlineDate: "2026-10-10", deadlineType: "hard" }), ...kids("exam", 6)];
   const essay = [task("essay", null, { deadlineDate: "2026-10-06", deadlineType: "soft" }), ...kids("essay", 5)];
 
-  it("adds each deadline's own pace: 1/day + 2/day = 3/day until the sooner deadline", () => {
+  it("adds each deadline's own pace: 7 over 8 days + 6 over 4 days until the sooner deadline, its day included", () => {
     const { rows, items, totalTasks } = combinedCountdown([...exam, ...essay], "2026-10-03");
     expect(totalTasks).toBe(13);
     expect(items.map((i) => [i.taskId, i.deadlineDate, i.deadlineType])).toEqual([
@@ -129,10 +130,10 @@ describe("combinedCountdown", () => {
     ]);
     expect(rows.map((r) => r.date)).toEqual(["2026-10-03", "2026-10-04", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-10"]);
     // Future days follow the plan: each deadline keeps today's pace until it is due.
-    expect(rows.slice(0, 3).map((r) => r.perDay)).toEqual([3, 3, 3]);
-    // From its deadline on, the plan has the essay finished, and the exam on 10/10.
-    expect(rows.slice(3).map((r) => r.perDay)).toEqual([1, 1, 1, 1, 0]);
-    expect(rows.slice(2, 4).map((r) => r.remaining)).toEqual([13, 7]);
+    expect(rows.slice(0, 4).map((r) => r.perDay)).toEqual([7 / 8 + 6 / 4, 7 / 8 + 6 / 4, 7 / 8 + 6 / 4, 7 / 8 + 6 / 4]);
+    // After its deadline day, the plan has the essay finished; the exam runs to the end of 10/10.
+    expect(rows.slice(4).map((r) => r.perDay)).toEqual([7 / 8, 7 / 8, 7 / 8, 7 / 8]);
+    expect(rows.slice(3, 5).map((r) => r.remaining)).toEqual([13, 7]);
     expect(rows[0]).toMatchObject({ remaining: 13, doneThatDay: 0, overdue: false });
   });
 
@@ -141,18 +142,20 @@ describe("combinedCountdown", () => {
     const { rows, items, totalTasks } = combinedCountdown([...exam, ...done], "2026-10-03");
     expect(items.map((i) => i.taskId)).toEqual(["exam"]);
     expect(totalTasks).toBe(7);
-    expect(rows[0]).toMatchObject({ doneThatDay: 0, remaining: 7, perDay: 1, overdue: false });
-    expect(rows[3]).toMatchObject({ date: "2026-10-06", remaining: 7, perDay: 1, overdue: false });
+    expect(rows[0]).toMatchObject({ doneThatDay: 0, remaining: 7, perDay: 7 / 8, overdue: false });
+    expect(rows[3]).toMatchObject({ date: "2026-10-06", remaining: 7, perDay: 7 / 8, overdue: false });
     // Ticked subtasks of a deadline still open go on counting as done.
     const begun = essay.map((t, i) => ({ ...t, completedOn: i === 1 ? "2026-10-03" : null }));
     expect(combinedCountdown(begun, "2026-10-03").rows[0]).toMatchObject({ doneThatDay: 1, remaining: 5 });
   });
 
-  it("counts unfinished work in full, flagged overdue, once its deadline has come", () => {
-    const { rows } = combinedCountdown([...exam, ...essay], "2026-10-06");
-    expect(rows[3]).toMatchObject({ date: "2026-10-06", remaining: 13, perDay: 7 / 4 + 6, overdue: true });
-    // …and stays overdue on the days after, since it can no longer be done on time.
+  it("counts unfinished work in full, flagged overdue, once its deadline day has passed", () => {
+    const { rows } = combinedCountdown([...exam, ...essay], "2026-10-07");
+    // On the deadline day itself it is all due that day, but not overdue.
+    expect(rows[3]).toMatchObject({ date: "2026-10-06", remaining: 13, perDay: 7 / 5 + 6, overdue: false });
     expect(rows[4]).toMatchObject({ date: "2026-10-07", remaining: 13, perDay: 7 / 4 + 6, overdue: true });
+    // …and stays overdue on the days after, since it can no longer be done on time.
+    expect(rows[5]).toMatchObject({ date: "2026-10-08", remaining: 13, perDay: 7 / 4 + 6, overdue: true });
   });
 
   it("starts each deadline on the day its task was written down, and past days use what was done", () => {
@@ -160,9 +163,9 @@ describe("combinedCountdown", () => {
     // Three of its subtasks; the exam itself stays open, or it would have left the table.
     const done = exam.map((t, i) => ({ ...t, completedOn: i >= 1 && i <= 3 ? "2026-10-05" : null }));
     const { rows } = combinedCountdown([...done, ...later], "2026-10-07");
-    expect(rows[0]).toMatchObject({ date: "2026-10-03", remaining: 7, perDay: 1, doneThatDay: 0 });
-    expect(rows[2]).toMatchObject({ date: "2026-10-05", remaining: 4 + 6, perDay: 4 / 5 + 6, doneThatDay: 3 });
-    expect(rows[4]).toMatchObject({ date: "2026-10-07", remaining: 10, perDay: 4 / 3 + 6, overdue: true });
+    expect(rows[0]).toMatchObject({ date: "2026-10-03", remaining: 7, perDay: 7 / 8, doneThatDay: 0 });
+    expect(rows[2]).toMatchObject({ date: "2026-10-05", remaining: 4 + 6, perDay: 4 / 6 + 6 / 2, doneThatDay: 3 });
+    expect(rows[4]).toMatchObject({ date: "2026-10-07", remaining: 10, perDay: 4 / 4 + 6, overdue: true });
   });
 
   it("skips a subtask's deadline inside a task that has one, and is empty without deadlines", () => {
