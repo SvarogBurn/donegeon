@@ -122,7 +122,12 @@ function AddOnDay({ day, lists, onClose }: { day: string; lists: List[]; onClose
   }
 
   return (
-    <form onSubmit={submit} className="space-y-1.5" data-add-on={day} onKeyDown={(e) => e.key === "Escape" && onClose()}>
+    <form onSubmit={submit} className="space-y-1.5" data-add-on={day} onKeyDown={(e) => {
+        // Only the field closes, not a popup it is in.
+        if (e.key !== "Escape") return;
+        e.stopPropagation();
+        onClose();
+      }}>
       <input
         autoFocus
         className="nes-input input"
@@ -159,15 +164,17 @@ function AddOnDay({ day, lists, onClose }: { day: string; lists: List[]; onClose
 interface DayProps {
   day: string;
   today: string;
-  isSelected: boolean;
   plan: PlanItem[];
   done: DoneItem[];
   lists: List[];
   onInfo: (info: Info) => void;
 }
 
-/** One day of the row: what there is to do on it (today and after), or what was done on it (before today). */
-function DayColumn({ day, today, isSelected, plan, done, lists, onInfo }: DayProps) {
+/**
+ * What is on one day: what there is to do on it (today and after), or what was done on it (before today).
+ * In the row it scrolls within its own height; `isWhole` shows all of it, for the Calendar box's day popup.
+ */
+export function DayTasks({ day, today, plan, done, lists, onInfo, isWhole = false }: DayProps & { isWhole?: boolean }) {
   const [isAdding, setIsAdding] = useState(false);
   const isPast = day < today;
   const open = plan.filter(isOpen).length;
@@ -176,11 +183,7 @@ function DayColumn({ day, today, isSelected, plan, done, lists, onInfo }: DayPro
   const listName = (id: string | null) => lists.find((list) => list.id === id)?.name;
 
   return (
-    <section
-      data-day={day}
-      aria-label={formatDay(day, true)}
-      className={`w-60 flex-none border-l-2 border-stone-200 px-3 pb-2 sm:w-64 dark:border-stone-800 ${isSelected ? "bg-stone-100/70 dark:bg-stone-800/40" : ""}`}
-    >
+    <>
       <header className="space-y-1 py-2 text-center">
         <h3 className={`text-sm ${day === today ? "text-[#3544a1] dark:text-[#cbdbfc]" : ""}`}>
           {formatDay(day, true)}
@@ -195,7 +198,7 @@ function DayColumn({ day, today, isSelected, plan, done, lists, onInfo }: DayPro
         done.length === 0 ? (
           <p className="py-2 text-center text-xs text-stone-500">Nothing ticked off</p>
         ) : (
-          <DayList className="border-t border-stone-200 dark:border-stone-800">
+          <DayList isWhole={isWhole} className="border-t border-stone-200 dark:border-stone-800">
             {done.map((item) => (
               <li key={item.id} data-done-item={item.id} className="space-y-0.5 py-1.5 text-sm text-stone-500">
                 <button type="button" data-task-name title="More about this task" className="block max-w-full cursor-pointer text-left break-words hover:underline" onClick={() => onInfo({ done: item, day })}>
@@ -212,7 +215,7 @@ function DayColumn({ day, today, isSelected, plan, done, lists, onInfo }: DayPro
           {plan.length === 0 ? (
             <p className="py-2 text-center text-xs text-stone-500">No tasks</p>
           ) : (
-            <DayList className="divide-y divide-stone-200 border-y border-stone-200 dark:divide-stone-800 dark:border-stone-800">
+            <DayList isWhole={isWhole} className="divide-y divide-stone-200 border-y border-stone-200 dark:divide-stone-800 dark:border-stone-800">
               {plan.map((item) => (
                 <PlanRow key={item.node.id} item={item} today={today} listName={listName(item.listId)} onInfo={() => onInfo({ plan: item, day })} />
               ))}
@@ -230,6 +233,19 @@ function DayColumn({ day, today, isSelected, plan, done, lists, onInfo }: DayPro
             ))}
         </>
       )}
+    </>
+  );
+}
+
+/** One day of the row. */
+function DayColumn({ isSelected, ...props }: DayProps & { isSelected: boolean }) {
+  return (
+    <section
+      data-day={props.day}
+      aria-label={formatDay(props.day, true)}
+      className={`w-60 flex-none border-l-2 border-stone-200 px-3 pb-2 sm:w-64 dark:border-stone-800 ${isSelected ? "bg-stone-100/70 dark:bg-stone-800/40" : ""}`}
+    >
+      <DayTasks {...props} />
     </section>
   );
 }

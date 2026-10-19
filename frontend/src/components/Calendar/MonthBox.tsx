@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { localDate } from "../../api/client";
-import { addMonths, firstLine, monthOf, monthWeeks, type PlanItem } from "../../lib/calendar";
-import { formatDay } from "../../lib/dates";
+import { addMonths, firstLine, monthOf, monthWeeks, type DoneItem, type PlanItem } from "../../lib/calendar";
+import { formatDay, formatFullDay } from "../../lib/dates";
+import type { List } from "../../types";
 import { TileFrame } from "../Tiles/TileFrame";
 import { CAL_BOXES, isOpen, pickDay, useCalendar, useDayPicked, type Info } from "./calendarData";
 import { TaskInfo } from "./TaskInfo";
+import { DayTasks } from "./DaysBox";
 import { RichText } from "../RichText";
 import { plainTitle } from "../../lib/markup";
 
@@ -24,20 +27,51 @@ function nameTone({ node, kind }: PlanItem) {
   return "bg-[#cbdbfc] text-[#3544a1] dark:bg-[#3f3f74] dark:text-[#cbdbfc]";
 }
 
+/** A day of the month opened up: all that is on it, ticked and added to as in the Days box. */
+function DayPopup({ day, today, plan, done, lists, onInfo, onClose }: {
+  day: string;
+  today: string;
+  plan: PlanItem[];
+  done: DoneItem[];
+  lists: List[];
+  onInfo: (info: Info) => void;
+  onClose: () => void;
+}) {
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onKeyDown={(e) => e.key === "Escape" && onClose()}
+    >
+      <div className="card max-h-full w-[32rem] max-w-full overflow-y-auto" role="dialog" aria-modal="true" aria-label={formatFullDay(day)} data-day-popup={day}>
+        <DayTasks day={day} today={today} plan={plan} done={done} lists={lists} onInfo={onInfo} isWhole />
+        <div className="flex justify-end pt-3">
+          <button type="button" className="nes-btn btn-small" onClick={onClose} autoFocus>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 /**
  * One month, Monday first. Each day names what is on it: what there is to do (today and after) or what was done
  * (before today); a box too narrow for names shows how many instead, filled for to do and outlined for done.
- * A click on a name opens more about that task; a click anywhere else on a day brings that day to the front of the Days box.
+ * A click on a name opens more about that task; a click anywhere else on a day opens the whole day in a popup, and brings
+ * that day to the front of the Days box.
  */
 export function MonthBox() {
   const [picked, setPicked] = useState<{ month: string; selected: string } | null>(null);
   const [info, setInfo] = useState<Info | null>(null);
+  const [openDay, setOpenDay] = useState<string | null>(null);
   const [shownMonth, setShownMonth] = useState<string | null>(null);
   const today = localDate();
   // Until a month is asked for, it is the one today is in, so the box rolls over with the day.
   const month = shownMonth ?? picked?.month ?? monthOf(today);
   // The month's page reaches a week into the months either side.
-  const { isLoaded, error, planOn, doneOn } = useCalendar(monthWeeks(month).at(-1)!.at(-1)!);
+  const { lists, isLoaded, error, planOn, doneOn } = useCalendar(monthWeeks(month).at(-1)!.at(-1)!);
   const selected = picked?.selected ?? today;
 
   useDayPicked((day) => {
@@ -82,7 +116,11 @@ export function MonthBox() {
                 data-cal-day={day}
                 data-selected={day === selected || undefined}
                 // Anywhere on the day but on a task's name.
-                onClick={(e) => !(e.target as Element).closest("[data-cal-task]") && pickDay(day)}
+                onClick={(e) => {
+                  if ((e.target as Element).closest("[data-cal-task]")) return;
+                  pickDay(day);
+                  setOpenDay(day);
+                }}
                 className={`flex min-h-12 min-w-0 cursor-pointer flex-col gap-1 border-2 p-1 text-xs hover:bg-stone-100 @xl:min-h-24 dark:hover:bg-stone-800 ${
                   day === selected ? "border-[#3544a1] dark:border-[#cbdbfc]" : "border-stone-200 dark:border-stone-800"
                 } ${monthOf(day) === month ? "" : "opacity-40"}`}
@@ -128,6 +166,9 @@ export function MonthBox() {
             );
           })}
       </div>
+      {openDay && lists && (
+        <DayPopup day={openDay} today={today} plan={planOn(openDay)} done={doneOn(openDay)} lists={lists} onInfo={setInfo} onClose={() => setOpenDay(null)} />
+      )}
       {info && <TaskInfo info={info} onClose={() => setInfo(null)} />}
     </TileFrame>
   );

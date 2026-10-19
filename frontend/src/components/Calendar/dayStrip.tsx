@@ -32,13 +32,13 @@ function useMoreMarks(ref: RefObject<HTMLElement | null>) {
 
 /**
  * What is on a day. A long one scrolls within its own height, with no scroll bar, like the row:
- * by the wheel, a swipe, or dragging it.
+ * by the wheel, a swipe, or dragging it. `isWhole` lets it be as tall as it is (the popup around it scrolls instead).
  */
-export function DayList({ className, children }: { className: string; children: ReactNode }) {
+export function DayList({ className, isWhole = false, children }: { className: string; isWhole?: boolean; children: ReactNode }) {
   const list = useRef<HTMLUListElement>(null);
   useMoreMarks(list);
   return (
-    <ul ref={list} data-day-list onScroll={(e) => markMore(e.currentTarget)} className={`max-h-[min(60dvh,24rem)] ${SCROLL} ${className}`}>
+    <ul ref={list} data-day-list onScroll={(e) => markMore(e.currentTarget)} className={`${isWhole ? "" : "max-h-[min(60dvh,24rem)]"} ${SCROLL} ${className}`}>
       {children}
     </ul>
   );
