@@ -46,10 +46,12 @@ function TaskBar({ user }: { user: User }) {
             <span className="tab-icon tab-icon-calendar" aria-hidden />
             Calendar
           </NavLink>
-          <NavLink to="/notes" className={tab} aria-label="Notes">
-            <span className="tab-icon tab-icon-notes" aria-hidden />
-            Notes
-          </NavLink>
+          {user.notesTab && (
+            <NavLink to="/notes" className={tab} aria-label="Notes">
+              <span className="tab-icon tab-icon-notes" aria-hidden />
+              Notes
+            </NavLink>
+          )}
           <FolderTabs tab={tab} isNewShown={isNewShown} onNewUsed={onNewUsed} />
         </nav>
         <Link to="/" className="logo h-[42px] max-sm:hidden" aria-label="Donegeon" />

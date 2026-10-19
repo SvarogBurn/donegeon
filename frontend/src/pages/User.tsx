@@ -295,6 +295,15 @@ export function UserPage() {
           name="break-every"
           note={breakNote}
         />
+        <label className="flex items-center gap-2 text-xs">
+          <PixelCheckbox small checked={user.notesTab} onChange={(e) => update.mutate({ notesTab: e.target.checked })} data-notes-tab />
+          Notes tab
+        </label>
+        <p className="text-xs text-stone-500">
+          {user.notesTab
+            ? "A Notes tab for notes of their own, on no task, with folders of their own."
+            : "No Notes tab. A task can still have its note."}
+        </p>
         {/* How the app looks. */}
         <h3 className="border-t-2 border-stone-300 pt-3 font-pixel text-xs text-stone-500 dark:border-stone-700">Theme</h3>
         <label className="flex items-center gap-2 text-xs">

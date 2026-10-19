@@ -29,7 +29,7 @@ for (const [name, viewport, dark] of [["phone", { width: 390, height: 844 }, fal
     await p.fill('input[type="password"]', "hunter2hunter2");
     await p.keyboard.press("Enter");
     await p.waitForSelector("section[data-drop-list]");
-    await api("/auth/me", "PATCH", { tutorialSeen: true });
+    await api("/auth/me", "PATCH", { tutorialSeen: true, notesTab: true });
     const list = (await api("/lists")).lists[0];
     await api("/folders", "POST", { name: "Work" });
     await api("/folders", "POST", { name: "Home stuff" });

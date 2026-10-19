@@ -70,7 +70,7 @@ function Notch() {
 }
 
 /**
- * The installed app's bars (in a browser tab it has NavBar's task bar instead). Along the top: Notes at the far left, the
+ * The installed app's bars (in a browser tab it has NavBar's task bar instead). Along the top: Notes at the far left (when the setting shows it), the
  * folders after it, a small spyglass that opens the search across the strip (the Tasks page then doesn't show one), and
  * the points at the far right. Along the bottom: the pages and the account with their names, and in the middle a "+" button standing up out of a notch in the bar,
  * for a task just for today. Both slide away while the page is scrolled down and come back on the way up, as in a
@@ -99,7 +99,7 @@ export function AppBars({ user }: { user: User }) {
         className={`${BAR} app-bar-fill top-0 border-b pt-[env(safe-area-inset-top)] ${isHidden ? "-translate-y-full" : ""}`}
         data-bar-hidden={isHidden || undefined}
       >
-        <div className="flex items-center gap-2 py-1 pr-3">
+        <div className={`flex items-center gap-2 py-1 pr-3 ${user.notesTab ? "" : "pl-1"}`}>
           {isSearching ? (
             <SiteSearch
               inBar
@@ -109,10 +109,12 @@ export function AppBars({ user }: { user: User }) {
             />
           ) : (
             <>
-              {/* Notes stays at the far left, just its icon; the folders after it scroll sideways in one row. */}
-              <NavLink to="/notes" className={(state) => `${folderTab(state)} flex-none`} aria-label="Notes" title="Notes">
-                <span className="tab-icon tab-icon-notes !bg-size-[20px]" aria-hidden />
-              </NavLink>
+              {/* Notes stays at the far left, just its icon (when the setting shows it); the folders after it scroll sideways in one row. */}
+              {user.notesTab && (
+                <NavLink to="/notes" className={(state) => `${folderTab(state)} flex-none`} aria-label="Notes" title="Notes">
+                  <span className="tab-icon tab-icon-notes !bg-size-[20px]" aria-hidden />
+                </NavLink>
+              )}
               <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]" aria-label="Folders">
                 <FolderTabs tab={folderTab} isNewShown={isNewShown} onNewUsed={onNewUsed} opensBelow />
               </nav>

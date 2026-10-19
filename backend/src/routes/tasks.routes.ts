@@ -9,7 +9,7 @@ import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
 import { addDays, countdownForTask, todayPace } from "../services/countdown.service.js";
 import { bookTask, bookTick, MAX_POINTS, reverseBooking, reverseTaskBooking, subtaskValue, taskValue } from "../services/points.service.js";
-import { dueAfter, movesFrom, roundMovesOf } from "../services/repeat.service.js";
+import { dueAfter, movesFrom, roundMovesOf, staleRoundTicks } from "../services/repeat.service.js";
 import {
   buildTree,
   completionPatch,
@@ -46,6 +46,8 @@ const taskInput = z.object({
   /** In the Week box from the start, on this day, after `weekAfter` there (null = first; left out = last). */
   weekDay: localDate.optional(),
   weekAfter: z.string().uuid().nullish(),
+  /** Done again and again (main tasks); a schedule makes it persistent too. */
+  isPersistent: z.boolean().optional(),
   repeatEvery: z.number().int().min(1, "Repeat every 1 or more").max(999).optional(),
   repeatUnit: z.enum(["day", "week", "month"]).optional(),
   nextDue: localDate.optional(),
@@ -273,7 +275,17 @@ tasksRouter.get("/", async (req, res) => {
     },
     { day: { gte: since } },
   );
-  res.json({ tasks: await asTrees(owner, tasks, req.localDate) });
+  // Subtasks of a persistent task still ticked from a round the Skip rule dropped start this one unticked, as a press
+  // would have left them. Their points stay, as after a press.
+  const stale = new Set(staleRoundTicks(tasks, req.localDate));
+  if (stale.size > 0) {
+    await prisma.task.updateMany({
+      where: { id: { in: [...stale] }, userId: owner },
+      data: { isComplete: false, completedAt: null, completedOn: null },
+    });
+  }
+  const fresh = stale.size > 0 ? tasks.map((task) => (stale.has(task.id) ? { ...task, isComplete: false, completedAt: null, completedOn: null } : task)) : tasks;
+  res.json({ tasks: await asTrees(owner, fresh, req.localDate) });
 });
 
 // The Done page, a few days at a time, newest first: the days on which something was ticked (before `before`,
@@ -421,8 +433,9 @@ tasksRouter.post("/", async (req, res) => {
   if (parentId && input.deadlineDate && (await findDepth(prisma, parentId)) + 1 > MAX_DEADLINE_DEPTH) {
     throw new HttpError(400, "Deadlines can only be set on main tasks and their direct subtasks");
   }
-  if (input.repeatEvery && parentId) throw new HttpError(400, "Only main tasks can be persistent");
-  if (input.repeatEvery && input.deadlineDate) {
+  const isPersistent = Boolean(input.isPersistent || input.repeatEvery);
+  if (isPersistent && parentId) throw new HttpError(400, "Only main tasks can be persistent");
+  if (isPersistent && input.deadlineDate) {
     throw new HttpError(400, "A persistent task is never finished, so it can't have a deadline. Remove one or the other.");
   }
   if (listId) await assertOwnList(req, listId);
@@ -444,9 +457,9 @@ tasksRouter.post("/", async (req, res) => {
         // Without a list or a parent it was written straight into Today (or Week), and lives only there until moved to a list.
         todaySince: input.today || (!(parentId || listId) && !input.weekDay) ? req.localDate : null,
         points: input.points,
+        isPersistent,
         // A schedule makes the task persistent, due today unless another day was given.
         ...(input.repeatEvery && {
-          isPersistent: true,
           repeatEvery: input.repeatEvery,
           repeatUnit: input.repeatUnit,
           nextDue: input.nextDue ?? req.localDate,

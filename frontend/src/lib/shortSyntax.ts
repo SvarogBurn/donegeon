@@ -43,6 +43,8 @@ export interface ParsedTask {
   points?: number;
   listId?: string;
   repeat?: { every: number; unit: RepeatUnit; nextDue: string };
+  /** @persistent: done again and again, with or without a schedule (main tasks). */
+  persistent?: boolean;
   /** Everything typed after "//" (main tasks only). */
   notes?: string;
   tokens: SyntaxToken[];
@@ -79,8 +81,8 @@ function readName(rest: string, known: Named[]): { name: string; id?: string } |
 
 /**
  * Reads the shortcuts typed into a task's title: #tag, ^goal, @date (hard deadline), ~date (soft deadline),
- * @today / @now (do today), @every ... (a schedule), 5p (points), /list and // note (the rest of the text, on a
- * main task). Each counts only at the start of a
+ * @today / @now (do today), @persistent (done again and again), @every ... (a schedule), 5p (points), /list and
+ * // note (the rest of the text, on a main task). Each counts only at the start of a
  * word. What can't apply (a second deadline, a schedule on a subtask, a list nobody made, ...) stays in the title
  * as it was typed, so nothing goes missing without a trace.
  */
@@ -93,7 +95,7 @@ export function parseShortSyntax(text: string, ctx: SyntaxContext): ParsedTask {
     cuts.push([start, start + length]);
     return start + length;
   };
-  const canHaveDeadline = () => ctx.depth <= MAX_DEADLINE_DEPTH && !parsed.deadlineDate && !parsed.repeat;
+  const canHaveDeadline = () => ctx.depth <= MAX_DEADLINE_DEPTH && !parsed.deadlineDate && !parsed.repeat && !parsed.persistent;
 
   const note = noteStart(text, ctx.depth);
   for (let at = 0; at < text.length; at++) {
@@ -127,11 +129,16 @@ export function parseShortSyntax(text: string, ctx: SyntaxContext): ParsedTask {
       at = take(at, 1 + found.name.length, "list", `→ ${found.name}`) - 1;
     } else if (mark === "@" || mark === "~") {
       const doToday = mark === "@" && rest.match(/^(today|now)(?=\s|$)/i);
+      const persistent = mark === "@" && ctx.depth === 0 && !parsed.persistent && !parsed.deadlineDate && rest.match(/^persistent(?=\s|$)/i);
       const repeat = mark === "@" && ctx.depth === 0 && !parsed.repeat && !parsed.deadlineDate ? parseRepeatWords(rest, ctx.today) : null;
       const date = canHaveDeadline() ? parseDayWords(rest, ctx.today) : null;
       if (doToday) {
         parsed.today = true;
         at = take(at, 1 + doToday[0].length, "today", "Today") - 1;
+      } else if (persistent) {
+        parsed.persistent = true;
+        // Shown like a schedule: both make the task one that is done again and again.
+        at = take(at, 1 + persistent[0].length, "repeat", "persistent") - 1;
       } else if (repeat) {
         parsed.repeat = { every: repeat.every, unit: repeat.unit, nextDue: repeat.nextDue };
         const from = repeat.nextDue === ctx.today ? "" : ` from ${formatDay(repeat.nextDue, true)}`;
@@ -213,7 +220,7 @@ function dateSuggestions(mark: string, query: string, ctx: SyntaxContext): Sugge
     // Only what the whole of the words says: "@fri x" is a Friday and a stray x.
     return token && token.end === words.length + 1 ? { insert: mark + words, detail: token.kind === "today" ? "Do today" : token.label } : null;
   };
-  const words = mark === "@" ? ["today", ...DAY_WORDS, ...REPEAT_WORDS] : ["today", ...DAY_WORDS];
+  const words = mark === "@" ? ["today", ...DAY_WORDS, ...REPEAT_WORDS, "persistent"] : ["today", ...DAY_WORDS];
   const offered = words.filter((word) => word.startsWith(query.toLowerCase()) && !same(word, query));
   return [query, ...offered].flatMap((word) => describe(word) ?? []).slice(0, MOST_SUGGESTIONS);
 }
@@ -252,6 +259,7 @@ export const SYNTAX_HELP: [type: string, does: string, example: string][] = [
   ["~date", "A soft deadline.", "Call the bank ~tomorrow"],
   ["@today or @now", "Do today: it shows in the Today box and stays in its list.", "Water plants @today"],
   ["@every …", "Repeats: @daily, @weekly, @monthly, @every 2 weeks, @every fri.", "Vacuum @every 2 weeks"],
+  ["@persistent", "Persistent: done again and again, with no schedule. Its subtasks come back unticked each time.", "Drink water @persistent"],
   ["5p", "Its points, instead of the list's amount.", "Clean the oven 20p"],
   ["/list", "Puts it in that list, whichever box you type in.", "Buy milk /Chores"],
   ["// note", "The rest of what you type is the task's note (main tasks). Lists (* or - at a line's start) and **bold** and the like work in it.", "Call the plumber // ask about the boiler"],

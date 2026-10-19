@@ -340,13 +340,14 @@ export function ListForm({ folderId = null }: { folderId?: string | null }) {
 /**
  * Each list with the tasks shown in it. A ticked task (a finished main task, or
  * a subtask) stays in its list, ticked, for 24 hours and is in the Done page
- * from the start; with `ticked` "hide" it leaves its list the moment it is ticked.
+ * from the start; a persistent task's subtasks stay ticked until its next round.
+ * With `ticked` "hide" it leaves its list the moment it is ticked.
  * While a goal/tag filter is on, only matching tasks and the lists holding them are kept.
  */
 export function listCards(lists: List[], tasks: TaskTreeNode[], filter: LabelFilter, ticked: TickedTasks) {
   const filtering = isFiltering(filter);
-  const shown = (nodes: TaskTreeNode[]): TaskTreeNode[] =>
-    nodes.filter((task) => isShown(task, ticked)).map((task) => ({ ...task, children: shown(task.children) }));
+  const shown = (nodes: TaskTreeNode[], inRound = false): TaskTreeNode[] =>
+    nodes.filter((task) => isShown(task, ticked, inRound)).map((task) => ({ ...task, children: shown(task.children, inRound || task.isPersistent) }));
   return lists
     .map((list) => {
       const own = tasks.filter((t) => t.listId === list.id);

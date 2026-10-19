@@ -41,6 +41,7 @@ const publicUser = (user: User) => ({
   pointsCap: user.pointsCap,
   breakEvery: user.breakEvery,
   plainFont: user.plainFont,
+  notesTab: user.notesTab,
   isDev: isDev(user.username),
 });
 
@@ -51,6 +52,7 @@ const settings = z
     deadlineToday: z.enum(["never", "day", "dayBefore"]),
     tutorialSeen: z.boolean(),
     plainFont: z.boolean(),
+    notesTab: z.boolean(),
     /** null = no cap. */
     pointsCap: z.number().int().min(1, "A cap is at least 1 point").max(MAX_POINTS).nullable(),
     /** null = no reminder. */

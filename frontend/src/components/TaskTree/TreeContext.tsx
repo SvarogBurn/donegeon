@@ -13,7 +13,7 @@ import {
 import type { TaskPlacement } from "../../api/tasks";
 import { areaScroller, edgeScroller } from "../../lib/edgeScroll";
 import { NO_FILTER, type LabelFilter } from "../../lib/labels";
-import { isShown } from "../../lib/recent";
+import { isInRound, isShown } from "../../lib/recent";
 import { useSortByDeadline, useTickedTasks } from "../../hooks/useAuth";
 import { orderDay } from "../../lib/deadlines";
 import { livesInToday, livesInWeek, weekColumn, weekDays } from "../../lib/week";
@@ -473,7 +473,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       // Shown soonest date first: a task only changes places with those of its own day, or with the others that have none.
       const steppedOver = (sibling: TaskTreeNode) =>
         (byDeadline && orderDay(sibling) !== orderDay(node)) ||
-        (ticked === "bottom" ? sibling.isComplete !== node.isComplete : rootId === null && !isShown(sibling, ticked));
+        (ticked === "bottom" ? sibling.isComplete !== node.isComplete : rootId === null && !isShown(sibling, ticked, isInRound(node, latest.current.byId)));
       let index = siblings.findIndex((s) => s.id === node.id) + direction;
       while (siblings[index] && steppedOver(siblings[index])) index += direction;
       if (index < 0 || index >= siblings.length) return;

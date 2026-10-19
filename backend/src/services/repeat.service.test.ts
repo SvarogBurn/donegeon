@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addInterval, dueAfter } from "./repeat.service.js";
+import { addInterval, dueAfter, staleRoundTicks } from "./repeat.service.js";
 
 describe("addInterval", () => {
   it("adds days and weeks across months and years", () => {
@@ -58,5 +58,47 @@ describe("dueAfter", () => {
     const afterDone = { ...planned, repeatAfterDone: true };
     expect(dueAfter(afterDone, "2026-10-07")).toBe("2026-10-28");
     expect(dueAfter(afterDone, "2026-10-01")).toBe("2026-10-22");
+  });
+});
+
+describe("staleRoundTicks", () => {
+  const root = {
+    id: "r",
+    parentId: null,
+    isPersistent: true,
+    repeatEvery: 1,
+    repeatUnit: "week",
+    repeatAfterDone: false,
+    repeatMakeUp: false,
+    nextDue: "2026-10-07",
+    isComplete: false,
+    completedOn: null,
+  } as const;
+  const sub = (id: string, parentId: string, completedOn: string | null) => ({
+    ...root,
+    id,
+    parentId,
+    isPersistent: false,
+    repeatEvery: null,
+    nextDue: null,
+    isComplete: completedOn !== null,
+    completedOn,
+  });
+  // Monday 2026-10-19: the round of Wednesday 2026-10-07 was dropped.
+  const rows = [root, sub("a", "r", "2026-10-08"), sub("b", "a", "2026-10-09"), sub("c", "r", "2026-10-19"), sub("d", "r", null)];
+
+  it("unticks subtasks at any depth ticked before this Monday, when the round was dropped", () => {
+    expect(staleRoundTicks(rows, "2026-10-21")).toEqual(["a", "b"]);
+  });
+
+  it("keeps them while the round is still open, or is made up, or counts from the day done", () => {
+    expect(staleRoundTicks(rows, "2026-10-11")).toEqual([]);
+    expect(staleRoundTicks([{ ...root, repeatMakeUp: true }, ...rows.slice(1)], "2026-10-21")).toEqual([]);
+    expect(staleRoundTicks([{ ...root, repeatAfterDone: true }, ...rows.slice(1)], "2026-10-21")).toEqual([]);
+  });
+
+  it("keeps them under a round moved into this week, and under a persistent task without a schedule", () => {
+    expect(staleRoundTicks([{ ...root, roundMoves: { "2026-10-07": "2026-10-20" } }, ...rows.slice(1)], "2026-10-21")).toEqual([]);
+    expect(staleRoundTicks([{ ...root, repeatEvery: null, nextDue: null }, ...rows.slice(1)], "2026-10-21")).toEqual([]);
   });
 });

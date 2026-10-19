@@ -80,6 +80,15 @@ describe("parseShortSyntax", () => {
     expect(parse("Bins @every tue")).toMatchObject({ title: "Bins", repeat: { every: 1, unit: "week", nextDue: "2026-10-13" } });
   });
 
+  it("reads @persistent on a main task, which then takes no deadline", () => {
+    expect(parse("Drink water @persistent")).toMatchObject({ title: "Drink water", persistent: true, tokens: [{ kind: "repeat", label: "persistent" }] });
+    expect(parse("Vacuum @Persistent @weekly")).toMatchObject({ title: "Vacuum", persistent: true, repeat: { every: 1, unit: "week" } });
+    expect(parse("x @persistent @fri")).toMatchObject({ title: "x @fri", persistent: true });
+    expect(parse("x @fri @persistent")).toMatchObject({ title: "x @persistent", deadlineDate: "2026-10-16" });
+    expect(parse("x @persistent", 1)).toMatchObject({ title: "x @persistent", tokens: [] });
+    expect(parse("x @persistently").persistent).toBeUndefined();
+  });
+
   it("reads points and a list", () => {
     expect(parse("Oven 20p /chores")).toMatchObject({ title: "Oven", points: 20, listId: "l1" });
     expect(parse("Game /side projects now")).toMatchObject({ title: "Game now", listId: "l2" });

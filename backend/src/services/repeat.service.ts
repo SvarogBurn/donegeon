@@ -65,3 +65,41 @@ export function dueAfter(schedule: Schedule, doneOn: string): string {
   while (next <= doneOn) next = addInterval(next, repeatEvery, repeatUnit);
   return next;
 }
+
+/** What a row needs for staleRoundTicks: its place in the tree, its tick and, on a main task, its schedule. */
+interface RoundRow {
+  id: string;
+  parentId: string | null;
+  isPersistent: boolean;
+  repeatEvery: number | null;
+  repeatUnit: RepeatUnit;
+  repeatAfterDone: boolean;
+  repeatMakeUp: boolean;
+  roundMoves?: unknown;
+  nextDue: string | null;
+  isComplete: boolean;
+  completedOn: string | null;
+}
+
+/**
+ * The subtasks (any depth) still ticked from a round the Skip rule dropped by `today`. A press unticks a persistent
+ * task's subtasks for the next round; a round that was never pressed but dropped (its day is before today's Monday,
+ * on planned days without making rounds up: the frontend's currentRound, `missed`) starts the next one the same way.
+ * Ticks from this Monday on are kept: they are for the round now open.
+ */
+export function staleRoundTicks(rows: RoundRow[], today: string): string[] {
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const monday = mondayOf(today);
+  const rootOf = (row: RoundRow) => {
+    let root = row;
+    while (root.parentId && byId.has(root.parentId)) root = byId.get(root.parentId)!;
+    return root;
+  };
+  const dropped = (root: RoundRow) => {
+    if (!root.isPersistent || root.parentId || !root.repeatEvery || !root.nextDue || root.repeatAfterDone || root.repeatMakeUp) return false;
+    return (roundMovesOf(root.roundMoves)[root.nextDue] ?? root.nextDue) < monday;
+  };
+  return rows
+    .filter((row) => row.parentId && row.isComplete && row.completedOn && row.completedOn < monday && dropped(rootOf(row)))
+    .map((row) => row.id);
+}

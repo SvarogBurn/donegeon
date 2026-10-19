@@ -153,11 +153,12 @@ export function useAddTask() {
           ...(movesList && { listId: typed.listId, index: undefined }),
           tagIds: [...new Set([...(place.tagIds ?? []), ...typed.tagIds, ...newTags.map((tag) => tag.id)])],
           goalIds: [...new Set([...(place.goalIds ?? []), ...typed.goalIds, ...newGoals.map((goal) => goal.id)])],
-          // A schedule and a deadline don't go together, so a typed schedule drops the day the caller gave.
-          deadlineDate: typed.repeat ? undefined : (typed.deadlineDate ?? place.deadlineDate),
+          // A persistent task and a deadline don't go together, so a typed schedule (or @persistent) drops the day the caller gave.
+          deadlineDate: typed.repeat || typed.persistent ? undefined : (typed.deadlineDate ?? place.deadlineDate),
           deadlineType: typed.deadlineDate ? typed.deadlineType : place.deadlineType,
           points: typed.points,
           today: typed.today || undefined,
+          isPersistent: typed.persistent || undefined,
           repeatEvery: typed.repeat?.every,
           repeatUnit: typed.repeat?.unit,
           nextDue: typed.repeat?.nextDue,
@@ -206,6 +207,7 @@ export function useEditTask() {
           ...(typed.deadlineDate && { deadlineDate: typed.deadlineDate, deadlineType: typed.deadlineType }),
           points: typed.points,
           today: typed.today || undefined,
+          ...(typed.persistent && { isPersistent: true }),
           ...(typed.repeat && { repeatEvery: typed.repeat.every, repeatUnit: typed.repeat.unit, nextDue: typed.repeat.nextDue }),
           ...(typed.notes && { notes: node.notes ? `${node.notes}\n${typed.notes}` : typed.notes }),
         };

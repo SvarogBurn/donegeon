@@ -25,6 +25,8 @@ export interface User {
   breakEvery: number | null;
   /** Theme: the text inside the boxes is in an ordinary font instead of the pixel one. */
   plainFont: boolean;
+  /** Whether the Notes tab (notes of their own, on no task) is shown; off by default. */
+  notesTab: boolean;
   /** One of the developers' accounts: its page has the inbox of the suggestion box. */
   isDev: boolean;
 }

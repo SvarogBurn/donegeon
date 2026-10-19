@@ -19,10 +19,18 @@ export function isRecent(day: string, at: string | null): boolean {
 
 /**
  * Whether a list shows the task. A ticked one, main or subtask, stays for 24 hours, so it can be unticked;
- * after that only the Done page has it. If the user chose to hide ticked tasks, it goes at once.
+ * after that only the Done page has it. A subtask of a persistent task (`inRound`) stays ticked until the next
+ * round unticks it, however long that is. If the user chose to hide ticked tasks, it goes at once.
  */
-export function isShown(task: TaskTreeNode, ticked: TickedTasks): boolean {
+export function isShown(task: TaskTreeNode, ticked: TickedTasks, inRound = false): boolean {
   if (!task.isComplete) return true;
   if (ticked === "hide") return false;
-  return !task.completedOn || isRecent(task.completedOn, task.completedAt);
+  return inRound || !task.completedOn || isRecent(task.completedOn, task.completedAt);
+}
+
+/** Whether `task` is a subtask, at any depth, of a persistent main task, looked up through `byId`. */
+export function isInRound(task: TaskTreeNode, byId: Map<string, TaskTreeNode>): boolean {
+  let root = task;
+  while (root.parentId && byId.has(root.parentId)) root = byId.get(root.parentId)!;
+  return root !== task && root.isPersistent;
 }

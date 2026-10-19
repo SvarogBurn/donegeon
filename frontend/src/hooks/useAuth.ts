@@ -42,6 +42,11 @@ export function useDeadlineToday(): DeadlineToday {
   return useMe().user?.deadlineToday ?? "never";
 }
 
+/** Whether the Notes tab is shown; off unless switched on on the user's page. */
+export function useNotesTab(): boolean {
+  return useMe().user?.notesTab ?? false;
+}
+
 /** A setting of the account's: shows at once and is saved in the background. */
 export function useUpdateMe() {
   const queryClient = useQueryClient();

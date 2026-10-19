@@ -30,7 +30,7 @@ await p.fill('input[autocomplete="username"]', user);
 await p.fill('input[type="password"]', "hunter2hunter2");
 await p.keyboard.press("Enter");
 await p.waitForSelector("section[data-drop-list]");
-await api("/auth/me", "PATCH", { tutorialSeen: true });
+await api("/auth/me", "PATCH", { tutorialSeen: true, notesTab: true });
 await api("/folders", "POST", { name: "Work" });
 await p.reload();
 await p.locator('nav[aria-label="Pages"] [aria-label="Notes"]').click();

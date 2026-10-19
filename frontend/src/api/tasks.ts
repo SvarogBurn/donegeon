@@ -58,6 +58,8 @@ export interface NewTask {
   /** In the Week box from the start, on this day, after `weekAfter` there (null = first; left out = last). Without a list or a parent it lives there. */
   weekDay?: string;
   weekAfter?: string | null;
+  /** Main tasks only: done again and again, with no schedule unless `repeatEvery` gives one. */
+  isPersistent?: boolean;
   /** Main tasks only: makes it persistent, due every so many units from `nextDue` (today if left out). */
   repeatEvery?: number;
   repeatUnit?: RepeatUnit;

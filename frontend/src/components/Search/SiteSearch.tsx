@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
+import { useNotesTab } from "../../hooks/useAuth";
 import { useFolders, useGoals, useLists, useNotes, useTags, useTaskSearch, useTaskTrees } from "../../hooks/useTasks";
 import { formatDay } from "../../lib/dates";
 import { listView, noteView } from "../../lib/folders";
@@ -94,6 +95,8 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false, autoFocus = fal
   const { data: goals = [] } = useGoals();
   const { data: tags = [] } = useTags();
   const { data: notesData } = useNotes();
+  // Without the Notes tab, neither the page nor the notes are found.
+  const notesTab = useNotesTab();
   // What the Tasks page shows: a task that is in here can be gone to.
   const { data: trees = [] } = useTaskTrees();
 
@@ -108,7 +111,7 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false, autoFocus = fal
   const places: Hit[] = !typed
     ? []
     : [
-        ...PLACES.filter(([title, , , words]) => has(title, words)).map(([title, path, key]) => ({
+        ...PLACES.filter(([title, path, , words]) => (notesTab || path !== "/notes") && has(title, words)).map(([title, path, key]) => ({
           key: `place:${path}:${key ?? ""}`,
           title,
           kind: key === null ? "Page" : `Box on ${path === "/" ? "Tasks" : "Stats"}`,
@@ -117,7 +120,7 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false, autoFocus = fal
         ...folders.filter((folder) => has(folder.name)).map((folder) => ({ key: `folder:${folder.id}`, title: folder.name, kind: "Folder", go: goTo(`/folders/${folder.id}`) })),
         ...lists.filter((list) => has(list.name)).map((list) => ({ key: listView(list.id), title: list.name, kind: list.kind === "reward" ? "Reward list" : "List", go: goTo("/", tile(listView(list.id))) })),
         ...goals.filter((goal) => has(goal.name)).map((goal) => ({ key: `goal:${goal.id}`, title: goal.name, kind: "Goal", hint: "Show only the tasks with this goal", go: () => onPickLabel("goalIds", goal.id) })),
-        ...(notesData?.notes ?? [])
+        ...((notesTab && notesData?.notes) || [])
           .filter((note) => has(note.title, note.text))
           .map((note) => ({
             key: noteView(note.id),

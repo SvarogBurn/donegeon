@@ -144,7 +144,7 @@ export function draftNode(task: NewTask & { id: string }, { day, at, lists, toda
     todaySince: task.today || (!parentId && !listId && !task.weekDay) ? day : null,
     weekDay: null,
     weekPosition: 0,
-    isPersistent: scheduled,
+    isPersistent: scheduled || (!parentId && Boolean(task.isPersistent)),
     repeatEvery: scheduled ? task.repeatEvery! : null,
     repeatUnit: task.repeatUnit ?? "day",
     repeatAfterDone: false,
