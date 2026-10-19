@@ -362,9 +362,12 @@
     @apply bg-size-[15px] sm:bg-size-[30px];
     background-image: url("../../assets/icons/21x21user_icon_v2.svg");
   }
-  /* The notes icon is 10x10 art pixels: 4px each in a 42px square, 2px each in a 21px one (fixed sizes say which with bg-size). */
   .tab-icon-notes {
-    @apply bg-size-[20px] sm:bg-size-[40px];
+    background-image: url("../../assets/icons/21x21notes_icon_v1.svg");
+  }
+  /* The installed app's top strip keeps the small notes icon: 10x10 art pixels, 2px each (AppBars). */
+  .tab-icon-notes-small {
+    @apply bg-size-[20px];
     background-image: url("../../assets/icons/10x10notes_icon_v1.svg");
   }
   /*

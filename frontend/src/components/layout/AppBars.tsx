@@ -114,7 +114,7 @@ export function AppBars({ user }: { user: User }) {
               {/* Notes stays at the far left, just its icon (when the setting shows it); the folders after it scroll sideways in one row. */}
               {user.notesTab && (
                 <NavLink to="/notes" className={(state) => `${folderTab(state)} flex-none`} aria-label="Notes" title="Notes">
-                  <span className="tab-icon tab-icon-notes !bg-size-[20px]" aria-hidden />
+                  <span className="tab-icon tab-icon-notes-small" aria-hidden />
                 </NavLink>
               )}
               <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]" aria-label="Folders">
