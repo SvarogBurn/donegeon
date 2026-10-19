@@ -70,9 +70,9 @@ function Notch() {
 }
 
 /**
- * The installed app's bars (in a browser tab it has NavBar's task bar instead). Along the top: the folders from the far
- * left, the points, a small spyglass that opens the search across the strip (the Tasks page then doesn't show one), and the account.
- * Along the bottom: the pages with their names, and in the middle a "+" button standing up out of a notch in the bar,
+ * The installed app's bars (in a browser tab it has NavBar's task bar instead). Along the top: Notes at the far left, the
+ * folders after it, a small spyglass that opens the search across the strip (the Tasks page then doesn't show one), and
+ * the points at the far right. Along the bottom: the pages and the account with their names, and in the middle a "+" button standing up out of a notch in the bar,
  * for a task just for today. Both slide away while the page is scrolled down and come back on the way up, as in a
  * phone app. The clock isn't shown, but still runs: it is what reloads everything when the day changes.
  */
@@ -108,12 +108,18 @@ export function AppBars({ user }: { user: User }) {
               onPickLabel={(key, id) => navigate("/", { state: { pickLabel: { key, id } } satisfies PickLabelState })}
             />
           ) : (
-            // From the far left; many folders scroll sideways in one row.
-            <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]" aria-label="Folders">
-              <FolderTabs tab={folderTab} isNewShown={isNewShown} onNewUsed={onNewUsed} opensBelow />
-            </nav>
+            <>
+              {/* Notes stays at the far left, just its icon; the folders after it scroll sideways in one row. */}
+              <NavLink to="/notes" className={(state) => `${folderTab(state)} flex-none`} aria-label="Notes" title="Notes">
+                <span className="tab-icon tab-icon-notes !bg-size-[20px]" aria-hidden />
+              </NavLink>
+              <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]" aria-label="Folders">
+                <FolderTabs tab={folderTab} isNewShown={isNewShown} onNewUsed={onNewUsed} opensBelow />
+              </nav>
+              <button type="button" className="bar-glyph bar-glyph-search flex-none" aria-label="Search" title="Search the whole site" onClick={() => setIsSearching(true)} />
+            </>
           )}
-          {/* The balance: the number, with "pts" underneath. */}
+          {/* The balance at the far right: the number, with "pts" underneath. */}
           {points && (
             <NavLink
               to="/points"
@@ -128,13 +134,6 @@ export function AppBars({ user }: { user: User }) {
               <span className="mt-0.5 text-[8px]">{points.balance === 1 ? "pt" : "pts"}</span>
             </NavLink>
           )}
-          {!isSearching && (
-            <button type="button" className="bar-glyph bar-glyph-search flex-none" aria-label="Search" title="Search the whole site" onClick={() => setIsSearching(true)} />
-          )}
-          {/* The user's own page (and logging out). */}
-          <NavLink to="/user" className="bar-glyph-link flex-none p-1" aria-label="Account" title={user.username}>
-            <span className="bar-glyph bar-glyph-user block" aria-hidden />
-          </NavLink>
         </div>
       </header>
 
@@ -161,9 +160,10 @@ export function AppBars({ user }: { user: User }) {
             <span className="tab-icon tab-icon-calendar !size-[21px]" aria-hidden />
             Calendar
           </NavLink>
-          <NavLink to="/notes" className={barTab} aria-label="Notes">
-            <span className="tab-icon tab-icon-notes !size-[21px] !bg-size-[20px]" aria-hidden />
-            Notes
+          {/* The user's own page (and logging out), under their name. */}
+          <NavLink to="/user" className={barTab} aria-label="Account" title={user.username}>
+            <span className="tab-icon tab-icon-user bar-user-icon !size-[21px] !bg-size-[15px]" aria-hidden />
+            <span className="max-w-16 truncate">{user.username}</span>
           </NavLink>
         </nav>
         {/* Half of it above the bar's top edge, the rest down in the notch with a gap all round. */}

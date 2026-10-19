@@ -52,11 +52,13 @@ for (const [name, viewport, dark] of [["phone", { width: 390, height: 844 }, fal
   out(`${name}: no clock shown`, !(await p.locator('[aria-label="Time and date"]').isVisible()));
   out(`${name}: no search until the spyglass`, (await p.locator("[data-site-search]").count()) === 0);
   const order = await p.locator(STRIP).evaluate((strip) =>
-    ['nav[aria-label="Folders"]', '[aria-label="Points"]', '[aria-label="Search"]', '[aria-label="Account"]'].map((s) => Math.round(strip.querySelector(s).getBoundingClientRect().left)),
+    ['[aria-label="Notes"]', 'nav[aria-label="Folders"]', '[aria-label="Search"]', '[aria-label="Points"]'].map((s) => Math.round(strip.querySelector(s).getBoundingClientRect().left)),
   );
-  out(`${name}: strip is folders (from the far left), points, spyglass, account`, order[0] === 0 && order.every((x, i) => i === 0 || x > order[i - 1]), JSON.stringify(order));
+  out(`${name}: strip is notes (at the far left), folders, spyglass, points`, order[0] === 0 && order.every((x, i) => i === 0 || x > order[i - 1]), JSON.stringify(order));
+  const pointsGap = await p.locator(STRIP).evaluate((strip) => strip.getBoundingClientRect().right - strip.querySelector('[aria-label="Points"]').getBoundingClientRect().right);
+  out(`${name}: points at the far right`, pointsGap <= 16, String(pointsGap));
   const words = await p.locator('header nav[aria-label="Pages"]').innerText();
-  out(`${name}: bottom tabs have their names`, ["Tasks", "Stats", "Calendar", "Notes"].every((w) => words.includes(w)), JSON.stringify(words));
+  out(`${name}: bottom tabs have their names, the account last`, ["Tasks", "Stats", "Calendar", user].every((w) => words.includes(w)) && !words.includes("Notes"), JSON.stringify(words));
   const bar = await p.locator(`${BAR} .app-bar-fill`).first().evaluate((el) => [getComputedStyle(el).backgroundColor, getComputedStyle(el).borderTopWidth]);
   out(`${name}: bottom bar a little see-through, a thin line`, /, 0\.7\)$/.test(bar[0]) && bar[1] === "1px", JSON.stringify(bar));
   const icon = await p.locator(`${BAR} .tab-icon-tasks`).evaluate((el) => el.getBoundingClientRect().width);

@@ -368,7 +368,7 @@
     background-image: url("../../assets/icons/10x10notes_icon_v1.svg");
   }
   /*
-   * The installed app's top strip (AppBars): the spyglass and the account, as drawn (15x15 art pixels, pale), whole
+   * The installed app's top strip (AppBars): the spyglass, as drawn (15x15 art pixels, pale), whole
    * pixels only. The art is pale for dark backgrounds; on the light theme it is shown black.
    */
   .bar-glyph {
@@ -381,17 +381,16 @@
       filter: brightness(0);
     }
   }
+  /* The account in the installed app's bottom bar: its art is pale too, so it is shown black on the light theme as well. */
+  @media (prefers-color-scheme: light) {
+    .bar-user-icon {
+      filter: brightness(0);
+    }
+  }
   .bar-glyph-search {
     @apply size-6;
     background-image: url("../../assets/icons/15x15spyglas_v1.svg");
     background-size: 15px;
-  }
-  .bar-glyph-user {
-    @apply size-[15px];
-    background-image: url("../../assets/icons/21x21user_icon_v2.svg");
-  }
-  .bar-glyph-link.active {
-    @apply bg-stone-200/80 dark:bg-stone-800/80;
   }
   /*
    * The installed app's bars (AppBars): the task bar's white (stone-900 on the dark theme), a little see-through, and a
@@ -411,22 +410,25 @@
     background-color: var(--bar-fill);
     border-color: var(--bar-edge);
   }
-  /* The bottom bar's "+": a NES button like the others, in the pale blue of the art, the "+" in the frames' near-black. */
+  /*
+   * The bottom bar's "+": a NES button like the others, in the pale blue of the art, its shade a softer blue and the
+   * "+" black, so nothing dark blue sits against the black edge.
+   */
   .nes-btn.plus-button {
     @apply m-0 flex items-center justify-center p-0 text-2xl leading-none;
-    color: #222034;
+    color: #000;
     background-color: #cbdbfc;
   }
   .nes-btn.plus-button::after {
-    box-shadow: inset -4px -4px color-mix(in srgb, #cbdbfc 65%, #000);
+    box-shadow: inset -4px -4px #9fb6e8;
   }
   .nes-btn.plus-button:hover,
   .nes-btn.plus-button[aria-expanded="true"] {
-    background-color: color-mix(in srgb, #cbdbfc 90%, #000);
+    background-color: #bccef7;
   }
   .nes-btn.plus-button:hover::after,
   .nes-btn.plus-button[aria-expanded="true"]::after {
-    box-shadow: inset -6px -6px color-mix(in srgb, #cbdbfc 65%, #000);
+    box-shadow: inset -6px -6px #9fb6e8;
   }
   /*
    * Rounded the pixel-art way: the corners are cut in steps of one block (--p), along a quarter circle 10 blocks
