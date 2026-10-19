@@ -3,11 +3,12 @@ import { useNavigate } from "react-router";
 import { localDate } from "../../api/client";
 import { PixelCheckbox } from "../PixelCheckbox";
 import { useDeadlineToday } from "../../hooks/useAuth";
-import { usePoints, useSetToday, useSetTodayPoints, useSetWeek } from "../../hooks/useTasks";
+import { usePoints, useSetToday, useSetTodayPoints, useSetWeek, useTaskTrees } from "../../hooks/useTasks";
 import { daysBetween, formatDay } from "../../lib/dates";
 import { deadlineTodayFrom } from "../../lib/deadlines";
 import { pointsFieldWidth, typedPoints } from "../../lib/points";
 import { currentRound, isDue } from "../../lib/repeat";
+import { findTaskRow, pathIdsTo, showOnPage, taskRow } from "../../lib/showOnPage";
 import { hasTaskPage } from "../../lib/taskPage";
 import { livesInToday, livesInWeek, weekDays, weeksBetween, type WeekAuto, type WeekItem } from "../../lib/week";
 import { repeatLabel } from "../../lib/repeat";
@@ -29,8 +30,6 @@ interface TodayItem {
   since: string;
   /** Titles of the tasks it sits under, outermost first. */
   path: string[];
-  /** The big task whose page a click on the row opens: the item itself, or else the nearest one it sits under. Null = none. */
-  pageId: string | null;
 }
 
 const firstLine = (title: string) => title.split("\n")[0];
@@ -44,17 +43,16 @@ const firstLine = (title: string) => title.split("\n")[0];
  */
 function todayItems(trees: TaskTreeNode[], today: string, ticked: TickedTasks, deadlines: DeadlineToday): TodayItem[] {
   const found: TodayItem[] = [];
-  const visit = (nodes: TaskTreeNode[], path: string[], rootFinished: boolean, abovePageId: string | null) => {
+  const visit = (nodes: TaskTreeNode[], path: string[], rootFinished: boolean) => {
     for (const node of nodes) {
-      const pageId = hasTaskPage(node) ? node.id : abovePageId;
       const shown = node.isComplete ? ticked !== "hide" && node.completedOn === today : !rootFinished;
       const fromDeadline = deadlineTodayFrom(node, deadlines);
       const since = node.todaySince ?? (isDue(node, today) ? currentRound(node, today)!.day : null) ?? (fromDeadline !== null && fromDeadline <= today ? fromDeadline : null);
-      if (since !== null && shown && !livesInToday(node)) found.push({ node, since, path, pageId });
-      visit(node.children, [...path, plainTitle(firstLine(node.title))], rootFinished || (path.length === 0 && node.isComplete), pageId);
+      if (since !== null && shown && !livesInToday(node)) found.push({ node, since, path });
+      visit(node.children, [...path, plainTitle(firstLine(node.title))], rootFinished || (path.length === 0 && node.isComplete));
     }
   };
-  visit(trees, [], false, null);
+  visit(trees, [], false);
   // Longest-waiting first; ticked ones under the open ones, unless the user chose to leave them where they are.
   const tickedLast = (item: TodayItem) => Number(ticked === "bottom" && item.node.isComplete);
   return found.sort((a, b) => tickedLast(a) - tickedLast(b) || a.since.localeCompare(b.since));
@@ -63,7 +61,6 @@ function todayItems(trees: TaskTreeNode[], today: string, ticked: TickedTasks, d
 interface PickedRowProps {
   node: TaskTreeNode;
   path: string[];
-  pageId: string | null;
   today: string;
   /** Which tab it is shown in: Today rows keep their order (longest-waiting first), Week rows are dragged into theirs, and to other days. */
   box: "today" | "week";
@@ -78,7 +75,7 @@ interface PickedRowProps {
 }
 
 /** A task from a list shown in Today or Week: it is only shown here, and taken out with ×, the task itself staying where it is. */
-function PickedRow({ node, path, pageId, today, box, carried, auto, missed = false, rounds = 0, round }: PickedRowProps) {
+function PickedRow({ node, path, today, box, carried, auto, missed = false, rounds = 0, round }: PickedRowProps) {
   const tree = useTree();
   const navigate = useNavigate();
   const setToday = useSetToday();
@@ -91,19 +88,31 @@ function PickedRow({ node, path, pageId, today, box, carried, auto, missed = fal
   const inWeek = box === "week";
   // A round of a schedule still to come: only there to be seen, nothing to press yet.
   const isAhead = auto === "round";
-  // A reminder on Monday that a round was missed in an earlier week and dropped: nothing to do about it.
+  // A reminder on Monday that a round was missed in an earlier week and dropped. Doing it now counts for this week's round.
   const isReminder = auto === "missed";
   const target = tree.dropTarget;
   const drop = inWeek && target?.kind === "weekItem" && target.id === node.id ? target.zone : null;
   // Subtasks start hidden behind the row's arrow, as in a list.
   const [isOpen, setIsOpen] = useState(false);
 
-  // As in a list, a click on the row (not on one of its buttons) opens the big task's page. A task that is not
-  // part of a big one has no page: the click shows or hides its subtasks instead.
+  const { data: trees = [] } = useTaskTrees();
+  // A click on the row (not on one of its buttons) goes to the task itself, to be edited there: its own page if it has
+  // one, else its row in its list (on the Tasks page, if this page doesn't show that list), marked for a moment. The
+  // arrow shows its subtasks here.
+  const hasPage = hasTaskPage(node);
+  // Its deadline is today: that is what it says, not how long it has waited.
+  const dueToday = node.deadlineDate === today && !node.isComplete;
   function onRowClick(e: MouseEvent<HTMLDivElement>) {
     if ((e.target as Element).closest("button, input, a, label")) return;
-    if (pageId) navigate(`/tasks/${pageId}`);
-    else if (hasChildren) setIsOpen(!isOpen);
+    if (hasPage) navigate(`/tasks/${node.id}`);
+    else showInList();
+  }
+
+  function showInList() {
+    const pathIds = pathIdsTo(trees, node.id) ?? [];
+    const main = pathIds[0] ?? node.id;
+    if (!taskRow(main, "lists")) navigate("/");
+    showOnPage((isLast) => findTaskRow(node.id, pathIds, isLast, "lists"));
   }
 
   const name = plainTitle(firstLine(node.title));
@@ -118,9 +127,9 @@ function PickedRow({ node, path, pageId, today, box, carried, auto, missed = fal
     >
       <div
         onClick={onRowClick}
-        data-opens={pageId ?? undefined}
+        data-opens={hasPage ? node.id : undefined}
         data-week-row={inWeek ? "" : undefined}
-        className={`flex ${pageId || hasChildren ? "cursor-pointer" : ""} flex-wrap items-center gap-x-2 gap-y-1 rounded px-1 py-0.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 ${drop ? DROP_STYLES[drop] : ""}`}
+        className={`flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-1 rounded px-1 py-0.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 ${drop ? DROP_STYLES[drop] : ""}`}
       >
         <button
           type="button"
@@ -134,8 +143,6 @@ function PickedRow({ node, path, pageId, today, box, carried, auto, missed = fal
           <span className="glyph w-5 flex-none text-center text-stone-500" title={`Repeats ${repeatLabel(node)}`} aria-hidden>
             ↻
           </span>
-        ) : isReminder ? (
-          <span className="w-5 flex-none" aria-hidden />
         ) : isPersistent ? (
           <button
             type="button"
@@ -143,6 +150,7 @@ function PickedRow({ node, path, pageId, today, box, carried, auto, missed = fal
             onClick={() => tree.pressTask(node)}
             disabled={tree.isBusy(node.id)}
             aria-label={`Done "${plainTitle(node.title)}" once more`}
+            title={isReminder ? "Done it now: counts as this week's round" : undefined}
           />
         ) : (
           <PixelCheckbox
@@ -173,7 +181,12 @@ function PickedRow({ node, path, pageId, today, box, carried, auto, missed = fal
               ×{rounds} to do
             </span>
           )}
-          {auto === "deadline" && <DeadlineBadge task={node} />}
+          {auto === "deadline" && !dueToday && <DeadlineBadge task={node} />}
+          {dueToday && (
+            <span data-deadline-today>
+              <DeadlineBadge task={node} label="deadline today" />
+            </span>
+          )}
           {isReminder && (
             <span
               title="It doesn't have to be made up: it is on its planned days this week as ever"
@@ -182,7 +195,7 @@ function PickedRow({ node, path, pageId, today, box, carried, auto, missed = fal
               not done since {formatDay(node.nextDue!)}
             </span>
           )}
-          {carried > 0 && !node.isComplete && (
+          {carried > 0 && !node.isComplete && !dueToday && (
             <span
               data-carried={carried}
               className="pixel-chip bg-amber-100 px-2 py-0.5 text-xs whitespace-nowrap text-amber-800 dark:bg-amber-950 dark:text-amber-300"
@@ -328,6 +341,8 @@ function TodayTab({ tasks }: { tasks: TaskTreeNode[] }) {
   const items = todayItems(tasks, today, ticked, deadlines);
   const own = tasks.filter((task) => livesInToday(task) && (!task.isComplete || (ticked !== "hide" && task.completedOn === today)));
   const left = [...items.map((item) => item.node), ...own].filter((node) => !node.isComplete && !node.isPersistent).length;
+  // Under the day's tasks, the bin of what was put off to next week, as at the bottom of the Week tab.
+  const putOff = weekDays(tasks, today, ticked, deadlines).find((day) => day.nextWeek)!;
 
   return (
     <>
@@ -354,6 +369,7 @@ function TodayTab({ tasks }: { tasks: TaskTreeNode[] }) {
         </div>
       </div>
       <TaskForm editorId="today-add" placeholder="Add a task just for today, then press Enter" />
+      <WeekDay day={putOff.day} items={putOff.items} today={today} nextWeek />
     </>
   );
 }

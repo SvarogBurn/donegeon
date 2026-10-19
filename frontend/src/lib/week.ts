@@ -3,7 +3,6 @@ import { addDays, daysBetween } from "./dates";
 import { deadlineTodayFrom } from "./deadlines";
 import { addInterval, currentRound, mondayOf, movedDay, roundsDue } from "./repeat";
 import { plainTitle } from "./markup";
-import { hasTaskPage } from "./taskPage";
 
 export { mondayOf };
 
@@ -37,8 +36,6 @@ export interface WeekItem {
   node: TaskTreeNode;
   /** Titles of the tasks it sits under, outermost first. */
   path: string[];
-  /** The big task whose page a click on the row opens: the item itself, or else the nearest one it sits under. Null = none. */
-  pageId: string | null;
   /** Here by itself; absent = put here by the user, and in their order. */
   auto?: WeekAuto;
   /** A round of its schedule was missed in a week before this one: flagged with a red "!". */
@@ -75,10 +72,9 @@ export function weekDays(trees: TaskTreeNode[], today: string, ticked: TickedTas
   const byDay = new Map([...days, nextMonday].map((day) => [day, [] as WeekItem[]]));
   // Before this week: on Monday. After it: in the bucket, which only gets what the user put there.
   const put = (day: string, item: WeekItem) => byDay.get(day < monday ? monday : day > sunday ? nextMonday : day)!.push(item);
-  const visit = (nodes: TaskTreeNode[], path: string[], rootFinished: boolean, abovePageId: string | null) => {
+  const visit = (nodes: TaskTreeNode[], path: string[], rootFinished: boolean) => {
     for (const node of nodes) {
-      const pageId = hasTaskPage(node) ? node.id : abovePageId;
-      const item = { node, path, pageId };
+      const item = { node, path };
       const shown = node.isComplete ? ticked !== "hide" && node.completedOn !== null && node.completedOn >= monday : !rootFinished;
       if (node.weekDay !== null) {
         if (shown) put(node.weekDay, item);
@@ -99,10 +95,10 @@ export function weekDays(trees: TaskTreeNode[], today: string, ticked: TickedTas
       } else if (node.deadlineDate && node.deadlineDate <= sunday && deadlineTodayFrom(node, deadlines) !== null && shown && !(node.isComplete && node.deadlineDate < monday)) {
         put(node.deadlineDate, { ...item, auto: "deadline" });
       }
-      visit(node.children, [...path, plainTitle(node.title.split("\n")[0])], rootFinished || (path.length === 0 && node.isComplete), pageId);
+      visit(node.children, [...path, plainTitle(node.title.split("\n")[0])], rootFinished || (path.length === 0 && node.isComplete));
     }
   };
-  visit(trees, [], false, null);
+  visit(trees, [], false);
   // What came by itself first (the due ones, then deadlines, then rounds to come), then the user's order; ticked
   // ones under the open ones, unless the user chose to leave them where they are.
   const AUTO_RANK = { missed: 0, due: 0, deadline: 1, round: 2 };

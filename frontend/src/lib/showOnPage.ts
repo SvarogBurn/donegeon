@@ -26,17 +26,21 @@ export function showOnPage(find: (isLast: boolean) => HTMLElement | null) {
   requestAnimationFrame(look);
 }
 
-const taskRow = (id: string) => document.querySelector<HTMLElement>(`[data-task-row="${id}"]`);
+/** Where a task's row is looked for: anywhere on the page, or only in the lists (not, say, under a row of the Today box). */
+export type RowScope = "page" | "lists";
+
+export const taskRow = (id: string, scope: RowScope = "page") =>
+  document.querySelector<HTMLElement>(`${scope === "lists" ? "[data-drop-list] " : ""}[data-task-row="${id}"]`);
 
 /**
  * A task's row on the Tasks page, for showOnPage. `pathIds` are the tasks above it, outermost first: a subtask's row
  * is only there while every one of them is unfolded, so those are unfolded first, from the main task down, one a frame.
  * If it still can't be shown (the lists can be set to take ticked tasks out of sight), the closest task above it is settled for.
  */
-export function findTaskRow(id: string, pathIds: string[], isLast: boolean): HTMLElement | null {
+export function findTaskRow(id: string, pathIds: string[], isLast: boolean, scope: RowScope = "page"): HTMLElement | null {
   let closest: HTMLElement | null = null;
   for (const above of pathIds) {
-    const row = taskRow(above);
+    const row = taskRow(above, scope);
     if (!row) return isLast ? closest : null;
     closest = row;
     const arrow = row.querySelector<HTMLElement>('.task-arrow[aria-expanded="false"]');
@@ -45,7 +49,7 @@ export function findTaskRow(id: string, pathIds: string[], isLast: boolean): HTM
       return null;
     }
   }
-  return taskRow(id) ?? (isLast ? closest : null);
+  return taskRow(id, scope) ?? (isLast ? closest : null);
 }
 
 /** The ids of the tasks a task sits under, outermost first; null when it is not in `trees`. */

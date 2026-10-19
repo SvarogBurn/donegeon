@@ -186,7 +186,7 @@ ids.Due = await add("Report due", { listId, deadlineDate: sunday, deadlineType: 
 await p.reload(); await p.waitForSelector('section[aria-label="Today"]'); await wait();
 out("a weekly task missed in earlier weeks is on Monday, with a red !", await auto(monday, ids.Skip).locator("[data-missed]").count() === 1 && await auto(monday, ids.Skip).getAttribute("data-week-auto") === "due");
 out("…skipping: no count of rounds to make up", await auto(monday, ids.Skip).locator("[data-rounds]").count() === 0);
-out("skipping, missed on a Thursday weeks ago: Monday has only a reminder, with a red ! and nothing to press", await auto(monday, ids.Thu).getAttribute("data-week-auto") === "missed" && await auto(monday, ids.Thu).locator("[data-missed]").count() === 1 && await auto(monday, ids.Thu).locator(".repeat-button, input[type=checkbox]").count() === 0);
+out("skipping, missed on a Thursday weeks ago: Monday has a reminder, with a red ! and its button to do it now", await auto(monday, ids.Thu).getAttribute("data-week-auto") === "missed" && await auto(monday, ids.Thu).locator("[data-missed]").count() === 1 && await auto(monday, ids.Thu).locator(".repeat-button").count() === 1);
 out("…and it is on its own day this week as ever", await auto(thursday, ids.Thu).getAttribute("data-week-auto") === (thursday <= today ? "due" : "round"), await auto(thursday, ids.Thu).getAttribute("data-week-auto"));
 out("…its row in the list is flagged and points at this week's round", await listRow("Thursdays").locator("[data-missed]").count() === 1 && await listRow("Thursdays").locator("[data-next-due]").getAttribute("data-next-due") === thursday);
 out("making up: on Monday with a red ! and every missed round to do", await auto(monday, ids.MakeUp).locator("[data-missed]").count() === 1 && await auto(monday, ids.MakeUp).locator("[data-rounds]").getAttribute("data-rounds") === "3", await auto(monday, ids.MakeUp).locator("[data-rounds]").getAttribute("data-rounds").catch(() => "none"));
@@ -219,6 +219,12 @@ await auto(monday, ids.MakeUp).scrollIntoViewIfNeeded(); await auto(monday, ids.
 out("making up: a press does one round, the rest still to do", await auto(monday, ids.MakeUp).locator("[data-rounds]").getAttribute("data-rounds") === "2");
 await auto(monday, ids.Skip).scrollIntoViewIfNeeded(); await auto(monday, ids.Skip).locator(".repeat-button").click(); await wait(1200);
 out("skipping: one press and it waits for its next planned day", await box.locator(`[data-auto-id="${ids.Skip}"][data-week-auto="due"]`).count() === 0);
+// A click on a row goes to the task itself: its row in its list, marked for a moment.
+await auto(today, ids.Daily).scrollIntoViewIfNeeded(); await auto(today, ids.Daily).locator("[data-week-row]").getByText("Daily", { exact: true }).click(); await wait(700);
+out("a click on a row in Week goes to the task in its list", new URL(p.url()).pathname === "/" && (await listRow("Daily").getAttribute("data-found")) !== null, p.url());
+// Done from the reminder: it counts as this week's round, and the reminder goes.
+await auto(monday, ids.Thu).scrollIntoViewIfNeeded(); await auto(monday, ids.Thu).locator(".repeat-button").click(); await wait(1200);
+out("the reminder's button does the task: the reminder goes, the next round is after this week's", await auto(monday, ids.Thu).count() === 0 && await listRow("Thursdays").locator("[data-next-due]").getAttribute("data-next-due") === day(-toMonday + 10), await listRow("Thursdays").locator("[data-next-due]").getAttribute("data-next-due"));
 for (const id of [ids.Skip, ids.MakeUp, ids.Daily, ids.Due, ids.Thu]) await api(`/tasks/${id}`, "DELETE");
 await p.reload(); await p.waitForSelector('section[aria-label="Today"]'); await wait();
 
