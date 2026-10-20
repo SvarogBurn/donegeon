@@ -56,6 +56,16 @@ const NONE = (id = "none"): Choice => ({ id, name: "None", layers: [] });
 /** The boar's apron: its purple, and the jacket's dark and the shirt's reds where they are drawn on it. */
 const APRON = ["#4A2755", "#140B26", "#80354D", "#5A2238"];
 
+/** Every layer drawn in the human's hair colour: the hairstyles, the fringes and the beards. */
+const HUMAN_HAIR = [
+  ...["messy", "messy shorter", "short", "short 2", "punk", "bob", "bun", "ponytail", "low pony", "loose", "long loose straight"].map((h) => `hair ${h}`),
+  "curly", "afro",
+  ...[1, 2, 3, 4, 5, 6].map((n) => `Hair front ${n}`),
+  "beard", "beard flatter", "moustache",
+];
+const HUMAN_EARS = ["bunny", "cat", "puppy"].map((a) => `deco ${a} headwear`);
+const HUMAN_TAILS = ["bunny", "cat", "puppy", "bushy", "cow", "dragon"].map((a) => `deco ${a} tail`);
+
 export const BODIES: Body[] = [
   {
     id: "bunny",
@@ -96,7 +106,7 @@ export const BODIES: Body[] = [
     ],
   },
   {
-    // The user's human (40x15_default_user), drawn again bigger, every piece on a layer of its own.
+    // The user's human (40x15_default_user), drawn again bigger, every piece on a layer of its own over a whole skin body.
     id: "human",
     name: "Human",
     file: "48x32_human_v2",
@@ -106,12 +116,25 @@ export const BODIES: Body[] = [
         name: "Hair",
         choices: [
           { id: "messy", name: "Messy", layers: ["hair messy"] },
-          { id: "long", name: "Long", layers: ["hair long"] },
+          { id: "messyShort", name: "Messy short", layers: ["hair messy shorter"] },
+          { id: "short", name: "Short", layers: ["hair short"] },
+          { id: "swept", name: "Swept", layers: ["hair short 2"] },
+          { id: "punk", name: "Punk", layers: ["hair punk"] },
           { id: "bob", name: "Bob", layers: ["hair bob"] },
           { id: "bun", name: "Bun", layers: ["hair bun"] },
-          { id: "short", name: "Short", layers: ["hair short"] },
+          { id: "ponytail", name: "Ponytail", layers: ["hair ponytail"] },
+          { id: "lowPony", name: "Low ponytail", layers: ["hair low pony"] },
+          { id: "loose", name: "Loose", layers: ["hair loose"] },
+          { id: "long", name: "Long", layers: ["hair long loose straight"] },
+          { id: "curly", name: "Curly", layers: ["curly"] },
+          { id: "afro", name: "Afro", layers: ["afro"] },
           { id: "bald", name: "Bald", layers: [] },
         ],
+      },
+      {
+        id: "fringe",
+        name: "Fringe",
+        choices: [NONE(), ...[1, 2, 3, 4, 5, 6].map((n) => ({ id: `front${n}`, name: `Fringe ${n}`, layers: [`Hair front ${n}`] }))],
       },
       {
         id: "beard",
@@ -121,6 +144,36 @@ export const BODIES: Body[] = [
           { id: "stubble", name: "Stubble", layers: ["stubble"] },
           { id: "moustache", name: "Moustache", layers: ["moustache"] },
           { id: "full", name: "Full beard", layers: ["beard"] },
+          { id: "flat", name: "Short beard", layers: ["beard flatter"] },
+        ],
+      },
+      {
+        id: "hat",
+        name: "Hat",
+        choices: [NONE(), { id: "fancy", name: "Fancy hat", layers: ["headwear fancy hat"] }, { id: "fedora", name: "Fedora", layers: ["headwear fedora"] }],
+      },
+      {
+        id: "ears",
+        name: "Ears",
+        choices: [
+          NONE(),
+          { id: "bunny", name: "Bunny ears", layers: ["deco bunny headwear"] },
+          { id: "cat", name: "Cat ears", layers: ["deco cat headwear"] },
+          { id: "puppy", name: "Puppy ears", layers: ["deco puppy headwear"] },
+        ],
+      },
+      { id: "horns", name: "Horns", choices: [NONE(), { id: "curly", name: "Horns", layers: ["deco horns"] }] },
+      {
+        id: "tail",
+        name: "Tail",
+        choices: [
+          NONE(),
+          { id: "bunny", name: "Bunny tail", layers: ["deco bunny tail"] },
+          { id: "cat", name: "Cat tail", layers: ["deco cat tail"] },
+          { id: "puppy", name: "Puppy tail", layers: ["deco puppy tail"] },
+          { id: "bushy", name: "Bushy tail", layers: ["deco bushy tail"] },
+          { id: "cow", name: "Cow tail", layers: ["deco cow tail"] },
+          { id: "dragon", name: "Dragon tail", layers: ["deco dragon tail"] },
         ],
       },
       {
@@ -129,6 +182,7 @@ export const BODIES: Body[] = [
         choices: [
           { id: "hoodie", name: "Hoodie", layers: ["hoodie"] },
           { id: "shirt", name: "T-shirt", layers: ["shirt"] },
+          { id: "blouse", name: "Blouse", layers: ["blouse"] },
           { id: "dress", name: "Dress", layers: ["dress"] },
           { id: "coat", name: "Long coat", layers: ["coat"] },
         ],
@@ -140,6 +194,32 @@ export const BODIES: Body[] = [
           { id: "shorts", name: "Shorts", layers: ["shorts"] },
           { id: "trousers", name: "Trousers", layers: ["trousers"] },
           { id: "skirt", name: "Skirt", layers: ["skirt"] },
+          { id: "overalls", name: "Overalls", layers: ["overalls"] },
+        ],
+      },
+      {
+        id: "socks",
+        name: "Socks",
+        choices: [{ id: "plain", name: "Socks", layers: ["socks"] }, { id: "striped", name: "Striped socks", layers: ["socks stripes horizontal"] }, NONE()],
+      },
+      {
+        id: "shoes",
+        name: "Shoes",
+        choices: [
+          { id: "shoes", name: "Shoes", layers: ["shooes normal"] },
+          { id: "boots", name: "Boots", layers: ["shooes boots"] },
+          { id: "flats", name: "Flats", layers: ["shoes flats"] },
+          { id: "none", name: "Barefoot", layers: [] },
+        ],
+      },
+      {
+        id: "jewellery",
+        name: "Jewellery",
+        choices: [
+          NONE(),
+          { id: "choker", name: "Choker", layers: ["neckwear choker"] },
+          { id: "nosering", name: "Nose ring", layers: ["jewlery nosering"] },
+          { id: "both", name: "Choker & nose ring", layers: ["neckwear choker", "jewlery nosering"] },
         ],
       },
     ],
@@ -147,12 +227,24 @@ export const BODIES: Body[] = [
       // Stubble is a shade of the skin, so it suits any skin colour.
       { id: "skin", name: "Skin", hexes: ["#D9B089", "#C99960", "#B1866A"], layers: ["body", "stubble"] },
       { id: "eyes", name: "Eyes", hexes: ["#6A87C2"], layers: ["body"] },
-      { id: "hair", name: "Hair", hexes: ["#683931", "#41261D"], layers: ["hair messy", "hair long", "hair bob", "hair bun", "hair short", "beard", "moustache"] },
-      // The old ids, so a colour picked for the first human's sweater and shorts stays.
+      { id: "hair", name: "Hair", hexes: ["#683931", "#41261D", "#522A23", "#2D1912"], layers: HUMAN_HAIR },
+      // The old ids, so a colour picked for the first human's sweater and shorts stays. The blouse is drawn white.
       { id: "sweater", name: "Top", hexes: ["#722120", "#591D1B", "#91282C", "#4F1616"], layers: ["hoodie", "shirt", "dress", "coat"] },
-      { id: "shorts", name: "Bottoms", hexes: ["#353536", "#3D3D3D", "#242425"], layers: ["shorts", "trousers", "skirt"] },
-      { id: "socks", name: "Socks", hexes: ["#722120"], layers: ["socks"] },
-      { id: "shoes", name: "Shoes", hexes: ["#353536", "#3D3D3D"], layers: ["shoes"] },
+      { id: "sweater", name: "Top", hexes: ["#E7DEDE", "#FFFFFF", "#D6C9C9"], layers: ["blouse"] },
+      // The overalls' two buttons are drawn in a skin shade; they stay as drawn.
+      { id: "shorts", name: "Bottoms", hexes: ["#353536", "#3D3D3D", "#242425", "#19191D"], layers: ["shorts", "trousers", "skirt", "overalls"] },
+      { id: "socks", name: "Socks", hexes: ["#722120"], layers: ["socks", "socks stripes horizontal"] },
+      { id: "stripes", name: "Stripes", hexes: ["#A63A3A"], layers: ["socks stripes horizontal"] },
+      { id: "shoes", name: "Shoes", hexes: ["#353536", "#3D3D3D"], layers: ["shooes normal", "shooes boots", "shoes flats"] },
+      { id: "hat", name: "Hat", hexes: ["#A63A3A", "#6B2228", "#C9605A"], layers: ["headwear fancy hat", "headwear fedora"] },
+      // Ears and tails share the animals' "fur", so a fur colour picked on one carries over. On the ears only the lighter
+      // grey is fur: the darker one is the inside of the bunny's and the cat's (the puppy's hang, inside hidden), which
+      // shares the bunny's "markings" (its ear tips).
+      { id: "fur", name: "Ears & tail", hexes: ["#3D3D3D"], layers: HUMAN_EARS },
+      { id: "fur", name: "Ears & tail", hexes: ["#3D3D3D", "#353536"], layers: HUMAN_TAILS },
+      { id: "markings", name: "Inner ears", hexes: ["#353536"], layers: HUMAN_EARS },
+      { id: "horns", name: "Horns", hexes: ["#3D3D3D"], layers: ["deco horns"] },
+      { id: "jewellery", name: "Jewellery", hexes: ["#3D3D3D"], layers: ["neckwear choker", "jewlery nosering"] },
     ],
   },
   {

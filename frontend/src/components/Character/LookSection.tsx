@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { useOnline } from "../../lib/offline/online";
+import { useEffect, useRef } from "react";
 import { BODIES, bodyOf, choiceOf, materialsOf, type Look } from "../../lib/character/bodies";
-import { normalizeLook } from "../../lib/character/profile";
+import { DEFAULT_TITLE, NAME_MAX, TITLE_MAX } from "../../lib/character/profile";
 import { CLOTH_COLORS, FUR_COLORS } from "../../lib/character/ramps";
 import { CharacterSprite } from "./CharacterSprite";
-import { useProfile } from "./useProfile";
+import { field, type SectionProps } from "./StatsEditor";
 
 /** Esc closes it wherever the focus is (a pressed button that goes away leaves it on the page). */
 export function useEscape(onEscape: () => void) {
@@ -91,11 +89,17 @@ function ColorRow({ label, current, isPicked, colors, onPick, onReset, name }: {
   );
 }
 
-/** A random look: any body, any of its choices, and new colours for most of its materials. */
+/**
+ * A random look: any body, any of its choices, and new colours for most of its materials. An extra that is off until
+ * picked (a tail, horns, a hat) stays off half the time, so a random human isn't everything at once.
+ */
 function randomLook(): Look {
   const body = pick(BODIES);
   const look: Look = { v: 2, body: body.id, options: {}, colors: {} };
-  for (const option of body.options ?? []) look.options[option.id] = pick(option.choices).id;
+  for (const option of body.options ?? []) {
+    const extra = option.choices[0].id === "none";
+    look.options[option.id] = extra && Math.random() < 0.5 ? "none" : pick(option.choices).id;
+  }
   for (const material of materialsOf(body)) {
     if (material.id !== "eyes" && Math.random() < 0.7) look.colors[material.id] = pick(BODY_COLORED.has(material.id) ? FUR_COLORS : CLOTH_COLORS)[1];
   }
@@ -103,16 +107,13 @@ function randomLook(): Look {
 }
 
 /**
- * The character creator, over the page: the character big, changing as things are picked; a row for the body (each
- * one of the user's drawings, whole), a row for each piece that body can change, and a colour row for each of its
- * materials. Save keeps it; Cancel (or Esc) leaves the character as it was.
+ * The Look section of the character editor: the name and title, the character big, changing as things are picked
+ * (in sight while colours further down are picked); a row for the body (each one of the user's drawings, whole), a
+ * row for each piece that body can change, and a colour row for each of its materials.
  */
-export function CharacterCreator({ onClose }: { onClose: () => void }) {
-  const { profile, look: saved, name, save } = useProfile();
-  const online = useOnline();
-  const [look, setLook] = useState<Look>(saved);
+export function LookSection({ look, setLook, draft, set, username }: SectionProps & { look: Look; setLook: (update: (look: Look) => Look) => void; username: string }) {
   const body = bodyOf(look);
-  useEscape(onClose);
+  const name = draft.name ?? username;
 
   // A colour picked on one body stays for the next where it has the same material ("fur", "eyes"), and choices stay
   // for going back; what the body doesn't have is dropped when saved.
@@ -126,69 +127,48 @@ export function CharacterCreator({ onClose }: { onClose: () => void }) {
       return { ...l, colors };
     });
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-stone-100 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] dark:bg-stone-950"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Customize the character"
-      data-character-creator
-    >
-      <div className="mx-auto max-w-3xl space-y-4 px-4 py-3">
-        <div className="flex items-center justify-between gap-2">
-          <button type="button" className="btn-quiet font-pixel text-[10px]" onClick={onClose}>
-            ‹ Cancel
-          </button>
-          <h2 className="font-pixel text-xs">Customize</h2>
-          <button
-            type="button"
-            className="nes-btn is-primary btn-small"
-            disabled={!online}
-            title={online ? undefined : "Needs a connection"}
-            onClick={() => {
-              save({ ...profile, look: normalizeLook(look) });
-              onClose();
-            }}
-            data-creator-save
-          >
-            Save
-          </button>
+  return (
+    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start" data-editor-section="look">
+      <div className="sticky top-0 z-10 flex w-full flex-none flex-col items-center gap-2 bg-stone-100 pb-2 sm:top-3 sm:w-auto sm:bg-transparent sm:pb-0 dark:bg-stone-950 sm:dark:bg-transparent">
+        <div className="character-stage" data-edge={body.toEdge || undefined}>
+          <CharacterSprite look={look} scale={3} label={`${name}, as customized`} />
         </div>
-        <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-          {/* It stays in sight while colours further down are picked. */}
-          <div className="sticky top-0 z-10 flex w-full flex-none flex-col items-center gap-2 bg-stone-100 pb-2 sm:top-3 sm:w-auto sm:bg-transparent sm:pb-0 dark:bg-stone-950 sm:dark:bg-transparent">
-            <div className="character-stage" data-edge={body.toEdge || undefined}>
-              <CharacterSprite look={look} scale={3} label={`${name}, as customized`} />
-            </div>
-            <button type="button" className="nes-btn btn-small" onClick={() => setLook(randomLook())} data-creator-random>
-              Random
-            </button>
-          </div>
-          <div className="w-full min-w-0 flex-1 space-y-4">
-            <div className="space-y-2">
-              <Stepper label="Body" name="body" options={BODIES.map((b) => ({ id: b.id, name: b.name }))} value={body.id} onChange={setBody} />
-              {(body.options ?? []).map((option) => (
-                <Stepper key={option.id} label={option.name} name={option.id} options={option.choices} value={choiceOf(look, option).id} onChange={(id) => setOption(option.id, id)} />
-              ))}
-            </div>
-            <div className="grid gap-3 border-t-2 border-stone-300 pt-3 sm:grid-cols-2 dark:border-stone-700">
-              {materialsOf(body).map((material) => (
-                <ColorRow
-                  key={material.id}
-                  name={material.id}
-                  label={material.name}
-                  current={look.colors[material.id] ?? material.hexes[0]}
-                  isPicked={Boolean(look.colors[material.id])}
-                  colors={BODY_COLORED.has(material.id) ? FUR_COLORS : CLOTH_COLORS}
-                  onPick={(hex) => setColor(material.id, hex)}
-                  onReset={() => setColor(material.id, null)}
-                />
-              ))}
-            </div>
-          </div>
+        <button type="button" className="nes-btn btn-small" onClick={() => setLook(() => randomLook())} data-creator-random>
+          Random
+        </button>
+      </div>
+      <div className="w-full min-w-0 flex-1 space-y-4">
+        <div className="grid grid-cols-[auto_1fr] items-center gap-2 text-xs">
+          <label htmlFor="character-name" className="font-pixel text-[10px] text-stone-500">
+            Name
+          </label>
+          <input id="character-name" className={field} value={draft.name ?? ""} maxLength={NAME_MAX} placeholder={username} onChange={(e) => set({ name: e.target.value || undefined })} data-character-name-field />
+          <label htmlFor="character-title" className="font-pixel text-[10px] text-stone-500">
+            Title
+          </label>
+          <input id="character-title" className={field} value={draft.title ?? ""} maxLength={TITLE_MAX} placeholder={DEFAULT_TITLE} onChange={(e) => set({ title: e.target.value || undefined })} data-character-title-field />
+        </div>
+        <div className="space-y-2 border-t-2 border-stone-300 pt-3 dark:border-stone-700">
+          <Stepper label="Body" name="body" options={BODIES.map((b) => ({ id: b.id, name: b.name }))} value={body.id} onChange={setBody} />
+          {(body.options ?? []).map((option) => (
+            <Stepper key={option.id} label={option.name} name={option.id} options={option.choices} value={choiceOf(look, option).id} onChange={(id) => setOption(option.id, id)} />
+          ))}
+        </div>
+        <div className="grid gap-3 border-t-2 border-stone-300 pt-3 sm:grid-cols-2 dark:border-stone-700">
+          {materialsOf(body).map((material) => (
+            <ColorRow
+              key={material.id}
+              name={material.id}
+              label={material.name}
+              current={look.colors[material.id] ?? material.hexes[0]}
+              isPicked={Boolean(look.colors[material.id])}
+              colors={BODY_COLORED.has(material.id) ? FUR_COLORS : CLOTH_COLORS}
+              onPick={(hex) => setColor(material.id, hex)}
+              onReset={() => setColor(material.id, null)}
+            />
+          ))}
         </div>
       </div>
-    </div>,
-    document.body,
+    </div>
   );
 }

@@ -2,7 +2,7 @@
 // Every .aseprite file directly in assets/character/ (not its subfolders) is read, every layer of it, hidden ones too
 // (a body's alternatives, like a second hat, are often hidden layers). Writes frontend/src/lib/character/parts.data.json:
 // { [file name without .aseprite]: { width, height, layers: [{ name, visible, runs }] } }, layers bottom to top, a run
-// being [x, y, width, "#RRGGBB"]. Which file is which body, and what of it can be changed, is in lib/character/bodies.ts.
+// being [x, y, width, "#RRGGBB"]. A layer whose name an earlier layer of the file has gets " 2", " 3" after it. Which file is which body, and what of it can be changed, is in lib/character/bodies.ts.
 // Run: npm run parts (needs aseprite on the PATH).
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -31,6 +31,16 @@ for (const file of fs.readdirSync(artDir).filter((f) => f.endsWith(".aseprite"))
     encoding: "utf8", maxBuffer: 64 * 1024 * 1024,
   });
   const sprite = JSON.parse(json);
+  // bodies.ts names layers, so two layers of one name are told apart: the second "hair short" is "hair short 2".
+  const named = new Map();
+  for (const layer of sprite.layers) {
+    const n = (named.get(layer.name) ?? 0) + 1;
+    named.set(layer.name, n);
+    if (n > 1) {
+      console.warn(`${file}: a second layer named "${layer.name}" is exported as "${layer.name} ${n}"`);
+      layer.name = `${layer.name} ${n}`;
+    }
+  }
   // 32x48 for a character that stands on the floor; 32x52 for one drawn out to its edges (`toEdge` in bodies.ts, the dragon).
   if (sprite.width > 32 || sprite.height > 52) throw new Error(`${file} is ${sprite.width}x${sprite.height}: a character is at most 32x52`);
   out[file.replace(/\.aseprite$/, "")] = {

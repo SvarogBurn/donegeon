@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { compose, FLOOR, HEIGHT, WIDTH, type PartsData } from "../../lib/character/compose";
 import type { Look } from "../../lib/character/bodies";
 
@@ -29,21 +29,33 @@ const SHADOW: [number, number, number][] = [
 
 /**
  * The character, drawn from its parts, `scale` art pixels of --u each per pixel of the 32x48 canvas, so it stays
- * crisp at any size. Its shadow is drawn under it.
+ * crisp at any size. Its shadow is drawn under it. With `fit` it is as big as fits across the box it is in, a whole
+ * number of screen pixels per pixel of the canvas (and never smaller than `scale`).
  */
-export function CharacterSprite({ look, scale, label }: { look: Look; scale: number; label: string }) {
+export function CharacterSprite({ look, scale, label, fit }: { look: Look; scale: number; label: string; fit?: boolean }) {
   const data = usePartsData();
   const pixels = data ? compose(look, data) : [];
+  const ref = useRef<SVGSVGElement>(null);
+  const [fitted, setFitted] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const box = ref.current?.parentElement;
+    if (!fit || !box) return setFitted(null);
+    const measure = () => {
+      const style = getComputedStyle(box);
+      const width = box.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      const least = scale * parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--u"));
+      setFitted(Math.max(least, Math.floor(width / WIDTH)));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [fit, scale]);
+  const size = fitted
+    ? { width: `${WIDTH * fitted}px`, height: `${HEIGHT * fitted}px` }
+    : { width: `calc(var(--u) * ${WIDTH * scale})`, height: `calc(var(--u) * ${HEIGHT * scale})` };
   return (
-    <svg
-      viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-      shapeRendering="crispEdges"
-      className="block flex-none"
-      style={{ width: `calc(var(--u) * ${WIDTH * scale})`, height: `calc(var(--u) * ${HEIGHT * scale})` }}
-      role="img"
-      aria-label={label}
-      data-character-sprite
-    >
+    <svg ref={ref} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} shapeRendering="crispEdges" className="mx-auto block flex-none" style={size} role="img" aria-label={label} data-character-sprite>
       {SHADOW.map(([x, y, w]) => (
         <rect key={`s${y}`} x={x} y={y} width={w} height={1} className="fill-black/15 dark:fill-black/40" />
       ))}

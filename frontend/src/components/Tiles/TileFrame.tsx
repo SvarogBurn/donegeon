@@ -7,7 +7,7 @@ export interface TileControls {
   isPinned: boolean;
   /** Absent where there is no band to pin to (the Calendar page). */
   onTogglePin?: () => void;
-  /** Absent where the boxes keep their place (the user's page): no tab button. */
+  /** Absent where the boxes keep their place: no tab button. */
   onDragStart?: (e: ReactPointerEvent<HTMLElement>) => void;
   /** What the tab button says it does, where that is not moving among the tiles of a grid. */
   dragTitle?: string;

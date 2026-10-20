@@ -75,7 +75,14 @@ const profile = z
       )
       .max(20, "At most 20 stats of your own"),
     skills: z
-      .array(z.object({ kind: z.enum(["list", "goal", "tag"]), id: ref, name: z.string().trim().max(20, "A skill's name is at most 20 characters").optional() }))
+      .array(
+        z.object({
+          kind: z.enum(["list", "goal", "tag"]),
+          id: ref,
+          name: z.string().trim().max(20, "A skill's name is at most 20 characters").optional(),
+          color: hex.optional(),
+        }),
+      )
       .max(30, "At most 30 skills"),
     look: z.object({ v: z.literal(2), body: z.string().max(40), options: capped(z.string().max(40), 30), colors: capped(hex, 40) }).optional(),
   })

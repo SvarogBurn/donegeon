@@ -38,6 +38,8 @@ export interface Skill {
   id: string;
   /** Its own name ("Cooking" for the list "Kitchen"); else the list's, goal's or tag's. */
   name?: string;
+  /** Its bar's colour, "#rrggbb"; else its list's colour, else the exp bar's yellow. */
+  color?: string;
 }
 
 export interface Profile {
@@ -106,7 +108,8 @@ export function normalizeProfile(raw: unknown, known?: Known): Profile {
     if (pool && !pool.has(s.id)) return [];
     seen.add(kind + s.id);
     const name = text(s.name, SKILL_NAME_MAX);
-    return [{ kind, id: s.id, ...(name && { name }) }];
+    const color = typeof s.color === "string" && HEX.test(s.color) ? s.color.toLowerCase() : undefined;
+    return [{ kind, id: s.id, ...(name && { name }), ...(color && { color }) }];
   });
   const name = text(p.name, NAME_MAX);
   const title = text(p.title, TITLE_MAX);

@@ -31,15 +31,19 @@ await api("/tasks", "POST", { title: "Still to read", listId: study.id });
 
 await openUser();
 out("the Character box is at the top of the page, above Account", await p.locator("section[aria-label]").first().getAttribute("aria-label") === "Character" && await p.locator('section[aria-label="Account"] [data-streak]').count() === 0);
-out("its name plate says the username, its title Wanderer", await p.locator("[data-character-name]").innerText() === user && await p.locator("[data-character-title]").innerText() === "Wanderer");
+out("its band says the username (no name plate), its title Wanderer", await p.locator(`${sheet} .tile-title [data-character-name]`).innerText() === user && await p.locator(".name-plate").count() === 0 && await p.locator("[data-character-title]").innerText() === "Wanderer");
+out("one Edit button, no Customize", await p.locator("[data-character-edit]").count() === 1 && await p.locator(`${sheet} button:text-is("Customize")`).count() === 0);
 out("9 tasks done: level 2 (5 exp), 4 of 10 into it", await attr("[data-character-level]", "data-character-level") === "2" && (await p.locator(`${sheet} [data-exp]`).first().innerText()) === "4 / 10 exp", await p.locator(`${sheet} [data-exp]`).first().innerText());
 out("the streak and the tasks done this year, as the Account box had them", await attr(`${sheet} [data-streak]`, "data-streak") === "1" && await attr(`${sheet} [data-done-year]`, "data-done-year") === "9");
 out("the character is drawn from its parts", await p.locator("[data-character-sprite] rect").count() > 100);
 await p.screenshot({ path: "character.png" });
 
-// The editor: longest streak off, open tasks on, a stat of Study and Gym with a target, Study as a skill.
-await p.locator("[data-character-edit]").click(); await p.waitForSelector("[data-stats-editor]");
+// The editor: a name and title (Look), longest streak off, open tasks on, a stat of Study and Gym with a target (Stats), Study as a pink skill (Skills).
+await p.locator("[data-character-edit]").click(); await p.waitForSelector("[data-character-editor]");
+out("the editor opens on Look, with Stats and Skills beside it", await p.locator('[data-editor-section="look"]').count() === 1 && await p.locator("[data-editor-tab]").count() === 3);
+await p.fill("[data-character-name-field]", "Hero");
 await p.fill("[data-character-title-field]", "Scholar");
+await p.locator('[data-editor-tab="stats"]').click();
 await p.locator('[data-stat-switch="longest"]').click();
 await p.locator('[data-stat-switch="open"]').click();
 await p.locator("[data-add-stat]").click();
@@ -47,54 +51,68 @@ await p.fill("[data-custom-stat-name]", "STR");
 await p.locator('[data-custom-stat-source="Study"]').click();
 await p.locator('[data-custom-stat-source="Gym"]').click();
 await p.fill("[data-custom-stat-target]", "10");
+out("what a stat counts has no disclosure triangle", await p.locator("[data-custom-stat-editor] details, [data-custom-stat-editor] summary").count() === 0);
+await p.locator("[data-custom-stat-sources]").click();
+out("Done folds away the lists it counts", await p.locator('[data-custom-stat-source="Study"]').count() === 0);
+await p.locator('[data-editor-tab="skills"]').click();
 await p.locator("[data-add-skill]").click();
 await p.selectOption("[data-skill-source]", { label: "Study" });
 await p.fill("[data-skill-name]", "Reading");
-await p.locator("[data-stats-save]").click(); await wait(800);
-out("the title is the one written", await p.locator("[data-character-title]").innerText() === "Scholar");
+await p.locator("[data-add-skill]").click();
+await p.locator("[data-skill-source] >> nth=1").selectOption({ label: "Gym" });
+await p.locator("[data-skill-color] >> nth=0").click();
+await p.locator('[data-skill-colors] button[aria-label="Pink"]').click();
+await p.locator('[data-editor-tab="look"]').click();
+out("going between sections keeps what was typed", await p.inputValue("[data-character-name-field]") === "Hero");
+await p.locator("[data-editor-save]").click(); await wait(800);
+out("the band shows the name written, the title under the character", await p.locator(`${sheet} [data-character-name]`).innerText() === "Hero" && await p.locator("[data-character-title]").innerText() === "Scholar");
+const barColor = (name) => p.locator(`${sheet} [data-skill="${name}"] .exp-bar-fill`).getAttribute("data-bar-color");
+out("Reading's bar is the pink picked; Gym's is its list's blue", await barColor("Reading") === "#d95f8c" && await barColor("Gym") === "#5b6ee1", `${await barColor("Reading")} ${await barColor("Gym")}`);
 out("longest streak switched off, open tasks on (1)", await p.locator(`${sheet} [data-stat="longest"]`).count() === 0 && (await p.locator(`${sheet} [data-stat="open"]`).innerText()).startsWith("1"));
 out("STR counts Study and Gym: 9 of 10", await attr(`${sheet} [data-custom-stat="STR"]`, "data-value") === "9" && await p.locator(`${sheet} [data-custom-stat="STR"] .cell-bar-cell[data-filled]`).count() === 9);
 out("the skill Reading (Study): 6 exp, level 2", await attr(`${sheet} [data-skill="Reading"]`, "data-skill-exp") === "6" && await attr(`${sheet} [data-skill="Reading"]`, "data-skill-level") === "2");
 await openUser();
-out("all of it is still there after a reload", await p.locator("[data-character-title]").innerText() === "Scholar" && await p.locator(`${sheet} [data-skill="Reading"]`).count() === 1 && await p.locator(`${sheet} [data-stat="longest"]`).count() === 0);
+out("all of it is still there after a reload", await p.locator("[data-character-title]").innerText() === "Scholar" && await p.locator(`${sheet} [data-skill="Reading"]`).count() === 1 && await p.locator(`${sheet} [data-stat="longest"]`).count() === 0 && await barColor("Reading") === "#d95f8c");
 await p.screenshot({ path: "character-sheet.png" });
 
-// The creator: the next body, its option rows, fur in ginger, the coat in teal.
+// The Look section: the next body, its option rows, fur in ginger, the coat in teal.
 const fills = () => p.locator(`${sheet} [data-character-sprite] rect`).evaluateAll((els) => els.map((el) => el.getAttribute("fill"))).then((fills) => new Set(fills));
 const before = await fills();
-await p.locator("[data-character-customize]").click(); await p.waitForSelector("[data-character-creator]");
+await p.locator("[data-character-edit]").click(); await p.waitForSelector("[data-character-editor]");
 const value = (name) => p.locator(`[data-stepper="${name}"] [data-stepper-value]`).innerText();
 out("the creator opens on the bunny, in its tilted hat and white shirt", await value("body") === "Bunny" && await value("hat") === "Tilted hat" && await value("shirt") === "White shirt");
 await p.locator('[data-stepper="hat"] button[aria-label^="Previous"]').click();
 out("the hat can be taken off", await value("hat") === "None");
 await p.locator('[data-stepper="body"] button[aria-label^="Next"]').click();
-out("the next body is the human, with no hat row and colour rows of its own", await value("body") === "Human" && await p.locator('[data-stepper="hat"]').count() === 0 && await p.locator('[data-color-row="sweater"]').count() === 1);
+out("the next body is the human, with rows and colours of its own", await value("body") === "Human" && await value("hat") === "None" && await p.locator('[data-stepper="hair"]').count() === 1 && await p.locator('[data-color-row="sweater"]').count() === 1);
 await p.locator('[data-stepper="body"] button[aria-label^="Previous"]').click();
 await p.locator('[data-color-row="fur"] button[aria-label="Ginger"]').click();
 await p.locator('[data-color-row="coat"] button[aria-label="Teal"]').click();
-const creatorFills = await p.locator("[data-character-creator] [data-character-sprite] rect").evaluateAll((els) => els.map((el) => el.getAttribute("fill")));
+const creatorFills = await p.locator("[data-character-editor] [data-character-sprite] rect").evaluateAll((els) => els.map((el) => el.getAttribute("fill")));
 out("the bunny in the creator turns ginger and teal at once", creatorFills.includes("#C27A47") && creatorFills.includes("#6F9C8C"));
 await p.screenshot({ path: "character-creator.png" });
-await p.locator("[data-creator-save]").click(); await wait(800);
+await p.locator("[data-editor-save]").click(); await wait(800);
 await openUser();
 const after = await fills();
 out("saved: the sheet's bunny is ginger with a teal coat after a reload", after.has("#C27A47") && after.has("#6F9C8C") && !before.has("#C27A47"));
-await p.locator("[data-character-customize]").click(); await p.waitForSelector("[data-character-creator]");
+await p.locator("[data-character-edit]").click(); await p.waitForSelector("[data-character-editor]");
 out("and the creator opens on the bunny with no hat, as saved", await value("body") === "Bunny" && await value("hat") === "None");
 await p.locator('[data-color-row="fur"] button:text-is("As drawn")').click();
 await p.keyboard.press("Escape"); await wait(300);
-out("Esc leaves it as it was", await p.locator("[data-character-creator]").count() === 0 && (await fills()).has("#C27A47"));
+out("Esc leaves it as it was", await p.locator("[data-character-editor]").count() === 0 && (await fills()).has("#C27A47"));
 
 // A deleted list's skill drops out by itself.
 await api(`/lists/${study.id}`, "DELETE");
 await openUser();
-out("deleting Study takes its skill off the sheet", await p.locator(`${sheet} [data-skill]`).count() === 0);
+out("deleting Study takes its skill off the sheet", await p.locator(`${sheet} [data-skill]`).count() === 1);
 
 // On a phone the stats go under the character.
 await p.setViewportSize({ width: 390, height: 844 }); await openUser();
 const [sprite, stats] = await Promise.all([p.locator(`${sheet} .character-stage`).boundingBox(), p.locator(`${sheet} [data-character-stats]`).boundingBox()]);
 out("on a phone the stats are under the character", stats.y > sprite.y + sprite.height, `${sprite.y + sprite.height} ${stats.y}`);
+const [svg, box] = await Promise.all([p.locator(`${sheet} [data-character-sprite]`).boundingBox(), p.locator(`${sheet} .tile-body`).boundingBox()]);
+out("on a phone the character is nearly as wide as the box, a whole number of pixels each", svg.width > box.width * 0.8 && svg.width % 32 === 0, `${svg.width} of ${box.width}`);
 await p.screenshot({ path: "character-phone.png", fullPage: false });
-await p.locator("[data-character-customize]").click(); await p.waitForSelector("[data-character-creator]"); await wait(300);
+await p.locator("[data-character-edit]").click(); await p.waitForSelector("[data-character-editor]"); await wait(300);
 await p.screenshot({ path: "character-creator-phone.png" });
 await b.close();

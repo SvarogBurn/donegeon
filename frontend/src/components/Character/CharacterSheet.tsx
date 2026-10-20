@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { localDate } from "../../api/client";
 import { useGoals, useLists, usePoints, useStatRows, useTags } from "../../hooks/useTasks";
 import { listColor } from "../../lib/frameTones";
@@ -10,15 +10,14 @@ import { levelOf } from "../../lib/character/levels";
 import { collectStats } from "../../lib/stats";
 import { TileFrame } from "../Tiles/TileFrame";
 import { CellBar, ExpBar } from "./Bars";
-import { CharacterCreator } from "./CharacterCreator";
+import { CharacterEditor } from "./CharacterEditor";
 import { CharacterSprite } from "./CharacterSprite";
-import { StatsEditor } from "./StatsEditor";
 import { useProfile } from "./useProfile";
 
 // What the old Account box called its numbers, kept for the browser checks that read them.
 const STAT_DATA: Record<string, string> = { streak: "data-streak", longest: "data-streak-longest", year: "data-done-year" };
 
-/** A skill's name and colour: its own name if given, else its list's, goal's or tag's; a list's in the list's colour. */
+/** A skill's name and bar colour: its own if given, else its list's, goal's or tag's name and its list's colour (none: the exp bar's yellow). */
 export function useSkillNames() {
   const { data: lists = [] } = useLists();
   const { data: goals = [] } = useGoals();
@@ -26,16 +25,26 @@ export function useSkillNames() {
   return (skill: Skill): { name: string; color?: string } => {
     if (skill.kind === "list") {
       const list = lists.find((l) => l.id === skill.id);
-      return { name: skill.name ?? list?.name ?? "", color: list ? listColor(list) : undefined };
+      return { name: skill.name ?? list?.name ?? "", color: skill.color ?? (list ? listColor(list) : undefined) };
     }
     const pool = skill.kind === "goal" ? goals : tags;
-    return { name: skill.name ?? pool.find((x) => x.id === skill.id)?.name ?? "" };
+    return { name: skill.name ?? pool.find((x) => x.id === skill.id)?.name ?? "", color: skill.color };
   };
 }
 
+const PHONE = "(max-width: 639.98px)";
+const subscribePhone = (onChange: () => void) => {
+  const query = matchMedia(PHONE);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+};
+/** One column: the stats go under the character, and the character is as wide as the box. */
+const useIsPhone = () => useSyncExternalStore(subscribePhone, () => matchMedia(PHONE).matches);
+
 /**
- * The top of the user's page, as a game's character sheet: the character over its name plate, its title, level and exp,
- * and beside it the stats and skills the user picked. Every task done (a tick at any depth, a press) is one exp.
+ * The top of the user's page, as a game's character sheet, the character's name on its band: the character, its
+ * title, level and exp, and beside it (under it on a phone, the character as wide as the box) the stats and skills the
+ * user picked. Every task done (a tick at any depth, a press) is one exp. "Edit" opens all of it in the editor.
  */
 export function CharacterSheet() {
   const { profile, look, name } = useProfile();
@@ -45,7 +54,7 @@ export function CharacterSheet() {
   const online = useOnline();
   const skillName = useSkillNames();
   const [editing, setEditing] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const isPhone = useIsPhone();
 
   const today = localDate();
   const collected = useMemo(() => (rows.data && lists.data ? collectStats(rows.data, lists.data) : null), [rows.data, lists.data]);
@@ -54,22 +63,19 @@ export function CharacterSheet() {
 
   return (
     <TileFrame
-      title="Character"
+      title={<span data-character-name>{name}</span>}
       aria-label="Character"
       data-character
       actions={
-        <button type="button" className="band-button" disabled={!online} title={online ? "Choose the stats and skills shown" : "Needs a connection"} onClick={() => setEditing(true)} data-character-edit>
+        <button type="button" className="band-button" disabled={!online} title={online ? "The character's look, name, stats and skills" : "Needs a connection"} onClick={() => setEditing(true)} data-character-edit>
           Edit
         </button>
       }
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="flex flex-none flex-col items-center gap-2 sm:w-[calc(var(--u)*76)]">
-          <div className="character-stage" data-edge={bodyOf(look).toEdge || undefined}>
-            <CharacterSprite look={look} scale={2} label={`${name}, the character`} />
-          </div>
-          <div className="name-plate" data-character-name>
-            {name}
+          <div className="character-stage max-sm:w-full max-sm:!px-0" data-edge={bodyOf(look).toEdge || undefined}>
+            <CharacterSprite look={look} scale={2} fit={isPhone} label={`${name}, the character`} />
           </div>
           <p className="text-xs text-stone-500" data-character-title>
             {profile.title ?? DEFAULT_TITLE}
@@ -80,9 +86,6 @@ export function CharacterSheet() {
             </p>
             <ExpBar into={level.into} span={level.span} label="Exp to the next level" />
           </div>
-          <button type="button" className="nes-btn btn-small" disabled={!online} title={online ? undefined : "Needs a connection"} onClick={() => setCreating(true)} data-character-customize>
-            Customize
-          </button>
         </div>
 
         <div className="min-w-0 flex-1 space-y-3">
@@ -136,13 +139,10 @@ export function CharacterSheet() {
                   return (
                     <li key={skill.kind + skill.id} data-skill={shown} data-skill-level={lv} data-skill-exp={exp}>
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className="flex min-w-0 items-center gap-1.5 text-xs">
-                          {color && <span className="size-2 flex-none" style={{ backgroundColor: color }} aria-hidden />}
-                          <span className="truncate">{shown}</span>
-                        </span>
+                        <span className="min-w-0 truncate text-xs">{shown}</span>
                         <span className="flex-none font-pixel text-[10px]">Lv. {lv}</span>
                       </div>
-                      <ExpBar into={into} span={span} label={`Exp of ${shown} to its next level`} />
+                      <ExpBar into={into} span={span} color={color} label={`Exp of ${shown} to its next level`} />
                     </li>
                   );
                 })}
@@ -152,8 +152,7 @@ export function CharacterSheet() {
         </div>
       </div>
       <p className="text-xs text-stone-500">Every task done is 1 exp. Do at least one task a day to keep the streak going.</p>
-      {editing && <StatsEditor onClose={() => setEditing(false)} />}
-      {creating && <CharacterCreator onClose={() => setCreating(false)} />}
+      {editing && <CharacterEditor onClose={() => setEditing(false)} />}
     </TileFrame>
   );
 }

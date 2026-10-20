@@ -75,6 +75,11 @@ describe("normalizeProfile", () => {
     expect(profile.skills).toEqual([{ kind: "list", id: "l1" }]);
   });
 
+  it("keeps a skill's own bar colour, and drops one that isn't a colour", () => {
+    const profile = normalizeProfile({ stats: [], custom: [], skills: [{ kind: "list", id: "l1", color: "#AD61CB" }, { kind: "goal", id: "g1", color: "pink" }] }, known);
+    expect(profile.skills).toEqual([{ kind: "list", id: "l1", color: "#ad61cb" }, { kind: "goal", id: "g1" }]);
+  });
+
   it("keeps everything while the lists, goals and tags are still loading", () => {
     expect(normalizeProfile({ stats: [], custom: [], skills: [{ kind: "tag", id: "t" }] }).skills).toEqual([{ kind: "tag", id: "t" }]);
   });

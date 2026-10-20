@@ -863,8 +863,8 @@
     @apply rounded px-1.5 py-1 text-xs text-stone-500 hover:bg-stone-200 hover:text-stone-900 disabled:opacity-30 disabled:hover:bg-transparent dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100;
   }
   /*
-   * The character sheet (components/Character). The character stands on a pale floor; its name is on the text plate
-   * of the band's tabs (59x15 art), larger. Bars are drawn in --u: cells for the stats of the user's own, a plain fill
+   * The character sheet (components/Character). The character stands on a pale floor; its name is the box's title.
+   * Bars are drawn in --u: cells for the stats of the user's own, a plain fill
    * for exp.
    */
   .character-stage {
@@ -875,16 +875,6 @@
   /* A character drawn out to its edges (the dragon) fills the floor's whole width. */
   .character-stage[data-edge] {
     padding-inline: 0;
-  }
-  .name-plate {
-    @apply max-w-full truncate text-center font-pixel leading-none;
-    min-width: calc(40 * var(--u));
-    padding: calc(1.5 * var(--u)) calc(3 * var(--u)) calc(1 * var(--u));
-    border-style: solid;
-    border-width: var(--u) calc(2 * var(--u)) calc(2 * var(--u)) var(--u);
-    border-image: url("../../assets/59x15border_text_v1.svg") 59 118 118 59 fill / var(--u) calc(2 * var(--u)) calc(2 * var(--u)) var(--u) stretch;
-    font-size: max(10px, calc(4 * var(--u)));
-    color: #222034;
   }
   .cell-bar {
     @apply inline-flex flex-none;
@@ -907,8 +897,8 @@
   }
   .exp-bar-fill {
     @apply h-full;
-    background: #fbf236;
-    box-shadow: inset 0 calc(-0.5 * var(--u)) #df7126;
+    background: var(--bar, #fbf236);
+    box-shadow: inset 0 calc(-0.5 * var(--u)) var(--bar-edge, #df7126);
   }
   .stepper-arrow {
     @apply flex size-7 flex-none cursor-pointer items-center justify-center text-[10px] text-stone-500 hover:bg-stone-200 hover:text-stone-900 dark:hover:bg-stone-800 dark:hover:text-stone-100;

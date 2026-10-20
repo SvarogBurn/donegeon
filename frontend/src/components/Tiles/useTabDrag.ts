@@ -10,10 +10,11 @@ const boxAt = (x: number, y: number) => document.elementFromPoint(x, y)?.closest
  * For the boxes of a page that is not a grid of tiles (the Calendar page's, one under the other; each in an
  * element with data-box, its name). A box's tab button drags it onto another box, to take its place, or onto a
  * tab of the task bar. Returns what starts the drag. `onDrop` is told the tab's data-tab-drop, as TileGrid's
- * onDropOnTab is; `onMove` the box it was dropped on, and whether it goes after that one.
+ * onDropOnTab is (without it, as on the user's page, the boxes only change places); `onMove` the box it was dropped
+ * on, and whether it goes after that one.
  * The box it would be dropped on has data-drop ("above" / "below": the side it lands on) for as long.
  */
-export function useTabDrag(onDrop: (name: string, tab: string) => void, onMove: (name: string, onto: string, after: boolean) => void) {
+export function useTabDrag(onDrop: ((name: string, tab: string) => void) | null, onMove: (name: string, onto: string, after: boolean) => void) {
   return (e: ReactPointerEvent<HTMLElement>, name: string) => {
     if (e.button !== 0) return;
     e.preventDefault();
@@ -36,13 +37,13 @@ export function useTabDrag(onDrop: (name: string, tab: string) => void, onMove: 
       onto = next;
     };
     // Brings out the bar's "New folder" tab for the length of the drag (index.css).
-    document.documentElement.dataset.draggingList = "";
+    if (onDrop) document.documentElement.dataset.draggingList = "";
     const scroller = edgeScroller();
     handle.setPointerCapture(e.pointerId);
     if (box) box.style.opacity = "0.4";
 
     const onPointerMove = (ev: PointerEvent) => {
-      hoverTab(tabAt(ev.clientX, ev.clientY));
+      if (onDrop) hoverTab(tabAt(ev.clientX, ev.clientY));
       const over = tab ? null : boxAt(ev.clientX, ev.clientY);
       hoverBox(over === box ? null : over);
       // The task bar lies along the bottom edge: over a tab, the page must not scroll away underneath.
@@ -60,7 +61,7 @@ export function useTabDrag(onDrop: (name: string, tab: string) => void, onMove: 
       hoverTab(null);
       hoverBox(null);
       if (!dropped) return;
-      if (droppedOn !== undefined) onDrop(name, droppedOn);
+      if (droppedOn !== undefined) onDrop?.(name, droppedOn);
       else if (movedOnto) onMove(name, movedOnto.dataset.box!, isAfter(movedOnto));
     };
     const onUp = () => finish(true);

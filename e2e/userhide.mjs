@@ -14,10 +14,10 @@ await p.evaluate(() => fetch("/api/auth/me", { method: "PATCH", headers: { "Cont
 await p.goto("http://localhost:5173/user"); await p.waitForSelector("[data-cheatsheet]"); await wait();
 const before = await boxes();
 out("the user page shows every box", before === "Character,Account,Settings,Send mail to devs,Cheat sheet", before);
-out("every box has a hide button and no drag tab", (await p.locator('[aria-label^="Hide "]').count()) === 5 && (await p.locator(".tile-button-tab").count()) === 0);
+out("every box has a hide button and a drag tab", (await p.locator('[aria-label^="Hide "]').count()) === 5 && (await p.locator(".tile-button-tab").count()) === 5);
 out("no Hidden row while nothing is hidden", (await hiddenRow.count()) === 0);
 const charButtons = await p.locator("[data-character] .tile-band button").evaluateAll((els) => els.map((el) => el.getAttribute("aria-label") ?? el.textContent.trim()).join(","));
-out("on the Character box it sits before Edit", charButtons === "Hide Character,Edit", charButtons);
+out("on the Character box they sit before Edit", charButtons === "Drag to move Character,Hide Character,Edit", charButtons);
 
 await p.click('[aria-label="Hide Settings"]'); await wait();
 await p.click('[aria-label="Hide Cheat sheet"]'); await wait();
@@ -36,6 +36,18 @@ await hiddenRow.getByRole("button", { name: "Settings" }).click(); await wait();
 out("brought back in its place", (await boxes()) === "Character,Account,Settings,Send mail to devs", await boxes());
 await p.reload(); await p.waitForSelector("[data-character]"); await wait();
 out("kept after a reload", (await boxes()) === "Character,Account,Settings,Send mail to devs", await boxes());
+
+// Settings dragged up onto Character takes its place; the order is kept with the account.
+const handle = await p.locator('section[aria-label="Settings"] .tile-button-tab').boundingBox();
+await p.mouse.move(handle.x + 5, handle.y + 5); await p.mouse.down(); await p.mouse.move(handle.x + 9, handle.y + 9);
+const to = await p.locator('section[aria-label="Character"]').boundingBox();
+await p.mouse.move(to.x + to.width / 2, to.y + 60, { steps: 8 });
+const marked = await p.locator("[data-box][data-drop]").evaluateAll((els) => els.map((el) => `${el.dataset.box} ${el.dataset.drop}`).join());
+await p.mouse.up(); await wait(800);
+out("dragging Settings onto Character marks it above, and puts Settings first", marked === "character above" && (await boxes()) === "Settings,Character,Account,Send mail to devs", `${marked} / ${await boxes()}`);
+out("the New folder tab doesn't come out for it", (await p.locator("html[data-dragging-list]").count()) === 0);
+await p.reload(); await p.waitForSelector("[data-character]"); await wait();
+out("the new order is kept after a reload", (await boxes()) === "Settings,Character,Account,Send mail to devs", await boxes());
 
 await p.click('[aria-label="Hide Account"]'); await wait();
 await p.locator("[data-start-tutorial]").click(); await wait();

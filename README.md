@@ -214,6 +214,3 @@ donegeon/
 ├── frontend/           React 19 + Vite SPA (port 5173)
 ├── e2e/                Playwright browser-check scripts
 └── docker-compose.yml  Postgres on localhost:5432
-
-Backend: 
-index.ts starts the server.

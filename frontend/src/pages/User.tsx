@@ -8,6 +8,7 @@ import { Cheatsheet } from "../components/Help/Cheatsheet";
 import { PixelCheckbox } from "../components/PixelCheckbox";
 import { HiddenRow } from "../components/Tiles/HiddenRow";
 import { TileControlsContext, TileFrame } from "../components/Tiles/TileFrame";
+import { useTabDrag } from "../components/Tiles/useTabDrag";
 import { useDeleteAccount, useLogout, useMe, useUpdateMe } from "../hooks/useAuth";
 import { useLayout, useSaveLayout } from "../hooks/useTasks";
 import { useOnline } from "../lib/offline/online";
@@ -169,7 +170,8 @@ function DeleteAccount({ username, onCancel }: { username: string; onCancel: () 
 
 /**
  * The user's own page, opened from their icon in the task bar: who is logged in, logging out, and their settings.
- * Its boxes stay in one column in this order; each can be minimized into the Hidden row at the bottom (kept with the account).
+ * Its boxes are one column; each is dragged by its tab button onto another, to take its place, and can be minimized
+ * into the Hidden row at the bottom (both kept with the account).
  */
 export function UserPage() {
   const { user } = useMe();
@@ -181,6 +183,12 @@ export function UserPage() {
   const layout = useLayout("user");
   const saveLayout = useSaveLayout("user");
   const [deleting, setDeleting] = useState(false);
+  // One column whatever the screen, so its arrangement is only an order: kept as the layout's one column, as the Calendar page's.
+  const startDrag = useTabDrag(null, (key, onto, after) => {
+    const next = order.filter((other) => other !== key);
+    next.splice(next.indexOf(onto) + (after ? 1 : 0), 0, key);
+    if (next.join() !== order.join()) saveLayout.mutate({ ...saved, byColumns: { wide: [next] } });
+  });
   // The layout is waited for, so a minimized box doesn't show for a moment.
   if (!user || layout.isLoading) return null;
 
@@ -309,7 +317,7 @@ export function UserPage() {
   );
 
   // Their names are the buttons' labels and the Hidden row's.
-  const boxes: { key: string; name: string; node: ReactNode }[] = [
+  const defaults: { key: string; name: string; node: ReactNode }[] = [
     { key: "character", name: "Character", node: <CharacterSheet /> },
     { key: "account", name: "Account", node: account },
     { key: "settings", name: "Settings", node: settings },
@@ -317,15 +325,40 @@ export function UserPage() {
     { key: "cheatsheet", name: "Cheat sheet", node: <Cheatsheet /> },
     ...(user.isDev ? [{ key: "inbox", name: "Inbox", node: <FeedbackInbox /> }] : []),
   ];
+  // The saved order first; a box it doesn't know yet (new to the page) keeps its default place after the one before it.
+  const keys = defaults.map((box) => box.key);
+  const savedOrder = (saved.byColumns.wide?.[0] ?? []).filter((key) => keys.includes(key));
+  const order = [...savedOrder];
+  keys.forEach((key, i) => {
+    if (order.includes(key)) return;
+    const before = keys.slice(0, i).reverse().find((other) => order.includes(other));
+    order.splice(before ? order.indexOf(before) + 1 : 0, 0, key);
+  });
+  const boxes = order.map((key) => defaults.find((box) => box.key === key)!);
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       {boxes
         .filter((box) => !isHidden(box.key))
         .map((box) => (
-          <TileControlsContext.Provider key={box.key} value={{ name: box.name, isPinned: false, onHide: () => saveLayout.mutate(withHidden(saved, box.key, true)) }}>
-            {box.node}
-          </TileControlsContext.Provider>
+          <div
+            key={box.key}
+            data-box={box.key}
+            // The box another is dragged onto: ringed, and thicker on the side the other lands.
+            className="outline-emerald-600 data-drop:outline-2 data-[drop=above]:shadow-[0_-4px_0_var(--color-emerald-600)] data-[drop=below]:shadow-[0_4px_0_var(--color-emerald-600)]"
+          >
+            <TileControlsContext.Provider
+              value={{
+                name: box.name,
+                isPinned: false,
+                onDragStart: (e) => startDrag(e, box.key),
+                dragTitle: "Drag onto another box to put this one in its place",
+                onHide: () => saveLayout.mutate(withHidden(saved, box.key, true)),
+              }}
+            >
+              {box.node}
+            </TileControlsContext.Provider>
+          </div>
         ))}
       <HiddenRow
         tiles={boxes.filter((box) => isHidden(box.key)).map((box) => ({ key: box.key, label: box.name }))}
