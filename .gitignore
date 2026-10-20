@@ -3,6 +3,6 @@ dist/
 .env
 .env.*
 !.env.example
-e2e/*.png
+e2e/
 *.log
 PLAN.md
