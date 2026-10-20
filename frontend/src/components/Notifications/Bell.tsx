@@ -18,10 +18,13 @@ const ago = (n: number) => (n === 1 ? "yesterday" : `${n} days ago`);
  */
 export function Bell({
   inStrip = false,
+  side = "right",
   onOpenChange,
   children,
 }: {
   inStrip?: boolean;
+  /** Which side of the screen the bell is on, so its list opens there: the clock can be dragged to either side of the task bar. */
+  side?: "left" | "right";
   onOpenChange?: (isOpen: boolean) => void;
   children?: (bell: ReactNode) => ReactNode;
 }) {
@@ -94,7 +97,7 @@ export function Bell({
       {isOpen && (
         <div
           ref={panel}
-          className={`card fixed right-2 z-50 w-80 max-w-[calc(100vw-1rem)] !p-0 shadow-lg ${inStrip ? "top-[calc(var(--top-h,3rem)+0.25rem)]" : "bottom-[calc(var(--bar-h,5rem)+0.25rem)]"}`}
+          className={`card fixed ${side === "left" ? "left-2" : "right-2"} z-50 w-80 max-w-[calc(100vw-1rem)] !p-0 shadow-lg ${inStrip ? "top-[calc(var(--top-h,3rem)+0.25rem)]" : "bottom-[calc(var(--bar-h,5rem)+0.25rem)]"}`}
           role="dialog"
           aria-label="Notifications"
         >

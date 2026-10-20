@@ -33,6 +33,7 @@ const publicUser = (user: User) => ({
   plainFont: user.plainFont,
   notesTab: user.notesTab,
   profile: user.profile,
+  taskBar: user.taskBar,
   isDev: isDev(user.username),
 });
 
@@ -92,8 +93,12 @@ authRouter.get("/me", async (req, res) => {
 
 // The account's own settings, from the user's page.
 authRouter.patch("/me", requireAuth, async (req, res) => {
-  const { profile, ...rest } = settings.parse(req.body);
-  const data = { ...rest, ...(profile !== undefined && { profile: profile ?? Prisma.DbNull }) };
+  const { profile, taskBar, ...rest } = settings.parse(req.body);
+  const data = {
+    ...rest,
+    ...(profile !== undefined && { profile: profile ?? Prisma.DbNull }),
+    ...(taskBar !== undefined && { taskBar: taskBar ?? Prisma.DbNull }),
+  };
   res.json({ user: publicUser(await prisma.user.update({ where: { id: userId(req) }, data })) });
 });
 

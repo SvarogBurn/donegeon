@@ -25,6 +25,8 @@ export interface User {
   notesTab: boolean;
   /** The character at the top of the user's page as saved; null = the defaults. Read it with normalizeProfile (lib/character/profile.ts). */
   profile: unknown;
+  /** The task bar's items in the user's own order, each side of the logo, as saved; null = the default. Read it with resolveTaskBar (lib/taskBar.ts). */
+  taskBar: unknown;
   /** One of the developers' accounts: its page has the inbox of the suggestion box. */
   isDev: boolean;
 }

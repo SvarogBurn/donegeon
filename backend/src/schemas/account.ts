@@ -54,6 +54,10 @@ const profile = z
   })
   .nullable();
 
+/** The task bar's items each side of the logo, left to right (see frontend/src/lib/taskBar.ts). */
+const barSide = z.array(z.string().max(80)).max(200);
+const taskBar = z.object({ left: barSide, right: barSide }).nullable();
+
 /** The account's own settings, from the user's page; any of them at a time. */
 export const settings = z
   .object({
@@ -69,5 +73,7 @@ export const settings = z
     breakEvery: z.number().int().min(1, "A reminder comes after at least 1 task").max(1000).nullable(),
     /** null = back to the defaults. */
     profile,
+    /** null = back to the default. */
+    taskBar,
   })
   .partial();

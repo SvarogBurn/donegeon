@@ -23,7 +23,7 @@ import { useLists } from "../hooks/lists";
 import { useNotes } from "../hooks/notes";
 import { useCombinedCountdown, usePressure, useTaskTrees } from "../hooks/tasks";
 import { countLabels, isFiltering, NO_FILTER, toggleId, type LabelFilter } from "../lib/labels";
-import { calOfView, listView, noteOfView, statOfView, TODAY_VIEW } from "../lib/folders";
+import { calOfView, GOALS_VIEW, listView, noteOfView, statOfView, TAGS_VIEW, TODAY_VIEW } from "../lib/folders";
 import { useOnline } from "../lib/offline/online";
 import { useStandalone } from "../lib/standalone";
 import { STAT_BOXES, StatBoxView, StatBoxesProvider } from "../components/Stats/statBoxes";
@@ -110,50 +110,45 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
     node: <ListCard list={card.list} tasks={card.tasks} taskCount={card.taskCount} />,
   }));
   const newListTile = !filtering && { key: NEW_LIST_TILE, name: "the new-list field", node: <ListForm folderId={folderId} /> };
+  // Picking a goal or a tag shows only its tasks in the lists of this page (a folder's copy filters that folder's lists).
+  const goalsBox = (
+    <LabelsPanel
+      title="Goals"
+      noun="goal"
+      items={goals.data}
+      counts={countLabels(tasks.data, "goalIds")}
+      selected={filter.goalIds}
+      onToggle={(id) => setPicked({ ...filter, goalIds: toggleId(filter.goalIds, id) })}
+      onCreate={(name) => createGoal.mutate({ name })}
+      onDelete={(id) => deleteGoal.mutate(id)}
+      isBusy={createGoal.isPending || deleteGoal.isPending || !online}
+      error={createGoal.error ?? deleteGoal.error}
+    />
+  );
+  const tagsBox = (
+    <LabelsPanel
+      title="Tags"
+      noun="tag"
+      items={tags.data}
+      counts={countLabels(tasks.data, "tagIds")}
+      selected={filter.tagIds}
+      onToggle={(id) => setPicked({ ...filter, tagIds: toggleId(filter.tagIds, id) })}
+      onCreate={(name) => createTag.mutate(name)}
+      onDelete={(id) => deleteTag.mutate(id)}
+      isBusy={createTag.isPending || deleteTag.isPending || !online}
+      error={createTag.error ?? deleteTag.error}
+    />
+  );
   // The two deadline boxes only exist once there is a deadline.
   const mainTiles: ((Tile & { label?: string }) | false)[] = [
     Boolean(pressure.data?.items.length) && { key: "pressure", name: "deadline pressure", node: <PressureSummary /> },
     Boolean(combined.data?.items.length) && { key: "deadlines", name: "All deadlines", node: <CombinedTable /> },
-    {
-      key: "goals",
-      name: "Goals",
-      node: (
-        <LabelsPanel
-          title="Goals"
-          noun="goal"
-          items={goals.data}
-          counts={countLabels(tasks.data, "goalIds")}
-          selected={filter.goalIds}
-          onToggle={(id) => setPicked({ ...filter, goalIds: toggleId(filter.goalIds, id) })}
-          onCreate={(name) => createGoal.mutate({ name })}
-          onDelete={(id) => deleteGoal.mutate(id)}
-          isBusy={createGoal.isPending || deleteGoal.isPending || !online}
-          error={createGoal.error ?? deleteGoal.error}
-        />
-      ),
-    },
-    // Can be dropped on a folder's tab too: a copy, shown there as well.
+    // Goals, Today and Tags can be dropped on a folder's tab too: a copy, shown there as well.
+    { key: "goals", view: GOALS_VIEW, name: "Goals", node: goalsBox },
     { key: "today", view: TODAY_VIEW, name: "Today", node: <TodayBox tasks={tasks.data} /> },
     ...listTiles,
     newListTile,
-    {
-      key: "tags",
-      name: "Tags",
-      node: (
-        <LabelsPanel
-          title="Tags"
-          noun="tag"
-          items={tags.data}
-          counts={countLabels(tasks.data, "tagIds")}
-          selected={filter.tagIds}
-          onToggle={(id) => setPicked({ ...filter, tagIds: toggleId(filter.tagIds, id) })}
-          onCreate={(name) => createTag.mutate(name)}
-          onDelete={(id) => deleteTag.mutate(id)}
-          isBusy={createTag.isPending || deleteTag.isPending || !online}
-          error={createTag.error ?? deleteTag.error}
-        />
-      ),
-    },
+    { key: "tags", view: TAGS_VIEW, name: "Tags", node: tagsBox },
     { key: "done", name: "Done", node: <DoneLog tasks={tasks.data} /> },
     // The calendar's boxes that were dropped on the Tasks tab.
     ...(saved.extras ?? []).flatMap(calTile),
@@ -163,6 +158,8 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   const viewTiles = (folder?.views ?? []).flatMap((view): (Tile & { label?: string })[] => {
     const stat = statOfView(view);
     if (view === TODAY_VIEW) return [{ key: view, view, name: "Today", label: "Today", node: <TodayBox tasks={tasks.data} /> }];
+    if (view === GOALS_VIEW) return [{ key: view, view, name: "Goals", label: "Goals", node: goalsBox }];
+    if (view === TAGS_VIEW) return [{ key: view, view, name: "Tags", label: "Tags", node: tagsBox }];
     if (calOfView(view) !== null) return calTile(view);
     const noteId = noteOfView(view);
     if (noteId !== null) {

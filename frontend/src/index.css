@@ -313,18 +313,28 @@
     outline: 2px solid var(--color-emerald-600);
     outline-offset: -2px;
   }
-  /* A folder tab held long enough to be dragged, the one being dragged, and the side of the tab it would land beside. */
-  [data-folder-id][data-lifted] {
+  /* A bar item held long enough to be dragged, the one being dragged, and the side of the item it would land beside. */
+  [data-bar-item][data-lifted] {
     translate: 0 -3px;
   }
-  [data-folder-id][data-dragged] {
+  [data-bar-item][data-dragged] {
     opacity: 0.4;
   }
-  [data-folder-id][data-reorder="before"] {
+  [data-bar-item][data-reorder="before"] {
     box-shadow: -3px 0 0 var(--color-emerald-600);
   }
-  [data-folder-id][data-reorder="after"] {
+  [data-bar-item][data-reorder="after"] {
     box-shadow: 3px 0 0 var(--color-emerald-600);
+  }
+  /* While a bar item is dragged, a side of the task bar with nothing on it is still somewhere to drop it. */
+  html[data-dragging-bar] [data-bar-side]:not(:has([data-bar-item])) {
+    min-width: 4rem;
+    min-height: 2.5rem;
+    outline: 2px dashed var(--color-stone-400);
+    outline-offset: -2px;
+  }
+  [data-bar-side][data-reorder="into"] {
+    outline: 2px solid var(--color-emerald-600) !important;
   }
   /*
    * The tutorial. The dim covers the screen but for holes cut where the things being talked about are (an SVG mask,

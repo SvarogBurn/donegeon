@@ -4,8 +4,11 @@
  */
 export const NAME_FOLDER_EVENT = "donegeon:name-folder";
 
-/** A folder's views are named by key: a list's, a note's, a box of the stats', a box of the calendar's, or the Today box. */
+/** A folder's views are named by key: a list's, a note's, a box of the stats', a box of the calendar's, or the Today, Goals or Tags box. */
 export const TODAY_VIEW = "box:today";
+/** The Goals and Tags boxes: in a folder, picking one shows only its tasks in that folder's lists. */
+export const GOALS_VIEW = "box:goals";
+export const TAGS_VIEW = "box:tags";
 export const listView = (listId: string) => `list:${listId}`;
 export const statView = (name: string) => `stat:${name}`;
 const STAT_PREFIX = "stat:";

@@ -92,6 +92,9 @@ model User {
   // The character at the top of the user's page: its name and title, the stats and skills it shows, and how it looks
   // (see frontend/src/lib/character/profile.ts). null = the defaults.
   profile         Json?
+  // The browser task bar's items in the user's own order, each side of the logo: {left, right} of keys such as
+  // "tasks", "clock" or "folder:<id>" (see frontend/src/lib/taskBar.ts). null = the default.
+  taskBar         Json?
 
   goals             Goal[]
   tags              Tag[]

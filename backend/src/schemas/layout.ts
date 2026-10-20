@@ -19,5 +19,10 @@ export const layoutSchema = z.object({
   byColumns: z.record(z.string().min(1).max(10), z.array(column).max(4)).refine((r) => Object.keys(r).length <= 8),
 });
 
-/** The boxes a folder shows: lists ("list:<id>"), notes ("note:<id>"), boxes of the stats ("stat:<name>") and of the calendar ("cal:<name>"), and the Today box ("box:today"). */
-export const viewsSchema = z.array(z.string().regex(/^((list|note):[0-9a-f-]{36}|stat:[a-z]{1,30}|cal:[a-z]{1,30}|box:today)$/i, "No such box")).max(200);
+/**
+ * The boxes a folder shows: lists ("list:<id>"), notes ("note:<id>"), boxes of the stats ("stat:<name>") and of the
+ * calendar ("cal:<name>"), and the Today, Goals and Tags boxes ("box:today", "box:goals", "box:tags").
+ */
+export const viewsSchema = z
+  .array(z.string().regex(/^((list|note):[0-9a-f-]{36}|stat:[a-z]{1,30}|cal:[a-z]{1,30}|box:(today|goals|tags))$/i, "No such box"))
+  .max(200);
