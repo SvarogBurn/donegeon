@@ -7,7 +7,8 @@ export interface TileControls {
   isPinned: boolean;
   /** Absent where there is no band to pin to (the Calendar page). */
   onTogglePin?: () => void;
-  onDragStart: (e: ReactPointerEvent<HTMLElement>) => void;
+  /** Absent where the boxes keep their place (the user's page): no tab button. */
+  onDragStart?: (e: ReactPointerEvent<HTMLElement>) => void;
   /** What the tab button says it does, where that is not moving among the tiles of a grid. */
   dragTitle?: string;
   /** Minimizes the tile away (it can be brought back from the "Hidden" row under the grid); absent on tiles that can't be hidden. */
@@ -54,13 +55,15 @@ export function TileFrame({ title, actions, tone = "blue", className = "", child
                 onClick={controls.onTogglePin}
               />
             )}
-            <button
-              type="button"
-              className="tile-button tile-button-tab"
-              onPointerDown={controls.onDragStart}
-              aria-label={`Drag to move ${controls.name}`}
-              title={controls.dragTitle ?? "Drag to move: above or below another tile, or into another column"}
-            />
+            {controls.onDragStart && (
+              <button
+                type="button"
+                className="tile-button tile-button-tab"
+                onPointerDown={controls.onDragStart}
+                aria-label={`Drag to move ${controls.name}`}
+                title={controls.dragTitle ?? "Drag to move: above or below another tile, or into another column"}
+              />
+            )}
             {controls.onHide && (
               <button
                 type="button"

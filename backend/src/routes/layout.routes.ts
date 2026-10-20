@@ -24,12 +24,13 @@ export const layoutSchema = z.object({
 
 export const layoutRouter = Router();
 
-// "/" is the dashboard's, "/stats" the stats boxes', "/calendar" the Calendar page's, "/notes" the Notes page's.
+// "/" is the dashboard's, "/stats" the stats boxes', "/calendar" the Calendar page's, "/notes" the Notes page's, "/user" the user page's.
 for (const [path, field] of [
   ["/", "dashboardLayout"],
   ["/stats", "statsLayout"],
   ["/calendar", "calendarLayout"],
   ["/notes", "notesLayout"],
+  ["/user", "userLayout"],
 ] as const) {
   layoutRouter.get(path, async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id: userId(req) } });

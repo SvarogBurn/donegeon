@@ -23,7 +23,17 @@ installFrameTones();
 installOnlineManager();
 installStandalone();
 // The app's files are kept on the device by a service worker (vite.config.ts); a new deploy reloads into itself.
-registerSW({ immediate: true });
+registerSW({
+  immediate: true,
+  // The browser only asks for a new deploy when the page is opened, and an installed app is mostly brought back from
+  // the background instead: ask again whenever it comes back into view.
+  onRegisteredSW(_url, registration) {
+    if (!registration) return;
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && navigator.onLine) registration.update().catch(() => {});
+    });
+  },
+});
 
 /** How long what was fetched is kept on the device, to show when there is no connection. */
 const KEEP_MS = 7 * 24 * 60 * 60_000;

@@ -263,6 +263,17 @@ export function useUpdateFolder() {
     onError: () => queryClient.invalidateQueries({ queryKey: FOLDERS }),
   });
 }
+/** The tabs dragged into another order (every folder's id, left to right): shows at once and is saved in the background. */
+export function useReorderFolders() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: foldersApi.reorderFolders,
+    onMutate: (ids) => {
+      queryClient.setQueryData<Folder[]>(FOLDERS, (folders) => folders && [...folders].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id)));
+    },
+    onError: () => queryClient.invalidateQueries({ queryKey: FOLDERS }),
+  });
+}
 // Removing a folder removes its tab only.
 export const useDeleteFolder = () => useInvalidating(foldersApi.deleteFolder, [FOLDERS]);
 

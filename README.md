@@ -138,7 +138,8 @@ A folder is a tab of your own in the task bar, next to Tasks and Stats: a page o
 - Drag more lists onto the folder's tab to show them there too. The same goes for the boxes on the Stats page, the filter included: a folder's copy of the filter narrows that folder's stats boxes.
 - Click a folder's tab to open its page: what it shows, and a field for new lists, which are shown in the folder straight away (and are on the Tasks page like any list).
 - To take something out of a folder, open the folder and drag the box onto **Tasks**. Only the folder's copy goes.
-- To change a folder's name or colour, right-click its tab, press and hold it, or click it while its page is open. "Remove folder" there removes the tab only: no list is deleted or moved.
+- To put the folder tabs in another order, drag a tab along the task bar and let go where it should be (a green line shows the spot). On a phone, press and hold the tab until it lifts, then drag it; a quick swipe still scrolls the tabs.
+- To change a folder's name or colour, right-click its tab, press and hold it (it opens when you let go), or click it while its page is open. "Remove folder" there removes the tab only: no list is deleted or moved.
 - Tasks in a folder's lists still count everywhere: Today, the deadline boxes, Done and the stats.
 
 ## Arranging the dashboard

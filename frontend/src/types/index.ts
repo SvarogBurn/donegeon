@@ -27,6 +27,8 @@ export interface User {
   plainFont: boolean;
   /** Whether the Notes tab (notes of their own, on no task) is shown; off by default. */
   notesTab: boolean;
+  /** The character at the top of the user's page as saved; null = the defaults. Read it with normalizeProfile (lib/character/profile.ts). */
+  profile: unknown;
   /** One of the developers' accounts: its page has the inbox of the suggestion box. */
   isDev: boolean;
 }

@@ -17,5 +17,7 @@ export const createFolder = (body: { name?: string; views?: string[] }) =>
   api<{ folder: Folder }>("/folders", { body }).then((r) => r.folder);
 export const updateFolder = (id: string, body: FolderChanges) =>
   api<{ folder: Folder }>(`/folders/${id}`, { method: "PATCH", body }).then((r) => r.folder);
+/** The tabs in a new order: every folder's id, left to right. */
+export const reorderFolders = (ids: string[]) => api(`/folders/order`, { method: "PUT", body: { ids } });
 /** Only the tab goes: what it showed lives elsewhere. */
 export const deleteFolder = (id: string) => api(`/folders/${id}`, { method: "DELETE" });

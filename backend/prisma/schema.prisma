@@ -69,6 +69,8 @@ model User {
   calendarLayout  Json?
   // The same for the Notes page: its note boxes.
   notesLayout     Json?
+  // The same for the user's page, which has one column: only which boxes are minimized.
+  userLayout      Json?
   // What a task written straight into Today (so in no list) is worth, unless it has its own amount.
   todayPoints     Int      @default(2)
   // What the lists do with a ticked task.
@@ -87,6 +89,9 @@ model User {
   plainFont       Boolean  @default(false)
   // Whether the Notes tab (notes of their own, on no task) is shown in the task bar / the app's top strip.
   notesTab        Boolean  @default(false)
+  // The character at the top of the user's page: its name and title, the stats and skills it shows, and how it looks
+  // (see frontend/src/lib/character/profile.ts). null = the defaults.
+  profile         Json?
 
   goals             Goal[]
   tags              Tag[]

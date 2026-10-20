@@ -62,6 +62,23 @@ foldersRouter.post("/", async (req, res) => {
   res.status(201).json({ folder });
 });
 
+// The tabs dragged into another order: `ids` left to right. A folder left out (made meanwhile) keeps its place after them.
+foldersRouter.put("/order", async (req, res) => {
+  const { ids } = z.object({ ids: z.array(z.string().uuid()).max(200) }).parse(req.body);
+  const folders = await prisma.folder.findMany({
+    where: { userId: userId(req) },
+    orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+    select: { id: true, position: true },
+  });
+  const own = new Set(folders.map((f) => f.id));
+  const listed = [...new Set(ids)].filter((id) => own.has(id));
+  const order = [...listed, ...folders.map((f) => f.id).filter((id) => !listed.includes(id))];
+  const current = new Map(folders.map((f) => [f.id, f.position]));
+  const changed = order.flatMap((id, at) => (current.get(id) === at ? [] : [prisma.folder.update({ where: { id }, data: { position: at } })]));
+  await prisma.$transaction(changed);
+  res.status(204).end();
+});
+
 foldersRouter.patch("/:id", async (req, res) => {
   const { layout, views, ...input } = folderPatch.parse(req.body);
   await ownFolder(req, req.params.id);

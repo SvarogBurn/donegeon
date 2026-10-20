@@ -198,7 +198,8 @@
     @apply inline-flex items-center align-middle;
     gap: calc(2 * var(--u));
   }
-  .band-tab {
+  .band-tab,
+  .band-button {
     @apply inline-flex cursor-pointer items-center leading-none;
     height: calc(9 * var(--u));
     padding: 0 calc(1.5 * var(--u));
@@ -210,6 +211,14 @@
     color: #7592ce;
   }
   .band-tab:hover {
+    color: #3f3f74;
+  }
+  /* A text button on a band ("Edit" on the Character box), on the same plate as a tab, in its dark text. */
+  .band-button {
+    @apply ml-auto flex-none disabled:cursor-not-allowed disabled:opacity-50;
+    color: #222034;
+  }
+  .band-button:hover:not(:disabled) {
     color: #3f3f74;
   }
   .band-tab[aria-selected="true"] {
@@ -303,6 +312,19 @@
   [data-tab-drop][data-drop-hover] {
     outline: 2px solid var(--color-emerald-600);
     outline-offset: -2px;
+  }
+  /* A folder tab held long enough to be dragged, the one being dragged, and the side of the tab it would land beside. */
+  [data-folder-id][data-lifted] {
+    translate: 0 -3px;
+  }
+  [data-folder-id][data-dragged] {
+    opacity: 0.4;
+  }
+  [data-folder-id][data-reorder="before"] {
+    box-shadow: -3px 0 0 var(--color-emerald-600);
+  }
+  [data-folder-id][data-reorder="after"] {
+    box-shadow: 3px 0 0 var(--color-emerald-600);
   }
   /*
    * The tutorial. The dim covers the screen but for holes cut where the things being talked about are (an SVG mask,
@@ -839,6 +861,58 @@
   }
   .btn-quiet {
     @apply rounded px-1.5 py-1 text-xs text-stone-500 hover:bg-stone-200 hover:text-stone-900 disabled:opacity-30 disabled:hover:bg-transparent dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100;
+  }
+  /*
+   * The character sheet (components/Character). The character stands on a pale floor; its name is on the text plate
+   * of the band's tabs (59x15 art), larger. Bars are drawn in --u: cells for the stats of the user's own, a plain fill
+   * for exp.
+   */
+  .character-stage {
+    @apply bg-stone-200 dark:bg-stone-800;
+    padding: calc(2 * var(--u)) calc(4 * var(--u)) 0;
+    image-rendering: pixelated;
+  }
+  /* A character drawn out to its edges (the dragon) fills the floor's whole width. */
+  .character-stage[data-edge] {
+    padding-inline: 0;
+  }
+  .name-plate {
+    @apply max-w-full truncate text-center font-pixel leading-none;
+    min-width: calc(40 * var(--u));
+    padding: calc(1.5 * var(--u)) calc(3 * var(--u)) calc(1 * var(--u));
+    border-style: solid;
+    border-width: var(--u) calc(2 * var(--u)) calc(2 * var(--u)) var(--u);
+    border-image: url("../../assets/59x15border_text_v1.svg") 59 118 118 59 fill / var(--u) calc(2 * var(--u)) calc(2 * var(--u)) var(--u) stretch;
+    font-size: max(10px, calc(4 * var(--u)));
+    color: #222034;
+  }
+  .cell-bar {
+    @apply inline-flex flex-none;
+    gap: calc(0.5 * var(--u));
+  }
+  .cell-bar-cell {
+    @apply block bg-stone-300 dark:bg-stone-700;
+    width: calc(3 * var(--u));
+    height: calc(4 * var(--u));
+  }
+  .cell-bar-cell[data-filled] {
+    background: #6abe30;
+    box-shadow: inset 0 calc(-1 * var(--u)) #37946e;
+  }
+  .exp-bar {
+    @apply w-full bg-stone-300 dark:bg-stone-700;
+    height: calc(3 * var(--u));
+    padding: calc(0.5 * var(--u));
+    box-shadow: 0 0 0 calc(0.5 * var(--u)) #222034;
+  }
+  .exp-bar-fill {
+    @apply h-full;
+    background: #fbf236;
+    box-shadow: inset 0 calc(-0.5 * var(--u)) #df7126;
+  }
+  .stepper-arrow {
+    @apply flex size-7 flex-none cursor-pointer items-center justify-center text-[10px] text-stone-500 hover:bg-stone-200 hover:text-stone-900 dark:hover:bg-stone-800 dark:hover:text-stone-100;
+    font-family: ui-sans-serif, system-ui, sans-serif;
   }
   /* Small boxes without a title band (the task menu, the clock's panel, dialogs, notices): a plain grey border. */
   .card {
