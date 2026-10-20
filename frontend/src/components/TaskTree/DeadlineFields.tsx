@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useUpdateTask } from "../../hooks/useTasks";
+import { useUpdateTask } from "../../hooks/tasks";
 import { formatFullDay, parseDay } from "../../lib/dates";
 import type { Task } from "../../types";
 

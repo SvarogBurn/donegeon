@@ -1,10 +1,9 @@
+import { addDays, daysBetween, mondayOf } from "../../../shared/dates";
+import { addInterval, currentRound, movedDay } from "../../../shared/repeat";
 import type { DeadlineToday, TaskTreeNode, TickedTasks } from "../types";
-import { addDays, daysBetween } from "./dates";
 import { deadlineTodayFrom } from "./deadlines";
-import { addInterval, currentRound, mondayOf, movedDay, roundsDue } from "./repeat";
+import { roundsDue } from "./repeat";
 import { plainTitle } from "./markup";
-
-export { mondayOf };
 
 /** Whole weeks from the week of `from` to the week of `to`: a Sunday and the next day's Monday are 1 apart. */
 export const weeksBetween = (from: string, to: string) => Math.round(daysBetween(mondayOf(from), mondayOf(to)) / 7);

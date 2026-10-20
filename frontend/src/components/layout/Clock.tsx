@@ -1,10 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { clockNow, getDevDate, getTimeOffset, localDate, setDevDate, setTimeOffset } from "../../api/client";
-import { formatFullDay } from "../../lib/dates";
+import { clockNow, getDevDate, getTimeOffset, localDate, setDevDate, setTimeOffset } from "../../lib/clock";
+import { formatFullDay, pad2 } from "../../lib/dates";
 
-const two = (n: number) => String(n).padStart(2, "0");
-const timeOf = (date: Date) => `${two(date.getHours())}:${two(date.getMinutes())}`;
+const timeOf = (date: Date) => `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 
 /**
  * The task bar's clock: the time with the date underneath, amber when the app is set to another day or time (see

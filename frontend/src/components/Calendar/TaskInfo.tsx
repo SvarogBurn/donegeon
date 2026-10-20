@@ -1,16 +1,19 @@
+import { daysBetween } from "../../../../shared/dates";
+import { currentRound } from "../../../../shared/repeat";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
-import { localDate } from "../../api/client";
-import { useLists, useTaskTrees } from "../../hooks/useTasks";
-import { daysBetween, formatDay, formatFullDay, formatPace } from "../../lib/dates";
-import { firstLine } from "../../lib/calendar";
-import { currentRound, repeatLabel } from "../../lib/repeat";
+import { localDate } from "../../lib/clock";
+import { useLists } from "../../hooks/lists";
+import { useTaskTrees } from "../../hooks/tasks";
+import { formatDay, formatFullDay, formatPace } from "../../lib/dates";
+import { repeatLabel } from "../../lib/repeat";
 import { findTaskRow, pathIdsTo, showOnPage } from "../../lib/showOnPage";
 import { ValueChip } from "../Points/ValueChip";
 import type { Info } from "./calendarData";
 import { RichText } from "../RichText";
 import { NoteText } from "../TaskTree/NoteText";
+import { firstLine } from "../../lib/markup";
 
 const days = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
 

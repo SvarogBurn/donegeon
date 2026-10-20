@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { localDate } from "../../api/client";
-import { useTaskTrees } from "../../hooks/useTasks";
+import { localDate } from "../../lib/clock";
+import { useTaskTrees } from "../../hooks/tasks";
 import { formatDay } from "../../lib/dates";
 import { passedDeadlines, readDismissed, saveDismissed, type PassedDeadline } from "../../lib/notifications";
 import { PretendNotice } from "../layout/Clock";

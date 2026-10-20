@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
-import { localDate } from "../../api/client";
+import { localDate } from "../../lib/clock";
 import { useTickedTasks } from "../../hooks/useAuth";
-import { useLists, useStatRows, useTaskTrees } from "../../hooks/useTasks";
+import { useLists } from "../../hooks/lists";
+import { useStatRows, useTaskTrees } from "../../hooks/tasks";
 import { doneByDay, planByDay, type DoneItem, type PlanItem } from "../../lib/calendar";
 
 /** The calendar's boxes, by the name a folder's view ("cal:<name>") knows them by. */

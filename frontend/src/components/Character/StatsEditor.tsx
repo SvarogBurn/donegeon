@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useGoals, useLists, useTags } from "../../hooks/useTasks";
+import { useGoals, useTags } from "../../hooks/labels";
+import { useLists } from "../../hooks/lists";
 import { LIST_COLORS, listColor } from "../../lib/frameTones";
 import { newId, RANGES, SKILL_NAME_MAX, STAT_KEYS, STAT_NAME_MAX, type CustomStat, type Profile, type Skill, type StatKey } from "../../lib/character/profile";
 import { STAT_NAMES } from "../../lib/character/profileStats";

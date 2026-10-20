@@ -1,9 +1,7 @@
-import { appNow, localDate } from "../api/client";
+import { KEPT_WHEN_DONE_MS } from "../../../shared/constants";
+import { daysBetween } from "../../../shared/dates";
+import { appNow, localDate } from "./clock";
 import type { TaskTreeNode, TickedTasks } from "../types";
-import { daysBetween } from "./dates";
-
-/** How long something ticked stays where it was, shown as done, so it can still be taken back. */
-export const KEPT_WHEN_DONE_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Whether something done on `day` (at `at`, the server's time of it, if known yet)

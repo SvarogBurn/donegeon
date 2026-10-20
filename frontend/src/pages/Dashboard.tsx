@@ -16,29 +16,17 @@ import { TreeProvider } from "../components/TaskTree/TreeContext";
 import { TreeError, UndoBar } from "../components/TaskTree/TreeStatus";
 import { TodayBox } from "../components/Today/TodayBox";
 import { useTickedTasks } from "../hooks/useAuth";
-import {
-  useCreateGoal,
-  useCreateTag,
-  useDeleteGoal,
-  useDeleteTag,
-  useCombinedCountdown,
-  useDropOnTab,
-  useFolders,
-  useGoals,
-  useLayout,
-  useLists,
-  useNotes,
-  usePressure,
-  useSaveLayout,
-  useTags,
-  useTaskTrees,
-  useUpdateFolder,
-} from "../hooks/useTasks";
+import { useDropOnTab, useFolders, useUpdateFolder } from "../hooks/folders";
+import { useCreateGoal, useCreateTag, useDeleteGoal, useDeleteTag, useGoals, useTags } from "../hooks/labels";
+import { useLayout, useSaveLayout } from "../hooks/layout";
+import { useLists } from "../hooks/lists";
+import { useNotes } from "../hooks/notes";
+import { useCombinedCountdown, usePressure, useTaskTrees } from "../hooks/tasks";
 import { countLabels, isFiltering, NO_FILTER, toggleId, type LabelFilter } from "../lib/labels";
 import { calOfView, listView, noteOfView, statOfView, TODAY_VIEW } from "../lib/folders";
 import { useOnline } from "../lib/offline/online";
 import { useStandalone } from "../lib/standalone";
-import { STAT_BOXES, StatBoxView, StatBoxesProvider } from "../components/Stats/StatsPanel";
+import { STAT_BOXES, StatBoxView, StatBoxesProvider } from "../components/Stats/statBoxes";
 import { NEW_LIST_TILE, normalizeLayout, withHidden, type DashboardLayout } from "../lib/tileLayout";
 
 /** What a hidden box is called on its button in the "Hidden" row. */

@@ -1,4 +1,4 @@
-import { useLists } from "../../hooks/useTasks";
+import { useLists } from "../../hooks/lists";
 import { formatValue } from "../../lib/points";
 import type { TaskTreeNode } from "../../types";
 

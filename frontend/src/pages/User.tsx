@@ -10,7 +10,7 @@ import { HiddenRow } from "../components/Tiles/HiddenRow";
 import { TileControlsContext, TileFrame } from "../components/Tiles/TileFrame";
 import { useTabDrag } from "../components/Tiles/useTabDrag";
 import { useDeleteAccount, useLogout, useMe, useUpdateMe } from "../hooks/useAuth";
-import { useLayout, useSaveLayout } from "../hooks/useTasks";
+import { useLayout, useSaveLayout } from "../hooks/layout";
 import { useOnline } from "../lib/offline/online";
 import { NeedsConnection } from "../components/NeedsConnection";
 import { typedPoints } from "../lib/points";

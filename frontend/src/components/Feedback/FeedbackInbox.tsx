@@ -1,12 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
-import { getFeedback } from "../../api/feedback";
+import { useFeedback } from "../../hooks/feedback";
 import { TileFrame } from "../Tiles/TileFrame";
 
 const sentAt = (iso: string) => new Date(iso).toLocaleString(undefined, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
 /** On a developer's user page: every letter sent from the suggestion box, newest first. */
 export function FeedbackInbox() {
-  const { data: letters, error } = useQuery({ queryKey: ["feedback"], queryFn: getFeedback });
+  const { data: letters, error } = useFeedback();
 
   return (
     <TileFrame title="Inbox" aria-label="Inbox" tone="record">

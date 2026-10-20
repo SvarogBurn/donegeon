@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tansta
 import * as authApi from "../api/auth";
 import { ApiError } from "../api/client";
 import type { DeadlineToday, TickedTasks, User } from "../types";
+import { readStored, writeStored } from "../lib/storage";
 
 export const ME = ["me"];
 
@@ -63,22 +64,9 @@ export function useUpdateMe() {
 /** Whose data the device keeps: changes made offline wait for that account to log back in, and only that one. */
 const KEPT_FOR_KEY = "donegeon.keptFor";
 
-function keptFor(): string | null {
-  try {
-    return localStorage.getItem(KEPT_FOR_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function keepFor(userId: string | null) {
-  try {
-    if (userId) localStorage.setItem(KEPT_FOR_KEY, userId);
-    else localStorage.removeItem(KEPT_FOR_KEY);
-  } catch {
-    // Without storage the cache is dropped at every login, which is only slower.
-  }
-}
+const keptFor = () => readStored(KEPT_FOR_KEY);
+// Without storage the cache is dropped at every login, which is only slower.
+const keepFor = (userId: string | null) => writeStored(KEPT_FOR_KEY, userId);
 
 export function useLogin(mode: "login" | "signup") {
   const queryClient = useQueryClient();

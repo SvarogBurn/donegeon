@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
-import { usePoints } from "../../hooks/useTasks";
+import { usePoints } from "../../hooks/points";
 import type { User } from "../../types";
 import { Bell } from "../Notifications/Bell";
 import { QuickAdd } from "../QuickAdd";

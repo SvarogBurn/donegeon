@@ -1,5 +1,6 @@
-import { useTree, type Undoable } from "./TreeContext";
-import { plainTitle } from "../../lib/markup";
+import { useTree } from "./TreeContext";
+import type { Undoable } from "./useUndoStack";
+import { plainFirstLine } from "../../lib/markup";
 
 export function TreeError() {
   const { error } = useTree();
@@ -18,7 +19,7 @@ export function UndoBar() {
   const { undoable, undo } = useTree();
   const last = undoable.at(-1);
   if (!last) return null;
-  const firstLine = plainTitle(last.title.split("\n")[0]);
+  const firstLine = plainFirstLine(last.title);
 
   return (
     <div

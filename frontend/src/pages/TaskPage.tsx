@@ -8,7 +8,7 @@ import { TaskTree } from "../components/TaskTree/TaskNode";
 import { TreeProvider } from "../components/TaskTree/TreeContext";
 import { TileFrame } from "../components/Tiles/TileFrame";
 import { TreeError, UndoBar } from "../components/TaskTree/TreeStatus";
-import { useCountdown, useTaskTrees } from "../hooks/useTasks";
+import { useCountdown, useTaskTrees } from "../hooks/tasks";
 import { hasTaskPage } from "../lib/taskPage";
 import type { TaskTreeNode } from "../types";
 import { RichText } from "../components/RichText";

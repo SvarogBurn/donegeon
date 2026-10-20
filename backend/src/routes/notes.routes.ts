@@ -1,45 +1,34 @@
-import { Router, type Request } from "express";
+import { Router } from "express";
 import { z } from "zod";
 import { alreadyMade } from "../lib/clientId.js";
-import { isRestorable, tooLateToRestore } from "../lib/deleted.js";
+import { needsRestore } from "../lib/deleted.js";
 import { notFound } from "../lib/httpError.js";
 import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
-import { color } from "./lists.routes.js";
+import { color, id, name } from "../schemas/common.js";
+import { nextPosition } from "../services/ordering.service.js";
+import { ownNote, ownNoteFolder } from "../services/ownership.js";
 
 const title = z.string().trim().max(100);
 const text = z.string().max(5000);
-const folderName = z.string().trim().min(1, "Name is required").max(60);
 
 const noteInput = z.object({
   // Made on the device for a note written offline; see lib/clientId.
-  id: z.string().uuid().optional(),
+  id: id.optional(),
   title: title.optional(),
   text: text.optional(),
-  noteFolderId: z.string().uuid().nullable().optional(),
+  noteFolderId: id.nullable().optional(),
 });
 const notePatch = z.object({
   title: title.optional(),
   text: text.optional(),
-  noteFolderId: z.string().uuid().nullable().optional(),
+  noteFolderId: id.nullable().optional(),
 });
-const noteFolderInput = z.object({ name: folderName.optional(), color: color.nullable().optional() });
-
-async function ownNote(req: Request, id: string) {
-  const note = await prisma.note.findFirst({ where: { id, userId: userId(req), deletedAt: null } });
-  if (!note) throw notFound("Note");
-  return note;
-}
-
-async function ownNoteFolder(req: Request, id: string) {
-  const folder = await prisma.noteFolder.findFirst({ where: { id, userId: userId(req) } });
-  if (!folder) throw notFound("Note folder");
-  return folder;
-}
+const noteFolderInput = z.object({ name: name(60).optional(), color: color.optional() });
 
 /** A folder named for a note must be the user's own. */
-async function checkFolder(req: Request, noteFolderId: string | null | undefined) {
-  if (noteFolderId) await ownNoteFolder(req, noteFolderId);
+async function checkFolder(owner: string, noteFolderId: string | null | undefined) {
+  if (noteFolderId) await ownNoteFolder(owner, noteFolderId);
 }
 
 /**
@@ -59,15 +48,15 @@ notesRouter.get("/", async (req, res) => {
 
 // A new note goes first: the newest is at the top until it is moved.
 notesRouter.post("/", async (req, res) => {
-  const { id, ...input } = noteInput.parse(req.body);
+  const { id: noteId, ...input } = noteInput.parse(req.body);
   const owner = userId(req);
-  const made = id && alreadyMade(await prisma.note.findUnique({ where: { id } }), owner);
+  const made = noteId && alreadyMade(await prisma.note.findUnique({ where: { id: noteId } }), owner);
   if (made) return void res.json({ note: made });
-  await checkFolder(req, input.noteFolderId);
+  await checkFolder(owner, input.noteFolderId);
   const first = await prisma.note.aggregate({ where: { userId: owner, deletedAt: null }, _min: { position: true } });
   const note = await prisma.note.create({
     data: {
-      id,
+      id: noteId,
       userId: owner,
       title: input.title ?? "",
       text: input.text ?? "",
@@ -81,9 +70,10 @@ notesRouter.post("/", async (req, res) => {
 
 notesRouter.patch("/:id", async (req, res) => {
   const data = notePatch.parse(req.body);
-  await ownNote(req, req.params.id);
-  await checkFolder(req, data.noteFolderId);
-  const note = await prisma.note.update({ where: { id: req.params.id }, data });
+  const owner = userId(req);
+  const { id: noteId } = await ownNote(owner, req.params.id);
+  await checkFolder(owner, data.noteFolderId);
+  const note = await prisma.note.update({ where: { id: noteId }, data });
   res.json({ note });
 });
 
@@ -99,33 +89,29 @@ notesRouter.delete("/:id", async (req, res) => {
 notesRouter.post("/:id/restore", async (req, res) => {
   const note = await prisma.note.findFirst({ where: { id: req.params.id, userId: userId(req) } });
   if (!note) throw notFound("Deleted note");
-  if (note.deletedAt) {
-    if (!isRestorable(note.deletedAt)) throw tooLateToRestore();
-    await prisma.note.update({ where: { id: note.id }, data: { deletedAt: null } });
-  }
+  if (needsRestore(note.deletedAt)) await prisma.note.update({ where: { id: note.id }, data: { deletedAt: null } });
   res.status(204).end();
 });
 
 notesRouter.post("/folders", async (req, res) => {
   const input = noteFolderInput.parse(req.body);
   const owner = userId(req);
-  const last = await prisma.noteFolder.aggregate({ where: { userId: owner }, _max: { position: true } });
   const noteFolder = await prisma.noteFolder.create({
-    data: { userId: owner, name: input.name ?? "Folder", color: input.color ?? null, position: (last._max.position ?? -1) + 1 },
+    data: { userId: owner, name: input.name ?? "Folder", color: input.color ?? null, position: await nextPosition(prisma, "noteFolder", owner) },
   });
   res.status(201).json({ noteFolder });
 });
 
 notesRouter.patch("/folders/:id", async (req, res) => {
   const input = noteFolderInput.parse(req.body);
-  await ownNoteFolder(req, req.params.id);
-  const noteFolder = await prisma.noteFolder.update({ where: { id: req.params.id }, data: input });
+  const folder = await ownNoteFolder(userId(req), req.params.id);
+  const noteFolder = await prisma.noteFolder.update({ where: { id: folder.id }, data: input });
   res.json({ noteFolder });
 });
 
 // Its notes stay, back under "All" (the relation sets their folder to null).
 notesRouter.delete("/folders/:id", async (req, res) => {
-  const folder = await ownNoteFolder(req, req.params.id);
+  const folder = await ownNoteFolder(userId(req), req.params.id);
   await prisma.noteFolder.delete({ where: { id: folder.id } });
   res.status(204).end();
 });

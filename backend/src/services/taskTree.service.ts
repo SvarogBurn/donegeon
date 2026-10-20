@@ -94,8 +94,18 @@ export function withFinishedRoots<T extends FinishInput>(tasks: T[]): { tasks: T
   };
 }
 
-/** A tree is never this deep; the queries below stop there, so a loop in the data can't make them run forever. */
+/** A tree is never this deep; the walks and queries below stop there, so a loop in the data can't make them run forever. */
 const MAX_DEPTH = 100;
+
+/** The tasks above `task` that `byId` holds, outermost first: its main task, ..., its parent. */
+export function ancestorsOf<T extends Pick<Task, "parentId">>(byId: Map<string, T>, task: T): T[] {
+  const above: T[] = [];
+  for (let parent = task.parentId ? byId.get(task.parentId) : undefined; parent && above.length < MAX_DEPTH; ) {
+    above.unshift(parent);
+    parent = parent.parentId ? byId.get(parent.parentId) : undefined;
+  }
+  return above;
+}
 
 /**
  * `rootIds` and everything beneath them that isn't deleted, at every depth, each with how far below its
@@ -123,6 +133,18 @@ export async function findDepth(db: Prisma.TransactionClient, id: string): Promi
     )
     SELECT GREATEST(count(*) - 1, 0)::int AS depth FROM up`;
   return depth;
+}
+
+/** The id of the main task `id` sits under (itself for a main task), in one query however deep it sits. */
+export async function findRoot(db: Prisma.TransactionClient, id: string): Promise<string> {
+  const [root] = await db.$queryRaw<{ id: string }[]>`
+    WITH RECURSIVE up AS (
+      SELECT id, "parentId", 0 AS steps FROM "Task" WHERE id = ${id}
+      UNION ALL
+      SELECT t.id, t."parentId", up.steps + 1 FROM "Task" t JOIN up ON t.id = up."parentId" WHERE up.steps < ${MAX_DEPTH}
+    )
+    SELECT id FROM up ORDER BY steps DESC LIMIT 1`;
+  return root?.id ?? id;
 }
 
 /**

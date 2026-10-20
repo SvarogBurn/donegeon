@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from "react";
-import { useAddTask } from "../../hooks/useTasks";
+import { useAddTask } from "../../hooks/tasks";
 import { ShortSyntaxEditor } from "./ShortSyntaxEditor";
 import { useTree } from "./TreeContext";
 

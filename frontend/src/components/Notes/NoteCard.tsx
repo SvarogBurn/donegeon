@@ -1,9 +1,10 @@
 import { useContext, useState } from "react";
 import { Link } from "react-router";
-import { useDeleteNote } from "../../hooks/useTasks";
+import { useDeleteNote } from "../../hooks/notes";
 import type { Note } from "../../types";
 import { RichText } from "../RichText";
 import { TileControlsContext } from "../Tiles/TileFrame";
+import { DeleteOrKeep } from "../DeleteOrKeep";
 
 /**
  * A note as a small card (the Notes page, two to a row on a phone; or a folder that shows it): its title, or else its
@@ -44,12 +45,7 @@ export function NoteCard({ note }: { note: Note }) {
         <div className="note-paper note-card absolute inset-0 flex flex-col items-center justify-center gap-2 text-center text-xs" role="alertdialog" aria-label="Delete this note?">
           Delete this note?
           <span className="flex items-center gap-2">
-            <button type="button" className="nes-btn is-error btn-small" onClick={() => remove.mutate({ id: note.id })}>
-              Delete
-            </button>
-            <button type="button" className="btn-quiet" onClick={() => setConfirming(false)}>
-              Keep
-            </button>
+            <DeleteOrKeep onDelete={() => remove.mutate({ id: note.id })} onKeep={() => setConfirming(false)} />
           </span>
         </div>
       )}

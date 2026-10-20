@@ -1,8 +1,8 @@
+import { addDays, mondayOf } from "../../../shared/dates";
+import { dueAfter, movesFrom } from "../../../shared/repeat";
 import type { TaskChanges, NewTask, TaskPlacement } from "../api/tasks";
 import type { List, Task, TaskPress, TaskTreeNode } from "../types";
-import { addDays } from "./dates";
-import { dueAfter, movesFrom } from "./repeat";
-import { mondayOf, weekColumn } from "./week";
+import { weekColumn } from "./week";
 
 // The task trees as they will be once the server has a change: shown the moment it is made, and for as long as it
 // waits to be sent while offline. The refetch after it replaces all of it with the server's own (see lib/offline).

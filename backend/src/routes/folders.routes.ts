@@ -1,35 +1,26 @@
-import { Router, type Request } from "express";
+import { Prisma } from "@prisma/client";
+import { Router } from "express";
 import { z } from "zod";
-import { notFound } from "../lib/httpError.js";
 import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
-import { layoutSchema } from "./layout.routes.js";
-import { color } from "./lists.routes.js";
-
-const name = z.string().trim().min(1, "Name is required").max(60);
-
-/** The boxes a folder shows: lists ("list:<id>"), notes ("note:<id>"), boxes of the stats ("stat:<name>") and of the calendar ("cal:<name>"), and the Today box ("box:today"). */
-export const viewsSchema = z.array(z.string().regex(/^((list|note):[0-9a-f-]{36}|stat:[a-z]{1,30}|cal:[a-z]{1,30}|box:today)$/i, "No such box")).max(200);
+import { color, id, name } from "../schemas/common.js";
+import { layoutSchema, viewsSchema } from "../schemas/layout.js";
+import { nextPosition, writeOrder } from "../services/ordering.service.js";
+import { ownFolder } from "../services/ownership.js";
 
 const folderInput = z.object({
-  name: name.optional(),
+  name: name(60).optional(),
   color: color.optional(),
   /** What the new folder shows straight away: the box dragged onto "New". */
   views: viewsSchema.optional(),
 });
-/** `views` is the full set: the folder ends up showing exactly these. */
+/** `views` is the full set: the folder ends up showing exactly these. `layout: null` goes back to the default arrangement. */
 const folderPatch = z.object({
-  name: name.optional(),
+  name: name(60).optional(),
   color: color.optional(),
   layout: layoutSchema.nullable().optional(),
   views: viewsSchema.optional(),
 });
-
-async function ownFolder(req: Request, id: string) {
-  const folder = await prisma.folder.findFirst({ where: { id, userId: userId(req) } });
-  if (!folder) throw notFound("Folder");
-  return folder;
-}
 
 /**
  * Folders are the user's own tabs in the task bar. A folder's page shows its
@@ -49,13 +40,12 @@ foldersRouter.get("/", async (req, res) => {
 foldersRouter.post("/", async (req, res) => {
   const input = folderInput.parse(req.body);
   const owner = userId(req);
-  const last = await prisma.folder.aggregate({ where: { userId: owner }, _max: { position: true } });
   const folder = await prisma.folder.create({
     data: {
       userId: owner,
       name: input.name ?? "Folder",
       color: input.color ?? null,
-      position: (last._max.position ?? -1) + 1,
+      position: await nextPosition(prisma, "folder", owner),
       views: [...new Set(input.views ?? [])],
     },
   });
@@ -64,34 +54,36 @@ foldersRouter.post("/", async (req, res) => {
 
 // The tabs dragged into another order: `ids` left to right. A folder left out (made meanwhile) keeps its place after them.
 foldersRouter.put("/order", async (req, res) => {
-  const { ids } = z.object({ ids: z.array(z.string().uuid()).max(200) }).parse(req.body);
+  const { ids } = z.object({ ids: z.array(id).max(200) }).parse(req.body);
   const folders = await prisma.folder.findMany({
     where: { userId: userId(req) },
     orderBy: [{ position: "asc" }, { createdAt: "asc" }],
     select: { id: true, position: true },
   });
   const own = new Set(folders.map((f) => f.id));
-  const listed = [...new Set(ids)].filter((id) => own.has(id));
-  const order = [...listed, ...folders.map((f) => f.id).filter((id) => !listed.includes(id))];
-  const current = new Map(folders.map((f) => [f.id, f.position]));
-  const changed = order.flatMap((id, at) => (current.get(id) === at ? [] : [prisma.folder.update({ where: { id }, data: { position: at } })]));
-  await prisma.$transaction(changed);
+  const listed = [...new Set(ids)].filter((folderId) => own.has(folderId));
+  const order = [...listed, ...folders.map((f) => f.id).filter((folderId) => !listed.includes(folderId))];
+  await writeOrder(prisma, "folderPosition", order, new Map(folders.map((f) => [f.id, f.position])));
   res.status(204).end();
 });
 
 foldersRouter.patch("/:id", async (req, res) => {
   const { layout, views, ...input } = folderPatch.parse(req.body);
-  await ownFolder(req, req.params.id);
+  const { id: folderId } = await ownFolder(userId(req), req.params.id);
   const folder = await prisma.folder.update({
-    where: { id: req.params.id },
-    data: { ...input, ...(layout === undefined ? {} : { layout: layout ?? undefined }), ...(views ? { views: [...new Set(views)] } : {}) },
+    where: { id: folderId },
+    data: {
+      ...input,
+      ...(layout !== undefined && { layout: layout ?? Prisma.DbNull }),
+      ...(views && { views: [...new Set(views)] }),
+    },
   });
   res.json({ folder });
 });
 
 // Removes the tab only: what it showed lives elsewhere and stays there.
 foldersRouter.delete("/:id", async (req, res) => {
-  const folder = await ownFolder(req, req.params.id);
+  const folder = await ownFolder(userId(req), req.params.id);
   await prisma.folder.delete({ where: { id: folder.id } });
   res.status(204).end();
 });

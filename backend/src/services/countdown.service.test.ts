@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { addDays, buildCountdown, combinedCountdown, dayDiff, todayPace, todayPressure } from "./countdown.service.js";
+import { addDays, daysBetween } from "../../../shared/dates.js";
+import { buildCountdown, combinedCountdown, todayPace, todayPressure } from "./countdown.service.js";
 
 describe("day arithmetic", () => {
   it("counts whole days across month ends and clock changes", () => {
-    expect(dayDiff("2026-10-02", "2026-10-12")).toBe(10);
-    expect(dayDiff("2026-10-24", "2026-10-26")).toBe(2); // EU clocks go back on the 25th
-    expect(dayDiff("2026-10-12", "2026-10-02")).toBe(-10);
+    expect(daysBetween("2026-10-02", "2026-10-12")).toBe(10);
+    expect(daysBetween("2026-10-24", "2026-10-26")).toBe(2); // EU clocks go back on the 25th
+    expect(daysBetween("2026-10-12", "2026-10-02")).toBe(-10);
     expect(addDays("2026-10-31", 1)).toBe("2026-11-01");
     expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
   });

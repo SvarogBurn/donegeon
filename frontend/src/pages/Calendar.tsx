@@ -5,7 +5,9 @@ import { TreeProvider } from "../components/TaskTree/TreeContext";
 import { TreeError, UndoBar } from "../components/TaskTree/TreeStatus";
 import { TileControlsContext } from "../components/Tiles/TileFrame";
 import { useTabDrag } from "../components/Tiles/useTabDrag";
-import { useDropOnTab, useFolders, useLayout, useSaveLayout, useTaskTrees } from "../hooks/useTasks";
+import { useDropOnTab, useFolders } from "../hooks/folders";
+import { useLayout, useSaveLayout } from "../hooks/layout";
+import { useTaskTrees } from "../hooks/tasks";
 import { calView } from "../lib/folders";
 import { normalizeLayout } from "../lib/tileLayout";
 

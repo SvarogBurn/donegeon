@@ -1,12 +1,15 @@
+import { addDays, mondayOf } from "../../../../shared/dates";
+import { currentRound } from "../../../../shared/repeat";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { PixelCheckbox } from "../PixelCheckbox";
-import { useGoals, useLists, useMoveRound, usePlaceInWeek, useSetToday, useSetWeek, useTags, useUpdateTask } from "../../hooks/useTasks";
-import { localDate } from "../../api/client";
-import { addDays } from "../../lib/dates";
+import { useGoals, useTags } from "../../hooks/labels";
+import { useLists } from "../../hooks/lists";
+import { useMoveRound, usePlaceInWeek, useSetToday, useSetWeek, useUpdateTask } from "../../hooks/tasks";
+import { localDate } from "../../lib/clock";
 import { toggleId } from "../../lib/labels";
 import { pointsFieldWidth, typedPoints } from "../../lib/points";
-import { currentRound, mondayOf, REPEAT_UNITS } from "../../lib/repeat";
+import { REPEAT_UNIT_NAMES } from "../../lib/repeat";
 import type { RepeatUnit, TaskTreeNode } from "../../types";
 import { DateField, DeadlineFields } from "./DeadlineFields";
 import { useTree } from "./TreeContext";
@@ -262,7 +265,7 @@ function Repeat({ node }: { node: TaskTreeNode }) {
           }}
           aria-label="Days, weeks or months"
         >
-          {REPEAT_UNITS.map(([value, label]) => (
+          {REPEAT_UNIT_NAMES.map(([value, label]) => (
             <option key={value} value={value}>
               {label}
             </option>

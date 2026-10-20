@@ -1,19 +1,6 @@
 import type { Task } from "@prisma/client";
+import { addDays, daysBetween } from "../../../shared/dates.js";
 import { countedIds } from "./taskTree.service.js";
-
-// Calendar days are "YYYY-MM-DD" strings; do the arithmetic in UTC so no
-// timezone or daylight-saving shift can move a day.
-const DAY_MS = 24 * 60 * 60 * 1000;
-const toMs = (day: string) => Date.parse(`${day}T00:00:00Z`);
-
-/** Whole days from `from` to `to` (negative if `to` is earlier). */
-export function dayDiff(from: string, to: string): number {
-  return Math.round((toMs(to) - toMs(from)) / DAY_MS);
-}
-
-export function addDays(day: string, days: number): string {
-  return new Date(toMs(day) + days * DAY_MS).toISOString().slice(0, 10);
-}
 
 /** Where a task stands on one day: the spreadsheet's Days left / Left / Per day. */
 export interface Pace {
@@ -27,7 +14,7 @@ export interface Pace {
 /** `done` holds the completion day of every finished task in the subtree. */
 function paceOn(date: string, totalTasks: number, done: string[], deadlineDate: string): Pace {
   // The deadline day is the last day to do the work in, not a day too late.
-  const daysLeft = dayDiff(date, deadlineDate) + 1;
+  const daysLeft = daysBetween(date, deadlineDate) + 1;
   const remaining = totalTasks - done.filter((day) => day <= date).length;
   const perDay = daysLeft > 0 ? remaining / daysLeft : remaining > 0 ? null : 0;
   return { daysLeft, remaining, perDay };
@@ -67,7 +54,7 @@ export function buildCountdown({ completedOn, startDate, deadlineDate, today }: 
   const totalTasks = completedOn.length;
   const end = deadlineDate > today ? deadlineDate : today;
   let start = [startDate, deadlineDate, today].sort()[0];
-  if (dayDiff(start, end) >= MAX_ROWS) start = addDays(end, -(MAX_ROWS - 1));
+  if (daysBetween(start, end) >= MAX_ROWS) start = addDays(end, -(MAX_ROWS - 1));
 
   const done = completedOn.filter((day): day is string => day !== null);
 
@@ -185,7 +172,7 @@ interface CombinedSource {
  */
 function plannedPace(item: CombinedSource, date: string, today: string): Pace {
   const now = paceOn(today, item.total, item.done, item.deadlineDate);
-  const daysLeft = dayDiff(date, item.deadlineDate) + 1;
+  const daysLeft = daysBetween(date, item.deadlineDate) + 1;
   if (daysLeft > 0) return { ...now, daysLeft };
   if (now.perDay === null) return { ...now, daysLeft };
   return { daysLeft, remaining: 0, perDay: 0 };
@@ -224,7 +211,7 @@ export function combinedCountdown(tasks: PressureTask[], today: string): Combine
   if (items.length > 0) {
     const end = [today, ...items.map((i) => i.deadlineDate)].sort().at(-1)!;
     let start = [today, ...items.map((i) => i.start)].sort()[0];
-    if (dayDiff(start, end) >= MAX_ROWS) start = addDays(end, -(MAX_ROWS - 1));
+    if (daysBetween(start, end) >= MAX_ROWS) start = addDays(end, -(MAX_ROWS - 1));
 
     for (let date = start; date <= end; date = addDays(date, 1)) {
       const row: CombinedRow = { date, doneThatDay: 0, remaining: 0, perDay: 0, overdue: false };

@@ -1,22 +1,17 @@
 import { Router } from "express";
 import { z } from "zod";
 import { alreadyMade } from "../lib/clientId.js";
-import { notFound } from "../lib/httpError.js";
 import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
+import { id, name } from "../schemas/common.js";
+import { ownGoal } from "../services/ownership.js";
 
 const goalInput = z.object({
-  name: z.string().trim().min(1, "Name is required").max(200),
+  name: name(200),
   description: z.string().trim().max(2000).nullish(),
 });
 
 const goalPatch = goalInput.partial().extend({ isArchived: z.boolean().optional() });
-
-async function ownGoal(req: Parameters<typeof userId>[0], id: string) {
-  const goal = await prisma.goal.findFirst({ where: { id, userId: userId(req) } });
-  if (!goal) throw notFound("Goal");
-  return goal;
-}
 
 export const goalsRouter = Router();
 
@@ -30,25 +25,25 @@ goalsRouter.get("/", async (req, res) => {
 
 goalsRouter.post("/", async (req, res) => {
   // `id`: made on the device for a goal typed offline; see lib/clientId.
-  const { name, description, id } = goalInput.extend({ id: z.string().uuid().optional() }).parse(req.body);
+  const input = goalInput.extend({ id: id.optional() }).parse(req.body);
   const owner = userId(req);
-  const made = id && alreadyMade(await prisma.goal.findUnique({ where: { id } }), owner);
+  const made = input.id && alreadyMade(await prisma.goal.findUnique({ where: { id: input.id } }), owner);
   if (made) return void res.json({ goal: made });
   const goal = await prisma.goal.create({
-    data: { id, userId: owner, name, description: description || null, createdAt: req.clientTime },
+    data: { id: input.id, userId: owner, name: input.name, description: input.description || null, createdAt: req.clientTime },
   });
   res.status(201).json({ goal });
 });
 
 goalsRouter.get("/:id", async (req, res) => {
-  res.json({ goal: await ownGoal(req, req.params.id) });
+  res.json({ goal: await ownGoal(userId(req), req.params.id) });
 });
 
 goalsRouter.patch("/:id", async (req, res) => {
   const data = goalPatch.parse(req.body);
-  await ownGoal(req, req.params.id);
+  const { id: goalId } = await ownGoal(userId(req), req.params.id);
   const goal = await prisma.goal.update({
-    where: { id: req.params.id },
+    where: { id: goalId },
     data: { ...data, description: data.description === undefined ? undefined : data.description || null },
   });
   res.json({ goal });
@@ -56,7 +51,7 @@ goalsRouter.patch("/:id", async (req, res) => {
 
 // A goal is a label on tasks: deleting it just takes the label off them.
 goalsRouter.delete("/:id", async (req, res) => {
-  await ownGoal(req, req.params.id);
-  await prisma.goal.delete({ where: { id: req.params.id } });
+  const goal = await ownGoal(userId(req), req.params.id);
+  await prisma.goal.delete({ where: { id: goal.id } });
   res.status(204).end();
 });

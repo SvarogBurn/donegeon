@@ -1,5 +1,6 @@
 import type { List, PointTransaction, Prisma, Task } from "@prisma/client";
 import { HttpError } from "../lib/httpError.js";
+import { findRoot } from "./taskTree.service.js";
 
 /**
  * What a top-level task is worth: its own amount if it has one, else its
@@ -17,9 +18,6 @@ export function taskValue(task: Pick<Task, "points">, list: Pick<List, "defaultP
 export function subtaskValue(task: Pick<Task, "points">, root: Pick<Task, "pointsToSubtasks">, rootValue: number): number {
   return task.points ?? (root.pointsToSubtasks ? rootValue : 0);
 }
-
-/** The most an amount (a task's, a list's, Today's, the user's cap) can be set to. */
-export const MAX_POINTS = 1_000_000_000;
 
 export type Booking =
   | { ok: true; row: { type: "earned" | "redeemed"; amount: number } | null }
@@ -76,8 +74,7 @@ async function lockLedger(tx: Prisma.TransactionClient, userId: string) {
  */
 export async function bookTask(tx: Prisma.TransactionClient, task: Task) {
   await lockLedger(tx, task.userId);
-  let root = task;
-  while (root.parentId) root = await tx.task.findUniqueOrThrow({ where: { id: root.parentId } });
+  const root = task.parentId ? await tx.task.findUniqueOrThrow({ where: { id: await findRoot(tx, task.id) } }) : task;
   // A task that lives only in Today has no list: it earns its own amount, or the user's amount for Today.
   const list = root.listId ? await tx.list.findUnique({ where: { id: root.listId } }) : null;
   const { todayPoints, pointsCap } = await tx.user.findUniqueOrThrow({

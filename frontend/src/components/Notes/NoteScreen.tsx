@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router";
-import { useDeleteNote, useEditNote, useNotes } from "../../hooks/useTasks";
+import { useDeleteNote, useEditNote, useNotes } from "../../hooks/notes";
 import { useOnline } from "../../lib/offline/online";
 import type { Note } from "../../types";
 import { NoteEditor } from "../TaskTree/NoteEditor";
 import { NoteText } from "../TaskTree/NoteText";
+import { DeleteOrKeep } from "../DeleteOrKeep";
 
 /** What opening a note can say: it was just made, so it opens to be written in. */
 export interface NoteScreenState {
@@ -78,20 +79,14 @@ function Screen({ note }: { note: Note }) {
           {confirming ? (
             <span className="flex items-center gap-2 text-xs">
               Delete this note?
-              <button
-                type="button"
-                className="nes-btn is-error btn-small"
-                onClick={() => {
+              <DeleteOrKeep
+                onDelete={() => {
                   deleted.current = true;
                   remove.mutate({ id: note.id });
                   back();
                 }}
-              >
-                Delete
-              </button>
-              <button type="button" className="btn-quiet" onClick={() => setConfirming(false)}>
-                Keep
-              </button>
+                onKeep={() => setConfirming(false)}
+              />
             </span>
           ) : (
             <button type="button" className="btn-quiet text-xs text-stone-500" onClick={() => setConfirming(true)}>

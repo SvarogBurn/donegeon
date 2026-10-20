@@ -1,5 +1,6 @@
 import type { Note, NoteFolder } from "../types";
-import { api, type When } from "./client";
+import type { When } from "../lib/clock";
+import { api } from "./client";
 
 export interface NoteChanges {
   title?: string;

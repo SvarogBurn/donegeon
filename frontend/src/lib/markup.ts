@@ -63,6 +63,12 @@ const textOf = (nodes: MarkupNode[]): string => nodes.map((node) => (typeof node
 /** The title as words only, its markup left out: for labels, tooltips and paths, where nothing can be styled. */
 export const plainTitle = (text: string) => textOf(parseMarkup(text));
 
+/** A title's first line: a title can run over several lines, and lists, popups and paths show only the first. */
+export const firstLine = (title: string) => title.split("\n")[0];
+
+/** A title's first line without its markup: for paths, tooltips and labels. */
+export const plainFirstLine = (title: string) => plainTitle(firstLine(title));
+
 /**
  * What Ctrl+B and the like do to a field: the selected text gets the marker around it, or loses it if it has it
  * already; with nothing selected the caret ends up between a new pair. Returns the new text and selection.

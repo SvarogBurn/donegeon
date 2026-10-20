@@ -1,12 +1,7 @@
+import { RESTORABLE_MS } from "../../../shared/constants.js";
 import { HttpError } from "./httpError.js";
 import { prisma } from "./prisma.js";
 
-/**
- * How long a deleted task or list can still be brought back: a little past the page's 10-second undo
- * (UNDO_WINDOW_MS in the frontend's TreeContext), so an undo on a slow connection still arrives in time.
- * After that it is removed for good.
- */
-export const RESTORABLE_MS = 60_000;
 
 /** The oldest delete that can still be undone at `now`. */
 export const restorableSince = (now = Date.now()) => new Date(now - RESTORABLE_MS);
@@ -16,6 +11,16 @@ export const isRestorable = (deletedAt: Date, now = Date.now()) => deletedAt >= 
 
 /** The answer to an undo that came too late: the row is about to go, or has gone, for good. */
 export const tooLateToRestore = () => new HttpError(410, "Too late to bring it back: it was deleted for good");
+
+/**
+ * Whether a row deleted at `deletedAt` is to be brought back: not when it is back already (an undo sent twice, which
+ * is no error), and an undo that came too late is refused.
+ */
+export function needsRestore(deletedAt: Date | null, now = Date.now()): deletedAt is Date {
+  if (!deletedAt) return false;
+  if (!isRestorable(deletedAt, now)) throw tooLateToRestore();
+  return true;
+}
 
 /**
  * Removes for good every task, list and note, of every user, deleted longer ago than RESTORABLE_MS. Subtasks,

@@ -1,7 +1,7 @@
+import { daysBetween } from "../../../shared/dates";
 import type { TaskTreeNode } from "../types";
-import { daysBetween } from "./dates";
-import { firstLine } from "./calendar";
-import { plainTitle } from "./markup";
+import { plainFirstLine } from "./markup";
+import { readStored, writeStored } from "./storage";
 
 /** A task still open the day after its deadline: what the bell tells about. */
 export interface PassedDeadline {
@@ -30,7 +30,7 @@ export function passedDeadlines(trees: TaskTreeNode[], today: string): PassedDea
   for (const main of trees) {
     if (main.isComplete) continue;
     check(main, []);
-    for (const child of main.children) check(child, [plainTitle(firstLine(main.title))]);
+    for (const child of main.children) check(child, [plainFirstLine(main.title)]);
   }
   return passed.sort((a, b) => b.node.deadlineDate!.localeCompare(a.node.deadlineDate!));
 }
@@ -40,8 +40,9 @@ const DISMISSED_KEY = "donegeon.dismissedNotifications";
 
 export function readDismissed(): Set<string> {
   try {
-    return new Set(JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? "[]") as string[]);
+    return new Set(JSON.parse(readStored(DISMISSED_KEY) ?? "[]") as string[]);
   } catch {
+    // Kept by an older version in another shape: nothing dismissed, then.
     return new Set();
   }
 }
@@ -49,10 +50,6 @@ export function readDismissed(): Set<string> {
 /** Keeps only what still means something: a dismissal of a deadline since moved or done is forgotten. */
 export function saveDismissed(dismissed: Set<string>, passed: PassedDeadline[]) {
   const live = passed.map((item) => item.key).filter((key) => dismissed.has(key));
-  try {
-    if (live.length) localStorage.setItem(DISMISSED_KEY, JSON.stringify(live));
-    else localStorage.removeItem(DISMISSED_KEY);
-  } catch {
-    // Storage full or blocked: the dismissal lasts until the page is closed.
-  }
+  // Storage full or blocked: the dismissal lasts until the page is closed.
+  writeStored(DISMISSED_KEY, live.length ? JSON.stringify(live) : null);
 }

@@ -1,3 +1,4 @@
+import { MAX_POINTS } from "../../../shared/constants";
 import type { ListKind } from "../types";
 
 /** "+5" in a task list, "−10" in a reward list. */
@@ -9,9 +10,6 @@ export function formatValue(value: number, kind: ListKind) {
 export function formatAmount(amount: number) {
   return amount < 0 ? `−${-amount}` : `+${amount}`;
 }
-
-/** The most the server takes for an amount. */
-export const MAX_POINTS = 1_000_000_000;
 
 /** What was typed into a points field as digits only, and no more than the server takes. */
 export function typedPoints(text: string) {

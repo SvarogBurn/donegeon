@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { addInterval, dueAfter, staleRoundTicks } from "./repeat.service.js";
+import { addInterval, currentRound, dueAfter, movesFrom } from "../../../shared/repeat.js";
+import { staleRoundTicks } from "./repeat.service.js";
 
 describe("addInterval", () => {
   it("adds days and weeks across months and years", () => {
@@ -115,5 +116,37 @@ describe("staleRoundTicks", () => {
       sub("g", "m", "2026-10-08"),
     ];
     expect(staleRoundTicks(nested, "2026-10-21")).toEqual(["f"]);
+  });
+});
+
+describe("currentRound (shared with the app)", () => {
+  // Monday 19 October.
+  const weekly = { repeatEvery: 1, repeatUnit: "week", repeatAfterDone: false, repeatMakeUp: false, nextDue: "2026-10-08" } as const;
+
+  it("drops a round left open from an earlier week: this week's is the round, the one before missed", () => {
+    expect(currentRound(weekly, "2026-10-19")).toEqual({ day: "2026-10-22", planned: "2026-10-22", missed: true });
+  });
+
+  it("keeps a round of this week, moved or not", () => {
+    const thisWeek = { ...weekly, nextDue: "2026-10-22" };
+    expect(currentRound(thisWeek, "2026-10-19")).toEqual({ day: "2026-10-22", planned: "2026-10-22", missed: false });
+    expect(currentRound({ ...thisWeek, roundMoves: { "2026-10-22": "2026-10-24" } }, "2026-10-19")?.day).toBe("2026-10-24");
+  });
+
+  it("keeps every missed round when they are made up, and when the next is counted from the day done", () => {
+    expect(currentRound({ ...weekly, repeatMakeUp: true }, "2026-10-19")?.missed).toBe(false);
+    expect(currentRound({ ...weekly, repeatAfterDone: true }, "2026-10-19")?.planned).toBe("2026-10-08");
+  });
+
+  it("is null without a schedule", () => {
+    expect(currentRound({ ...weekly, repeatEvery: null }, "2026-10-19")).toBeNull();
+  });
+});
+
+describe("movesFrom", () => {
+  it("forgets the moves of rounds before the next one", () => {
+    expect(movesFrom({ "2026-10-15": "2026-10-16", "2026-10-22": "2026-10-23" }, "2026-10-22")).toEqual({ "2026-10-22": "2026-10-23" });
+    expect(movesFrom({ "2026-10-15": "2026-10-16" }, "2026-10-22")).toBeNull();
+    expect(movesFrom("not moves", "2026-10-22")).toBeNull();
   });
 });

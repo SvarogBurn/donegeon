@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useMe, useUpdateMe } from "../../hooks/useAuth";
-import { useGoals, useLists, useTags } from "../../hooks/useTasks";
+import { useGoals, useTags } from "../../hooks/labels";
+import { useLists } from "../../hooks/lists";
 import { DEFAULT_LOOK } from "../../lib/character/bodies";
 import { normalizeProfile, type Known, type Profile } from "../../lib/character/profile";
 

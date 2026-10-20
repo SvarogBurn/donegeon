@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import { NavLink, useMatch, useNavigate } from "react-router";
-import { useCreateFolder, useDeleteFolder, useFolders, useReorderFolders, useUpdateFolder } from "../../hooks/useTasks";
+import { useCreateFolder, useDeleteFolder, useFolders, useReorderFolders, useUpdateFolder } from "../../hooks/folders";
 import { FOLDER_COLOR, folderIn } from "../../lib/frameTones";
 import { NAME_FOLDER_EVENT } from "../../lib/folders";
 import { useOnline } from "../../lib/offline/online";

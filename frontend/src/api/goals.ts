@@ -1,5 +1,6 @@
 import type { Goal } from "../types";
-import { api, type When } from "./client";
+import type { When } from "../lib/clock";
+import { api } from "./client";
 
 export const listGoals = () => api<{ goals: Goal[] }>("/goals").then((r) => r.goals);
 /** `id`: made on the device for a goal typed offline. */

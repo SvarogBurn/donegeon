@@ -3,12 +3,14 @@
   "version": "1.0.0",
   "scripts": {
     "test": "vitest run",
+    "test:int": "INT=1 vitest run",
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
+    "start": "node dist/backend/src/index.js",
     "typecheck": "tsc --noEmit",
     "migrate": "prisma migrate dev",
-    "studio": "prisma studio"
+    "studio": "prisma studio",
+    "lint": "oxlint src"
   },
   "type": "module",
   "dependencies": {
@@ -27,6 +29,7 @@
     "@types/express-session": "^1.19.0",
     "@types/node": "^26.6.4",
     "@types/pg": "^8.23.1",
+    "oxlint": "^1.89.0",
     "prisma": "^6.19.3",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

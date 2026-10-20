@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
-import { useLists, useTaskTrees } from "../../hooks/useTasks";
+import { useLists } from "../../hooks/lists";
+import { useTaskTrees } from "../../hooks/tasks";
 import { findTaskRow, pathIdsTo, showOnPage } from "../../lib/showOnPage";
 import type { StatTask } from "../../lib/stats";
 import { SummaryCells } from "../Countdown/sheet";

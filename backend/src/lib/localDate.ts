@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { isLocalDate } from "../../../shared/dates.js";
 
 declare global {
   namespace Express {
@@ -9,21 +10,6 @@ declare global {
       clientTime: Date;
     }
   }
-}
-
-const LOCAL_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-export function isLocalDate(value: unknown): value is string {
-  if (typeof value !== "string" || !LOCAL_DATE_RE.test(value)) return false;
-  const parsed = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-}
-
-/** The Monday of the week `day` is in (weeks run Monday to Sunday): "2026-10-17" -> "2026-10-12". */
-export function mondayOf(day: string): string {
-  const date = new Date(`${day}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
-  return date.toISOString().slice(0, 10);
 }
 
 export function serverLocalDate(now = new Date()): string {

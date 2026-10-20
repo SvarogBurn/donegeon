@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { Link, NavLink } from "react-router";
-import { usePoints } from "../../hooks/useTasks";
+import { usePoints } from "../../hooks/points";
 import { useStandalone } from "../../lib/standalone";
 import type { User } from "../../types";
 import { Bell } from "../Notifications/Bell";

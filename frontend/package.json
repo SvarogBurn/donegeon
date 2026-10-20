@@ -7,7 +7,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "parts": "node scripts/character-parts.mjs"
+    "parts": "node scripts/character-parts.mjs",
+    "lint": "oxlint src"
   },
   "type": "module",
   "dependencies": {
@@ -27,6 +28,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
+    "oxlint": "^1.89.0",
     "sass": "^1.105.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",

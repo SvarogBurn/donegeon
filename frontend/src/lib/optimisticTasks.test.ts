@@ -1,7 +1,7 @@
+import { dueAfter } from "../../../shared/repeat";
 import { describe, expect, it } from "vitest";
 import type { List, TaskTreeNode } from "../types";
 import { draftNode, insertedInTrees, movedInTrees, patchFor, placedInWeek, pressedInTrees, removedFromTrees } from "./optimisticTasks";
-import { dueAfter } from "./repeat";
 
 const LIST: List = { id: "L", name: "List", kind: "task", defaultPoints: 3 } as List;
 const ctx = { day: "2026-10-18", at: "2026-10-18T10:00:00.000Z", lists: [LIST], todayPoints: 2, parent: null };

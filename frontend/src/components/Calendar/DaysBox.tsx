@@ -1,21 +1,23 @@
+import { addDays, daysBetween } from "../../../../shared/dates";
+import { currentRound } from "../../../../shared/repeat";
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
-import { localDate } from "../../api/client";
-import { useAddTask, useSyntaxContext } from "../../hooks/useTasks";
-import { firstLine, daysFrom, type DoneItem, type PlanItem } from "../../lib/calendar";
-import { addDays, daysBetween, formatDay } from "../../lib/dates";
-import { currentRound, repeatLabel } from "../../lib/repeat";
+import { localDate } from "../../lib/clock";
+import { useAddTask, useSyntaxContext } from "../../hooks/tasks";
+import { daysFrom, type DoneItem, type PlanItem } from "../../lib/calendar";
+import { formatDay } from "../../lib/dates";
+import { repeatLabel } from "../../lib/repeat";
 import { parseShortSyntax } from "../../lib/shortSyntax";
 import type { List } from "../../types";
-import { PixelCheckbox } from "../PixelCheckbox";
+import { TickOrPress } from "../TaskTree/TickOrPress";
 import { DeadlineBadge } from "../TaskTree/DeadlineBadge";
 import { SyntaxChips } from "../TaskTree/ShortSyntaxEditor";
-import { useTree } from "../TaskTree/TreeContext";
 import { TileFrame } from "../Tiles/TileFrame";
 import { CAL_BOXES, isOpen, pickDay, useCalendar, useDayPicked, type Info } from "./calendarData";
 import { TaskInfo } from "./TaskInfo";
 import { DayList, panStrip, stepStrip, STRIP } from "./dayStrip";
 import { RichText } from "../RichText";
-import { plainTitle } from "../../lib/markup";
+import { firstLine } from "../../lib/markup";
+import { readStored, writeStored } from "../../lib/storage";
 
 /** How many days the row starts with before and after the day it opens on, and grows by at either end. */
 const DAYS_BEFORE = 7;
@@ -31,36 +33,13 @@ const CHIP = "pixel-chip px-1.5 py-0.5 text-[10px] whitespace-nowrap";
 /** One thing to do on a day: ticked (or, a task on a schedule that is due, pressed) from here; its name opens more about it. */
 function PlanRow({ item, today, listName, onInfo }: { item: PlanItem; today: string; listName: string | undefined; onInfo: () => void }) {
   const { node, kind, path } = item;
-  const tree = useTree();
-  const hasOpenSubtasks = !node.isComplete && node.descendantDoneCount < node.descendantCount;
   // A round that isn't due yet is only there to be seen.
   const isAhead = kind === "next" || kind === "round";
   const title = firstLine(node.title);
 
   return (
     <li data-plan-item={node.id} data-plan-kind={kind} className={`flex items-start gap-2 py-1.5 ${isAhead ? "opacity-60" : ""}`}>
-      {kind === "due" ? (
-        <button
-          type="button"
-          className="repeat-button"
-          onClick={() => tree.pressTask(node)}
-          disabled={tree.isBusy(node.id)}
-          aria-label={`Done "${plainTitle(title)}" once more`}
-        />
-      ) : isAhead ? (
-        <span className="glyph w-5 flex-none text-center text-stone-500" aria-hidden>
-          ↻
-        </span>
-      ) : (
-        <PixelCheckbox
-          className={hasOpenSubtasks ? "opacity-40" : ""}
-          checked={node.isComplete}
-          disabled={tree.isBusy(node.id) || hasOpenSubtasks}
-          title={hasOpenSubtasks ? "Tick its subtasks first" : undefined}
-          onChange={() => tree.tick(node)}
-          aria-label={`Mark "${plainTitle(title)}" ${node.isComplete ? "not done" : "done"}`}
-        />
-      )}
+      <TickOrPress node={node} control={kind === "due" ? "press" : isAhead ? "ahead" : "tick"} />
       <div className="min-w-0 flex-1 space-y-1">
         <button
           type="button"
@@ -99,13 +78,8 @@ function AddOnDay({ day, lists, onClose }: { day: string; lists: List[]; onClose
   const ctx = useSyntaxContext();
   const [title, setTitle] = useState("");
   const [listId, setListId] = useState(() => {
-    let last: string | null = null;
-    try {
-      last = localStorage.getItem(LIST_KEY);
-    } catch {
-      // No storage: the first list it is.
-    }
-    return lists.some((list) => list.id === last) ? last! : lists[0].id;
+    const last = readStored(LIST_KEY);
+    return last && lists.some((list) => list.id === last) ? last : lists[0].id;
   });
 
   function submit(e: FormEvent) {
@@ -113,11 +87,7 @@ function AddOnDay({ day, lists, onClose }: { day: string; lists: List[]; onClose
     if (!title.trim()) return;
     const submitted = title;
     setTitle("");
-    try {
-      localStorage.setItem(LIST_KEY, listId);
-    } catch {
-      // Not remembered, then.
-    }
+    writeStored(LIST_KEY, listId);
     createTask.mutate({ text: submitted, listId, deadlineDate: day }, { onError: () => setTitle(submitted) });
   }
 

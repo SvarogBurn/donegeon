@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type KeyboardEvent } from "react";
 import { Link } from "react-router";
-import { useSyntaxContext } from "../../hooks/useTasks";
+import { useSyntaxContext } from "../../hooks/tasks";
 import { activeToken, parseTitleEdit, type Suggestion, type SyntaxToken } from "../../lib/shortSyntax";
 import { TitleEditor } from "./TitleEditor";
 

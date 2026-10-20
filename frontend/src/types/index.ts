@@ -1,14 +1,10 @@
-// Hand-mirrored from the backend's Prisma models (see PLAN.md: no shared package in v1).
+import type { DeadlineToday, FeedbackKind, ListKind, RepeatUnit, TickedTasks } from "../../../shared/enums";
+
+// The fixed choices are shared with the server (shared/enums.ts).
+export type { DeadlineToday, FeedbackKind, ListKind, RepeatUnit, TickedTasks };
+
+// The rest is mirrored by hand from what the server sends (its Prisma models); the rules both sides follow are in shared/.
 import type { DashboardLayout } from "../lib/tileLayout";
-
-/** What the lists do with a ticked task: put it under the open ones, leave it where it is, or take it out of sight. */
-export type TickedTasks = "bottom" | "stay" | "hide";
-
-/** When a task with a deadline (hard or soft) comes into Today by itself: never, on the day of its deadline, or from the day before. */
-export type DeadlineToday = "never" | "day" | "dayBefore";
-
-/** What a message from the suggestion box is about. */
-export type FeedbackKind = "bug" | "feature";
 
 export interface User {
   id: string;
@@ -58,7 +54,6 @@ export interface Tag {
   name: string;
 }
 
-export type ListKind = "task" | "reward";
 
 /** A user-made folder of top-level tasks. */
 export interface List {
@@ -109,7 +104,6 @@ export interface NoteFolder {
   position: number;
 }
 
-export type RepeatUnit = "day" | "week" | "month";
 
 export interface Task {
   id: string;

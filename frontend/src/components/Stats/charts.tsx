@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { formatDay, formatFullDay } from "../../lib/dates";
 import { heatCap, heatLevel, type FlowWeek } from "../../lib/stats";
+import type { ShareSegment } from "../../lib/statsView";
 
 // The stats page's charts. Colours come from the --chart, --heat and --series variables in index.css.
 
@@ -187,12 +188,6 @@ export function PairColumns({ weeks }: { weeks: FlowWeek[] }) {
   );
 }
 
-export interface ShareSegment {
-  id: string;
-  name: string;
-  color: string;
-  count: number;
-}
 
 /** One bar per period, each split by share; the legend below names the colours. */
 export function ShareBars({ periods, legend }: { periods: { key: string; label: string; total: number; segments: ShareSegment[] }[]; legend: Omit<ShareSegment, "count">[] }) {

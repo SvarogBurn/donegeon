@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { createPortal } from "react-dom";
-import { useLists, useUpdateTask } from "../../hooks/useTasks";
+import { useLists } from "../../hooks/lists";
+import { useUpdateTask } from "../../hooks/tasks";
 import { listFrame } from "../../lib/frameTones";
 import type { TaskTreeNode } from "../../types";
 import { RichText } from "../RichText";
 import { TileFrame } from "../Tiles/TileFrame";
 import { NoteEditor } from "./NoteEditor";
 import { NoteText } from "./NoteText";
+import { DeleteOrKeep } from "../DeleteOrKeep";
 
 /**
  * A task's note: read, with Edit to write in it. Written in, it is saved on leaving the field (Done, Escape or a
@@ -63,12 +65,7 @@ export function NoteView({ node, startEditing = false }: { node: TaskTreeNode; s
         ) : confirming ? (
           <span className="flex items-center gap-2 text-xs" data-note-delete>
             Delete this note?
-            <button type="button" className="nes-btn is-error btn-small" onClick={remove}>
-              Delete
-            </button>
-            <button type="button" className="btn-quiet" onClick={() => setConfirming(false)}>
-              Keep
-            </button>
+            <DeleteOrKeep onDelete={remove} onKeep={() => setConfirming(false)} />
           </span>
         ) : (
           <button type="button" className="btn-quiet text-xs text-stone-500" data-note-delete onClick={() => setConfirming(true)}>

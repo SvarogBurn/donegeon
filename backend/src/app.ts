@@ -22,6 +22,25 @@ import { tasksRouter } from "./routes/tasks.routes.js";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
+/**
+ * The backend folder, wherever this file runs from: src/ (in development) or dist/backend/src/ (built, as the shared/
+ * folder beside backend/ is compiled along).
+ */
+const backendRoot = () => {
+  const here = import.meta.dirname;
+  return path.resolve(here, here.split(path.sep).includes("dist") ? "../../.." : "..");
+};
+
+/** "GET /api/tasks 200 41ms", when the answer has gone. The host's "is it up?" checks are left out. */
+function logRequests(req: Request, res: Response, next: NextFunction) {
+  const start = performance.now();
+  res.on("finish", () => {
+    if (req.originalUrl === "/api/health") return;
+    console.log(`${req.method} ${req.originalUrl.split("?")[0]} ${res.statusCode} ${Math.round(performance.now() - start)}ms`);
+  });
+  next();
+}
+
 export function createApp() {
   const isProd = process.env.NODE_ENV === "production";
   const sessionSecret = process.env.SESSION_SECRET;
@@ -30,6 +49,9 @@ export function createApp() {
   const app = express();
   // Behind the host's HTTPS proxy in production; needed for secure cookies.
   if (isProd) app.set("trust proxy", 1);
+
+  // One line per request, in production (or with LOG_REQUESTS=1): the host keeps what the process writes.
+  if ((process.env.LOG_REQUESTS ?? (isProd ? "1" : "0")) === "1") app.use(logRequests);
 
   app.use(express.json({ limit: "100kb" }));
 
@@ -71,7 +93,7 @@ export function createApp() {
   // In production this server also hands out the built app (frontend/dist), so
   // the page and the API share one origin. Every other address is a page of
   // the app, which finds its own way from index.html.
-  const frontend = path.resolve(import.meta.dirname, "../../frontend/dist");
+  const frontend = process.env.FRONTEND_DIST ?? path.join(backendRoot(), "../frontend/dist");
   if (isProd && existsSync(frontend)) {
     // Built files carry a hash of their content in their name: safe to keep forever.
     app.use("/assets", express.static(path.join(frontend, "assets"), { immutable: true, maxAge: "1y" }));
@@ -85,7 +107,7 @@ export function createApp() {
     });
   }
 
-  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof ZodError) {
       res.status(400).json({ error: err.issues[0]?.message ?? "Invalid input" });
     } else if (err instanceof HttpError) {
@@ -99,7 +121,7 @@ export function createApp() {
       // Two requests at once making the same unique thing (a username).
       res.status(409).json({ error: "That already exists" });
     } else {
-      console.error(err);
+      console.error(`${req.method} ${req.originalUrl} failed:`, err);
       res.status(500).json({ error: "Something went wrong" });
     }
   });

@@ -1,12 +1,13 @@
+import { currentRound } from "../../../../shared/repeat";
 import { Fragment, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from "react";
-import { PixelCheckbox } from "../PixelCheckbox";
 import { useNavigate } from "react-router";
-import { useAddTask, useEditTask, useGoals, useTags } from "../../hooks/useTasks";
-import { localDate } from "../../api/client";
+import { useGoals, useTags } from "../../hooks/labels";
+import { useAddTask, useEditTask } from "../../hooks/tasks";
+import { localDate } from "../../lib/clock";
 import { formatDay } from "../../lib/dates";
 import { soonestFirst } from "../../lib/deadlines";
 import { isFiltering } from "../../lib/labels";
-import { currentRound, isDue, isWaiting, repeatLabel, roundsDue } from "../../lib/repeat";
+import { isDue, isWaiting, repeatLabel, roundsDue } from "../../lib/repeat";
 import { hasTaskPage } from "../../lib/taskPage";
 import type { TaskTreeNode } from "../../types";
 import { ValueChip } from "../Points/ValueChip";
@@ -15,8 +16,9 @@ import { PressCopies } from "./PressCopies";
 import { ShortSyntaxEditor } from "./ShortSyntaxEditor";
 import { TaskMenu } from "./TaskMenu";
 import { focusNeighbor } from "./TitleEditor";
-import { useTree } from "./TreeContext";
-import { plainTitle } from "../../lib/markup";
+import { TickOrPress } from "./TickOrPress";
+import { useDrag, useTree } from "./TreeContext";
+import { zoneOn } from "./dragState";
 import { livesInWeek, weekColumn } from "../../lib/week";
 
 /** The task's goals (filled pills) and tags (#outlined), by name. */
@@ -91,11 +93,9 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
   const round = currentRound(node, today);
   const hasChildren = node.children.length > 0;
   // A task is ticked last: everything beneath it first.
-  const hasOpenSubtasks = !node.isComplete && node.descendantDoneCount < node.descendantCount;
   const hasDraftChild = tree.draft?.parentId === node.id;
-  const target = tree.dropTarget;
-  const drop =
-    (target?.kind === "task" || (inWeek && target?.kind === "weekItem")) && target.id === node.id ? target.zone : null;
+  const drop = useDrag((state) => zoneOn(state.dropTarget, node.id, inWeek ? ["task", "weekItem"] : ["task"]));
+  const isDragged = useDrag((state) => state.draggingId === node.id);
 
   function saveTitle() {
     const next = title.trim();
@@ -148,7 +148,7 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
   }
 
   return (
-    <li className={tree.draggingId === node.id ? "opacity-40" : ""} data-week-item={inWeek ? node.id : undefined}>
+    <li className={isDragged ? "opacity-40" : ""} data-week-item={inWeek ? node.id : undefined}>
       <div
         data-task-row={node.id}
         onPointerDown={(e) => (pressedControl.current = Boolean((e.target as Element).closest(ROW_CONTROLS)))}
@@ -167,27 +167,11 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
           aria-label={isOpen ? "Collapse subtasks" : "Expand subtasks"}
         />
 
-        {node.isPersistent ? (
-          <button
-            type="button"
-            className="repeat-button mt-1.5"
-            onClick={() => tree.pressTask(node)}
-            disabled={tree.isBusy(node.id)}
-            aria-label={`Done "${plainTitle(node.title)}" once more`}
-            title="Done it. Stays here for next time; a ticked copy underneath can be unticked to take it back"
-          />
-        ) : (
-          <PixelCheckbox
-            className={`mt-1.5 ${hasOpenSubtasks ? "opacity-40" : ""}`}
-            checked={node.isComplete}
-            disabled={tree.isBusy(node.id) || hasOpenSubtasks}
-            title={hasOpenSubtasks ? "Tick its subtasks first" : undefined}
-            // Ticking a main task finishes it: it is in the Done page, and leaves its list 24 hours later. With an undo,
-            // as for any task that leaves its list the moment it is ticked.
-            onChange={() => tree.tick(node)}
-            aria-label={`Mark "${plainTitle(node.title)}" ${node.isComplete ? "not done" : "done"}`}
-          />
-        )}
+        <TickOrPress
+          node={node}
+          className="mt-1.5"
+          title={node.isPersistent ? "Done it. Stays here for next time; a ticked copy underneath can be unticked to take it back" : undefined}
+        />
 
         <div className="flex min-w-32 flex-1 items-start gap-1">
           <ShortSyntaxEditor

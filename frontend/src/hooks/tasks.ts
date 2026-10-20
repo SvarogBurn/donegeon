@@ -1,18 +1,17 @@
-import { keepPreviousData, onlineManager, useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { keepPreviousData, onlineManager, useInfiniteQuery, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
-import * as foldersApi from "../api/folders";
 import * as goalsApi from "../api/goals";
 import * as listsApi from "../api/lists";
-import * as notesApi from "../api/notes";
 import * as tagsApi from "../api/tags";
 import * as tasksApi from "../api/tasks";
-import { localDate, whenNow } from "../api/client";
-import { NAME_FOLDER_EVENT } from "../lib/folders";
-import { CHANGE, newId, type AddChange, type Change, type EditChange, type NoteEditChange, type NotesData, type PressChange } from "../lib/offline/changes";
+import { localDate } from "../lib/clock";
+import { newId } from "../lib/offline/changes";
 import { parseShortSyntax, parseTitleEdit, type SyntaxContext } from "../lib/shortSyntax";
-import type { DashboardLayout } from "../lib/tileLayout";
-import type { Folder, Goal, List, Tag, TaskTreeNode } from "../types";
-import { COUNTDOWN, DONE, FOLDERS, GOALS, LAYOUT, LISTS, NOTES, POINTS, PRESSURE, STATS, TAGS, TASK_DATA, TASKS } from "./queryKeys";
+import type { Goal, List, Tag, TaskTreeNode } from "../types";
+import { useGoals, useTags } from "./labels";
+import { useLists } from "./lists";
+import { useChange } from "./mutations";
+import { COUNTDOWN, DONE, GOALS, LISTS, PRESSURE, STATS, TAGS, TASKS } from "./queryKeys";
 
 export const useTaskTrees = () => useQuery({ queryKey: TASKS, queryFn: tasksApi.listTaskTrees });
 /** The Done page: a few days of ticks at a time, newest first; fetchNextPage brings the days before. */
@@ -31,26 +30,6 @@ export const useStatRows = () => useQuery({ queryKey: STATS, queryFn: tasksApi.l
 /** The tasks of the site's search. Under the tasks' key, so a change to any task asks again; nothing is asked for an empty `q`. */
 export const useTaskSearch = (q: string) =>
   useQuery({ queryKey: [...TASKS, "search", q], queryFn: () => tasksApi.searchTasks(q), enabled: q !== "", placeholderData: keepPreviousData });
-export const useGoals = () => useQuery({ queryKey: GOALS, queryFn: goalsApi.listGoals });
-export const useTags = () => useQuery({ queryKey: TAGS, queryFn: tagsApi.listTags });
-export const useLists = () => useQuery({ queryKey: LISTS, queryFn: listsApi.listLists });
-export const useFolders = () => useQuery({ queryKey: FOLDERS, queryFn: foldersApi.listFolders });
-export const useLayout = (page: tasksApi.LayoutPage = "dashboard") =>
-  useQuery({ queryKey: [...LAYOUT, page], queryFn: () => tasksApi.getLayout(page) });
-/** The new arrangement shows at once and is saved in the background. */
-export function useSaveLayout(page: tasksApi.LayoutPage = "dashboard") {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (layout: DashboardLayout) => tasksApi.saveLayout(page, layout),
-    onMutate: (layout: DashboardLayout) => {
-      queryClient.setQueryData([...LAYOUT, page], layout);
-    },
-    onError: () => queryClient.invalidateQueries({ queryKey: [...LAYOUT, page] }),
-  });
-}
-export const usePoints = () => useQuery({ queryKey: POINTS, queryFn: tasksApi.getPoints });
-// Changes what every Today-only task without its own amount is worth.
-export const useSetTodayPoints = () => useInvalidating(tasksApi.setTodayPoints, [POINTS, TASKS]);
 export const usePressure = () => useQuery({ queryKey: PRESSURE, queryFn: tasksApi.getPressure });
 /** Kept under the countdown key so every task change refreshes it too. */
 export const useCombinedCountdown = () => useQuery({ queryKey: [...COUNTDOWN, "all"], queryFn: tasksApi.getCombinedCountdown });
@@ -58,16 +37,6 @@ export const useCombinedCountdown = () => useQuery({ queryKey: [...COUNTDOWN, "a
 /** Only tasks with a hard deadline have a countdown; pass `enabled` false for the rest. */
 export const useCountdown = (taskId: string, enabled = true) =>
   useQuery({ queryKey: [...COUNTDOWN, taskId], queryFn: () => tasksApi.getCountdown(taskId), retry: false, enabled });
-
-/** `onError`: for the mutations whose refusal shows in the popup next to the click. */
-function useInvalidating<TArgs, TResult>(mutationFn: (args: TArgs) => Promise<TResult>, keys: string[][], onError?: (error: Error) => void) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (args: TArgs) => mutationFn(args),
-    onError,
-    onSettled: () => Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey }))),
-  });
-}
 
 /** How deep a task under `parentId` sits: 0 for a main task. A parent that isn't among the loaded trees counts as a main task. */
 function depthUnder(trees: TaskTreeNode[], parentId: string | null | undefined) {
@@ -95,18 +64,6 @@ export function useSyntaxContext(parentId?: string | null): SyntaxContext {
   );
 }
 
-/**
- * One of the everyday changes to tasks that also work offline (lib/offline/changes: how each is sent and shown at
- * once). `mutate` stamps it with the day and moment it was made. It may wait to be sent, so nothing should wait
- * for it: what it changes is on the page already.
- */
-function useChange<V>(key: readonly string[]) {
-  const mutation = useMutation<unknown, Error, Change<V>>({ mutationKey: [...key] });
-  const { mutate: send } = mutation;
-  const mutate = useCallback((change: V, options?: { onError?: (error: Error) => void }) => send({ ...change, when: whenNow() }, options), [send]);
-  return { ...mutation, mutate };
-}
-
 /** The tags, goals and lists the shortcuts are read against: those kept on the device when offline, rather than waiting for the server. */
 async function syntaxLists(queryClient: QueryClient) {
   const get = <T,>(queryKey: string[], queryFn: () => Promise<T[]>) =>
@@ -131,7 +88,7 @@ export interface TypedTask extends Omit<tasksApi.NewTask, "title"> {
  */
 export function useAddTask() {
   const queryClient = useQueryClient();
-  const change = useChange<AddChange>(CHANGE.add);
+  const change = useChange("add");
   const [typo, setTypo] = useState<Error | null>(null);
   const { mutate } = change;
 
@@ -185,7 +142,7 @@ export function useAddTask() {
  */
 export function useEditTask() {
   const queryClient = useQueryClient();
-  const change = useChange<EditChange>(CHANGE.edit);
+  const change = useChange("edit");
   const [typo, setTypo] = useState<Error | null>(null);
   const { mutate } = change;
 
@@ -226,121 +183,19 @@ export function useEditTask() {
 }
 
 /** Ticks (`done`) or unticks a task; shows at once, with its parents' counts, deadline pills and open countdown tables. */
-export const useToggleTask = () => useChange<{ id: string; done: boolean }>(CHANGE.toggle);
+export const useToggleTask = () => useChange("toggle");
 /** One press of a persistent task's "done it" button; `completionId` is made by the caller (newId), for its undo. */
-export const usePressTask = () => useChange<PressChange>(CHANGE.press);
-export const useUndoPress = () => useChange<PressChange>(CHANGE.undoPress);
-export const useDeleteTask = () => useChange<{ id: string }>(CHANGE.delete);
-export const useRestoreTask = () => useChange<{ id: string }>(CHANGE.restore);
-export const useUpdateTask = () => useChange<{ id: string; changes: tasksApi.TaskChanges }>(CHANGE.update);
+export const usePressTask = () => useChange("press");
+export const useUndoPress = () => useChange("undoPress");
+export const useDeleteTask = () => useChange("delete");
+export const useRestoreTask = () => useChange("restore");
+export const useUpdateTask = () => useChange("update");
 /** In or out of Today. */
-export const useSetToday = () => useChange<{ id: string; today: boolean }>(CHANGE.today);
+export const useSetToday = () => useChange("today");
 /** In or out of the Week box; one coming in goes last on today. */
-export const useSetWeek = () => useChange<{ id: string; week: boolean }>(CHANGE.week);
+export const useSetWeek = () => useChange("week");
 /** A round of a task on a schedule moved to another day in Week (`to` = `from`: back on its own day). */
-export const useMoveRound = () => useChange<{ id: string; from: string; to: string }>(CHANGE.round);
+export const useMoveRound = () => useChange("round");
 /** A place in the Week box: on `day`, right after `after` (null = first, undefined = last); a task not in it yet comes in. */
-export const usePlaceInWeek = () => useChange<{ id: string; day: string; after?: string | null }>(CHANGE.placeInWeek);
-export const useMoveTask = () => useChange<{ id: string; placement: tasksApi.TaskPlacement }>(CHANGE.move);
-
-export const useCreateGoal = () => useInvalidating((body: { name: string; description?: string | null }) => goalsApi.createGoal(body), [GOALS]);
-// Deleting a goal unlinks it from its tasks.
-export const useDeleteGoal = () => useInvalidating(goalsApi.deleteGoal, [GOALS, TASKS]);
-
-export const useCreateTag = () => useInvalidating((name: string) => tagsApi.createTag(name), [TAGS]);
-export const useDeleteTag = () => useInvalidating(tagsApi.deleteTag, [TAGS, TASKS]);
-
-// A folder made by dropping a box on "New" shows that box.
-export const useCreateFolder = () => useInvalidating(foldersApi.createFolder, [FOLDERS]);
-/** Name, colour, arrangement or views: shows at once and is saved in the background. */
-export function useUpdateFolder() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, changes }: { id: string; changes: foldersApi.FolderChanges }) => foldersApi.updateFolder(id, changes),
-    onMutate: ({ id, changes }) => {
-      queryClient.setQueryData<Folder[]>(FOLDERS, (folders) => folders?.map((folder) => (folder.id === id ? { ...folder, ...changes } : folder)));
-    },
-    onError: () => queryClient.invalidateQueries({ queryKey: FOLDERS }),
-  });
-}
-/** The tabs dragged into another order (every folder's id, left to right): shows at once and is saved in the background. */
-export function useReorderFolders() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: foldersApi.reorderFolders,
-    onMutate: (ids) => {
-      queryClient.setQueryData<Folder[]>(FOLDERS, (folders) => folders && [...folders].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id)));
-    },
-    onError: () => queryClient.invalidateQueries({ queryKey: FOLDERS }),
-  });
-}
-// Removing a folder removes its tab only.
-export const useDeleteFolder = () => useInvalidating(foldersApi.deleteFolder, [FOLDERS]);
-
-/**
- * What a box dropped on a tab of the task bar does (TileGrid's onDropOnTab). On a folder's tab: the folder shows
- * it too, a copy, the box stays where it is. On "New": a folder is made that shows it, and asks for its name.
- * On "Tasks", from a folder's own page (`openFolderId`): that folder stops showing it.
- */
-export function useDropOnTab(openFolderId: string | null = null) {
-  const { data: folders = [] } = useFolders();
-  const createFolder = useCreateFolder();
-  const updateFolder = useUpdateFolder();
-  function dropOnTab(view: string, tab: string) {
-    if (tab === "new") {
-      createFolder.mutate({ views: [view] }, { onSuccess: (made) => window.dispatchEvent(new CustomEvent(NAME_FOLDER_EVENT, { detail: made.id })) });
-      return;
-    }
-    const folder = folders.find((f) => f.id === (tab === "main" ? openFolderId : tab));
-    if (!folder) return;
-    const shows = folder.views.includes(view);
-    if (tab === "main") updateFolder.mutate({ id: folder.id, changes: { views: folder.views.filter((other) => other !== view) } });
-    else if (!shows) updateFolder.mutate({ id: folder.id, changes: { views: [...folder.views, view] } });
-  }
-  return { dropOnTab, error: createFolder.error ?? updateFolder.error };
-}
-
-/** The free-standing notes and the Notes page's folders. */
-export const useNotes = () => useQuery<NotesData>({ queryKey: NOTES, queryFn: notesApi.listNotes });
-// Writing notes works offline too (lib/offline/changes); a new note's id is made here, so it can be written in at once.
-export function useAddNote() {
-  const change = useChange<notesApi.NewNote>(CHANGE.noteAdd);
-  const { mutate } = change;
-  const add = useCallback((note: Omit<notesApi.NewNote, "id"> = {}) => {
-    const id = newId();
-    mutate({ ...note, id });
-    return id;
-  }, [mutate]);
-  return { ...change, mutate: add };
-}
-export const useEditNote = () => useChange<NoteEditChange>(CHANGE.noteEdit);
-export const useDeleteNote = () => useChange<{ id: string }>(CHANGE.noteDelete);
-// The Notes page's folders need a connection, like the task bar's.
-export const useCreateNoteFolder = () => useInvalidating(notesApi.createNoteFolder, [NOTES]);
-/** Name or colour: shows at once and is saved in the background. */
-export function useUpdateNoteFolder() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, changes }: { id: string; changes: notesApi.NoteFolderChanges }) => notesApi.updateNoteFolder(id, changes),
-    onMutate: ({ id, changes }) => {
-      queryClient.setQueryData<NotesData>(NOTES, (data) =>
-        data && { ...data, noteFolders: data.noteFolders.map((folder) => (folder.id === id ? { ...folder, ...changes } : folder)) },
-      );
-    },
-    onError: () => queryClient.invalidateQueries({ queryKey: NOTES }),
-  });
-}
-// Its notes stay, back under "All".
-export const useDeleteNoteFolder = () => useInvalidating(notesApi.deleteNoteFolder, [NOTES]);
-
-// A list made on a folder's page is shown by that folder.
-export const useCreateList = () => useInvalidating(listsApi.createList, [LISTS, FOLDERS]);
-// A list's kind and default decide what its tasks are worth.
-export const useUpdateList = () =>
-  useInvalidating(
-    ({ id, changes }: { id: string; changes: listsApi.ListChanges }) => listsApi.updateList(id, changes),
-    [LISTS, TASKS],
-  );
-// A list takes its tasks with it, and brings them back on restore.
-export const useDeleteList = () => useInvalidating(listsApi.deleteList, [LISTS, ...TASK_DATA]);
-export const useRestoreList = () => useInvalidating(listsApi.restoreList, [LISTS, ...TASK_DATA]);
+export const usePlaceInWeek = () => useChange("placeInWeek");
+export const useMoveTask = () => useChange("move");

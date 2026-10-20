@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { z } from "zod";
+import { FEEDBACK_KINDS } from "../../../shared/enums.js";
 import { isDev } from "../lib/devs.js";
 import { HttpError } from "../lib/httpError.js";
 import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
 
 const feedback = z.object({
-  kind: z.enum(["bug", "feature"]),
+  kind: z.enum(FEEDBACK_KINDS),
   subject: z.string().trim().max(120, "Subject must be at most 120 characters"),
   message: z.string().trim().min(1, "Write a message first").max(4000, "Message must be at most 4000 characters"),
 });

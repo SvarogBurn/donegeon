@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useCreateList, useUpdateList } from "../../hooks/useTasks";
+import { useCreateList, useUpdateList } from "../../hooks/lists";
 import { useOnline } from "../../lib/offline/online";
 import { NeedsConnection } from "../NeedsConnection";
 import { KIND_COLORS, listColor, listFrame, sliderIn } from "../../lib/frameTones";
@@ -11,7 +11,7 @@ import type { List, ListKind, TaskTreeNode, TickedTasks } from "../../types";
 import { ColorChoices } from "../ColorChoices";
 import { TaskForm } from "../TaskTree/TaskForm";
 import { TaskTree } from "../TaskTree/TaskNode";
-import { useTree } from "../TaskTree/TreeContext";
+import { useDrag, useTree } from "../TaskTree/TreeContext";
 import { TileFrame } from "../Tiles/TileFrame";
 
 interface KindFieldsProps {
@@ -180,12 +180,12 @@ export function ListCard({ list, tasks, taskCount }: ListCardProps) {
   const update = useUpdateList();
   // Lists are changed online only; their tasks work offline too.
   const online = useOnline();
-  const { dropTarget, deleteList } = useTree();
+  const { deleteList } = useTree();
   const [name, setName] = useState(list.name);
   useEffect(() => setName(list.name), [list.name]);
   const [points, setPoints] = useState(String(list.defaultPoints));
   useEffect(() => setPoints(String(list.defaultPoints)), [list.defaultPoints]);
-  const isDropTarget = dropTarget?.kind === "list" && dropTarget.listId === list.id;
+  const isDropTarget = useDrag((state) => state.dropTarget?.kind === "list" && state.dropTarget.listId === list.id);
   const isReward = list.kind === "reward";
   const [confirming, setConfirming] = useState(false);
 

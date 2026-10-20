@@ -1,5 +1,6 @@
 import type { Tag } from "../types";
-import { api, type When } from "./client";
+import type { When } from "../lib/clock";
+import { api } from "./client";
 
 export const listTags = () => api<{ tags: Tag[] }>("/tags").then((r) => r.tags);
 /** `id`: made on the device for a tag typed offline. */

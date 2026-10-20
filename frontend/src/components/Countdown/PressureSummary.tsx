@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { usePressure, useTaskTrees } from "../../hooks/useTasks";
+import { usePressure, useTaskTrees } from "../../hooks/tasks";
 import { findNode } from "../../lib/optimisticToggle";
 import { hasTaskPage } from "../../lib/taskPage";
 import type { TaskTreeNode } from "../../types";

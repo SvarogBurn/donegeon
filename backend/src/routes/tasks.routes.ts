@@ -1,789 +1,116 @@
-import { Prisma } from "@prisma/client";
 import { Router, type Request } from "express";
 import { z } from "zod";
-import { alreadyMade } from "../lib/clientId.js";
-import { isRestorable, tooLateToRestore } from "../lib/deleted.js";
-import { HttpError, notFound } from "../lib/httpError.js";
-import { isLocalDate, mondayOf } from "../lib/localDate.js";
+import { HttpError } from "../lib/httpError.js";
 import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
-import { addDays, countdownForTask, todayPace } from "../services/countdown.service.js";
-import { bookTask, bookTick, MAX_POINTS, reverseBooking, reverseTaskBooking, subtaskValue, taskValue } from "../services/points.service.js";
-import { dueAfter, movesFrom, roundMovesOf, staleRoundTicks } from "../services/repeat.service.js";
-import {
-  buildTree,
-  completionPatch,
-  countedIds,
-  findDepth,
-  findSubtree,
-  insertAt,
-  wholeTreeIds,
-  withFinishedRoots,
-} from "../services/taskTree.service.js";
+import { localDate } from "../schemas/common.js";
+import { moveInput, roundInput, taskInput, taskPatch, weekInput } from "../schemas/task.js";
+import { placeInWeek } from "../services/ordering.service.js";
+import { ownTask } from "../services/ownership.js";
+import { countdownOf, donePage, doneOn, openTrees, searchTasks, statRows } from "../services/taskRead.service.js";
+import { createTask, deleteTask, doneToday, moveRound, moveTask, restoreTask, toggleTask, updateTask } from "../services/taskWrite.service.js";
+import { completionsRouter } from "./completions.routes.js";
 
-const title = z.string().trim().min(1, "Title is required").max(300);
-const notes = z.string().trim().max(5000).nullish();
-const index = z.number().int().min(0);
-const localDate = z.string().refine(isLocalDate, "Dates must look like 2026-10-02");
+/** The user's day and the moment the change was made, as the device sent them (see lib/localDate). */
+const momentOf = (req: Request) => ({ today: req.localDate, at: req.clientTime });
 
-const taskInput = z.object({
-  /** Made on the device for a task written offline; see lib/clientId. */
-  id: z.string().uuid().optional(),
-  title,
-  notes,
-  /** parentId (a subtask), listId (a top-level task in a list), or neither: a task that lives only in Today (or in Week, with `weekDay`). */
-  parentId: z.string().uuid().nullish(),
-  listId: z.string().uuid().nullish(),
-  goalIds: z.array(z.string().uuid()).max(50).optional(),
-  tagIds: z.array(z.string().uuid()).max(50).optional(),
-  /** Where to insert among the new siblings; omitted = at the end. */
-  index: index.optional(),
-  /** A main task written into a day of the calendar starts with that day as its deadline; soft unless said otherwise. */
-  deadlineDate: localDate.optional(),
-  deadlineType: z.enum(["hard", "soft"]).optional(),
-  /** What the short syntax of the add fields can set from the start; each means what it does in taskPatch. */
-  points: z.number().int().min(0, "Points can't be negative").max(MAX_POINTS).optional(),
-  today: z.boolean().optional(),
-  /** In the Week box from the start, on this day, after `weekAfter` there (null = first; left out = last). */
-  weekDay: localDate.optional(),
-  weekAfter: z.string().uuid().nullish(),
-  /** Done again and again; a schedule makes it persistent too. */
-  isPersistent: z.boolean().optional(),
-  repeatEvery: z.number().int().min(1, "Repeat every 1 or more").max(999).optional(),
-  repeatUnit: z.enum(["day", "week", "month"]).optional(),
-  nextDue: localDate.optional(),
-});
-
-const taskPatch = z.object({
-  title: title.optional(),
-  notes,
-  /** Full replacement sets: the task ends up with exactly these goals / tags. */
-  goalIds: z.array(z.string().uuid()).max(50).optional(),
-  tagIds: z.array(z.string().uuid()).max(50).optional(),
-  startDate: localDate.optional(),
-  deadlineDate: localDate.nullable().optional(),
-  deadlineType: z.enum(["hard", "soft"]).optional(),
-  /** Its own amount, or null to go back to what it gets by default: the list's amount (a main task), or what its main task hands down (a subtask). */
-  points: z.number().int().min(0, "Points can't be negative").max(MAX_POINTS).nullable().optional(),
-  /** Main tasks only: subtasks without their own amount are worth what this task is. */
-  pointsToSubtasks: z.boolean().optional(),
-  /** In or out of the Today box. */
-  today: z.boolean().optional(),
-  /** In or out of the Week box; one coming in goes last on today. */
-  week: z.boolean().optional(),
-  /** Done again and again instead of once. */
-  isPersistent: z.boolean().optional(),
-  /** Due again every so many days, weeks or months (which makes it persistent); null = no schedule. */
-  repeatEvery: z.number().int().min(1, "Repeat every 1 or more").max(999).nullable().optional(),
-  repeatUnit: z.enum(["day", "week", "month"]).optional(),
-  /** Count the next round from the day it was done instead of keeping to the planned days. */
-  repeatAfterDone: z.boolean().optional(),
-  /** Keeping to the planned days: every missed round is still to be done, instead of skipped. */
-  repeatMakeUp: z.boolean().optional(),
-  /** The day the next round is due; today when a schedule is first set. */
-  nextDue: localDate.optional(),
-});
-
-/** Subtasks a press unticked, as stored on the TaskCompletion. */
-const untickedSchema = z.array(z.object({ id: z.string(), completedAt: z.string(), completedOn: z.string() }));
-
-/** A ticked task stays in its list for 24 hours (the frontend's isRecent), so yesterday's ticks still go to the lists. */
-const KEPT_WHEN_DONE_DAYS = 1;
-/** How many days of ticks the Done page gets at a time. */
-const DONE_PAGE_DAYS = 5;
-/** How many tasks a search answers with at most. */
-const SEARCH_LIMIT = 30;
-/** Deadlines are allowed on top-level tasks (depth 0) and their direct subtasks (depth 1). */
-const MAX_DEADLINE_DEPTH = 1;
-
-const moveInput = z.object({
-  parentId: z.string().uuid().nullable(),
-  listId: z.string().uuid().nullable(),
-  index,
-});
-
-async function ownTask(req: Request, id: string) {
-  const task = await prisma.task.findFirst({ where: { id, userId: userId(req), deletedAt: null } });
-  if (!task) throw notFound("Task");
-  return task;
-}
-
-async function assertOwnLabels(req: Request, goalIds: string[] = [], tagIds: string[] = []) {
-  const owner = userId(req);
-  const goals = await prisma.goal.count({ where: { userId: owner, id: { in: goalIds } } });
-  if (goals !== new Set(goalIds).size) throw notFound("Goal");
-  const tags = await prisma.tag.count({ where: { userId: owner, id: { in: tagIds } } });
-  if (tags !== new Set(tagIds).size) throw notFound("Tag");
-}
-
-async function assertOwnList(req: Request, listId: string) {
-  const list = await prisma.list.findFirst({ where: { id: listId, userId: userId(req), deletedAt: null } });
-  if (!list) throw notFound("List");
-}
-
-const live = (owner: string) => ({ userId: owner, deletedAt: null });
-
-/**
- * Gives each task of `order` its index there as `column`, in one statement, writing only the rows whose
- * value (`current`) changes: appending to a long list touches one row, not every task it ever had. Raw SQL,
- * so a reorder doesn't count as an edit: updatedAt, which the search sorts by, stays as it was.
- */
-async function writeOrder(
-  tx: Prisma.TransactionClient,
-  column: "position" | "weekPosition",
-  order: string[],
-  current: Map<string, number>,
-) {
-  const changed = order.flatMap((id, at) => (current.get(id) === at ? [] : [{ id, at }]));
-  if (changed.length === 0) return;
-  await tx.$executeRaw`
-    UPDATE "Task" SET ${Prisma.raw(`"${column}"`)} = v.at
-    FROM unnest(${changed.map((row) => row.id)}::text[], ${changed.map((row) => row.at)}::int[]) AS v(id, at)
-    WHERE "Task".id = v.id`;
-}
-
-/**
- * Puts `taskId` at `at` among the tasks sharing its place in the tree and
- * rewrites every sibling's position, so ties and gaps can't accumulate.
- * Top-level tasks are ordered within their list; subtasks within their parent.
- */
-async function placeAmongSiblings(
-  tx: Prisma.TransactionClient,
-  owner: string,
-  taskId: string,
-  parentId: string | null,
-  listId: string | null,
-  at: number | undefined,
-) {
-  // Without a list, the tasks written into Today and those written into Week are ordered apart.
-  const inWeek = !parentId && !listId && (await tx.task.findUniqueOrThrow({ where: { id: taskId } })).weekDay !== null;
-  const siblings = await tx.task.findMany({
-    where: {
-      deletedAt: null,
-      ...(parentId
-        ? { userId: owner, parentId }
-        : { userId: owner, parentId: null, listId, ...(!listId && { weekDay: inWeek ? { not: null } : null }) }),
-    },
-    orderBy: [{ position: "asc" }, { createdAt: "asc" }],
-    select: { id: true, position: true },
-  });
-  const others = siblings.map((s) => s.id).filter((id) => id !== taskId);
-  const order = insertAt(others, taskId, at ?? others.length);
-  await writeOrder(tx, "position", order, new Map(siblings.map((s) => [s.id, s.position])));
-}
-
-/**
- * Puts `taskId` on `day` of the Week box, right after `afterId` there (null = first, undefined = last), and
- * rewrites the order of that day. Each day has an order of its own, apart from the task's place in its list.
- * The Monday of this week (`today`'s) also holds what is still open from the weeks before. Only what the box
- * shows is ordered (see weekDays in the frontend's lib/week.ts): open tasks, and those ticked this week.
- * Put off to next week (or later), it is no longer for today: it leaves Today, and how long it waited there with it.
- */
-async function placeInWeek(
-  tx: Prisma.TransactionClient,
-  owner: string,
-  taskId: string,
-  day: string,
-  afterId: string | null | undefined,
-  today: string,
-) {
-  const monday = mondayOf(today);
-  const onDay = await tx.task.findMany({
-    where: {
-      userId: owner,
-      deletedAt: null,
-      id: { not: taskId },
-      weekDay: day === monday ? { lte: day } : day,
-      OR: [{ isComplete: false }, { completedOn: { gte: monday } }],
-    },
-    orderBy: [{ weekPosition: "asc" }, { createdAt: "asc" }],
-    select: { id: true, weekPosition: true },
-  });
-  const others = onDay.map((t) => t.id);
-  const after = afterId ? others.indexOf(afterId) : -1;
-  // A task that is no longer there (deleted or moved meanwhile) to go after: then last.
-  const order = insertAt(others, taskId, afterId === undefined || (afterId && after < 0) ? others.length : after + 1);
-  const putOff = day >= addDays(monday, 7);
-  await tx.task.update({ where: { id: taskId }, data: { weekDay: day, ...(putOff && { todaySince: null }) } });
-  await writeOrder(tx, "weekPosition", order, new Map(onDay.map((t) => [t.id, t.weekPosition])));
-}
-
-/** What a task is read with for the trees: its goals and tags, and those of its presses that match `presses`. */
-const treeInclude = (presses: Prisma.TaskCompletionWhereInput) =>
-  ({
-    goals: { select: { id: true } },
-    tags: { select: { id: true } },
-    completions: { where: presses, select: { id: true, day: true, createdAt: true }, orderBy: { createdAt: "asc" } },
-  }) satisfies Prisma.TaskInclude;
-
-type TreeRow = Prisma.TaskGetPayload<{ include: ReturnType<typeof treeInclude> }>;
-
-/**
- * The tasks matching `where`, each with the whole tree it sits in: up to its main task, then everything
- * beneath that. The rest of the user's tasks are never read, however many there are.
- */
-async function wholeTrees(owner: string, where: Prisma.TaskWhereInput, presses: Prisma.TaskCompletionWhereInput): Promise<TreeRow[]> {
-  const ids = await wholeTreeIds(prisma, owner, where);
-  return ids.length > 0 ? prisma.task.findMany({ where: { id: { in: ids } }, include: treeInclude(presses) }) : [];
-}
-
-/**
- * Whole trees (see wholeTrees) nested under their main tasks. Tasks with a
- * deadline (hard or soft) carry today's pace, which colours their deadline pill;
- * every task carries what it is worth (and whether that is earned or spent), persistent ones their presses.
- */
-async function asTrees(owner: string, tasks: TreeRow[], today: string) {
-  const [lists, { todayPoints }] = await Promise.all([
-    prisma.list.findMany({ where: { userId: owner } }),
-    prisma.user.findUniqueOrThrow({ where: { id: owner }, select: { todayPoints: true } }),
-  ]);
-  const listById = new Map(lists.map((list) => [list.id, list]));
-  const taskById = new Map(tasks.map((task) => [task.id, task]));
-  const forPace = withFinishedRoots(tasks).tasks;
-  const flat = tasks.map(({ goals, tags, ...task }) => {
-    let root = task;
-    while (root.parentId && taskById.has(root.parentId)) root = taskById.get(root.parentId)!;
-    const list = listById.get(root.listId ?? "") ?? null;
-    const rootValue = taskValue(root, list, todayPoints);
-    return {
-      ...task,
-      goalIds: goals.map((g) => g.id),
-      tagIds: tags.map((t) => t.id),
-      value: task.parentId ? subtaskValue(task, root, rootValue) : rootValue,
-      valueKind: list?.kind ?? "task",
-      pace: task.deadlineDate ? todayPace(forPace, task, today) : null,
-    };
-  });
-  return buildTree(flat);
-}
+/** The task named in the path, the user's own and not deleted. */
+const pathTask = (req: Request<{ id: string }>) => ownTask(userId(req), req.params.id);
 
 export const tasksRouter = Router();
 
-// The tasks the lists work with, as nested trees of top-level tasks: every main task still open, and
-// anything ticked since yesterday (which the lists keep showing for 24 hours), each with its whole tree.
-// Presses come along from yesterday on. What was finished before that is read by the Done page (/done),
-// the dashboard's Done box (/done/:day) and the stats (/stats), so this stays small as the history grows.
+// The trees the lists work with: every open main task, and what was ticked since yesterday (see openTrees).
 tasksRouter.get("/", async (req, res) => {
-  const owner = userId(req);
-  const since = addDays(req.localDate, -KEPT_WHEN_DONE_DAYS);
-  const tasks = await wholeTrees(
-    owner,
-    // The Week box keeps showing what was ticked in it until the week is over.
-    {
-      OR: [
-        { parentId: null, isComplete: false },
-        { completedOn: { gte: since } },
-        { weekDay: { not: null }, completedOn: { gte: mondayOf(req.localDate) } },
-      ],
-    },
-    { day: { gte: since } },
-  );
-  // Subtasks of a persistent task still ticked from a round the Skip rule dropped start this one unticked, as a press
-  // would have left them. Their points stay, as after a press.
-  const stale = new Set(staleRoundTicks(tasks, req.localDate));
-  if (stale.size > 0) {
-    await prisma.task.updateMany({
-      where: { id: { in: [...stale] }, userId: owner },
-      data: { isComplete: false, completedAt: null, completedOn: null },
-    });
-  }
-  const fresh = stale.size > 0 ? tasks.map((task) => (stale.has(task.id) ? { ...task, isComplete: false, completedAt: null, completedOn: null } : task)) : tasks;
-  res.json({ tasks: await asTrees(owner, fresh, req.localDate) });
+  res.json({ tasks: await openTrees(userId(req), req.localDate) });
 });
 
-// The Done page, a few days at a time, newest first: the days on which something was ticked (before `before`,
-// if given), and the trees holding what was ticked on them. `next` is the `before` of the days after these.
+// The Done page, a few days at a time, newest first (see donePage).
 tasksRouter.get("/done", async (req, res) => {
   const before = localDate.optional().parse(req.query.before);
-  const owner = userId(req);
-  const found = await prisma.task.groupBy({
-    by: ["completedOn"],
-    where: { ...live(owner), isComplete: true, completedOn: { not: null, lt: before } },
-    orderBy: { completedOn: "desc" },
-    take: DONE_PAGE_DAYS + 1,
-  });
-  const days = found.slice(0, DONE_PAGE_DAYS).map((group) => group.completedOn!);
-  const tasks = days.length > 0 ? await wholeTrees(owner, { isComplete: true, completedOn: { in: days } }, { day: { in: days } }) : [];
-  res.json({
-    days,
-    tasks: await asTrees(owner, tasks, req.localDate),
-    next: found.length > DONE_PAGE_DAYS ? days.at(-1) : null,
-  });
+  res.json(await donePage(userId(req), before, req.localDate));
 });
 
-// Everything ticked or pressed on one day, for the dashboard's Done box; of the presses, only that day's.
+// Everything ticked or pressed on one day, for the dashboard's Done box.
 tasksRouter.get("/done/:day", async (req, res) => {
-  const day = localDate.parse(req.params.day);
-  const owner = userId(req);
-  const tasks = await wholeTrees(owner, { OR: [{ completedOn: day }, { completions: { some: { day } } }] }, { day });
-  res.json({ tasks: await asTrees(owner, tasks, req.localDate) });
+  res.json({ tasks: await doneOn(userId(req), localDate.parse(req.params.day), req.localDate) });
 });
 
-// Every task there is, cut down to what the stats count with: one small flat row each.
+// Every task there is, as small flat rows for the stats.
 tasksRouter.get("/stats", async (req, res) => {
-  const tasks = await prisma.task.findMany({
-    where: live(userId(req)),
-    select: {
-      id: true,
-      parentId: true,
-      listId: true,
-      title: true,
-      startDate: true,
-      deadlineDate: true,
-      deadlineType: true,
-      isComplete: true,
-      completedOn: true,
-      completedAt: true,
-      isPersistent: true,
-      createdAt: true,
-      goals: { select: { id: true } },
-      tags: { select: { id: true } },
-      completions: { select: { day: true, createdAt: true } },
-    },
-  });
-  res.json({
-    tasks: tasks.map(({ goals, tags, completions, ...task }) => ({
-      ...task,
-      goalIds: goals.map((g) => g.id),
-      tagIds: tags.map((t) => t.id),
-      pressDays: completions.map((press) => press.day),
-      pressTimes: completions.map((press) => press.createdAt),
-    })),
-  });
+  res.json({ tasks: await statRows(userId(req)) });
 });
 
-// The tasks of the search at the top of the Tasks page: every task there is whose title holds `q`, in any case, the ones finished long ago too.
-// The open ones come first, then the newest. Each says where it sits: the tasks above it (their titles and ids, outermost first), and its list.
+// The search at the top of the Tasks page (see searchTasks).
 tasksRouter.get("/search", async (req, res) => {
   const q = z.string().trim().max(300).parse(req.query.q ?? "");
-  if (!q) return void res.json({ results: [], more: false });
-  const owner = userId(req);
-  const found = await prisma.task.findMany({
-    // A % or _ that was typed is looked for as itself.
-    where: { ...live(owner), title: { contains: q.replace(/[\\%_]/g, "\\$&"), mode: "insensitive" } },
-    orderBy: [{ isComplete: "asc" }, { updatedAt: "desc" }],
-    take: SEARCH_LIMIT + 1,
-    select: { id: true, parentId: true, listId: true, title: true, isComplete: true, completedOn: true, isPersistent: true },
-  });
-  const results = found.slice(0, SEARCH_LIMIT);
-
-  // The tasks above the found ones, a level at a time, up to their main tasks.
-  const above = new Map<string, { id: string; parentId: string | null; listId: string | null; title: string }>(results.map((task) => [task.id, task]));
-  let missing = [...new Set(results.flatMap((task) => (task.parentId && !above.has(task.parentId) ? [task.parentId] : [])))];
-  while (missing.length > 0) {
-    const parents = await prisma.task.findMany({
-      where: { ...live(owner), id: { in: missing } },
-      select: { id: true, parentId: true, listId: true, title: true },
-    });
-    for (const parent of parents) above.set(parent.id, parent);
-    missing = [...new Set(parents.flatMap((task) => (task.parentId && !above.has(task.parentId) ? [task.parentId] : [])))];
-  }
-
-  res.json({
-    results: results.map((task) => {
-      const path: string[] = [];
-      const pathIds: string[] = [];
-      let root: { id: string; parentId: string | null; listId: string | null; title: string } = task;
-      while (root.parentId && above.has(root.parentId)) {
-        root = above.get(root.parentId)!;
-        path.unshift(root.title);
-        pathIds.unshift(root.id);
-      }
-      return {
-        id: task.id,
-        title: task.title,
-        isComplete: task.isComplete,
-        completedOn: task.completedOn,
-        isPersistent: task.isPersistent,
-        path,
-        pathIds,
-        listId: root.listId,
-      };
-    }),
-    more: found.length > SEARCH_LIMIT,
-  });
+  res.json(q ? await searchTasks(userId(req), q) : { results: [], more: false });
 });
 
 tasksRouter.get("/:id", async (req, res) => {
-  res.json({ task: await ownTask(req, req.params.id) });
+  res.json({ task: await pathTask(req) });
 });
 
 // The spreadsheet-style per-day table for a task with a hard deadline.
 tasksRouter.get("/:id/countdown", async (req, res) => {
-  const task = await ownTask(req, req.params.id);
+  const task = await pathTask(req);
   if (task.deadlineType !== "hard" || !task.deadlineDate) {
     throw new HttpError(400, "Only tasks with a hard deadline have a countdown");
   }
-  // Its whole tree: whether its main task is finished decides what counts as done.
-  const ids = await wholeTreeIds(prisma, task.userId, { id: task.id });
-  const { tasks } = withFinishedRoots(await prisma.task.findMany({ where: { id: { in: ids } } }));
   res.json({
     task: { id: task.id, title: task.title, parentId: task.parentId },
-    countdown: countdownForTask(tasks, task, req.localDate),
+    countdown: await countdownOf(task, req.localDate),
   });
 });
 
 tasksRouter.post("/", async (req, res) => {
-  const input = taskInput.parse(req.body);
-  const owner = userId(req);
-  const made = input.id && alreadyMade(await prisma.task.findUnique({ where: { id: input.id } }), owner);
-  if (made) return void res.json({ task: made });
-  const parentId = input.parentId ?? null;
-  const listId = input.listId ?? null;
-
-  if (parentId && listId) throw new HttpError(400, "A task goes either in a list or under a parent task");
-  if (parentId) await ownTask(req, parentId);
-  if (parentId && input.deadlineDate && (await findDepth(prisma, parentId)) + 1 > MAX_DEADLINE_DEPTH) {
-    throw new HttpError(400, "Deadlines can only be set on main tasks and their direct subtasks");
-  }
-  const isPersistent = Boolean(input.isPersistent || input.repeatEvery);
-  if (isPersistent && input.deadlineDate) {
-    throw new HttpError(400, "A persistent task is never finished, so it can't have a deadline. Remove one or the other.");
-  }
-  if (listId) await assertOwnList(req, listId);
-  await assertOwnLabels(req, input.goalIds, input.tagIds);
-
-  const task = await prisma.$transaction(async (tx) => {
-    const created = await tx.task.create({
-      data: {
-        id: input.id,
-        userId: owner,
-        parentId,
-        listId,
-        title: input.title,
-        createdAt: req.clientTime,
-        notes: input.notes || null,
-        startDate: req.localDate,
-        deadlineDate: input.deadlineDate,
-        deadlineType: input.deadlineDate ? (input.deadlineType ?? "soft") : undefined,
-        // Without a list or a parent it was written straight into Today (or Week), and lives only there until moved to a list.
-        todaySince: input.today || (!(parentId || listId) && !input.weekDay) ? req.localDate : null,
-        points: input.points,
-        isPersistent,
-        // A schedule makes the task persistent, due today unless another day was given.
-        ...(input.repeatEvery && {
-          repeatEvery: input.repeatEvery,
-          repeatUnit: input.repeatUnit,
-          nextDue: input.nextDue ?? req.localDate,
-        }),
-        goals: { connect: (input.goalIds ?? []).map((id) => ({ id })) },
-        tags: { connect: (input.tagIds ?? []).map((id) => ({ id })) },
-      },
-    });
-    if (input.weekDay) await placeInWeek(tx, owner, created.id, input.weekDay, input.weekAfter, req.localDate);
-    await placeAmongSiblings(tx, owner, created.id, parentId, listId, input.index);
-    return input.weekDay ? tx.task.findUniqueOrThrow({ where: { id: created.id } }) : created;
-  });
-  res.status(201).json({ task });
+  const { task, isNew } = await createTask(userId(req), taskInput.parse(req.body), momentOf(req));
+  res.status(isNew ? 201 : 200).json({ task });
 });
 
 tasksRouter.patch("/:id", async (req, res) => {
   const input = taskPatch.parse(req.body);
-  const task = await ownTask(req, req.params.id);
-  const data: Prisma.TaskUpdateInput = {
-    title: input.title,
-    notes: input.notes === undefined ? undefined : input.notes || null,
-    startDate: input.startDate,
-  };
-
-  // Any task, at any depth, can carry any number of goals and tags.
-  await assertOwnLabels(req, input.goalIds, input.tagIds);
-  if (input.goalIds) data.goals = { set: input.goalIds.map((id) => ({ id })) };
-  if (input.tagIds) data.tags = { set: input.tagIds.map((id) => ({ id })) };
-
-  // Hard/soft is the user's own choice and can be picked before there is a
-  // date; it only has an effect once a date is set.
-  if (input.deadlineType) data.deadlineType = input.deadlineType;
-  data.points = input.points;
-  if (input.pointsToSubtasks !== undefined) {
-    if (task.parentId) throw new HttpError(400, "Only a main task can hand its points down to its subtasks");
-    data.pointsToSubtasks = input.pointsToSubtasks;
-  }
-  // A task without a list lives in Today or in Week, so it can't leave the last of them.
-  const inNoList = !task.parentId && !task.listId;
-  if (input.today === false && inNoList && !task.weekDay) {
-    throw new HttpError(400, "This task only lives in Today. Move it to a list first, or delete it.");
-  }
-  if (input.week === false && inNoList && !task.todaySince) {
-    throw new HttpError(400, "This task only lives in Week. Move it to a list first, or delete it.");
-  }
-  if (input.today !== undefined) data.todaySince = input.today ? (task.todaySince ?? req.localDate) : null;
-  if (input.week === false) data.weekDay = null;
-
-  // A schedule only makes sense on a task that is done again and again, so setting one makes the task persistent.
-  const isPersistent = input.isPersistent ?? (input.repeatEvery ? true : task.isPersistent);
-  if (isPersistent && !task.isPersistent && task.isComplete) throw new HttpError(400, "Untick it first");
-  if (isPersistent && (input.deadlineDate === undefined ? task.deadlineDate : input.deadlineDate)) {
-    throw new HttpError(400, "A persistent task is never finished, so it can't have a deadline. Remove one or the other.");
-  }
-  data.isPersistent = isPersistent;
-  const repeatEvery = input.repeatEvery === undefined ? task.repeatEvery : input.repeatEvery;
-  // A changed schedule has other rounds: moved ones are forgotten.
-  const reschedules = [input.repeatEvery, input.repeatUnit, input.repeatAfterDone, input.nextDue].some((v) => v !== undefined);
-  if (!isPersistent || !repeatEvery || reschedules) data.roundMoves = Prisma.DbNull;
-  if (!isPersistent || !repeatEvery) {
-    data.repeatEvery = null;
-    data.nextDue = null;
-  } else {
-    data.repeatEvery = repeatEvery;
-    data.repeatUnit = input.repeatUnit;
-    data.repeatAfterDone = input.repeatAfterDone;
-    data.repeatMakeUp = input.repeatMakeUp;
-    data.nextDue = input.nextDue ?? task.nextDue ?? req.localDate;
-  }
-
-  if (input.deadlineDate !== undefined) {
-    if (input.deadlineDate && (await findDepth(prisma, task.id)) > MAX_DEADLINE_DEPTH) {
-      throw new HttpError(400, "Deadlines can only be set on main tasks and their direct subtasks");
-    }
-    data.deadlineDate = input.deadlineDate;
-    // A date edit never rewrites an existing type, so it can't undo a concurrent hard/soft switch.
-    if (input.deadlineDate && !input.deadlineType && !task.deadlineType) data.deadlineType = "hard";
-  }
-
-  const updated = await prisma.$transaction(async (tx) => {
-    const changed = await tx.task.update({ where: { id: task.id }, data });
-    if (!input.week || task.weekDay) return changed;
-    await placeInWeek(tx, task.userId, task.id, req.localDate, undefined, req.localDate);
-    return tx.task.findUniqueOrThrow({ where: { id: task.id } });
-  });
-  res.json({ task: updated });
+  res.json({ task: await updateTask(await pathTask(req), input, req.localDate) });
 });
 
-// A round of a task on a schedule moved to another day in the Week box: the one planned on `from` is done on `to`
-// (back on its own day when `to` is `from`). Only that round moves; the ones after it keep their planned days.
+// A round of a task on a schedule moved to another day in the Week box (see moveRound).
 tasksRouter.post("/:id/round", async (req, res) => {
-  const { from, to } = z.object({ from: localDate, to: localDate }).parse(req.body);
-  const task = await ownTask(req, req.params.id);
-  if (!task.repeatEvery || !task.nextDue) throw new HttpError(400, "Only a task on a schedule has rounds to move");
-  const { [from]: _, ...others } = roundMovesOf(task.roundMoves);
-  const moves = from === to ? others : { ...others, [from]: to };
-  const updated = await prisma.task.update({
-    where: { id: task.id },
-    data: { roundMoves: Object.keys(moves).length > 0 ? moves : Prisma.DbNull },
-  });
-  res.json({ task: updated });
+  const { from, to } = roundInput.parse(req.body);
+  res.json({ task: await moveRound(await pathTask(req), from, to) });
 });
 
 // A place in the Week box: on `day`, right after `after` there (null = first, left out = last). A task not yet in
 // the box comes into it.
 tasksRouter.post("/:id/week", async (req, res) => {
-  const { day, after } = z.object({ day: localDate, after: z.string().uuid().nullish() }).parse(req.body);
-  const task = await ownTask(req, req.params.id);
+  const { day, after } = weekInput.parse(req.body);
+  const task = await pathTask(req);
   await prisma.$transaction((tx) => placeInWeek(tx, task.userId, task.id, day, after, req.localDate));
   res.status(204).end();
 });
 
-/**
- * Everything beneath a task (not the task itself) that has to be done for it to be finished: a persistent task under
- * it, never finished, is left out with what is beneath it (see countedIds).
- */
-async function countedBelow(id: string) {
-  const below = await prisma.task.findMany({
-    where: { id: { in: (await findSubtree(prisma, [id])).map((t) => t.id) } },
-    select: { id: true, parentId: true, isPersistent: true, isComplete: true, completedAt: true, completedOn: true },
-  });
-  const counted = new Set(countedIds(below, id));
-  return below.filter((t) => t.id !== id && counted.has(t.id));
-}
-
-// Ticks (`done: true`) or unticks this one node only; parents and children are untouched. Without `done` it
-// flips. Asking for what it already is changes nothing, so a request sent twice is harmless.
-// A task can only be ticked once everything beneath it is. Ticking a task that
-// is worth something books its points (a reward's cost, in a reward list);
-// un-ticking reverses exactly that booking.
+// Ticks or unticks this one node (see toggleTask); the answer says how many were done today, for the break reminder.
 tasksRouter.patch("/:id/toggle", async (req, res) => {
   const { done } = z.object({ done: z.boolean().optional() }).parse(req.body ?? {});
-  const task = await ownTask(req, req.params.id);
-  if (task.isPersistent) throw new HttpError(400, "A persistent task is done with its “done it” button");
-  const next = done ?? !task.isComplete;
-  if (next && !task.isComplete && (await countedBelow(task.id)).some((t) => !t.isComplete)) {
-    throw new HttpError(400, "Tick its subtasks first");
-  }
-  const updated = await prisma.$transaction(async (tx) => {
-    // The row itself is the guard: of two requests at once, only the first still finds it the other way
-    // round (the second waits for it, then matches nothing), so the points are booked or reversed once.
-    const { count } = await tx.task.updateMany({
-      where: { id: task.id, isComplete: !next, deletedAt: null },
-      data: completionPatch(task, next, req.clientTime, req.localDate),
-    });
-    if (count === 1) {
-      // A refused booking (not enough points, over the cap) throws, which takes the tick back too.
-      if (next) await bookTick(tx, task);
-      else await reverseTaskBooking(tx, task);
-    }
-    return tx.task.findUniqueOrThrow({ where: { id: task.id } });
-  });
-  res.json({ task: updated, doneToday: await doneToday(task.userId, req.localDate) });
+  const task = await pathTask(req);
+  res.json({ task: await toggleTask(task, done, momentOf(req)), doneToday: await doneToday(task.userId, req.localDate) });
 });
 
-/** How many tasks the user has done on this day: every ticked one (subtasks too) and every "done it" press. */
-async function doneToday(owner: string, day: string) {
-  const [ticked, pressed] = await Promise.all([
-    prisma.task.count({ where: { userId: owner, deletedAt: null, isComplete: true, completedOn: day } }),
-    prisma.taskCompletion.count({ where: { userId: owner, day } }),
-  ]);
-  return ticked + pressed;
-}
+tasksRouter.use("/:id/completions", completionsRouter);
 
-// One press of a persistent task's "done it" button: logs it, books the points
-// and unticks its subtasks for the next round. The task itself stays open; on a
-// schedule, it is due again one interval on.
-tasksRouter.post("/:id/completions", async (req, res) => {
-  // `id`: made on the device for a press made offline; see lib/clientId.
-  const { id } = z.object({ id: z.string().uuid().optional() }).parse(req.body ?? {});
-  const task = await ownTask(req, req.params.id);
-  const made = id && alreadyMade(await prisma.taskCompletion.findUnique({ where: { id } }), task.userId);
-  if (made) {
-    return void res.json({ completion: { id: made.id, day: made.day }, doneToday: await doneToday(task.userId, req.localDate) });
-  }
-  if (!task.isPersistent) throw new HttpError(400, "Only persistent tasks can be done again and again");
-  // A persistent task under it keeps its own rounds, and their ticks.
-  const ticked = (await countedBelow(task.id)).flatMap((t) =>
-    t.completedAt && t.completedOn ? [{ id: t.id, completedAt: t.completedAt, completedOn: t.completedOn }] : [],
-  );
-
-  const { repeatEvery, nextDue } = task;
-  const dueBefore = repeatEvery && nextDue ? nextDue : null;
-
-  const completion = await prisma.$transaction(async (tx) => {
-    const booked = await bookTask(tx, task);
-    if (repeatEvery && nextDue) {
-      const next = dueAfter({ ...task, repeatEvery, nextDue }, req.localDate);
-      await tx.task.update({
-        where: { id: task.id },
-        data: { nextDue: next, roundMoves: movesFrom(task.roundMoves, next) ?? Prisma.DbNull },
-      });
-    }
-    await tx.task.updateMany({
-      where: { id: { in: ticked.map((t) => t.id) } },
-      data: { isComplete: false, completedAt: null, completedOn: null },
-    });
-    return tx.taskCompletion.create({
-      data: {
-        id,
-        createdAt: req.clientTime,
-        userId: task.userId,
-        taskId: task.id,
-        day: req.localDate,
-        pointTransactionId: booked?.id ?? null,
-        dueBefore,
-        unticked: ticked.map((t) => ({ id: t.id, completedAt: t.completedAt!.toISOString(), completedOn: t.completedOn! })),
-      },
-    });
-  });
-  res.status(201).json({
-    completion: { id: completion.id, day: completion.day },
-    doneToday: await doneToday(task.userId, req.localDate),
-  });
-});
-
-// Undo of a press: the log entry goes, its points are reversed, the subtasks
-// it unticked get their ticks back and a scheduled task is due when it was before.
-tasksRouter.delete("/:id/completions/:completionId", async (req, res) => {
-  const task = await ownTask(req, req.params.id);
-  const completion = await prisma.taskCompletion.findFirst({
-    where: { id: req.params.completionId, taskId: task.id },
-  });
-  // Undone already: an undo sent again.
-  if (!completion) return void res.status(204).end();
-  const unticked = untickedSchema.catch([]).parse(completion.unticked);
-
-  await prisma.$transaction(async (tx) => {
-    const booked = completion.pointTransactionId
-      ? await tx.pointTransaction.findUnique({ where: { id: completion.pointTransactionId } })
-      : null;
-    if (booked) await reverseBooking(tx, booked);
-    for (const sub of unticked) {
-      await tx.task.updateMany({
-        where: { id: sub.id, userId: task.userId, isComplete: false },
-        data: { isComplete: true, completedAt: new Date(sub.completedAt), completedOn: sub.completedOn },
-      });
-    }
-    if (completion.dueBefore && task.repeatEvery) {
-      await tx.task.update({ where: { id: task.id }, data: { nextDue: completion.dueBefore } });
-    }
-    await tx.taskCompletion.delete({ where: { id: completion.id } });
-  });
-  res.status(204).end();
-});
-
-// Moves a task (with its subtree) anywhere: reorder among siblings, under
-// another parent, or to the top level of a list. `index` counts the
-// destination's siblings without the moved task itself.
+// Moves a task, with its subtree, anywhere (see moveTask).
 tasksRouter.post("/:id/move", async (req, res) => {
   const input = moveInput.parse(req.body);
-  const owner = userId(req);
-  const task = await ownTask(req, req.params.id);
-  // The task and everything that moves with it, each with its depth below the task.
-  const moved = await findSubtree(prisma, [task.id]);
-
-  if (input.parentId) {
-    await ownTask(req, input.parentId);
-    if (moved.some((t) => t.id === input.parentId)) throw new HttpError(400, "A task can't be moved inside itself");
-  } else if (input.listId) {
-    await assertOwnList(req, input.listId);
-  } else if (task.parentId || task.listId) {
-    // Only tasks written straight into Today live without a list; they can be reordered there.
-    throw new HttpError(400, "Today is only a view: mark the task for today instead, it stays in its list");
-  }
-
-  // Refuse rather than silently drop a deadline that would end up too deep.
-  const newDepth = input.parentId ? (await findDepth(prisma, input.parentId)) + 1 : 0;
-  const deepIds = moved.filter((t) => newDepth + t.depth > MAX_DEADLINE_DEPTH).map((t) => t.id);
-  const tooDeep =
-    deepIds.length > 0
-      ? await prisma.task.findFirst({ where: { id: { in: deepIds }, deadlineDate: { not: null } }, select: { title: true } })
-      : null;
-  if (tooDeep) {
-    throw new HttpError(
-      400,
-      `"${tooDeep.title}" has a deadline, and deadlines only work on main tasks and their direct subtasks. Remove the deadline first.`,
-    );
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.task.update({
-      where: { id: task.id },
-      data: input.parentId
-        ? // Subtasks belong to their parent's list implicitly.
-          { parentId: input.parentId, listId: null }
-        : { parentId: null, listId: input.listId },
-    });
-    await placeAmongSiblings(tx, owner, task.id, input.parentId, input.parentId ? null : input.listId, input.index);
-  });
+  await moveTask(await pathTask(req), input);
   res.status(204).end();
 });
 
-// Soft-deletes the task and everything beneath it, stamped with one shared
-// time so restore can tell this delete apart from earlier ones in the subtree.
+// Soft-deletes the task and everything beneath it; deleted already is no error.
 tasksRouter.delete("/:id", async (req, res) => {
-  const task = await prisma.task.findFirst({ where: { id: req.params.id, userId: userId(req) } });
-  if (!task) throw notFound("Task");
-  // Deleted already: a delete sent again.
-  if (task.deletedAt) return void res.status(204).end();
-  await prisma.task.updateMany({
-    where: { id: { in: (await findSubtree(prisma, [task.id])).map((t) => t.id) } },
-    data: { deletedAt: new Date() },
-  });
+  await deleteTask(userId(req), req.params.id);
   res.status(204).end();
 });
 
-// Undo of a delete: brings back the task and the subtasks deleted with it, within a minute of the delete.
+// Undo of a delete, within a minute of it; back already is no error.
 tasksRouter.post("/:id/restore", async (req, res) => {
-  const owner = userId(req);
-  const task = await prisma.task.findFirst({ where: { id: req.params.id, userId: owner } });
-  if (!task) throw notFound("Deleted task");
-  // Not deleted (any more): a restore sent again.
-  if (!task.deletedAt) return void res.status(204).end();
-  if (!isRestorable(task.deletedAt!)) throw tooLateToRestore();
-  if (task.parentId) {
-    const parent = await prisma.task.findFirst({ where: { id: task.parentId, deletedAt: null } });
-    if (!parent) throw new HttpError(409, "Its parent task was deleted too; restore that one first");
-  } else if (task.listId) {
-    const list = await prisma.list.findFirst({ where: { id: task.listId, deletedAt: null } });
-    if (!list) throw new HttpError(409, "Its list was deleted too; restore that one first");
-  }
-  await prisma.task.updateMany({ where: { userId: owner, deletedAt: task.deletedAt }, data: { deletedAt: null } });
+  await restoreTask(userId(req), req.params.id);
   res.status(204).end();
 });

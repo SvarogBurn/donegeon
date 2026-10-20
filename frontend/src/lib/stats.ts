@@ -1,5 +1,6 @@
+import { addDays, daysBetween } from "../../../shared/dates";
 import type { List, PointsSummary, StatRow } from "../types";
-import { addDays, daysBetween, formatDay } from "./dates";
+import { formatDay, localDay } from "./dates";
 
 // The numbers behind the stats on the Stats page. Everything is worked out
 // in the browser from every task there is (cut down to a small row each, see
@@ -61,8 +62,6 @@ export interface StatFilter {
 
 export const NO_STAT_FILTER: StatFilter = { range: "all", listId: "", folderId: "", goalId: "", tagId: "", deadline: "", repeating: "" };
 
-const pad = (n: number) => String(n).padStart(2, "0");
-const localDay = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 /** 0 = Monday ... 6 = Sunday. */
 export const weekdayIndex = (day: string) => (new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7;
 

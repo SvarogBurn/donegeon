@@ -1,9 +1,10 @@
 import { TileFrame } from "../components/Tiles/TileFrame";
 import { useMe } from "../hooks/useAuth";
-import { usePoints } from "../hooks/useTasks";
+import { usePoints } from "../hooks/points";
 import { formatAmount } from "../lib/points";
 import type { PointsSummary } from "../types";
 import { RichText } from "../components/RichText";
+import { pad2 } from "../lib/dates";
 
 const WHAT: Record<PointsSummary["transactions"][number]["type"], string> = {
   earned: "Earned",
@@ -13,8 +14,7 @@ const WHAT: Record<PointsSummary["transactions"][number]["type"], string> = {
 
 function when(createdAt: string) {
   const date = new Date(createdAt);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${String(date.getFullYear()).slice(2)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${String(date.getFullYear()).slice(2)} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
 /** The balance and everything that led to it: points earned, spent on rewards, and taken back by an untick or undo. */

@@ -1,6 +1,9 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
-import { localDate } from "../../api/client";
-import { useGoals, useLists, usePoints, useStatRows, useTags } from "../../hooks/useTasks";
+import { localDate } from "../../lib/clock";
+import { useGoals, useTags } from "../../hooks/labels";
+import { useLists } from "../../hooks/lists";
+import { usePoints } from "../../hooks/points";
+import { useStatRows } from "../../hooks/tasks";
 import { listColor } from "../../lib/frameTones";
 import { useOnline } from "../../lib/offline/online";
 import { bodyOf } from "../../lib/character/bodies";

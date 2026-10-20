@@ -1,6 +1,7 @@
 import type { CombinedCountdown, Countdown, DonePage, PointsSummary, PressureSummary, RepeatUnit, SearchResult, StatRow, Task, TaskTreeNode } from "../types";
 import type { DashboardLayout } from "../lib/tileLayout";
-import { api, type When } from "./client";
+import type { When } from "../lib/clock";
+import { api } from "./client";
 
 /** A place in the tree: under a parent task, or at the top level of a list. */
 export interface TaskPlacement {

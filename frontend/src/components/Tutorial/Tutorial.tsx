@@ -1,9 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useUpdateMe } from "../../hooks/useAuth";
-import { useFolders, useLayout, useLists, useTaskTrees } from "../../hooks/useTasks";
+import { useFolders } from "../../hooks/folders";
+import { useLayout } from "../../hooks/layout";
+import { useLists } from "../../hooks/lists";
+import { useTaskTrees } from "../../hooks/tasks";
 import type { User } from "../../types";
 import { MAKE_TASK, STEPS, type TutorialContext } from "./steps";
+import { readStored } from "../../lib/storage";
 
 /** Where the tutorial has got to, kept for the tab so a reload doesn't start it over. */
 interface Progress {
@@ -149,7 +153,7 @@ function useTargetRects(selectors: string[], also: string[], step: number): Foun
  * for the user to do what they are told (see steps.tsx). Nothing is blocked: the whole app stays usable.
  */
 export function Tutorial({ user }: { user: User }) {
-  const isSpared = navigator.webdriver && !stored(() => localStorage.getItem(FORCE), null);
+  const isSpared = navigator.webdriver && !readStored(FORCE);
   if (user.tutorialSeen || isSpared) return null;
   return <Running key={user.id} user={user} />;
 }

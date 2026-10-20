@@ -81,6 +81,7 @@ describe("ensureAwake", () => {
       throw new TypeError("Failed to fetch");
     });
     const awake = status.ensureAwake(true);
+    // oxlint-disable-next-line vitest/valid-expect -- awaited below, once the fake timers have run
     const failed = expect(awake).rejects.toThrow("Can't reach the server");
     await vi.advanceTimersByTimeAsync(2 * 60_000);
     await failed;
@@ -100,6 +101,7 @@ describe("ensureAwake", () => {
 
   it("shows at once that it is trying again when the user asks", async () => {
     fetchMock.mockImplementation(async () => asleep());
+    // oxlint-disable-next-line vitest/valid-expect -- awaited below, once the fake timers have run
     const failed = expect(status.ensureAwake(true)).rejects.toThrow();
     await vi.advanceTimersByTimeAsync(2 * 60_000);
     await failed;

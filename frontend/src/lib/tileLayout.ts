@@ -102,8 +102,10 @@ export function arrange(layout: DashboardLayout, n: number, keys: string[], know
   const merged: string[][] = [];
   let orphans: string[] = [];
   for (const column of columns) {
-    if (column.some((key) => shown.has(key))) merged.push([...orphans, ...column]), (orphans = []);
-    else if (merged.length > 0) merged[merged.length - 1].push(...column);
+    if (column.some((key) => shown.has(key))) {
+      merged.push([...orphans, ...column]);
+      orphans = [];
+    } else if (merged.length > 0) merged[merged.length - 1].push(...column);
     else orphans.push(...column);
   }
   if (merged.length === 0) merged.push(orphans);

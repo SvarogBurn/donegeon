@@ -1,8 +1,9 @@
+import { addDays } from "../../../../shared/dates";
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { localDate } from "../../api/client";
-import { useUpdateTask } from "../../hooks/useTasks";
-import { addDays, formatDay } from "../../lib/dates";
+import { localDate } from "../../lib/clock";
+import { useUpdateTask } from "../../hooks/tasks";
+import { formatDay } from "../../lib/dates";
 import type { PassedDeadline } from "../../lib/notifications";
 import { RichText } from "../RichText";
 import { DateField } from "../TaskTree/DeadlineFields";

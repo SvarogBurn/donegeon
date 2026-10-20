@@ -1,5 +1,5 @@
 import { formatDay, parseDayWords, parseRepeatWords } from "./dates";
-import { MAX_POINTS } from "./points";
+import { MAX_POINTS } from "../../../shared/constants";
 import type { RepeatUnit } from "../types";
 
 /** Something a typed name can stand for: a tag, a goal or a list. */

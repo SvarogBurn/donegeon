@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import { useNavigate } from "react-router";
-import { useCombinedCountdown, useTaskTrees } from "../../hooks/useTasks";
+import { useCombinedCountdown, useTaskTrees } from "../../hooks/tasks";
 import { formatPace } from "../../lib/dates";
 import { findNode } from "../../lib/optimisticToggle";
 import { findTaskRow, pathIdsTo, showOnPage } from "../../lib/showOnPage";

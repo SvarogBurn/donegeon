@@ -1,11 +1,13 @@
+import { addDays } from "../../../../shared/dates";
 import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { localDate } from "../../api/client";
-import { useDoneOn } from "../../hooks/useTasks";
-import { addDays, formatDay } from "../../lib/dates";
+import { localDate } from "../../lib/clock";
+import { useDoneOn } from "../../hooks/tasks";
+import { formatDay } from "../../lib/dates";
 import type { TaskTreeNode } from "../../types";
 import { TileFrame } from "../Tiles/TileFrame";
 import { RichText } from "../RichText";
+import { firstLine } from "../../lib/markup";
 
 interface DoneTask {
   id: string;
@@ -17,7 +19,6 @@ interface DoneTask {
   times?: number;
 }
 
-const firstLine = (title: string) => title.split("\n")[0];
 
 /** Every task ticked off on `day`, at any depth, in the order they were ticked; a persistent task once, with how often. */
 function doneOn(trees: TaskTreeNode[], day: string): DoneTask[] {

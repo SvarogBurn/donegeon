@@ -1,6 +1,12 @@
-import { addInterval } from "./repeat";
+import { addDays } from "../../../shared/dates";
+import type { RepeatUnit } from "../../../shared/enums";
+import { addInterval } from "../../../shared/repeat";
 
-const pad = (n: number) => String(n).padStart(2, "0");
+/** 7 -> "07": a month, a day, an hour or a minute, as dates and clocks write them. */
+export const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** The device's own calendar day of a moment, "YYYY-MM-DD" (not the UTC one). */
+export const localDay = (date: Date) => `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 
 /** "2026-10-07" -> "07/10" (or "Wed 07/10"). Day first, no year. */
 export function formatDay(day: string, withWeekday = false) {
@@ -9,18 +15,6 @@ export function formatDay(day: string, withWeekday = false) {
   if (!withWeekday) return short;
   const weekday = new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { weekday: "short" });
   return `${weekday} ${short}`;
-}
-
-/** "2026-10-07", -1 -> "2026-10-06". */
-export function addDays(day: string, days: number) {
-  const date = new Date(`${day}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-/** Whole days from `from` to `to`: "2026-10-07", "2026-10-09" -> 2. */
-export function daysBetween(from: string, to: string) {
-  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 }
 
 /** "2026-10-07" -> "07/10/26", as in the countdown table. */
@@ -47,7 +41,7 @@ export function parseDay(text: string, thisYear = new Date().getFullYear()): str
   const year = match[3] === undefined ? thisYear : match[3].length === 2 ? 2000 + Number(match[3]) : Number(match[3]);
   const check = new Date(Date.UTC(year, month - 1, date));
   if (check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== date) return null;
-  return `${year}-${pad(month)}-${pad(date)}`;
+  return `${year}-${pad2(month)}-${pad2(date)}`;
 }
 
 /** 1.25 -> "1.3", 2 -> "2". */
@@ -109,7 +103,7 @@ export function parseDayWords(text: string, today: string): { day: string; lengt
 /** A schedule as typed: due every so many units, first on `nextDue`. */
 export interface TypedRepeat {
   every: number;
-  unit: "day" | "week" | "month";
+  unit: RepeatUnit;
   nextDue: string;
   length: number;
 }

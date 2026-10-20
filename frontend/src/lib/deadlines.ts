@@ -1,5 +1,5 @@
+import { addDays } from "../../../shared/dates";
 import type { DeadlineToday, TaskTreeNode } from "../types";
-import { addDays } from "./dates";
 
 type Dated = Pick<TaskTreeNode, "deadlineDate" | "nextDue">;
 

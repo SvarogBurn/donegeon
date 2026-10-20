@@ -1,6 +1,5 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { sendFeedback } from "../../api/feedback";
+import { useSendFeedback } from "../../hooks/feedback";
 import { useOnline } from "../../lib/offline/online";
 import type { FeedbackKind } from "../../types";
 import { TileFrame } from "../Tiles/TileFrame";
@@ -19,16 +18,10 @@ export function FeedbackBox({ username }: { username: string }) {
   const [kind, setKind] = useState<FeedbackKind>("bug");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
-  const queryClient = useQueryClient();
   const online = useOnline();
-  const send = useMutation({
-    mutationFn: sendFeedback,
-    onSuccess: () => {
-      setSubject("");
-      setMessage("");
-      // A developer's own letter turns up in the inbox under the box.
-      queryClient.invalidateQueries({ queryKey: ["feedback"] });
-    },
+  const send = useSendFeedback(() => {
+    setSubject("");
+    setMessage("");
   });
 
   const submit = (e: FormEvent) => {

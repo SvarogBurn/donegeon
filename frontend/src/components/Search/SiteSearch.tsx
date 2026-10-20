@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { useNotesTab } from "../../hooks/useAuth";
-import { useFolders, useGoals, useLists, useNotes, useTags, useTaskSearch, useTaskTrees } from "../../hooks/useTasks";
+import { useFolders } from "../../hooks/folders";
+import { useGoals, useTags } from "../../hooks/labels";
+import { useLists } from "../../hooks/lists";
+import { useNotes } from "../../hooks/notes";
+import { useTaskSearch, useTaskTrees } from "../../hooks/tasks";
 import { formatDay } from "../../lib/dates";
 import { listView, noteView } from "../../lib/folders";
 import { useOnline } from "../../lib/offline/online";
 import { findNode } from "../../lib/optimisticToggle";
 import { findTaskRow, showOnPage } from "../../lib/showOnPage";
 import type { SearchResult } from "../../types";
-import { STAT_BOXES } from "../Stats/StatsPanel";
+import { STAT_BOXES } from "../Stats/statBoxes";
 import { RichText } from "../RichText";
 import { plainTitle } from "../../lib/markup";
 
