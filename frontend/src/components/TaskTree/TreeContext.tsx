@@ -16,7 +16,7 @@ import { NO_FILTER, type LabelFilter } from "../../lib/labels";
 import { isInRound, isShown } from "../../lib/recent";
 import { useSortByDeadline, useTickedTasks } from "../../hooks/useAuth";
 import { orderDay } from "../../lib/deadlines";
-import { livesInToday, livesInWeek, weekColumn, weekDays } from "../../lib/week";
+import { isPutOff, livesInToday, livesInWeek, weekColumn, weekDays } from "../../lib/week";
 import { currentRound } from "../../lib/repeat";
 import { localDate } from "../../api/client";
 import {
@@ -431,7 +431,12 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
           const day = column?.dataset.weekDay ?? localDate();
           // A task on a schedule isn't put on a day: its round is moved there (the one dragged; from a list, its current one).
           const isScheduled = node.repeatEvery !== null && node.nextDue !== null && node.weekDay === null;
-          if (isScheduled) return moveRound.mutate({ id: node.id, from: round ?? currentRound(node, localDate())!.planned, to: day });
+          if (isScheduled) {
+            moveRound.mutate({ id: node.id, from: round ?? currentRound(node, localDate())!.planned, to: day });
+            // Put off to next week, it leaves Today, as placeInWeek has it for a task not on a schedule.
+            if (isPutOff({ ...node, weekDay: day }, localDate()) && node.todaySince !== null && !livesInToday(node)) setToday.mutate({ id: node.id, today: false });
+            return;
+          }
           if (!column || target.kind === "week") return placeInWeek.mutate({ id: node.id, day });
           const shown = [...column.querySelectorAll<HTMLElement>("[data-week-item]")].map((el) => el.dataset.weekItem!).filter((id) => id !== node.id);
           const at = target.kind === "weekDay" ? shown.length : shown.indexOf(target.id) + (target.zone === "after" ? 1 : 0);

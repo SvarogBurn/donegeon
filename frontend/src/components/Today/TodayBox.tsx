@@ -10,7 +10,7 @@ import { pointsFieldWidth, typedPoints } from "../../lib/points";
 import { currentRound, isDue } from "../../lib/repeat";
 import { findTaskRow, pathIdsTo, showOnPage, taskRow } from "../../lib/showOnPage";
 import { hasTaskPage } from "../../lib/taskPage";
-import { livesInToday, livesInWeek, weekDays, weeksBetween, type WeekAuto, type WeekItem } from "../../lib/week";
+import { isPutOff, livesInToday, livesInWeek, weekDays, weeksBetween, type WeekAuto, type WeekItem } from "../../lib/week";
 import { repeatLabel } from "../../lib/repeat";
 import { DeadlineBadge } from "../TaskTree/DeadlineBadge";
 import type { DeadlineToday, TaskTreeNode, TickedTasks } from "../../types";
@@ -39,7 +39,8 @@ const firstLine = (title: string) => title.split("\n")[0];
  * schedule that are due and, if the user chose so, the tasks whose deadline is near (`deadlines`): those come in by
  * themselves and leave when done. Open items stay from day to day;
  * a ticked one stays for the rest of the day it was ticked on (or goes at once, if the user chose to hide
- * ticked tasks). Subtasks left open inside a finished main task went to the Done page with it.
+ * ticked tasks). Subtasks left open inside a finished main task went to the Done page with it. What was put off to
+ * next week isn't for today, whatever would bring it in (its subtasks still can be).
  */
 function todayItems(trees: TaskTreeNode[], today: string, ticked: TickedTasks, deadlines: DeadlineToday): TodayItem[] {
   const found: TodayItem[] = [];
@@ -48,7 +49,7 @@ function todayItems(trees: TaskTreeNode[], today: string, ticked: TickedTasks, d
       const shown = node.isComplete ? ticked !== "hide" && node.completedOn === today : !rootFinished;
       const fromDeadline = deadlineTodayFrom(node, deadlines);
       const since = node.todaySince ?? (isDue(node, today) ? currentRound(node, today)!.day : null) ?? (fromDeadline !== null && fromDeadline <= today ? fromDeadline : null);
-      if (since !== null && shown && !livesInToday(node)) found.push({ node, since, path });
+      if (since !== null && shown && !livesInToday(node) && !isPutOff(node, today)) found.push({ node, since, path });
       visit(node.children, [...path, plainTitle(firstLine(node.title))], rootFinished || (path.length === 0 && node.isComplete));
     }
   };
@@ -246,18 +247,21 @@ function PickedRow({ node, path, today, box, carried, auto, missed = false, roun
               >
                 ×
               </button>
-              {/* Dropped on the Next week bin under the day's tasks, it is put off: out of Today, its days waiting forgotten. */}
-              {node.todaySince !== null && (
-                <button
-                  type="button"
-                  className="btn-quiet cursor-grab touch-none glyph select-none active:cursor-grabbing"
-                  onPointerDown={(e) => tree.startDrag(e, node)}
-                  aria-label={`Drag "${name}"`}
-                  title="Drag to the Next week bin to put it off (it leaves Today), or to a list or the Week tab"
-                >
-                  ⠿
-                </button>
-              )}
+              {/* Dropped on the Next week bin under the day's tasks, it is put off: out of Today, its days waiting forgotten.
+                  What came in by itself can be put off too, and comes back after that. */}
+              <button
+                type="button"
+                className="btn-quiet cursor-grab touch-none glyph select-none active:cursor-grabbing"
+                onPointerDown={(e) => tree.startDrag(e, node)}
+                aria-label={`Drag "${name}"`}
+                title={
+                  node.todaySince !== null
+                    ? "Drag to the Next week bin to put it off (it leaves Today), or to a list or the Week tab"
+                    : "Drag to the Next week bin to put it off (it leaves Today until then)"
+                }
+              >
+                ⠿
+              </button>
             </>
           )}
         </span>

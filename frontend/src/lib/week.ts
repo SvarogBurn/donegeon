@@ -19,6 +19,9 @@ export const daysOfWeek = (day: string) => Array.from({ length: 7 }, (_, i) => a
 export const livesInWeek = (node: TaskTreeNode) => !node.parentId && !node.listId && node.weekDay !== null;
 export const livesInToday = (node: TaskTreeNode) => !node.parentId && !node.listId && node.weekDay === null;
 
+/** Put off to next week (or later) in the Week box: it is not for today, whatever else would bring it into Today. */
+export const isPutOff = (node: TaskTreeNode, today: string) => node.weekDay !== null && node.weekDay >= addDays(mondayOf(today), 7);
+
 /** The day of this week (`today`'s) a task in Week is shown on: its own, or Monday for one still open from a week before. */
 export const weekColumn = (node: TaskTreeNode, today: string) => {
   const monday = mondayOf(today);
