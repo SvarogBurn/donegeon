@@ -42,8 +42,8 @@ export interface Skill {
   color?: string;
 }
 
+/** The character's name is always the username: a name saved before is dropped. */
 export interface Profile {
-  name?: string;
   title?: string;
   stats: StatKey[];
   custom: CustomStat[];
@@ -51,7 +51,6 @@ export interface Profile {
   look?: Look;
 }
 
-export const NAME_MAX = 24;
 export const TITLE_MAX = 20;
 export const STAT_NAME_MAX = 12;
 export const SKILL_NAME_MAX = 20;
@@ -111,9 +110,8 @@ export function normalizeProfile(raw: unknown, known?: Known): Profile {
     const color = typeof s.color === "string" && HEX.test(s.color) ? s.color.toLowerCase() : undefined;
     return [{ kind, id: s.id, ...(name && { name }), ...(color && { color }) }];
   });
-  const name = text(p.name, NAME_MAX);
   const title = text(p.title, TITLE_MAX);
-  return { ...(name && { name }), ...(title && { title }), stats, custom, skills, ...(p.look !== undefined && { look: normalizeLook(p.look) }) };
+  return { ...(title && { title }), stats, custom, skills, ...(p.look !== undefined && { look: normalizeLook(p.look) }) };
 }
 
 /** A fresh id for a custom stat. */

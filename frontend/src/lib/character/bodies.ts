@@ -63,6 +63,8 @@ const HUMAN_HAIR = [
   ...[1, 2, 3, 4, 5, 6].map((n) => `Hair front ${n}`),
   "beard", "beard flatter", "moustache",
 ];
+const HUMAN_EYES = [1, 2, 3, 4, 5].map((n) => `eyes ${n}`);
+const HUMAN_NOSES = [1, 2, 3, 4, 5].map((n) => `nose ${n}`);
 const HUMAN_EARS = ["bunny", "cat", "puppy"].map((a) => `deco ${a} headwear`);
 const HUMAN_TAILS = ["bunny", "cat", "puppy", "bushy", "cow", "dragon"].map((a) => `deco ${a} tail`);
 
@@ -111,6 +113,17 @@ export const BODIES: Body[] = [
     name: "Human",
     file: "48x32_human_v2",
     options: [
+      {
+        // Eyes 1 is what the body had drawn on it before the eyes were layers of their own.
+        id: "eyes",
+        name: "Eyes",
+        choices: HUMAN_EYES.map((layer, i) => ({ id: `eyes${i + 1}`, name: `Eyes ${i + 1}`, layers: [layer] })),
+      },
+      {
+        id: "nose",
+        name: "Nose",
+        choices: [NONE(), ...HUMAN_NOSES.map((layer, i) => ({ id: `nose${i + 1}`, name: `Nose ${i + 1}`, layers: [layer] }))],
+      },
       {
         id: "hair",
         name: "Hair",
@@ -219,14 +232,24 @@ export const BODIES: Body[] = [
           NONE(),
           { id: "choker", name: "Choker", layers: ["neckwear choker"] },
           { id: "nosering", name: "Nose ring", layers: ["jewlery nosering"] },
-          { id: "both", name: "Choker & nose ring", layers: ["neckwear choker", "jewlery nosering"] },
         ],
+      },
+      {
+        id: "glasses",
+        name: "Glasses",
+        choices: [NONE(), { id: "glasses1", name: "Glasses 1", layers: ["glasses 1"] }, { id: "glasses2", name: "Glasses 2", layers: ["glasses 2"] }],
+      },
+      {
+        id: "cane",
+        name: "Cane",
+        choices: [NONE(), { id: "metal", name: "Metal cane", layers: ["metal cane"] }, { id: "fancy", name: "Fancy cane", layers: ["fancy cane"] }],
       },
     ],
     materials: [
-      // Stubble is a shade of the skin, so it suits any skin colour.
-      { id: "skin", name: "Skin", hexes: ["#D9B089", "#C99960", "#B1866A"], layers: ["body", "stubble"] },
-      { id: "eyes", name: "Eyes", hexes: ["#6A87C2"], layers: ["body"] },
+      // Stubble and the noses are shades of the skin, so they suit any skin colour.
+      { id: "skin", name: "Skin", hexes: ["#D9B089", "#C99960", "#B1866A", "#A86666"], layers: ["body", "stubble", ...HUMAN_NOSES] },
+      // Only the iris: the whites and the dark lashes over some of the eyes stay as drawn.
+      { id: "eyes", name: "Eyes", hexes: ["#6A87C2"], layers: HUMAN_EYES },
       { id: "hair", name: "Hair", hexes: ["#683931", "#41261D", "#522A23", "#2D1912"], layers: HUMAN_HAIR },
       // The old ids, so a colour picked for the first human's sweater and shorts stays. The blouse is drawn white.
       { id: "sweater", name: "Top", hexes: ["#722120", "#591D1B", "#91282C", "#4F1616"], layers: ["hoodie", "shirt", "dress", "coat"] },
@@ -245,6 +268,11 @@ export const BODIES: Body[] = [
       { id: "markings", name: "Inner ears", hexes: ["#353536"], layers: HUMAN_EARS },
       { id: "horns", name: "Horns", hexes: ["#3D3D3D"], layers: ["deco horns"] },
       { id: "jewellery", name: "Jewellery", hexes: ["#3D3D3D"], layers: ["neckwear choker", "jewlery nosering"] },
+      { id: "glasses", name: "Glasses", hexes: ["#2B2B2B"], layers: ["glasses 1", "glasses 2"] },
+      // The fancy cane's gold handle is a colour of its own; its dark tip goes with the stick.
+      { id: "handle", name: "Handle", hexes: ["#9F651D", "#6C4310"], layers: ["fancy cane"] },
+      { id: "cane", name: "Cane", hexes: ["#5E5858", "#333030"], layers: ["metal cane"] },
+      { id: "cane", name: "Cane", hexes: ["#524E49", "#2D1C08"], layers: ["fancy cane"] },
     ],
   },
   {

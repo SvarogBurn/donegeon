@@ -213,7 +213,7 @@
   .band-tab:hover {
     color: #3f3f74;
   }
-  /* A text button on a band ("Edit" on the Character box), on the same plate as a tab, in its dark text. */
+  /* A text button on the same plate as a band's tab, in its dark text ("Edit" at the bottom of the Character box). */
   .band-button {
     @apply ml-auto flex-none disabled:cursor-not-allowed disabled:opacity-50;
     color: #222034;

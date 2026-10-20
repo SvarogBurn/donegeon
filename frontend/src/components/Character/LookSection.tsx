@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { BODIES, bodyOf, choiceOf, materialsOf, type Look } from "../../lib/character/bodies";
-import { DEFAULT_TITLE, NAME_MAX, TITLE_MAX } from "../../lib/character/profile";
+import { DEFAULT_TITLE, TITLE_MAX } from "../../lib/character/profile";
 import { CLOTH_COLORS, FUR_COLORS } from "../../lib/character/ramps";
 import { CharacterSprite } from "./CharacterSprite";
 import { field, type SectionProps } from "./StatsEditor";
@@ -107,13 +107,12 @@ function randomLook(): Look {
 }
 
 /**
- * The Look section of the character editor: the name and title, the character big, changing as things are picked
+ * The Look section of the character editor: the title (the name is the username), the character big, changing as things are picked
  * (in sight while colours further down are picked); a row for the body (each one of the user's drawings, whole), a
  * row for each piece that body can change, and a colour row for each of its materials.
  */
 export function LookSection({ look, setLook, draft, set, username }: SectionProps & { look: Look; setLook: (update: (look: Look) => Look) => void; username: string }) {
   const body = bodyOf(look);
-  const name = draft.name ?? username;
 
   // A colour picked on one body stays for the next where it has the same material ("fur", "eyes"), and choices stay
   // for going back; what the body doesn't have is dropped when saved.
@@ -131,7 +130,7 @@ export function LookSection({ look, setLook, draft, set, username }: SectionProp
     <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start" data-editor-section="look">
       <div className="sticky top-0 z-10 flex w-full flex-none flex-col items-center gap-2 bg-stone-100 pb-2 sm:top-3 sm:w-auto sm:bg-transparent sm:pb-0 dark:bg-stone-950 sm:dark:bg-transparent">
         <div className="character-stage" data-edge={body.toEdge || undefined}>
-          <CharacterSprite look={look} scale={3} label={`${name}, as customized`} />
+          <CharacterSprite look={look} scale={3} label={`${username}, as customized`} />
         </div>
         <button type="button" className="nes-btn btn-small" onClick={() => setLook(() => randomLook())} data-creator-random>
           Random
@@ -139,10 +138,6 @@ export function LookSection({ look, setLook, draft, set, username }: SectionProp
       </div>
       <div className="w-full min-w-0 flex-1 space-y-4">
         <div className="grid grid-cols-[auto_1fr] items-center gap-2 text-xs">
-          <label htmlFor="character-name" className="font-pixel text-[10px] text-stone-500">
-            Name
-          </label>
-          <input id="character-name" className={field} value={draft.name ?? ""} maxLength={NAME_MAX} placeholder={username} onChange={(e) => set({ name: e.target.value || undefined })} data-character-name-field />
           <label htmlFor="character-title" className="font-pixel text-[10px] text-stone-500">
             Title
           </label>

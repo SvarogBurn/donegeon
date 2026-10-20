@@ -22,8 +22,8 @@ export function useProfile() {
   return {
     profile,
     look: profile.look ?? DEFAULT_LOOK,
-    /** The character's name: the one given, else the username. */
-    name: profile.name ?? user?.username ?? "",
+    /** The character's name: the username. */
+    name: user?.username ?? "",
     save: (next: Profile) => update.mutate({ profile: next }),
     error: update.error,
   };

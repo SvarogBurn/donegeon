@@ -61,6 +61,10 @@ describe("normalizeProfile", () => {
     expect(normalizeProfile(null)).toEqual({ stats: ["streak", "longest", "year"], custom: [], skills: [] });
   });
 
+  it("drops a name saved before: the character is called by the username", () => {
+    expect(normalizeProfile({ name: "Hero", title: "Scholar", stats: [], custom: [], skills: [] })).toEqual({ title: "Scholar", stats: [], custom: [], skills: [] });
+  });
+
   it("drops unknown stats, and lists, goals and tags that no longer exist", () => {
     const profile = normalizeProfile(
       {

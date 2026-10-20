@@ -16,7 +16,7 @@ const SECTIONS = [
 type Section = (typeof SECTIONS)[number][0];
 
 /**
- * Everything about the character, over the page, in three sections: its look (and name and title), the stats the
+ * Everything about the character, over the page, in three sections: its look (and title), the stats the
  * sheet shows, and its skills. Save keeps all of it; Cancel (or Esc) leaves the character as it was.
  */
 export function CharacterEditor({ onClose }: { onClose: () => void }) {

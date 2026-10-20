@@ -33,15 +33,19 @@ await openUser();
 out("the Character box is at the top of the page, above Account", await p.locator("section[aria-label]").first().getAttribute("aria-label") === "Character" && await p.locator('section[aria-label="Account"] [data-streak]').count() === 0);
 out("its band says the username (no name plate), its title Wanderer", await p.locator(`${sheet} .tile-title [data-character-name]`).innerText() === user && await p.locator(".name-plate").count() === 0 && await p.locator("[data-character-title]").innerText() === "Wanderer");
 out("one Edit button, no Customize", await p.locator("[data-character-edit]").count() === 1 && await p.locator(`${sheet} button:text-is("Customize")`).count() === 0);
+{
+  const [edit, body, skills] = await Promise.all([p.locator("[data-character-edit]").boundingBox(), p.locator(`${sheet} .tile-body`).boundingBox(), p.locator(`${sheet} h3:text-is("Skills")`).boundingBox()]);
+  out("Edit is at the bottom right of the box, not on its band", edit.y > skills.y && body.x + body.width - (edit.x + edit.width) < 40 && body.y + body.height - (edit.y + edit.height) < 40 && await p.locator(`${sheet} .tile-title [data-character-edit]`).count() === 0, JSON.stringify({ edit, body }));
+}
 out("9 tasks done: level 2 (5 exp), 4 of 10 into it", await attr("[data-character-level]", "data-character-level") === "2" && (await p.locator(`${sheet} [data-exp]`).first().innerText()) === "4 / 10 exp", await p.locator(`${sheet} [data-exp]`).first().innerText());
 out("the streak and the tasks done this year, as the Account box had them", await attr(`${sheet} [data-streak]`, "data-streak") === "1" && await attr(`${sheet} [data-done-year]`, "data-done-year") === "9");
 out("the character is drawn from its parts", await p.locator("[data-character-sprite] rect").count() > 100);
 await p.screenshot({ path: "character.png" });
 
-// The editor: a name and title (Look), longest streak off, open tasks on, a stat of Study and Gym with a target (Stats), Study as a pink skill (Skills).
+// The editor: a title (Look), longest streak off, open tasks on, a stat of Study and Gym with a target (Stats), Study as a pink skill (Skills).
 await p.locator("[data-character-edit]").click(); await p.waitForSelector("[data-character-editor]");
 out("the editor opens on Look, with Stats and Skills beside it", await p.locator('[data-editor-section="look"]').count() === 1 && await p.locator("[data-editor-tab]").count() === 3);
-await p.fill("[data-character-name-field]", "Hero");
+out("no name to write: the character is called by the username", await p.locator("[data-character-name-field], #character-name").count() === 0);
 await p.fill("[data-character-title-field]", "Scholar");
 await p.locator('[data-editor-tab="stats"]').click();
 await p.locator('[data-stat-switch="longest"]').click();
@@ -63,9 +67,9 @@ await p.locator("[data-skill-source] >> nth=1").selectOption({ label: "Gym" });
 await p.locator("[data-skill-color] >> nth=0").click();
 await p.locator('[data-skill-colors] button[aria-label="Pink"]').click();
 await p.locator('[data-editor-tab="look"]').click();
-out("going between sections keeps what was typed", await p.inputValue("[data-character-name-field]") === "Hero");
+out("going between sections keeps what was typed", await p.inputValue("[data-character-title-field]") === "Scholar");
 await p.locator("[data-editor-save]").click(); await wait(800);
-out("the band shows the name written, the title under the character", await p.locator(`${sheet} [data-character-name]`).innerText() === "Hero" && await p.locator("[data-character-title]").innerText() === "Scholar");
+out("the band still shows the username, the title under the character", await p.locator(`${sheet} [data-character-name]`).innerText() === user && await p.locator("[data-character-title]").innerText() === "Scholar");
 const barColor = (name) => p.locator(`${sheet} [data-skill="${name}"] .exp-bar-fill`).getAttribute("data-bar-color");
 out("Reading's bar is the pink picked; Gym's is its list's blue", await barColor("Reading") === "#d95f8c" && await barColor("Gym") === "#5b6ee1", `${await barColor("Reading")} ${await barColor("Gym")}`);
 out("longest streak switched off, open tasks on (1)", await p.locator(`${sheet} [data-stat="longest"]`).count() === 0 && (await p.locator(`${sheet} [data-stat="open"]`).innerText()).startsWith("1"));
@@ -85,6 +89,12 @@ await p.locator('[data-stepper="hat"] button[aria-label^="Previous"]').click();
 out("the hat can be taken off", await value("hat") === "None");
 await p.locator('[data-stepper="body"] button[aria-label^="Next"]').click();
 out("the next body is the human, with rows and colours of its own", await value("body") === "Human" && await value("hat") === "None" && await p.locator('[data-stepper="hair"]').count() === 1 && await p.locator('[data-color-row="sweater"]').count() === 1);
+out("the human has the eyes it was drawn with and no nose", await value("eyes") === "Eyes 1" && await value("nose") === "None");
+const creatorSprite = () => p.locator("[data-character-editor] [data-character-sprite] rect").evaluateAll((els) => els.map((el) => [el.getAttribute("x"), el.getAttribute("y"), el.getAttribute("fill")].join()).join(";"));
+const plain = await creatorSprite();
+await p.locator('[data-stepper="eyes"] button[aria-label^="Next"]').click();
+await p.locator('[data-stepper="nose"] button[aria-label^="Next"]').click();
+out("other eyes and a nose change the face", await value("eyes") === "Eyes 2" && await value("nose") === "Nose 1" && await creatorSprite() !== plain);
 await p.locator('[data-stepper="body"] button[aria-label^="Previous"]').click();
 await p.locator('[data-color-row="fur"] button[aria-label="Ginger"]').click();
 await p.locator('[data-color-row="coat"] button[aria-label="Teal"]').click();
@@ -112,6 +122,10 @@ const [sprite, stats] = await Promise.all([p.locator(`${sheet} .character-stage`
 out("on a phone the stats are under the character", stats.y > sprite.y + sprite.height, `${sprite.y + sprite.height} ${stats.y}`);
 const [svg, box] = await Promise.all([p.locator(`${sheet} [data-character-sprite]`).boundingBox(), p.locator(`${sheet} .tile-body`).boundingBox()]);
 out("on a phone the character is nearly as wide as the box, a whole number of pixels each", svg.width > box.width * 0.8 && svg.width % 32 === 0, `${svg.width} of ${box.width}`);
+{
+  const [edit, ps] = await Promise.all([p.locator("[data-character-edit]").boundingBox(), p.locator(`${sheet} p:has-text("Every task done is 1 exp")`).boundingBox()]);
+  out("on a phone Edit is at the bottom, as wide as the box and finger-sized", edit.y >= ps.y + ps.height && edit.width > box.width * 0.9 && edit.height >= 32, JSON.stringify(edit));
+}
 await p.screenshot({ path: "character-phone.png", fullPage: false });
 await p.locator("[data-character-edit]").click(); await p.waitForSelector("[data-character-editor]"); await wait(300);
 await p.screenshot({ path: "character-creator-phone.png" });

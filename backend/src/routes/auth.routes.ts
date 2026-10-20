@@ -58,7 +58,6 @@ const capped = <T extends z.ZodType>(value: T, max: number) =>
  */
 const profile = z
   .object({
-    name: z.string().trim().max(24, "A name is at most 24 characters").optional(),
     title: z.string().trim().max(20, "A title is at most 20 characters").optional(),
     stats: z.array(z.string().max(24)).max(30),
     custom: z
