@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
 import { useSearchParams } from "react-router";
 import { ColorChoices } from "../components/ColorChoices";
 import { NeedsConnection } from "../components/NeedsConnection";
@@ -16,16 +16,35 @@ const HOLD_MS = 500;
 /** A note's box dropped on one of the folders along the top of the page: data-tab-drop="notes:<id>" ("notes:" = All). */
 const NOTES_TAB = "notes:";
 
-/** A note folder's name and colour, and removing it (its notes stay, under All). Opens under its chip. */
+const chipSelector = (id: string) => `[data-tab-drop="${NOTES_TAB}${id}"]`;
+
+/**
+ * A note folder's name and colour, and removing it (its notes stay, under All). Opens under its chip, but outside the
+ * row of chips: that row scrolls sideways, and would cut it off.
+ */
 function NoteFolderEditor({ folder, onClose }: { folder: NoteFolder; onClose: () => void }) {
   const update = useUpdateNoteFolder();
   const remove = useDeleteNoteFolder();
   const [name, setName] = useState(folder.name);
+  const [left, setLeft] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Under its chip, kept inside the row's width (on a phone it is laid across the screen instead).
+  useLayoutEffect(() => {
+    const card = ref.current;
+    const row = card?.parentElement;
+    const chip = row?.querySelector(chipSelector(folder.id));
+    if (!card || !row || !chip) return;
+    const rowBox = row.getBoundingClientRect();
+    const x = chip.getBoundingClientRect().left - rowBox.left;
+    setLeft(Math.max(0, Math.min(x, rowBox.width - card.offsetWidth)));
+  }, [folder.id]);
 
   useEffect(() => {
     const onPointerDown = (e: globalThis.PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose();
+      const target = e.target as Element;
+      // A click on its own chip closes it (the chip's click does that), and isn't taken for one outside.
+      if (!ref.current?.contains(target) && !target.closest?.(chipSelector(folder.id))) onClose();
     };
     const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("pointerdown", onPointerDown);
@@ -34,7 +53,7 @@ function NoteFolderEditor({ folder, onClose }: { folder: NoteFolder; onClose: ()
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [onClose]);
+  }, [folder.id, onClose]);
 
   function saveName() {
     const next = name.trim();
@@ -43,7 +62,13 @@ function NoteFolderEditor({ folder, onClose }: { folder: NoteFolder; onClose: ()
   }
 
   return (
-    <div ref={ref} className="card absolute top-full left-0 z-50 mt-2 w-52 space-y-2 !p-2 text-xs shadow-lg max-sm:fixed max-sm:inset-x-2 max-sm:top-auto max-sm:mt-0 max-sm:w-auto" role="dialog" aria-label={`Note folder "${folder.name}"`}>
+    <div
+      ref={ref}
+      className="card absolute top-full left-(--left) z-50 mt-1 w-52 space-y-2 !p-2 text-xs shadow-lg max-sm:right-0 max-sm:left-0 max-sm:w-auto"
+      style={{ "--left": `${left}px` } as CSSProperties}
+      role="dialog"
+      aria-label={`Note folder "${folder.name}"`}
+    >
       <NeedsConnection>
         <input
           className="nes-input input"
@@ -103,31 +128,31 @@ function NoteFolderChip({ folder, isActive, isEditing, onPick, onEdit }: { folde
   }
 
   return (
-    <span className="relative flex flex-none">
-      <button
-        type="button"
-        className={chip(isActive)}
-        data-tab-drop={`${NOTES_TAB}${folder.id}`}
-        data-note-folder={folder.name}
-        aria-pressed={isActive}
-        title={`${folder.name}. Hold or right-click for its name and colour; drop a note here to put it in.`}
-        style={{ WebkitTouchCallout: "none", userSelect: "none" }}
-        onPointerDown={onPointerDown}
-        onPointerUp={cancelHold}
-        onPointerLeave={cancelHold}
-        onPointerCancel={cancelHold}
-        onClick={onClick}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          cancelHold();
-          onEdit(folder.id);
-        }}
-      >
-        <span className="tab-icon tab-icon-folder !size-[21px]" style={folder.color ? { backgroundImage: folderIn(folder.color) } : undefined} aria-hidden />
-        <span className="max-w-28 truncate">{folder.name}</span>
-      </button>
-      {isEditing && <NoteFolderEditor folder={folder} onClose={() => onEdit(null)} />}
-    </span>
+    <button
+      type="button"
+      className={chip(isActive)}
+      data-tab-drop={`${NOTES_TAB}${folder.id}`}
+      data-note-folder={folder.name}
+      aria-pressed={isActive}
+      aria-expanded={isEditing}
+      title={`${folder.name}. Click again, hold or right-click for its name, colour or to remove it; drop a note here to put it in.`}
+      style={{ WebkitTouchCallout: "none", userSelect: "none" }}
+      onPointerDown={onPointerDown}
+      onPointerUp={cancelHold}
+      onPointerLeave={cancelHold}
+      onPointerCancel={cancelHold}
+      onClick={onClick}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        cancelHold();
+        onEdit(folder.id);
+      }}
+    >
+      <span className="tab-icon tab-icon-folder !size-[21px]" style={folder.color ? { backgroundImage: folderIn(folder.color) } : undefined} aria-hidden />
+      <span className="max-w-28 truncate">{folder.name}</span>
+      {/* Shown, it opens on another click. */}
+      {isActive && <span className="text-stone-500" aria-hidden>▾</span>}
+    </button>
   );
 }
 
@@ -145,6 +170,7 @@ export function NotesPage() {
   const createFolder = useCreateNoteFolder();
   const [params, setParams] = useSearchParams();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const closeEditor = useCallback(() => setEditingId(null), []);
   const startDrag = useTabDrag(
     (id, tab) => (tab.startsWith(NOTES_TAB) ? editNote.mutate({ id, changes: { noteFolderId: tab.slice(NOTES_TAB.length) || null } }) : drop.dropOnTab(noteView(id), tab)),
     // Newest first: there is no order of the user's own to change.
@@ -159,30 +185,35 @@ export function NotesPage() {
     rememberNoteFolder(id);
     setParams(id ? { folder: id } : {}, { replace: true });
   };
+  const editingFolder = noteFolders.find((folder) => folder.id === editingId);
   const shown = notes.data.notes.filter((note) => pickedId === null || note.noteFolderId === pickedId);
 
   return (
     <div className="space-y-4">
-      <nav className="flex items-center gap-1 overflow-x-auto pb-1" aria-label="Note folders">
-        <button type="button" className={chip(pickedId === null)} data-tab-drop={NOTES_TAB} aria-pressed={pickedId === null} title="Every note. Drop a note here to take it out of its folder." onClick={() => pick(null)}>
-          <span className="tab-icon tab-icon-notes !size-[21px] !bg-size-[20px]" aria-hidden />
-          All
-        </button>
-        {noteFolders.map((folder) => (
-          <NoteFolderChip key={folder.id} folder={folder} isActive={pickedId === folder.id} isEditing={editingId === folder.id} onPick={() => pick(folder.id)} onEdit={setEditingId} />
-        ))}
-        <NeedsConnection>
-          <button
-            type="button"
-            className={chip(false)}
-            title="A folder for notes, here at the top of the Notes page"
-            disabled={createFolder.isPending}
-            onClick={() => createFolder.mutate({}, { onSuccess: (made) => (pick(made.id), setEditingId(made.id)) })}
-          >
-            <span className="tab-icon tab-icon-folder !size-[21px] opacity-50" aria-hidden />+ Folder
+      <div className="relative">
+        {/* Scrolled sideways, the open folder's card would no longer be under its chip. */}
+        <nav className="flex items-center gap-1 overflow-x-auto pb-1" aria-label="Note folders" onScroll={() => setEditingId(null)}>
+          <button type="button" className={chip(pickedId === null)} data-tab-drop={NOTES_TAB} aria-pressed={pickedId === null} title="Every note. Drop a note here to take it out of its folder." onClick={() => pick(null)}>
+            <span className="tab-icon tab-icon-notes !size-[21px] !bg-size-[20px]" aria-hidden />
+            All
           </button>
-        </NeedsConnection>
-      </nav>
+          {noteFolders.map((folder) => (
+            <NoteFolderChip key={folder.id} folder={folder} isActive={pickedId === folder.id} isEditing={editingId === folder.id} onPick={() => pick(folder.id)} onEdit={setEditingId} />
+          ))}
+          <NeedsConnection>
+            <button
+              type="button"
+              className={chip(false)}
+              title="A folder for notes, here at the top of the Notes page"
+              disabled={createFolder.isPending}
+              onClick={() => createFolder.mutate({}, { onSuccess: (made) => (pick(made.id), setEditingId(made.id)) })}
+            >
+              <span className="tab-icon tab-icon-folder !size-[21px] opacity-50" aria-hidden />+ Folder
+            </button>
+          </NeedsConnection>
+        </nav>
+        {editingFolder && <NoteFolderEditor key={editingFolder.id} folder={editingFolder} onClose={closeEditor} />}
+      </div>
       {createFolder.error && <p className="text-sm text-red-600">{createFolder.error.message}</p>}
       <div className="flex justify-center">
         {/* Made in the folder that is shown, and opened to be written in. */}

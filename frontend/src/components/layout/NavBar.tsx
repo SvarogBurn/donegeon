@@ -178,15 +178,16 @@ function TaskBar({ user }: { user: User }) {
       {/*
         Two sides with the logo in the middle (equal side columns keep it centred). At first the pages and folders are at
         the left and the points, account and clock at the right, but every item can be dragged to another place, to either
-        side (User.taskBar, lib/taskBar.ts). A phone has no room for the logo: there it is just the two ends.
+        side (User.taskBar, lib/taskBar.ts). Below 1280px wide (a phone, a window on half the screen) the logo would crowd
+        the tabs: there it is just the two ends.
       */}
-      <div className="flex items-center justify-between gap-x-2 px-2 py-1.5 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:gap-x-4 sm:px-3">
+      <div className="flex items-center justify-between gap-x-2 px-2 py-1.5 sm:gap-x-4 sm:px-3 xl:grid xl:grid-cols-[1fr_auto_1fr]">
         {/* With folders there can be many tabs: they wrap onto more rows, or on a phone scroll sideways in one. */}
         <nav ref={leftSide} className="flex min-w-0 items-center gap-1 max-sm:overflow-x-auto sm:flex-wrap" aria-label="Pages" data-bar-side="left">
           {layout.left.map((key) => item(key, "left"))}
           <NewFolderTab tab={tab} isNewShown={isNewShown} onNewUsed={onNewUsed} onMade={setEditingId} />
         </nav>
-        <Link to="/" className="logo h-[42px] max-sm:hidden" aria-label="Donegeon" />
+        <Link to="/" className="logo h-[42px] max-xl:hidden" aria-label="Donegeon" />
         <div ref={rightSide} className="flex flex-none flex-wrap items-center justify-end gap-x-2 sm:gap-x-3" data-bar-side="right">
           {layout.right.map((key) => item(key, "right"))}
         </div>
