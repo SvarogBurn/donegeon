@@ -464,8 +464,8 @@ export interface Look {
   colors: Record<string, string>;
 }
 
-/** The user's red mage bunny, until they make another. */
-export const DEFAULT_LOOK: Look = { v: 2, body: "bunny", options: {}, colors: {} };
+/** The user's human, with each option's first choice, until they make another. */
+export const DEFAULT_LOOK: Look = { v: 2, body: "human", options: {}, colors: {} };
 
 /** The body of a look, the default one if it is gone. */
 export const bodyOf = (look: Look) => BODY_BY_ID.get(look.body) ?? BODY_BY_ID.get(DEFAULT_LOOK.body)!;

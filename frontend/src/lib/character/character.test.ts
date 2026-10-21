@@ -177,17 +177,19 @@ describe("bodies", () => {
     for (const body of BODIES) if (body.id !== "human" && body.id !== "dragon") expect(height(body.id), body.id).toBeLessThan(human);
   });
 
+  const BUNNY: Look = { v: 2, body: "bunny", options: {}, colors: {} };
+
   it("draws the chosen hat and not the other", () => {
-    const tilted = compose(DEFAULT_LOOK, data);
-    const none = compose({ ...DEFAULT_LOOK, options: { hat: "none" } }, data);
-    const upright = compose({ ...DEFAULT_LOOK, options: { hat: "upright" } }, data);
+    const tilted = compose(BUNNY, data);
+    const none = compose({ ...BUNNY, options: { hat: "none" } }, data);
+    const upright = compose({ ...BUNNY, options: { hat: "upright" } }, data);
     expect(none.length).toBeLessThan(tilted.length);
     expect(upright.map((p) => p.fill).join()).not.toBe(tilted.map((p) => p.fill).join());
   });
 
   it("recolours only what the material claims: the bunny's fur, not its coat", () => {
-    const plain = compose(DEFAULT_LOOK, data);
-    const furred = compose({ ...DEFAULT_LOOK, colors: { fur: "#C27A47" } }, data);
+    const plain = compose(BUNNY, data);
+    const furred = compose({ ...BUNNY, colors: { fur: "#C27A47" } }, data);
     const count = (pixels: { fill: string; w: number }[], hex: string) => pixels.filter((p) => p.fill === hex).reduce((n, p) => n + p.w, 0);
     expect(count(furred, "#A63A3A")).toBe(count(plain, "#A63A3A"));
     expect(count(furred, "#C27A47")).toBeGreaterThan(50);
