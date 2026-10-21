@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { BODIES, bodyOf, choiceOf, materialsOf, type Look } from "../../lib/character/bodies";
+import { BODIES, bodyOf, choiceOf, materialsOf, materialsWorn, type Look } from "../../lib/character/bodies";
 import { DEFAULT_TITLE, TITLE_MAX } from "../../lib/character/profile";
 import { CLOTH_COLORS, FUR_COLORS } from "../../lib/character/ramps";
 import { CharacterSprite } from "./CharacterSprite";
@@ -109,7 +109,7 @@ function randomLook(): Look {
 /**
  * The Look section of the character editor: the title (the name is the username), the character big, changing as things are picked
  * (in sight while colours further down are picked); a row for the body (each one of the user's drawings, whole), a
- * row for each piece that body can change, and a colour row for each of its materials.
+ * row for each piece that body can change, and a colour row for each material of what it has on.
  */
 export function LookSection({ look, setLook, draft, set, username }: SectionProps & { look: Look; setLook: (update: (look: Look) => Look) => void; username: string }) {
   const body = bodyOf(look);
@@ -150,7 +150,7 @@ export function LookSection({ look, setLook, draft, set, username }: SectionProp
           ))}
         </div>
         <div className="grid gap-3 border-t-2 border-stone-300 pt-3 sm:grid-cols-2 dark:border-stone-700">
-          {materialsOf(body).map((material) => (
+          {materialsWorn(body, look).map((material) => (
             <ColorRow
               key={material.id}
               name={material.id}

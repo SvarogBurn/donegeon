@@ -134,7 +134,8 @@ function useTargetRects(selectors: string[], also: string[], step: number): Foun
         }
       }
       const rect = el ? box(el) : null;
-      const dialog = el?.parentElement?.closest("[role=dialog]");
+      // The character editor is a dialog too, but the whole screen: no frame to keep clear of.
+      const dialog = el?.parentElement?.closest("[role=dialog]:not([data-character-editor])");
       const menu = dialog ? box(dialog) : null;
       const more = also.flatMap((selector) => [...document.querySelectorAll(selector)]).flatMap((other) => box(other) ?? []);
       const next = { rect, frame: menu, more };

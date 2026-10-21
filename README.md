@@ -196,7 +196,7 @@ big again as Simple). An open dropdown's choices are in the dropdown's own font.
 
 A new account is walked through the app the first time it is opened: a few words on points and rewards,
 then a pointer that waits for each thing to be done (a task, subtasks, a deadline, a reward list, a folder,
-hiding a box). "Skip tutorial" ends it at any point; **Repeat the tutorial** in the Settings box on your own page
+hiding a box, the Today and Week tabs, dressing up your character). "Skip tutorial" ends it at any point; **Repeat the tutorial** in the Settings box on your own page
 starts it again. It does not show in a browser driven by automation (the e2e scripts), unless
 `localStorage["donegeon.forceTutorial"]` is set.
 

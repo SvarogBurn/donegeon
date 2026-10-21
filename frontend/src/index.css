@@ -364,6 +364,11 @@
   .tutorial-spot {
     @apply pointer-events-none fixed z-[45];
   }
+  /* Through the character editor (a z-50 screen of its own) the dim goes over it, still under the words (z-60). */
+  html[data-tutorial-editor] .tutorial-dim,
+  html[data-tutorial-editor] .tutorial-spot {
+    z-index: 55;
+  }
   /* The arrow between the tutorial's words and that thing. The art (50x20 art pixels) points right. */
   .tutorial-arrow {
     @apply pointer-events-none fixed z-[60];

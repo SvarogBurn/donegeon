@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Completion, StatTask } from "../stats";
-import { compose, composeFace, FACE, FLOOR, HEIGHT, LIFT, type PartsData } from "./compose";
+import { compose, composeFace, FACE, FLOOR, HEIGHT, LIFT, WIDTH, type PartsData } from "./compose";
 import { expFor, levelOf, spanOf } from "./levels";
-import { BODIES, DEFAULT_LOOK, type Look } from "./bodies";
+import { BODIES, BODY_BY_ID, DEFAULT_LOOK, materialsWorn, type Body, type Look, type Material } from "./bodies";
 import facesData from "./faces.data.json";
 import partsData from "./parts.data.json";
 import { normalizeLook, normalizeProfile } from "./profile";
@@ -119,6 +119,15 @@ describe("recolorRamp", () => {
   });
 });
 
+/** For each option, the first choice that draws one of the material's layers. */
+const showing = (body: Body, material: Material) =>
+  Object.fromEntries(
+    (body.options ?? []).flatMap((o) => {
+      const choice = o.choices.find((c) => c.layers.some((l) => material.layers?.includes(l)));
+      return choice ? [[o.id, choice.id]] : [];
+    }),
+  );
+
 describe("bodies", () => {
   const data = partsData as unknown as PartsData;
 
@@ -138,12 +147,7 @@ describe("bodies", () => {
       const plain = compose(allShown, data);
       for (const material of body.materials) {
         // Shown with the choice that draws its layers, if an option holds them.
-        const options = Object.fromEntries(
-          (body.options ?? []).flatMap((o) => {
-            const choice = o.choices.find((c) => c.layers.some((l) => material.layers?.includes(l)));
-            return choice ? [[o.id, choice.id]] : [];
-          }),
-        );
+        const options = showing(body, material);
         const before = compose({ ...allShown, options }, data);
         const after = compose({ ...allShown, options, colors: { [material.id]: "#00FF00" } }, data);
         expect(before.map((p) => p.fill).join() !== after.map((p) => p.fill).join(), `${body.id} ${material.id} (${material.layers ?? "all"})`).toBe(true);
@@ -187,6 +191,72 @@ describe("bodies", () => {
     expect(upright.map((p) => p.fill).join()).not.toBe(tilted.map((p) => p.fill).join());
   });
 
+  it("dresses every animal in the human's clothes instead of its own", () => {
+    const fills = (look: Look) => compose(look, data).map((p) => p.fill);
+    const wolf: Look = { v: 2, body: "wolf", options: {}, colors: {} };
+    expect(fills(wolf)).toContain("#564A62");
+    expect(fills({ ...wolf, options: { top: "shirt", bottoms: "skirt", shoes: "flats" } })).not.toContain("#564A62");
+    for (const body of BODIES) {
+      const has = (id: string) => body.options?.some((o) => o.id === id);
+      const look: Look = { v: 2, body: body.id, options: {}, colors: {} };
+      if (has("top")) expect(fills({ ...look, options: { top: "shirt" } }), body.id).toContain("#722120");
+      if (has("bottoms")) expect(fills({ ...look, options: { bottoms: "trousers" } }), body.id).toContain("#3D3D3D");
+    }
+  });
+
+  it("draws the user's cat and the first deer as they were drawn until something else is picked", () => {
+    const at = (pixels: { x: number; y: number; w: number; fill: string }[]) => {
+      const out = new Map<string, string>();
+      for (const p of pixels) for (let i = 0; i < p.w; i++) out.set(`${p.x + i},${p.y}`, p.fill);
+      return [...out].sort().join();
+    };
+    for (const [id, old] of [["whitecat", "40x15_whitecat_user"], ["deer", "48x32_deer_v1"]]) {
+      // The old drawing as the app drew it: its visible layers but the drawn shadow, centred, lifted off the floor.
+      const drawing = data[old];
+      const dx = Math.floor((WIDTH - drawing.width) / 2);
+      const dy = HEIGHT - LIFT - drawing.height;
+      const before = drawing.layers.filter((l) => l.visible && l.name !== "shadow").flatMap((l) => l.runs.map(([x, y, w, fill]) => ({ x: x + dx, y: y + dy, w, fill })));
+      expect(at(compose({ v: 2, body: id, options: {}, colors: {} }, data)), id).toBe(at(before));
+    }
+  });
+
+  it("keeps every piece the user drew or changed in the bunny, the boar and the deer", () => {
+    const runs = (file: string, layer: string) => JSON.stringify(data[file].layers.find((l) => l.name === layer)?.runs);
+    const kept: [string, string, string[]][] = [
+      ["40x15_bunnyman_v2", "40x15_bunnyman_v4", ["back ear", "back ear up", "body", "bunny trousers", "bunny boots", "head", "ears", "ears up", "headwear", "headwear Copy", "hoodie", "shirt", "blouse"]],
+      ["48x32_boar_v3", "48x32_boar_v5", ["body", "boar shoes", "boar trousers", "boar apron", "boar ruff", "head", "headwear", "hoodie", "shirt", "dress", "coat", "shooes boots"]],
+      ["48x32_deer_v3", "48x32_deer_v4", ["overalls", "body", "head", "hair", "deer shirt", "deer shorts", "deer socks", "deer shoes", "deer scarf"]],
+    ];
+    for (const [before, after, layers] of kept) for (const layer of layers) expect(runs(after, layer), `${after} ${layer}`).toBe(runs(before, layer));
+  });
+
+  it("puts the chosen thing in the hand of every body, the dragon's too", () => {
+    const holders = BODIES.filter((body) => body.options?.some((o) => o.id === "held"));
+    expect(holders).toEqual(BODIES);
+    for (const body of holders) {
+      const look: Look = { v: 2, body: body.id, options: {}, colors: {} };
+      const empty = compose(look, data).map((p) => `${p.x},${p.y},${p.w}${p.fill}`).join();
+      for (const held of ["sword", "dagger", "gun", "bow", "staff", "laptop", "pencil"]) {
+        const holding = compose({ ...look, options: { held } }, data).map((p) => `${p.x},${p.y},${p.w}${p.fill}`).join();
+        expect(holding, `${body.id} ${held}`).not.toBe(empty);
+      }
+    }
+  });
+
+  it("offers colours only for what the look has on", () => {
+    const wolf = BODY_BY_ID.get("wolf")!;
+    const ids = (look: Look) => materialsWorn(BODY_BY_ID.get(look.body)!, look).map((m) => m.id);
+    const own: Look = { v: 2, body: "wolf", options: {}, colors: {} };
+    expect(ids(own)).toEqual(expect.arrayContaining(["fur", "eyes", "coat", "trousers", "boots"]));
+    for (const id of ["sweater", "socks", "hat", "glasses", "blade", "laptop"]) expect(ids(own)).not.toContain(id);
+    const dressed = ids({ ...own, options: { top: "hoodie", held: "sword" } });
+    expect(dressed).toEqual(expect.arrayContaining(["sweater", "blade", "handle", "trousers"]));
+    expect(dressed).not.toContain("coat");
+    const blouse = materialsWorn(BODY_BY_ID.get("human")!, { ...own, body: "human", options: { top: "blouse" } }).find((m) => m.id === "sweater");
+    expect(blouse?.hexes[0]).toBe("#E7DEDE");
+    expect(materialsWorn(wolf, own).length).toBeLessThan(wolf.materials.length);
+  });
+
   it("recolours only what the material claims: the bunny's fur, not its coat", () => {
     const plain = compose(BUNNY, data);
     const furred = compose({ ...BUNNY, colors: { fur: "#C27A47" } }, data);
@@ -216,8 +286,9 @@ describe("faces", () => {
 
   it("every material of its own changes something when a colour is picked for it", () => {
     for (const body of withFace) {
-      const look: Look = { v: 2, body: body.id, options: {}, colors: {} };
       for (const material of body.face!.materials ?? []) {
+        // Shown with the choice that draws its layers (the glasses), if an option holds them.
+        const look: Look = { v: 2, body: body.id, options: showing(body, material), colors: {} };
         expect(fills({ ...look, colors: { [material.id]: "#00FF00" } }), `${body.id} ${material.id}`).not.toBe(fills(look));
       }
     }

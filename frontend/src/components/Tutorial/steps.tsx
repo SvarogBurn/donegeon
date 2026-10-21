@@ -76,6 +76,26 @@ const LISTS = '[data-tile^="list:"]';
 const listOf = (ctx: TutorialContext) => `${LISTS}:has(${row(ctx)})`;
 const ADD_FIELD = '[data-tile^="list:"] [data-task-editor^="add:"]';
 const FOLDER_EDITOR = 'nav [role="dialog"][aria-label^="Folder"]';
+const TODAY = 'section[aria-label="Today"]';
+const CHARACTER = 'section[aria-label="Character"]';
+const EDIT = "[data-character-edit]";
+const EDITOR = "[data-character-editor]";
+/** The steps in the character editor are passed over once it is closed (or was never opened). */
+const noEditor = () => !document.querySelector(EDITOR);
+const count = (selector: string) => document.querySelectorAll(selector).length;
+/** A number that changes when the text in `selector` does. */
+const textOf = (selector: string) => [...(document.querySelector(selector)?.textContent ?? "")].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) | 0, 0);
+const BODY = `${EDITOR} [data-stepper="body"]`;
+const STATS = `${EDITOR} [data-editor-section="stats"]`;
+const LONGEST = 'input[data-stat-switch="longest"]';
+const WEEK = 'input[data-stat-switch="week"]';
+/** The skill just added: the last one. */
+const NEW_SKILL = `${EDITOR} [data-skill-editor]:last-of-type`;
+/** What the new skill is called: its own name if one was written, else its list's, goal's or tag's. */
+const skillName = () =>
+  document.querySelector<HTMLInputElement>(`${NEW_SKILL} [data-skill-name]`)?.value.trim() ||
+  document.querySelector<HTMLSelectElement>(`${NEW_SKILL} [data-skill-source]`)?.selectedOptions[0]?.text ||
+  "it";
 
 /** Something said under one's breath: folded away behind the little arrow (the one that folds subtasks away). */
 function Aside({ children }: { children: ReactNode }) {
@@ -472,6 +492,57 @@ export const STEPS: Step[] = [
     button: "…okay",
   },
   {
+    route: "/",
+    text: () => (
+      <>
+        Back to Tasks. This is your <b>Today</b> box: your daily tasks. What you marked Do today, what's due, and whatever you type
+        straight in here. Ticked ones stay till the day is over, so you can admire them.
+      </>
+    ),
+    target: () => [TODAY],
+    // Minimized away: nothing to show.
+    skip: (ctx) => ctx.hiddenBoxes.includes("today"),
+    button: "Next",
+  },
+  {
+    route: "/",
+    text: () => (
+      <>
+        Under it is the bin for next week. Drag a task you won't touch today in there and it's out of your sight till Monday. Out of
+        sight, not off the hook.
+      </>
+    ),
+    target: () => [`${TODAY} [data-next-week]`, TODAY],
+    also: () => [TODAY],
+    skip: (ctx) => ctx.hiddenBoxes.includes("today"),
+    button: "Next",
+  },
+  {
+    route: "/",
+    text: () => (
+      <>
+        Now your weekly tasks. Click the <b>Week</b> tab.
+      </>
+    ),
+    target: () => [`${TODAY} [role="tab"][data-drop-week]`],
+    also: () => [TODAY],
+    skip: (ctx) => ctx.hiddenBoxes.includes("today"),
+    done: () => Boolean(document.querySelector(`${TODAY} [role="tab"][data-drop-week][aria-selected="true"]`)),
+  },
+  {
+    route: "/",
+    text: () => (
+      <>
+        Monday to Sunday. Drag your tasks onto the days you'll actually do them. The next week bin is at the bottom here too, and
+        whatever you leave open rolls over onto next Monday. Yes, it keeps count.
+      </>
+    ),
+    target: () => [TODAY],
+    noArrow: true,
+    skip: (ctx) => ctx.hiddenBoxes.includes("today"),
+    button: "Next",
+  },
+  {
     text: () => (
       <>
         Deadlines are easier to read on a calendar. Click <b>Calendar</b>.
@@ -563,9 +634,211 @@ export const STEPS: Step[] = [
     done: (ctx) => views(ctx) > ctx.base.views,
   },
   {
-    text: () => <>Your own page is under your name. Click it.</>,
+    text: () => <>Your own page is behind the face in the bar. Click it.</>,
     target: () => ['header [aria-label="Account"]'],
     done: (ctx) => ctx.path === "/user",
+  },
+  {
+    route: "/user",
+    text: () => (
+      <>
+        <b>Meet yourself!</b>
+        <br />I am here to get you from an ugly duckling into a majestic swan. You haven't done any tasks yet, so you are currently level
+        one... ugly, ugly, duckling.
+      </>
+    ),
+    target: () => [CHARACTER],
+    button: "Next",
+  },
+  {
+    route: "/user",
+    text: () => <>This is a donegeon after all, and to get through you need to get exp, collect points and level up!</>,
+    target: () => [CHARACTER],
+    noArrow: true,
+    button: "Next",
+  },
+  {
+    route: "/user",
+    text: () => (
+      <>
+        Every task, subtasks, bug and feature report you send is 1 exp. The higher level you are, the more customization options you
+        have. Certain items are only unlockable with the streak.
+      </>
+    ),
+    target: () => [`${CHARACTER} .exp-bar`, CHARACTER],
+    also: () => [CHARACTER],
+    button: "Next",
+  },
+  {
+    route: "/user",
+    text: () => <>Here you can also see your basic stats and skills (hahaha you barely have any yet)</>,
+    target: () => ["[data-character-stats]", CHARACTER],
+    also: () => [CHARACTER],
+    button: "Next",
+  },
+  {
+    route: "/user",
+    text: () => (
+      <>
+        Now make it look less like a stranger. Press <b>Edit</b>.
+      </>
+    ),
+    target: () => [EDIT],
+    also: () => [CHARACTER],
+    // Offline the editor can't be opened (nothing could be saved): the steps in it are passed over too.
+    skip: () => Boolean(document.querySelector(`${EDIT}:disabled`)),
+    done: () => !noEditor(),
+  },
+  {
+    text: () => <>Each body is a whole drawing. Flip through them with ◀ ▶.</>,
+    target: () => [BODY, EDIT],
+    also: () => [`${EDITOR} .character-stage`],
+    flag: "tutorialEditor",
+    skip: noEditor,
+    note: () => ({ body: textOf(BODY) }),
+    done: (ctx) => textOf(BODY) !== ctx.base.body,
+  },
+  {
+    text: () => <>Every body has its own bits that come and go: hats, hair, horns, tails.</>,
+    target: () => [`${EDITOR} [data-stepper]:not([data-stepper="body"])`, EDIT],
+    also: () => [`${EDITOR} [data-stepper]:not([data-stepper="body"])`, `${EDITOR} .character-stage`],
+    flag: "tutorialEditor",
+    // A body with nothing to change has no rows to show; on a phone the colours are enough.
+    skip: (ctx) => noEditor() || ctx.isNarrow || count(`${EDITOR} [data-stepper]`) < 2,
+    button: "Next",
+  },
+  {
+    text: () => <>You can change the colors too!</>,
+    target: () => [`${EDITOR} [data-color-row]`, EDIT],
+    also: () => [`${EDITOR} [data-color-row]`, `${EDITOR} .character-stage`],
+    flag: "tutorialEditor",
+    skip: noEditor,
+    button: "Next",
+  },
+  {
+    text: () => <>Certain options unlock once you show some grit and get through Donegeon ;)</>,
+    target: () => [`${EDITOR} [data-editor-section="look"]`, EDIT],
+    noArrow: true,
+    flag: "tutorialEditor",
+    skip: noEditor,
+    button: "Next",
+  },
+  {
+    text: () => <>Finish setting up your charararacter. When you are done, click next.</>,
+    // All of the Look is lit, to play with; the words keep to the bottom of the screen.
+    target: () => [`${EDITOR} [data-editor-section="look"]`, EDIT],
+    noArrow: true,
+    flag: "tutorialEditor",
+    skip: noEditor,
+    button: "Next",
+  },
+  {
+    text: () => (
+      <>
+        Not my first choice for a mug but I am glad you like it. Less ugly.
+        <br />
+        Let's set up the stats you see. Click on the <b>Stats</b> tab.
+      </>
+    ),
+    target: () => ['[data-editor-tab="stats"]', EDIT],
+    also: () => [`${EDITOR} .character-stage`],
+    flag: "tutorialEditor",
+    skip: noEditor,
+    done: () => Boolean(document.querySelector('[data-editor-tab="stats"][aria-selected="true"]')),
+  },
+  {
+    text: () => (
+      <>
+        The ticked stats are what you will see on your profile. Currently you see your streak, your longest streak and how many tasks you
+        have done this year.
+        <br />
+        <b>Untick your longest streak, and show the tasks done in the last 7 days.</b>
+      </>
+    ),
+    // The longest streak while it is ticked; then the 7 days while they are not.
+    target: () => [`label:has(${LONGEST}:checked)`, `label:has(${WEEK}:not(:checked))`, `${STATS} > ul`, EDIT],
+    also: () => [`${STATS} > ul`],
+    flag: "tutorialEditor",
+    skip: noEditor,
+    done: () => !document.querySelector(`${LONGEST}:checked`) && Boolean(document.querySelector(`${WEEK}:checked`)),
+  },
+  {
+    text: () => (
+      <>
+        Let's see those skills you desperately want to upgrade. Click the <b>Skills</b> tab.
+      </>
+    ),
+    target: () => ['[data-editor-tab="skills"]', EDIT],
+    flag: "tutorialEditor",
+    skip: noEditor,
+    done: () => Boolean(document.querySelector('[data-editor-tab="skills"][aria-selected="true"]')),
+  },
+  {
+    text: () => (
+      <>
+        Let's create our first skill.
+        <br />
+        Every skill you make will be connected to a tag, goal or list. Every time you solve a task from one of them, your skill will gain
+        exp and level up as well. Press <b>+ Skill</b>.
+      </>
+    ),
+    target: () => ["[data-add-skill]", EDIT],
+    also: () => ['[data-editor-section="skills"]'],
+    flag: "tutorialEditor",
+    // Every list, goal and tag is a skill already: nothing left to add, and no new skill to name.
+    skip: () => noEditor() || Boolean(document.querySelector("[data-add-skill]:disabled")),
+    note: () => ({ skills: count("[data-skill-editor]") }),
+    done: (ctx) => count("[data-skill-editor]") > ctx.base.skills,
+  },
+  {
+    text: (ctx) => {
+      const list = ctx.lists.find((l) => l.kind === "task" && l.name === "List")?.name;
+      return (
+        <>
+          Choose to link it to {list ? <>the list named <b>{list}</b></> : "one of your lists"}. You will write all your tasks connected to
+          this skill in {list ? <>the list named <b>{list}</b></> : "that list"}.
+          <br />
+          What will the skill name be? Cooking? Cleaning? <b>Write it down.</b>
+        </>
+      );
+    },
+    target: () => [`${NEW_SKILL} [data-skill-source]`, EDIT],
+    also: () => [NEW_SKILL],
+    flag: "tutorialEditor",
+    // No skill was added: none to name.
+    skip: (ctx) => noEditor() || count("[data-skill-editor]") <= ctx.base.skills,
+    button: "Written",
+  },
+  {
+    text: () => (
+      <>
+        Good, I want to get proficient in <b>{skillName()}</b>. Let me write that down real quick...
+      </>
+    ),
+    target: () => [NEW_SKILL, EDIT],
+    noArrow: true,
+    flag: "tutorialEditor",
+    skip: (ctx) => noEditor() || count("[data-skill-editor]") <= ctx.base.skills,
+    button: "Next",
+  },
+  {
+    text: () => <>Don't forget to save :)</>,
+    target: () => ["[data-editor-save]", EDIT],
+    flag: "tutorialEditor",
+    skip: noEditor,
+    done: noEditor,
+  },
+  {
+    route: "/user",
+    text: () => (
+      <>
+        Got notes that belong to no task? There's a <b>Notes</b> tab for those. Tick it here to show it in the bar, untick it to hide it
+        again.
+      </>
+    ),
+    target: () => ["label:has([data-notes-tab])", 'section[aria-label="Settings"]'],
+    also: () => ['section[aria-label="Settings"]'],
+    button: "Next",
   },
   {
     route: "/user",
@@ -576,23 +849,22 @@ export const STEPS: Step[] = [
       </>
     ),
     target: () => ['section[aria-label="Settings"]'],
-    also: () => ['section[aria-label="Character"]'],
     button: "Next",
   },
   {
     route: "/user",
-    text: () => (
-      <>
-        The cheat sheet lists every shortcut and key. If something is broken or missing, the box above it sends a message to the
-        developers, and each one is 1 exp.
-      </>
-    ),
+    text: () => <>Refer to the cheat sheet for speedy task and note taking.</>,
     target: () => ["[data-cheatsheet]"],
-    also: () => ['section[aria-label="Send mail to devs"]'],
     button: "Next",
   },
   {
-    text: () => <>And that's it. I'm tired. You want to change something? Your settings are under your name. Fuck around and find out.</>,
+    route: "/user",
+    text: () => <>Got a bug, or a cool, or lukewarm idea to recommend? Send me a mail. I read each and every one, plus you get more exp!</>,
+    target: () => ['section[aria-label="Send mail to devs"]'],
+    button: "Next",
+  },
+  {
+    text: () => <>And that's it. I'm tired. You want to change something? Your settings are under your face. Fuck around and find out.</>,
     target: () => ['header [aria-label="Account"]'],
     button: "Get out",
   },

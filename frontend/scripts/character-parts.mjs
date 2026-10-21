@@ -1,9 +1,9 @@
 // Exports the characters drawn in Aseprite to the data the app draws them from.
-// Every .aseprite file directly in assets/character/ (not its subfolders) is read, every layer of it, hidden ones too
+// Every .aseprite file directly in assets/character/ and assets/character/body2/ (not their other subfolders) is read, every layer of it, hidden ones too
 // (a body's alternatives, like a second hat, are often hidden layers). Writes frontend/src/lib/character/parts.data.json:
 // { [file name without .aseprite]: { width, height, layers: [{ name, visible, runs }] } }, layers bottom to top, a run
 // being [x, y, width, "#RRGGBB"]. A layer whose name an earlier layer of the file has gets " 2", " 3" after it. Which file is which body, and what of it can be changed, is in lib/character/bodies.ts.
-// The faces in assets/character/faces/ (at most 21x21: the task bar shows the user's instead of the user icon) are
+// The faces in assets/character/faces/ and assets/character/body2/faces/ (at most 21x21: the task bar shows the user's instead of the user icon) are
 // written the same way to faces.data.json, kept apart because the bar loads them on every page.
 // Run: npm run parts (needs aseprite on the PATH).
 import { execFileSync } from "node:child_process";
@@ -59,10 +59,24 @@ function exportDir(dir, maxWidth, maxHeight) {
   return out;
 }
 
+/** The drawings of several folders as one, a file's name standing for it: the same name in two folders is an error. */
+function exportDirs(dirs, maxWidth, maxHeight) {
+  const out = {};
+  for (const dir of dirs) {
+    for (const [name, drawing] of Object.entries(exportDir(dir, maxWidth, maxHeight))) {
+      if (name in out) throw new Error(`${name} is in two folders: give one another name`);
+      out[name] = drawing;
+    }
+  }
+  return out;
+}
+
+// body2/ holds the bodies drawn since the wardrobe came to the animals (2026-10-21), body2/faces/ their faces.
+const body2 = path.join(artDir, "body2");
 for (const [name, out] of [
   // 32x48 for a character that stands on the floor; 32x52 for one drawn out to its edges (`toEdge` in bodies.ts, the dragon).
-  ["parts.data.json", exportDir(artDir, 32, 52)],
-  ["faces.data.json", exportDir(path.join(artDir, "faces"), 21, 21)],
+  ["parts.data.json", exportDirs([artDir, body2], 32, 52)],
+  ["faces.data.json", exportDirs([path.join(artDir, "faces"), path.join(body2, "faces")], 21, 21)],
 ]) {
   const file = path.join(outDir, name);
   fs.writeFileSync(file, JSON.stringify(out) + "\n");
