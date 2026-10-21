@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Completion, StatTask } from "../stats";
 import { compose, FLOOR, HEIGHT, LIFT, type PartsData } from "./compose";
-import { expFor, levelOf } from "./levels";
+import { expFor, levelOf, spanOf } from "./levels";
 import { BODIES, DEFAULT_LOOK, type Look } from "./bodies";
 import partsData from "./parts.data.json";
 import { normalizeLook, normalizeProfile } from "./profile";
@@ -13,14 +13,15 @@ describe("levelOf", () => {
     expect(levelOf(0)).toEqual({ level: 1, into: 0, span: 5 });
   });
 
-  it("reaches each level at 5·L(L−1)/2 exp, and a level takes 5·L", () => {
-    expect([2, 3, 5, 10, 20, 30].map(expFor)).toEqual([5, 15, 50, 225, 950, 2175]);
+  it("grows each level by 15%: a level takes round(5·1.15^(L−1))", () => {
+    expect([1, 2, 3, 4, 10].map(spanOf)).toEqual([5, 6, 7, 8, 18]);
+    expect([2, 3, 5, 10, 20, 30, 40].map(expFor)).toEqual([5, 11, 26, 85, 443, 1887, 7733]);
     expect(levelOf(4)).toEqual({ level: 1, into: 4, span: 5 });
-    expect(levelOf(5)).toEqual({ level: 2, into: 0, span: 10 });
-    expect(levelOf(14)).toEqual({ level: 2, into: 9, span: 10 });
-    expect(levelOf(15)).toEqual({ level: 3, into: 0, span: 15 });
-    expect(levelOf(2174).level).toBe(29);
-    expect(levelOf(2175).level).toBe(30);
+    expect(levelOf(5)).toEqual({ level: 2, into: 0, span: 6 });
+    expect(levelOf(10)).toEqual({ level: 2, into: 5, span: 6 });
+    expect(levelOf(11)).toEqual({ level: 3, into: 0, span: 7 });
+    expect(levelOf(1886).level).toBe(29);
+    expect(levelOf(1887).level).toBe(30);
   });
 });
 

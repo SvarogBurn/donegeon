@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
+import { useNewNote } from "../../hooks/notes";
 import { usePoints } from "../../hooks/points";
 import type { User } from "../../types";
 import { Bell } from "../Notifications/Bell";
@@ -74,7 +75,7 @@ function Notch() {
  * The installed app's bars (in a browser tab it has NavBar's task bar instead). Along the top: Notes at the far left (when the setting shows it), the
  * folders after it, a small spyglass that opens the search across the strip (the Tasks page then doesn't show one), the
  * bell with the notifications, and the points at the far right. Along the bottom: the pages and the account with their names, and in the middle a "+" button standing up out of a notch in the bar,
- * for a task just for today. Both slide away while the page is scrolled down and come back on the way up, as in a
+ * for a task just for today (on the Notes page, a new note in the folder shown). Both slide away while the page is scrolled down and come back on the way up, as in a
  * phone app. The clock isn't shown, but still runs: it is what reloads everything when the day changes.
  */
 export function AppBars({ user }: { user: User }) {
@@ -89,6 +90,8 @@ export function AppBars({ user }: { user: User }) {
   const [isSearching, setIsSearching] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [isBellOpen, setIsBellOpen] = useState(false);
+  const newNote = useNewNote();
+  const isOnNotes = pathname === "/notes";
   const isHidden = useHideOnScroll(isAdding || isSearching || isBellOpen);
   // Another page: the search has done its job.
   useEffect(() => setIsSearching(false), [pathname]);
@@ -178,10 +181,10 @@ export function AppBars({ user }: { user: User }) {
           className="nes-btn plus-button absolute top-0 left-1/2"
           style={{ width: PLUS, height: PLUS, translate: `-50% -${PLUS_ABOVE}px` }}
           data-quick-add
-          aria-label="New task for today"
-          aria-expanded={isAdding}
-          title="A new task, just for today"
-          onClick={() => setIsAdding(!isAdding)}
+          aria-label={isOnNotes ? "New note" : "New task for today"}
+          aria-expanded={isOnNotes ? undefined : isAdding}
+          title={isOnNotes ? "A new note, in the folder shown" : "A new task, just for today"}
+          onClick={() => (isOnNotes ? (setIsAdding(false), newNote()) : setIsAdding(!isAdding))}
         >
           +
         </button>

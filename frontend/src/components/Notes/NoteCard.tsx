@@ -3,12 +3,14 @@ import { Link } from "react-router";
 import { useDeleteNote } from "../../hooks/notes";
 import type { Note } from "../../types";
 import { RichText } from "../RichText";
+import { NoteText } from "../TaskTree/NoteText";
 import { TileControlsContext } from "../Tiles/TileFrame";
 import { DeleteOrKeep } from "../DeleteOrKeep";
 
 /**
- * A note as a small card (the Notes page, two to a row on a phone; or a folder that shows it): its title, or else its
- * first line, and the start of its text. A tap opens it on a screen of its own (/notes/:id). The x in its corner
+ * A note as a small card (the Notes page, two to a row on a phone; or a folder that shows it): its title in bold, and
+ * under it as much of its text as fits, as it reads (lists, headings at the text's size); without a title, the text
+ * fills the card from the top. A tap opens it on a screen of its own (/notes/:id). The x in its corner
  * deletes it (asked first, over the card); the tab button beside it drags it onto a folder (TileFrame's controls,
  * given by the grid or the Notes page).
  */
@@ -16,18 +18,25 @@ export function NoteCard({ note }: { note: Note }) {
   const controls = useContext(TileControlsContext);
   const remove = useDeleteNote();
   const [confirming, setConfirming] = useState(false);
-  const lines = note.text.split("\n").filter((line) => line.trim() !== "");
-  const title = note.title || lines.shift() || "";
+  const text = note.text.trim();
+  // What it is called (to be read out, and in the delete button's name): its title, or else its first line.
+  const name = note.title || text.split("\n")[0].trim();
   return (
     <div className="relative">
-      <Link to={`/notes/${note.id}`} className="note-paper note-card block" data-note={note.id} aria-label={`Note ${title || "with nothing in it yet"}`}>
-        <span className={`block truncate font-pixel text-[10px] leading-snug ${controls ? "pr-12" : "pr-6"}`}>
-          {title ? <RichText text={title} /> : <span className="text-stone-400">Empty note</span>}
-        </span>
-        {/* The start of the rest, a few lines' worth, without its list marks. */}
-        <span className="mt-1 line-clamp-4 block text-xs break-words text-stone-600 dark:text-stone-400">
-          <RichText text={lines.map((line) => line.replace(/^\s*(?:[*-]|\d+\.)\s+/, "")).join(" · ")} />
-        </span>
+      <Link to={`/notes/${note.id}`} className="note-paper note-card flex flex-col" data-note={note.id} aria-label={`Note ${name || "with nothing in it yet"}`}>
+        {(note.title || !text) && (
+          <span className={`mb-1 block flex-none truncate font-pixel text-[10px] leading-snug markup-bold ${controls ? "pr-12" : "pr-6"}`}>
+            {note.title ? <RichText text={note.title} /> : <span className="text-stone-400">Empty note</span>}
+          </span>
+        )}
+        {/* As much of the text as fits, fading out at the card's bottom edge. Without a title it starts at the top, its
+            first line kept clear of the buttons in the corner. */}
+        {text && (
+          <div className="min-h-0 flex-1 overflow-hidden text-xs text-stone-600 [mask-image:linear-gradient(to_bottom,black_70%,transparent)] dark:text-stone-400">
+            {!note.title && <span className={`float-right h-4 ${controls ? "w-12" : "w-6"}`} aria-hidden />}
+            <NoteText text={text} />
+          </div>
+        )}
       </Link>
       <div className="absolute top-1 right-1 flex gap-1">
         {controls && (
@@ -39,7 +48,7 @@ export function NoteCard({ note }: { note: Note }) {
             title={controls.dragTitle ?? "Drag onto a folder"}
           />
         )}
-        <button type="button" className="tile-button tile-button-x !mt-0" aria-label={`Delete note "${title || "Empty note"}"`} title="Delete this note" onClick={() => setConfirming(true)} />
+        <button type="button" className="tile-button tile-button-x !mt-0" aria-label={`Delete note "${name || "Empty note"}"`} title="Delete this note" onClick={() => setConfirming(true)} />
       </div>
       {confirming && (
         <div className="note-paper note-card absolute inset-0 flex flex-col items-center justify-center gap-2 text-center text-xs" role="alertdialog" aria-label="Delete this note?">

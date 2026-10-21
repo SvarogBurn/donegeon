@@ -1,15 +1,26 @@
-// Levels for the character and its skills. One curve for everything: level L to L+1 takes 5·L exp, so level L is
-// reached at 5·L(L−1)/2 exp: Lv 2 at 5, 3 at 15, 5 at 50, 10 at 225, 20 at 950, 30 at 2175. One exp is one task done.
+// Levels for the character and its skills. One curve for everything, exponential: level 1 to 2 takes 5 exp, and each
+// level after takes 15% more than the one before (rounded), so level L to L+1 takes round(5·1.15^(L−1)) exp. Reached
+// at: Lv 2 at 5, 3 at 11, 5 at 26, 10 at 85, 20 at 443, 30 at 1887, 40 at 7733. One exp is one task done (or one mail
+// sent to the devs, for the character).
+
+const FIRST = 5;
+const GROWTH = 1.15;
+
+/** The exp level `level` takes to get through, to the next. */
+export const spanOf = (level: number) => Math.round(FIRST * GROWTH ** (Math.max(1, level) - 1));
 
 /** The exp at which level `level` is reached. */
-export const expFor = (level: number) => (5 * level * (level - 1)) / 2;
+export function expFor(level: number) {
+  let exp = 0;
+  for (let l = 1; l < level; l++) exp += spanOf(l);
+  return exp;
+}
 
 /** The level for an amount of exp, how far into it the exp is, and how much the whole level takes. */
 export function levelOf(exp: number): { level: number; into: number; span: number } {
-  const xp = Math.max(0, Math.floor(exp));
-  // The largest L with 5·L(L−1)/2 ≤ xp, from the quadratic, then nudged for rounding.
-  let level = Math.max(1, Math.floor((1 + Math.sqrt(1 + (8 * xp) / 5)) / 2));
-  while (expFor(level + 1) <= xp) level++;
-  while (level > 1 && expFor(level) > xp) level--;
-  return { level, into: xp - expFor(level), span: 5 * level };
+  let into = Math.max(0, Math.floor(exp));
+  let level = 1;
+  // The levels grow by 15% each, so this is a few dozen steps at most.
+  while (into >= spanOf(level)) into -= spanOf(level++);
+  return { level, into, span: spanOf(level) };
 }

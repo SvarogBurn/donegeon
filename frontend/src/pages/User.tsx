@@ -169,7 +169,8 @@ function DeleteAccount({ username, onCancel }: { username: string; onCancel: () 
 }
 
 /**
- * The user's own page, opened from their icon in the task bar: who is logged in, logging out, and their settings.
+ * The user's own page, opened from their icon in the task bar: their character, their settings (logging out and
+ * deleting the account at the bottom of them), mail to the devs and the cheat sheet.
  * Its boxes are one column; each is dragged by its tab button onto another, to take its place, and can be minimized
  * into the Hidden row at the bottom (both kept with the account).
  */
@@ -195,25 +196,6 @@ export function UserPage() {
   const saved = normalizeLayout(layout.data);
   // The tutorial points at these boxes, and the "All shortcuts" link at the cheat sheet: those show even when minimized.
   const isHidden = (key: string) => user.tutorialSeen && !(key === "cheatsheet" && hash === "#shortcuts") && (saved.hidden ?? []).includes(key);
-
-  const account = (
-    <TileFrame title="Account" aria-label="Account">
-      <div className="flex items-center gap-3">
-        <span className="tab-icon tab-icon-user !size-[42px] flex-none" aria-hidden />
-        <p className="min-w-0 text-base break-words" data-username>
-          {user.username}
-        </p>
-      </div>
-      <button type="button" className="nes-btn btn" disabled={logout.isPending || !online} title={online ? undefined : "Needs a connection"} onClick={() => logout.mutate()}>
-        Log out
-      </button>
-      {logout.error && <p className="text-xs text-red-600">{logout.error.message}</p>}
-      <button type="button" className="nes-btn is-error btn" data-delete-account-open disabled={!online} onClick={() => setDeleting(true)}>
-        Delete account
-      </button>
-      {deleting && <DeleteAccount username={user.username} onCancel={() => setDeleting(false)} />}
-    </TileFrame>
-  );
 
   // Every setting of the account's goes in this box.
   const settings = (
@@ -312,6 +294,16 @@ export function UserPage() {
         Repeat the tutorial
       </button>
       {update.error && <p className="text-xs text-red-600">{update.error.message}</p>}
+      {/* Leaving the account, last. */}
+      <h3 className="border-t-2 border-stone-300 pt-3 font-pixel text-xs text-stone-500 dark:border-stone-700">Account</h3>
+      <button type="button" className="nes-btn btn" disabled={logout.isPending || !online} title={online ? undefined : "Needs a connection"} onClick={() => logout.mutate()}>
+        Log out
+      </button>
+      {logout.error && <p className="text-xs text-red-600">{logout.error.message}</p>}
+      <button type="button" className="nes-btn is-error btn" data-delete-account-open disabled={!online} onClick={() => setDeleting(true)}>
+        Delete account
+      </button>
+      {deleting && <DeleteAccount username={user.username} onCancel={() => setDeleting(false)} />}
       </NeedsConnection>
     </TileFrame>
   );
@@ -319,11 +311,10 @@ export function UserPage() {
   // Their names are the buttons' labels and the Hidden row's.
   const defaults: { key: string; name: string; node: ReactNode }[] = [
     { key: "character", name: "Character", node: <CharacterSheet /> },
-    { key: "account", name: "Account", node: account },
     { key: "settings", name: "Settings", node: settings },
     { key: "feedback", name: "Send mail to devs", node: <FeedbackBox username={user.username} /> },
-    { key: "cheatsheet", name: "Cheat sheet", node: <Cheatsheet /> },
     ...(user.isDev ? [{ key: "inbox", name: "Inbox", node: <FeedbackInbox /> }] : []),
+    { key: "cheatsheet", name: "Cheat sheet", node: <Cheatsheet /> },
   ];
   // The saved order first; a box it doesn't know yet (new to the page) keeps its default place after the one before it.
   const keys = defaults.map((box) => box.key);

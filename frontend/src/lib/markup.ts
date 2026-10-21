@@ -31,28 +31,63 @@ function closing(text: string, marker: string, open: number): number {
  * another too. A marker counts only when it hugs the text (no space inside it) and is closed on the same line;
  * anything else, and whatever has a backslash in front, is text as typed.
  */
+/** The stretch of markup that opens at `at`: its marker and style, and where it closes; null if none does. */
+function stretchAt(text: string, at: number): { marker: string; style: MarkupStyle; end: number } | null {
+  // An opening marker has text right after it. An asterisk beside another is part of a "**", never italics by itself.
+  const found = MARKERS.find(([marker]) => text.startsWith(marker, at) && /\S/.test(text[at + marker.length] ?? " ") && !(marker === "*" && text[at + 1] === "*"));
+  const end = found ? closing(text, found[0], at) : -1;
+  return found && end >= 0 ? { marker: found[0], style: found[1], end } : null;
+}
+
+const isEscape = (text: string, at: number) => text[at] === "\\" && MARKERS.some(([marker]) => marker[0] === text[at + 1]);
+
 export function parseMarkup(text: string): MarkupNode[] {
   const nodes: MarkupNode[] = [];
   let plain = "";
   for (let at = 0; at < text.length; at++) {
-    if (text[at] === "\\" && MARKERS.some(([marker]) => marker[0] === text[at + 1])) {
+    if (isEscape(text, at)) {
       plain += text[++at];
       continue;
     }
-    // An opening marker has text right after it. An asterisk beside another is part of a "**", never italics by itself.
-    const found = MARKERS.find(([marker]) => text.startsWith(marker, at) && /\S/.test(text[at + marker.length] ?? " ") && !(marker === "*" && text[at + 1] === "*"));
-    const end = found ? closing(text, found[0], at) : -1;
-    if (!found || end < 0) {
+    const stretch = stretchAt(text, at);
+    if (!stretch) {
       plain += text[at];
       continue;
     }
     if (plain) nodes.push(plain);
     plain = "";
-    nodes.push({ style: found[1], children: parseMarkup(text.slice(at + found[0].length, end)) });
-    at = end + found[0].length - 1;
+    const size = stretch.marker.length;
+    nodes.push({ style: stretch.style, children: parseMarkup(text.slice(at + size, stretch.end)) });
+    at = stretch.end + size - 1;
   }
   if (plain) nodes.push(plain);
   return nodes;
+}
+
+/** A stretch of markup in a text: its style, from its opening marker to the end of its closing one, and the marker's length. */
+export interface MarkupRange {
+  style: MarkupStyle;
+  from: number;
+  to: number;
+  size: number;
+}
+
+/** Where each stretch of markup is in `text` (those inside others too), counted from `offset`: as parseMarkup reads them. */
+export function markupRanges(text: string, offset = 0): MarkupRange[] {
+  const ranges: MarkupRange[] = [];
+  for (let at = 0; at < text.length; at++) {
+    if (isEscape(text, at)) {
+      at++;
+      continue;
+    }
+    const stretch = stretchAt(text, at);
+    if (!stretch) continue;
+    const size = stretch.marker.length;
+    ranges.push({ style: stretch.style, from: offset + at, to: offset + stretch.end + size, size });
+    ranges.push(...markupRanges(text.slice(at + size, stretch.end), offset + at + size));
+    at = stretch.end + size - 1;
+  }
+  return ranges;
 }
 
 /** Whether anything in the title is styled. */

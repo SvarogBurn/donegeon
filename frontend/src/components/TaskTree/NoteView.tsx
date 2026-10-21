@@ -27,13 +27,7 @@ export function NoteView({ node, startEditing = false }: { node: TaskTreeNode; s
     if (!editing) setText(node.notes ?? "");
     // Only the note from the server; what is being written is left alone.
   }, [node.notes]);
-  const field = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
-    if (!editing) return;
-    const el = field.current;
-    el?.focus();
-    el?.setSelectionRange(el.value.length, el.value.length);
-  }, [editing]);
+  const field = useRef<HTMLElement>(null);
 
   function save() {
     const next = text.trim();
@@ -53,7 +47,7 @@ export function NoteView({ node, startEditing = false }: { node: TaskTreeNode; s
   return (
     <div className="space-y-2" data-note-view>
       {editing ? (
-        <NoteEditor ref={field} value={text} onChange={setText} onDone={save} />
+        <NoteEditor ref={field} value={text} onChange={setText} onDone={save} autoFocus />
       ) : text ? (
         <NoteText text={text} className="note-paper" />
       ) : (
@@ -105,7 +99,7 @@ export function NotePanel({ node, edit, onClose }: { node: TaskTreeNode; edit: b
   const pane = useRef<HTMLElement>(null);
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || (e.target as Element).closest?.("textarea, input, select, [role=dialog]")) return;
+      if (e.key !== "Escape" || (e.target as Element).closest?.("textarea, input, select, [contenteditable=true], [role=dialog]")) return;
       onClose();
     };
     // A press anywhere else closes it, saving what was being written. Not a notes icon (or Note in a ⋯ menu): those

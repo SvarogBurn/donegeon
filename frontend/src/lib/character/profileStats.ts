@@ -3,7 +3,8 @@ import { levelOf } from "./levels";
 import type { CustomStat, Skill, StatKey } from "./profile";
 
 // The numbers on the character sheet, from what the Stats page already loads (collectStats): every tick, at any depth,
-// and every press of a persistent task is one task done and one exp. Points play no part.
+// and every press of a persistent task is one task done and one exp; for the character, so is every mail sent to the
+// devs. Points play no part.
 
 export interface StatValue {
   value: number;
@@ -72,5 +73,8 @@ export function skillExp(skill: Skill, completions: Completion[]) {
   return completions.filter(({ task }) => matches(task, sources.lists, sources.goals, sources.tags)).length;
 }
 
-/** The character's own level: every task done counts. */
-export const characterLevel = (completions: Completion[]) => ({ exp: completions.length, ...levelOf(completions.length) });
+/** The character's own level: every task done counts, and every mail sent to the devs. */
+export function characterLevel(completions: Completion[], mailSent = 0) {
+  const exp = completions.length + mailSent;
+  return { exp, ...levelOf(exp) };
+}

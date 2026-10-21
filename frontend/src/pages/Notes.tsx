@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import { ColorChoices } from "../components/ColorChoices";
 import { NeedsConnection } from "../components/NeedsConnection";
 import { NoteCard } from "../components/Notes/NoteCard";
-import type { NoteScreenState } from "../components/Notes/NoteScreen";
 import { TileControlsContext } from "../components/Tiles/TileFrame";
 import { useTabDrag } from "../components/Tiles/useTabDrag";
 import { useDropOnTab } from "../hooks/folders";
-import { useAddNote, useCreateNoteFolder, useDeleteNoteFolder, useEditNote, useNotes, useUpdateNoteFolder } from "../hooks/notes";
+import { pickedFolderId, rememberNoteFolder, useCreateNoteFolder, useDeleteNoteFolder, useEditNote, useNewNote, useNotes, useUpdateNoteFolder } from "../hooks/notes";
 import { noteView } from "../lib/folders";
 import { FOLDER_COLOR, folderIn } from "../lib/frameTones";
 import type { NoteFolder } from "../types";
@@ -141,10 +140,9 @@ function NoteFolderChip({ folder, isActive, isEditing, onPick, onEdit }: { folde
 export function NotesPage() {
   const notes = useNotes();
   const drop = useDropOnTab();
-  const addNote = useAddNote();
+  const newNote = useNewNote();
   const editNote = useEditNote();
   const createFolder = useCreateNoteFolder();
-  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [editingId, setEditingId] = useState<string | null>(null);
   const startDrag = useTabDrag(
@@ -156,9 +154,11 @@ export function NotesPage() {
   if (notes.error) return <p className="text-sm text-red-600">Couldn't load your notes: {notes.error.message}</p>;
   if (!notes.data) return <p className="text-sm text-stone-500">Loading…</p>;
   const { noteFolders } = notes.data;
-  // A folder that was removed shows All.
-  const pickedId = noteFolders.some((folder) => folder.id === params.get("folder")) ? params.get("folder") : null;
-  const pick = (id: string | null) => setParams(id ? { folder: id } : {}, { replace: true });
+  const pickedId = pickedFolderId(params, noteFolders);
+  const pick = (id: string | null) => {
+    rememberNoteFolder(id);
+    setParams(id ? { folder: id } : {}, { replace: true });
+  };
   const shown = notes.data.notes.filter((note) => pickedId === null || note.noteFolderId === pickedId);
 
   return (
@@ -186,7 +186,7 @@ export function NotesPage() {
       {createFolder.error && <p className="text-sm text-red-600">{createFolder.error.message}</p>}
       <div className="flex justify-center">
         {/* Made in the folder that is shown, and opened to be written in. */}
-        <button type="button" className="nes-btn btn-small" onClick={() => navigate(`/notes/${addNote.mutate({ noteFolderId: pickedId })}`, { state: { fresh: true } satisfies NoteScreenState })}>
+        <button type="button" className="nes-btn btn-small" onClick={newNote}>
           + New note
         </button>
       </div>

@@ -17,3 +17,5 @@ export const LAYOUT = ["layout"];
 export const TASK_DATA = [TASKS, COUNTDOWN, PRESSURE, POINTS, LISTS];
 // The developers' inbox of letters from the suggestion box.
 export const FEEDBACK = ["feedback"];
+/** Under FEEDBACK, so a letter sent refreshes both. */
+export const FEEDBACK_SENT = ["feedback", "sent"];

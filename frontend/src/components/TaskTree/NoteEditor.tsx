@@ -1,99 +1,69 @@
-import { useLayoutEffect, useRef, type KeyboardEvent, type Ref } from "react";
-import { toggleMarker } from "../../lib/markup";
-import { enterOnLine, itemPrefix } from "../../lib/noteText";
+import { lazy, Suspense, useState, type ComponentType, type Ref } from "react";
+import type { Align } from "../../lib/noteText";
+import { NoteText } from "./NoteText";
 
-interface Props {
+export interface NoteEditorProps {
   value: string;
   onChange: (value: string) => void;
   /** Leaving the field: the owner saves it. `stop`: Escape was pressed, so writing is over. */
   onDone: (stop: boolean) => void;
-  ref?: Ref<HTMLTextAreaElement>;
+  /** Gone into the field. */
+  onFocus?: () => void;
+  /** The editable part, to focus or leave it. */
+  ref?: Ref<HTMLElement>;
   className?: string;
   /** What the field is called; a task's note by default. */
   label?: string;
   /** Without the paper and its edge: plain text on the page (a note on a screen of its own). */
   bare?: boolean;
+  /** The caret or the selection moved (or what it is on changed). */
+  onSelect?: (start: number, end: number) => void;
+  /** Given a way to put the lines the selection is on to the left (null), the centre or the right; it says where the caret went. */
+  aligner?: Ref<(to: Align | null) => number>;
+  /** Shown while it is empty. */
+  hint?: string;
+  /** Written in at once, the caret at the end. */
+  autoFocus?: boolean;
 }
 
-const MARKER_KEYS: Record<string, string> = { b: "**", i: "*", u: "__" };
+// The editor is a library of its own, not part of the app's first load: fetched once the page has settled, so it is
+// there before a note is written in (keys typed while it was still on its way would be lost).
+let loaded: ComponentType<NoteEditorProps> | null = null;
+const loadEditor = () =>
+  import("./LiveNoteEditor").then(
+    (module) => ((loaded = module.default), module),
+    // Not fetched (offline before it ever came; the browser keeps that failure until a reload): the note is shown, and
+    // why it can't be written in.
+    () => ({ default: EditorMissing }),
+  );
+const LiveNoteEditor = lazy(loadEditor);
+if (typeof requestIdleCallback === "function") requestIdleCallback(() => void loadEditor(), { timeout: 5000 });
+else setTimeout(() => void loadEditor(), 2000);
 
 /**
- * Writing a task's note: grows with what is written. Enter makes a new line, and on a list item ("* ", "- ",
- * "1. ") the next item; Enter on an empty item ends the list. Tab / Shift+Tab move an item a level in or out.
- * Ctrl+B / I / U put markup around the selection as in a title. Leaving the field saves it; Escape saves and stops.
- * Not a task editor, so ↑ / ↓ between titles step over it.
+ * Writing a note (a task's, or one of the Notes page's). It reads as it will look: headings, lists, alignment and
+ * markup are shown, and their marks only on the line being written on (markup's, only around the caret). Enter makes
+ * a new line, and on a list item ("* ", "- ", "1. ") the next item; Enter on an empty item ends the list. Tab /
+ * Shift+Tab move an item a level in or out. Ctrl+B / I / U put markup around the selection as in a title; Ctrl+Z
+ * undoes. Leaving the field saves it; Escape saves and stops. Not a task editor, so ↑ / ↓ between titles step over it.
  */
-export function NoteEditor({ value, onChange, onDone, ref, className = "", label = "Task note", bare = false }: Props) {
-  const innerRef = useRef<HTMLTextAreaElement>(null);
-  const stop = useRef(false);
-  /** Where the caret goes once a change made by a key is in the field. */
-  const selectAfter = useRef<[start: number, end: number] | null>(null);
-
-  useLayoutEffect(() => {
-    const el = innerRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-    if (selectAfter.current) el.setSelectionRange(...selectAfter.current);
-    selectAfter.current = null;
-  }, [value]);
-
-  function change(text: string, start: number, end = start) {
-    selectAfter.current = [start, end];
-    onChange(text);
-  }
-
-  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.nativeEvent.isComposing) return;
-    const el = e.currentTarget;
-    const { selectionStart: start, selectionEnd: end } = el;
-    const lineStart = value.lastIndexOf("\n", start - 1) + 1;
-    const lineEnd = value.indexOf("\n", start) < 0 ? value.length : value.indexOf("\n", start);
-    const line = value.slice(lineStart, lineEnd);
-
-    const marker = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey ? MARKER_KEYS[e.key.toLowerCase()] : undefined;
-    if (marker) {
-      e.preventDefault();
-      const marked = toggleMarker(value, start, end, marker);
-      if (marked.text.length <= el.maxLength) change(marked.text, marked.start, marked.end);
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      // Saved once, by leaving the field.
-      stop.current = true;
-      el.blur();
-    } else if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && start === end) {
-      const enter = enterOnLine(line);
-      if (!enter) return;
-      e.preventDefault();
-      if ("endList" in enter) change(value.slice(0, lineStart) + value.slice(lineEnd), lineStart);
-      else change(value.slice(0, start) + "\n" + enter.next + value.slice(end), start + 1 + enter.next.length);
-    } else if (e.key === "Tab" && !e.ctrlKey && !e.metaKey && !e.altKey && itemPrefix(line) !== null) {
-      e.preventDefault();
-      if (!e.shiftKey) return change(value.slice(0, lineStart) + "  " + value.slice(lineStart), start + 2, end + 2);
-      const out = line.match(/^ {1,2}|^\t/)?.[0].length ?? 0;
-      change(value.slice(0, lineStart) + value.slice(lineStart + out), Math.max(lineStart, start - out), Math.max(lineStart, end - out));
-    }
-  }
-
+export function NoteEditor(props: NoteEditorProps) {
+  // Already fetched: shown at once (through lazy() it would wait a moment, and keys typed in it would be lost). Kept
+  // for the field's life, so it isn't made again once the fetch is done.
+  const [Editor] = useState(() => loaded);
+  if (Editor) return <Editor {...props} />;
   return (
-    <textarea
-      ref={(el) => {
-        innerRef.current = el;
-        if (typeof ref === "function") ref(el);
-        else if (ref) ref.current = el;
-      }}
-      rows={3}
-      maxLength={5000}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onKeyDown={onKeyDown}
-      onBlur={() => {
-        onDone(stop.current);
-        stop.current = false;
-      }}
-      placeholder={"Note. * or - starts a list"}
-      aria-label={label}
-      className={`${bare ? "block w-full resize-none overflow-hidden bg-transparent outline-none placeholder:text-stone-400" : "note-paper"} ${className}`}
-    />
+    <Suspense fallback={<NoteText text={props.value} className={`${props.bare ? "" : "note-paper"} ${props.className ?? ""}`} />}>
+      <LiveNoteEditor {...props} />
+    </Suspense>
+  );
+}
+
+function EditorMissing({ value, bare, className = "" }: NoteEditorProps) {
+  return (
+    <div className="space-y-1">
+      <NoteText text={value} className={`${bare ? "" : "note-paper"} ${className}`} />
+      <p className="text-xs text-red-600">Couldn't load the note editor. Once you're online, reload the app to write in it.</p>
+    </div>
   );
 }

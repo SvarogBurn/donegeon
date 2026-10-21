@@ -1,10 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
+import { useLocation, useNavigate } from "react-router";
 import * as notesApi from "../api/notes";
+import type { NoteScreenState } from "../components/Notes/NoteScreen";
 import { newId } from "../lib/offline/changes";
+import { readStored, writeStored } from "../lib/storage";
 import type { NotesData } from "../lib/offline/noteChanges";
 import { useChange, useInvalidating } from "./mutations";
 import { NOTES } from "./queryKeys";
+import type { NoteFolder } from "../types";
 
 /** The free-standing notes and the Notes page's folders. */
 export const useNotes = () => useQuery<NotesData>({ queryKey: NOTES, queryFn: notesApi.listNotes });
@@ -18,6 +22,32 @@ export function useAddNote() {
     return id;
   }, [mutate]);
   return { ...change, mutate: add };
+}
+const FOLDER_KEY = "donegeon.noteFolder";
+/** The Notes page's folder picked last on this device (null: All), shown again when the page is opened. */
+export const rememberNoteFolder = (id: string | null) => writeStored(FOLDER_KEY, id);
+/**
+ * The Notes page's folder that is shown (`?folder=<id>`; opened without one, the folder picked last), or null for All;
+ * a folder that was removed shows All too.
+ */
+export function pickedFolderId(search: URLSearchParams, noteFolders: NoteFolder[]): string | null {
+  const id = search.get("folder") ?? readStored(FOLDER_KEY);
+  return noteFolders.some((folder) => folder.id === id) ? id : null;
+}
+/**
+ * "+ New note" on the Notes page, and the installed app's "+" there: a note made in the folder that is shown, opened to
+ * be written in. The folders are read from what the page has loaded, at the click (so the bar doesn't load the notes).
+ */
+export function useNewNote() {
+  const { mutate } = useAddNote();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { search } = useLocation();
+  return useCallback(() => {
+    const noteFolders = queryClient.getQueryData<NotesData>(NOTES)?.noteFolders ?? [];
+    const id = mutate({ noteFolderId: pickedFolderId(new URLSearchParams(search), noteFolders) });
+    navigate(`/notes/${id}`, { state: { fresh: true } satisfies NoteScreenState });
+  }, [mutate, queryClient, navigate, search]);
 }
 export const useEditNote = () => useChange("noteEdit");
 export const useDeleteNote = () => useChange("noteDelete");

@@ -20,6 +20,11 @@ feedbackRouter.post("/", async (req, res) => {
   res.status(204).end();
 });
 
+// How many letters the user has sent: each is 1 exp for their character.
+feedbackRouter.get("/sent", async (req, res) => {
+  res.json({ count: await prisma.feedback.count({ where: { userId: userId(req) } }) });
+});
+
 // The inbox on a developer's page: every letter with who sent it, newest first.
 feedbackRouter.get("/", async (req, res) => {
   const reader = await prisma.user.findUnique({ where: { id: userId(req) }, select: { username: true } });

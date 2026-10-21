@@ -616,10 +616,34 @@
     @apply h-28 overflow-hidden hover:brightness-[0.97];
     width: calc(100% - 4px);
   }
-  textarea.note-paper {
-    @apply block w-[calc(100%-4px)] resize-none overflow-hidden outline-none placeholder:text-stone-400;
+  /* The note editor (TaskTree/LiveNoteEditor, CodeMirror): marks being written at are faint; highlight as in a title. */
+  .note-editor.note-paper {
+    @apply block w-[calc(100%-4px)];
   }
-  textarea.note-paper:focus {
+  .note-editor .cm-editor {
+    min-height: inherit;
+  }
+  .note-editor .cm-placeholder {
+    @apply text-stone-400;
+  }
+  .note-editor .cm-note-mark {
+    @apply text-stone-400 dark:text-stone-500;
+  }
+  .note-editor .cm-note-highlight {
+    @apply bg-yellow-200 px-0.5 text-stone-900 dark:bg-yellow-300;
+  }
+  /* A list item's bullet or number, in the place of its marker; the line hangs from it (see readAsWritten). */
+  .note-editor .cm-note-item {
+    @apply inline-block indent-0;
+  }
+  .note-editor .cm-note-item > .note-bullet {
+    @apply mt-0 align-middle;
+  }
+  /* A heading on a line of its own: padding, not margin (the editor measures its lines). */
+  .note-editor .cm-note-heading:not(:first-child) {
+    @apply pt-2;
+  }
+  .note-editor.note-paper:focus-within {
     box-shadow:
       -2px 0 #639bff,
       2px 0 #639bff,
@@ -652,6 +676,10 @@
   }
   .note-heading-3 {
     @apply text-sm text-[#3544a1] dark:text-[#cbdbfc];
+  }
+  /* On a small card, a heading is the text's own size: there is little room. */
+  .note-card .note-heading {
+    @apply mt-0 border-b-0 pb-0 text-[length:inherit];
   }
   .tile-button-x {
     background-image: url("../../assets/buttons/7x7x_blue_v1.svg");

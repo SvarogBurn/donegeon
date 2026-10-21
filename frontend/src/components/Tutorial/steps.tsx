@@ -576,7 +576,7 @@ export const STEPS: Step[] = [
       </>
     ),
     target: () => ['section[aria-label="Settings"]'],
-    also: () => ['section[aria-label="Account"]'],
+    also: () => ['section[aria-label="Character"]'],
     button: "Next",
   },
   {
@@ -584,7 +584,7 @@ export const STEPS: Step[] = [
     text: () => (
       <>
         The cheat sheet lists every shortcut and key. If something is broken or missing, the box above it sends a message to the
-        developers.
+        developers, and each one is 1 exp.
       </>
     ),
     target: () => ["[data-cheatsheet]"],
