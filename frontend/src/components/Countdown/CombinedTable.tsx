@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { mondayOf } from "../../../../shared/dates";
 import { useNavigate } from "react-router";
 import { useCombinedCountdown, useTaskTrees } from "../../hooks/tasks";
 import { formatPace } from "../../lib/dates";
@@ -16,7 +17,8 @@ const HEADERS = ["Day", "Date", "Done", "Left", "Per day"];
  * Every deadline still open, hard and soft, in one table: each day's "Per day" is the sum
  * of what each deadline needs that day. A merged row marks where each deadline
  * falls (just above its day); a click on it opens the task's own page if it has one (a big task),
- * and otherwise shows the task where it is in its list. Hidden until there is a deadline.
+ * and otherwise shows the task where it is in its list. Weeks already over are left out, so it
+ * doesn't keep growing. Hidden until there is a deadline.
  */
 export function CombinedTable() {
   const navigate = useNavigate();
@@ -32,6 +34,7 @@ export function CombinedTable() {
 
   const today = countdown.rows.find((row) => row.date === countdown.today);
   const left = today?.remaining ?? countdown.totalTasks;
+  const weekStart = mondayOf(countdown.today);
 
   return (
     <TileFrame title="All deadlines" aria-label="All deadlines">
@@ -47,12 +50,13 @@ export function CombinedTable() {
         {countdown.rows.map((row) => {
           const style = dayRow(row.date, countdown.today);
           const deadlines = countdown.items.filter((item) => item.deadlineDate === row.date);
-          // A day with nothing to do and nothing done is left out (its deadline marker stays); today always shows.
+          // A day with nothing to do and nothing done is left out, and so is every day of a week already over
+          // (their deadline markers stay: those deadlines are still open); today always shows.
           // A deadline's marker comes under its day: that day is the last one to do the work in.
-          const isEmpty = row.perDay === 0 && row.doneThatDay === 0 && !style.isToday;
+          const isHidden = row.date < weekStart || (row.perDay === 0 && row.doneThatDay === 0 && !style.isToday);
           return (
             <Fragment key={row.date}>
-              {!isEmpty && (
+              {!isHidden && (
                 <tr data-today={style.isToday || undefined} className={style.row}>
                   <DayCells date={row.date} cell={style.cell} />
                   {/* A day that has gone by with nothing done reads 0; today and later stay blank until something is. */}
