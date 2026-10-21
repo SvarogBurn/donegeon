@@ -50,6 +50,15 @@ enum DeadlineToday {
   dayBefore
 }
 
+// A font the user can pick for the text in the boxes or in the notes: the pixel one, an ordinary one, OpenDyslexic, or
+// large print (Atkinson Hyperlegible, much bigger).
+enum TextFont {
+  pixel
+  plain
+  dyslexic
+  large
+}
+
 // What a message from the suggestion box is about.
 enum FeedbackKind {
   bug
@@ -85,8 +94,9 @@ model User {
   breakEvery      Int?
   // Whether the tutorial was finished or skipped; it shows until then, and again when asked for in the settings.
   tutorialSeen    Boolean  @default(false)
-  // Theme: the text inside the boxes in an ordinary font instead of the pixel one; titles keep the pixel font.
-  plainFont       Boolean  @default(false)
+  // Theme: the font of the text inside the boxes (task notes too; titles keep the pixel font), and of the Notes page's notes.
+  boxFont         TextFont @default(pixel)
+  notesFont       TextFont @default(pixel)
   // Whether the Notes tab (notes of their own, on no task) is shown in the task bar / the app's top strip.
   notesTab        Boolean  @default(false)
   // The character at the top of the user's page: its name and title, the stats and skills it shows, and how it looks
@@ -98,6 +108,8 @@ model User {
   // The colours the user picked for the built-in boxes (Today, Done, the character, a stats box…), by the box's key:
   // {"box:today": "#c8423b"} (see useBoxColors in frontend/src/hooks/useAuth.ts). A box with none keeps its own. null = none picked.
   boxColors       Json?
+  // Whether the built-in boxes show their colour button; off, they keep the colours picked.
+  boxColorEdit    Boolean  @default(false)
 
   goals             Goal[]
   tags              Tag[]

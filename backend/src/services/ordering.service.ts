@@ -7,6 +7,7 @@ const ORDERS = {
   taskPosition: { table: "Task", column: "position" },
   weekPosition: { table: "Task", column: "weekPosition" },
   folderPosition: { table: "Folder", column: "position" },
+  noteFolderPosition: { table: "NoteFolder", column: "position" },
 } as const;
 
 /**

@@ -14,6 +14,12 @@ import { installOnlineManager } from "./lib/offline/online";
 import { reportFailure } from "./lib/serverStatus";
 import { installStandalone } from "./lib/standalone";
 import "@fontsource/press-start-2p";
+// The fonts that can be picked for the text in the boxes or the notes (lib/fonts.ts): only the Latin letters, in
+// regular and bold, since the service worker keeps every font file it is given. Each is only fetched once it is used.
+import "@fontsource/atkinson-hyperlegible/latin-400.css";
+import "@fontsource/atkinson-hyperlegible/latin-700.css";
+import "@fontsource/opendyslexic/latin-400.css";
+import "@fontsource/opendyslexic/latin-700.css";
 // index.css first: it declares the cascade-layer order that styles/nes.scss slots into.
 import "./index.css";
 import "./styles/nes.scss";

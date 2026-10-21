@@ -185,10 +185,12 @@ where Log out is. Its Account box also shows your streak and how many tasks you 
 good, and logs it out everywhere. It asks first, and only goes ahead once
 `donegeon/<your username>` has been typed.
 
-Under **Theme** in the Settings box, **Plain font in boxes** shows the text inside the boxes in an ordinary
-font (a little larger, as it is much narrower) instead of the pixel one: tasks and subtasks, goals and tags, Today,
-Done, the stats, these settings, and the small menus and dialogs. Titles keep the pixel font: the band of each box,
-the task bar, the search field. It is saved per account.
+Under **Theme** in the Settings box, **Font in boxes** picks the font of the text inside the boxes: tasks and
+subtasks and their notes, goals and tags, Today, Done, the stats, these settings, a note shown in a folder, and the
+small menus and dialogs. Titles keep the pixel font: the band of each box, the task bar, the search field. **Font in
+notes** does the same for the Notes page's notes, their titles too. Each is one of Pixel (the default), Simple (an
+ordinary font, a little larger, as it is much narrower), OpenDyslexic, or Large print (Atkinson Hyperlegible, half as
+big again as Simple). An open dropdown's choices are in the dropdown's own font. They are saved per account.
 
 ## The tutorial
 

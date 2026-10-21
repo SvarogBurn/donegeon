@@ -1,5 +1,5 @@
 import { createContext, useContext, type HTMLAttributes, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import { useBoxColor, useSetBoxColor } from "../../hooks/useAuth";
+import { useBoxColor, useBoxColorEdit, useSetBoxColor } from "../../hooks/useAuth";
 import { frameStyle, TONE_COLORS } from "../../lib/frameTones";
 import { ColorSwatch } from "../ColorChoices";
 
@@ -18,7 +18,7 @@ export interface TileControls {
   onHide?: () => void;
   /**
    * The box's key among the user's picked box colours (useBoxColors): its frame takes the colour picked for it, and gets
-   * a button to pick one. Absent on a box with a colour of its own (a list's).
+   * a button to pick one (while the setting "Box colours" is on). Absent on a box with a colour of its own (a list's).
    */
   colorKey?: string;
 }
@@ -69,6 +69,8 @@ function BoxColorButton({ colorKey, name, own, picked }: { colorKey: string; nam
 export function TileFrame({ title, actions, tone = "blue", color, className = "", style, children, ...rest }: Props) {
   const controls = useContext(TileControlsContext);
   const picked = usePickedColor();
+  // The colour button only while the setting "Box colours" is on; off, the picked colours stay.
+  const canPick = useBoxColorEdit();
   // A picked colour recolours the band, as a list's does; without one the box keeps its own colour, or its tone's.
   const shown = picked ?? color;
 
@@ -78,7 +80,7 @@ export function TileFrame({ title, actions, tone = "blue", color, className = ""
         <h2 className="tile-title">{title}</h2>
         {controls && (
           <>
-            {controls.colorKey && (
+            {controls.colorKey && canPick && (
               <BoxColorButton colorKey={controls.colorKey} name={controls.name} own={color ?? TONE_COLORS[tone]} picked={picked} />
             )}
             {controls.onTogglePin && (

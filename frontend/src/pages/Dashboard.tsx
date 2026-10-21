@@ -166,7 +166,7 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
     if (noteId !== null) {
       const note = notes.data?.notes.find((n) => n.id === noteId);
       // A small card, two side by side where the column has room for them.
-      return note ? [{ key: view, view, name: `note "${note.title || "Note"}"`, label: note.title || "Note", half: true, node: <NoteCard note={note} /> }] : [];
+      return note ? [{ key: view, view, name: `note "${note.title || "Note"}"`, label: note.title || "Note", half: true, node: <NoteCard note={note} inBox /> }] : [];
     }
     if (stat === null) return listTiles.filter((tile) => tile.key === view);
     if (!(stat in STAT_BOXES)) return [];

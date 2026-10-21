@@ -13,9 +13,10 @@ import { useDeleteAccount, useLogout, useMe, useUpdateMe } from "../hooks/useAut
 import { useLayout, useSaveLayout } from "../hooks/layout";
 import { useOnline } from "../lib/offline/online";
 import { NeedsConnection } from "../components/NeedsConnection";
+import { FONT_CHOICES, FONT_STACKS, textFont } from "../lib/fonts";
 import { typedPoints } from "../lib/points";
 import { normalizeLayout, withHidden } from "../lib/tileLayout";
-import type { DeadlineToday, TickedTasks } from "../types";
+import type { DeadlineToday, TextFont, TickedTasks } from "../types";
 
 const TICKED_CHOICES: [TickedTasks, string][] = [
   ["bottom", "Go to the bottom"],
@@ -28,6 +29,36 @@ const TICKED_NOTES: Record<TickedTasks, string> = {
   stay: "A ticked task keeps its place for 24 hours, then is only on the Done page.",
   hide: "A ticked task leaves the Tasks tab and your folders at once. It is on the Done page, where it can be unticked.",
 };
+
+/**
+ * A font setting's dropdown, and under it what the font is for and the text it covers, written in that font (the
+ * pixel one too) so it shows at once how it reads.
+ */
+function FontChoice({ label, value, onChange, covers, name }: { label: string; value: TextFont; onChange: (font: TextFont) => void; covers: string; name: string }) {
+  const choice = FONT_CHOICES.find((font) => font.value === value)!;
+  return (
+    <>
+      <label className="flex flex-wrap items-center gap-2 text-xs">
+        {label}
+        <select
+          className="max-w-full border-2 border-stone-300 bg-white px-1 py-1 text-xs text-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
+          value={value}
+          onChange={(e) => onChange(e.target.value as TextFont)}
+          data-font-choice={name}
+        >
+          {FONT_CHOICES.map((font) => (
+            <option key={font.value} value={font.value}>
+              {font.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className={`text-xs text-stone-500 ${value === "pixel" ? "font-pixel" : ""}`} style={value === "pixel" ? undefined : { fontFamily: FONT_STACKS[value] }}>
+        {choice.note} {covers}
+      </p>
+    </>
+  );
+}
 
 const DEADLINE_TODAY_CHOICES: [DeadlineToday, string][] = [
   ["never", "Are not added to Today"],
@@ -97,7 +128,7 @@ function SwitchedAmount({ label, value, first, onSave, amountLabel, name, note }
             onBlur={done}
             onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
             aria-label={amountLabel}
-            {...{ [`data-${name}`]: true }}
+            data-font-choice={name}
           />
         )}
       </div>
@@ -272,15 +303,39 @@ export function UserPage() {
       </p>
       {/* How the app looks. */}
       <h3 className="border-t-2 border-stone-300 pt-3 font-pixel text-xs text-stone-500 dark:border-stone-700">Theme</h3>
+      <FontChoice
+        label="Font in boxes"
+        value={textFont(user.boxFont)}
+        onChange={(boxFont) => update.mutate({ boxFont })}
+        covers="The text inside the boxes (tasks, their notes, goals, these settings, ...). Titles keep the pixel font."
+        name="box-font"
+      />
+      <FontChoice
+        label="Font in notes"
+        value={textFont(user.notesFont)}
+        onChange={(notesFont) => update.mutate({ notesFont })}
+        covers="The notes on the Notes page, their titles too."
+        name="notes-font"
+      />
       <label className="flex items-center gap-2 text-xs">
-        <PixelCheckbox small checked={user.plainFont} onChange={(e) => update.mutate({ plainFont: e.target.checked })} data-plain-font />
-        Plain font in boxes
+        <PixelCheckbox small checked={user.boxColorEdit} onChange={(e) => update.mutate({ boxColorEdit: e.target.checked })} data-box-color-edit />
+        Allow changing box colours
       </label>
       <p className="text-xs text-stone-500">
-        {user.plainFont
-          ? "The text inside the boxes (tasks, goals, these settings, ...) is in an ordinary font. Titles keep the pixel font."
-          : "Everything is written in the pixel font."}
+        {user.boxColorEdit
+          ? "Every box but the task and reward lists has a colour button on its band, left of the pin. Lists have theirs on their plate."
+          : "No colour buttons on the boxes. The colours picked stay."}
       </p>
+      {/* Every built-in box back to its own colour; the lists keep theirs. */}
+      <button
+        type="button"
+        className="nes-btn btn"
+        data-reset-box-colors
+        disabled={Object.keys(user.boxColors ?? {}).length === 0}
+        onClick={() => update.mutate({ boxColors: null })}
+      >
+        Reset box colours to default
+      </button>
       {/* The tutorial shows while the account has not seen it: this says it hasn't, and goes where it starts. */}
       <button
         type="button"

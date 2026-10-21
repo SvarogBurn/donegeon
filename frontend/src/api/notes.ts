@@ -27,5 +27,7 @@ export const createNoteFolder = (body: NoteFolderChanges = {}) =>
   api<{ noteFolder: NoteFolder }>("/notes/folders", { body }).then((r) => r.noteFolder);
 export const updateNoteFolder = (id: string, body: NoteFolderChanges) =>
   api<{ noteFolder: NoteFolder }>(`/notes/folders/${id}`, { method: "PATCH", body }).then((r) => r.noteFolder);
+/** The folders dragged into another order, left to right. */
+export const reorderNoteFolders = (ids: string[]) => api(`/notes/folders/order`, { method: "PUT", body: { ids } });
 /** Its notes stay, back under "All". */
 export const deleteNoteFolder = (id: string) => api(`/notes/folders/${id}`, { method: "DELETE" });

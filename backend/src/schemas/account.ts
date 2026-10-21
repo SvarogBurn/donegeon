@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { MAX_POINTS } from "../../../shared/constants.js";
-import { DEADLINE_TODAY, TICKED_TASKS } from "../../../shared/enums.js";
+import { DEADLINE_TODAY, TEXT_FONTS, TICKED_TASKS } from "../../../shared/enums.js";
 import { hex } from "./common.js";
 
 export const credentials = z.object({
@@ -68,8 +68,10 @@ export const settings = z
     sortByDeadline: z.boolean(),
     deadlineToday: z.enum(DEADLINE_TODAY),
     tutorialSeen: z.boolean(),
-    plainFont: z.boolean(),
+    boxFont: z.enum(TEXT_FONTS),
+    notesFont: z.enum(TEXT_FONTS),
     notesTab: z.boolean(),
+    boxColorEdit: z.boolean(),
     /** null = no cap. */
     pointsCap: z.number().int().min(1, "A cap is at least 1 point").max(MAX_POINTS).nullable(),
     /** null = no reminder. */

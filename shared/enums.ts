@@ -21,5 +21,9 @@ export type TickedTasks = (typeof TICKED_TASKS)[number];
 export const DEADLINE_TODAY = ["never", "day", "dayBefore"] as const;
 export type DeadlineToday = (typeof DEADLINE_TODAY)[number];
 
+/** The fonts the text in the boxes, or in the notes, can be in (see frontend/src/lib/fonts.ts). */
+export const TEXT_FONTS = ["pixel", "plain", "dyslexic", "large"] as const;
+export type TextFont = (typeof TEXT_FONTS)[number];
+
 export const FEEDBACK_KINDS = ["bug", "feature"] as const;
 export type FeedbackKind = (typeof FEEDBACK_KINDS)[number];

@@ -6,7 +6,7 @@ import { notFound } from "../lib/httpError.js";
 import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
 import { color, id, name } from "../schemas/common.js";
-import { nextPosition } from "../services/ordering.service.js";
+import { nextPosition, writeOrder } from "../services/ordering.service.js";
 import { ownNote, ownNoteFolder } from "../services/ownership.js";
 
 const title = z.string().trim().max(100);
@@ -100,6 +100,21 @@ notesRouter.post("/folders", async (req, res) => {
     data: { userId: owner, name: input.name ?? "Folder", color: input.color ?? null, position: await nextPosition(prisma, "noteFolder", owner) },
   });
   res.status(201).json({ noteFolder });
+});
+
+// The folders dragged into another order: `ids` left to right. A folder left out (made meanwhile) keeps its place after them.
+notesRouter.put("/folders/order", async (req, res) => {
+  const { ids } = z.object({ ids: z.array(id).max(200) }).parse(req.body);
+  const folders = await prisma.noteFolder.findMany({
+    where: { userId: userId(req) },
+    orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+    select: { id: true, position: true },
+  });
+  const own = new Set(folders.map((f) => f.id));
+  const listed = [...new Set(ids)].filter((folderId) => own.has(folderId));
+  const order = [...listed, ...folders.map((f) => f.id).filter((folderId) => !listed.includes(folderId))];
+  await writeOrder(prisma, "noteFolderPosition", order, new Map(folders.map((f) => [f.id, f.position])));
+  res.status(204).end();
 });
 
 notesRouter.patch("/folders/:id", async (req, res) => {

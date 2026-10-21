@@ -30,11 +30,13 @@ const publicUser = (user: User) => ({
   tutorialSeen: user.tutorialSeen,
   pointsCap: user.pointsCap,
   breakEvery: user.breakEvery,
-  plainFont: user.plainFont,
+  boxFont: user.boxFont,
+  notesFont: user.notesFont,
   notesTab: user.notesTab,
   profile: user.profile,
   taskBar: user.taskBar,
   boxColors: user.boxColors,
+  boxColorEdit: user.boxColorEdit,
   isDev: isDev(user.username),
 });
 

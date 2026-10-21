@@ -58,6 +58,11 @@ export function useBoxColor(key: string | undefined): string | undefined {
   return key ? colors?.[key] : undefined;
 }
 
+/** Whether the built-in boxes show their colour button; off unless switched on on the user's page. */
+export function useBoxColorEdit(): boolean {
+  return useMe().user?.boxColorEdit ?? false;
+}
+
 /** Picks a built-in box's colour (see useBoxColor); null = back to the box's own. */
 export function useSetBoxColor() {
   const colors = useMe().user?.boxColors;

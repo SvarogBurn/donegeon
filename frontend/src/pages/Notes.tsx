@@ -1,18 +1,18 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { useSearchParams } from "react-router";
 import { ColorChoices } from "../components/ColorChoices";
 import { NeedsConnection } from "../components/NeedsConnection";
+import { dragAlong, useTabPress, type OnTabDrag } from "../components/layout/tabDrag";
 import { NoteCard } from "../components/Notes/NoteCard";
 import { TileControlsContext } from "../components/Tiles/TileFrame";
 import { useTabDrag } from "../components/Tiles/useTabDrag";
 import { useDropOnTab } from "../hooks/folders";
-import { pickedFolderId, rememberNoteFolder, useCreateNoteFolder, useDeleteNoteFolder, useEditNote, useNewNote, useNotes, useUpdateNoteFolder } from "../hooks/notes";
+import { pickedFolderId, rememberNoteFolder, useCreateNoteFolder, useDeleteNoteFolder, useEditNote, useNewNote, useNotes, useReorderNoteFolders, useUpdateNoteFolder } from "../hooks/notes";
 import { noteView } from "../lib/folders";
 import { FOLDER_COLOR, folderIn } from "../lib/frameTones";
+import { moveItem } from "../lib/taskBar";
 import type { NoteFolder } from "../types";
 
-/** How long a folder is held down before its name and colour open. */
-const HOLD_MS = 500;
 /** A note's box dropped on one of the folders along the top of the page: data-tab-drop="notes:<id>" ("notes:" = All). */
 const NOTES_TAB = "notes:";
 
@@ -105,46 +105,48 @@ function NoteFolderEditor({ folder, onClose }: { folder: NoteFolder; onClose: ()
 const chip = (isActive: boolean) =>
   `flex flex-none cursor-pointer items-center gap-1.5 px-2 py-1 font-pixel text-[8px] ${isActive ? "bg-stone-200 text-stone-950 dark:bg-stone-800 dark:text-white" : "text-stone-700 hover:bg-stone-200/60 dark:text-stone-300 dark:hover:bg-stone-800/60"}`;
 
-/** A folder along the top of the page: a click shows its notes; held, right-clicked or clicked again, its name and colour open. */
-function NoteFolderChip({ folder, isActive, isEditing, onPick, onEdit }: { folder: NoteFolder; isActive: boolean; isEditing: boolean; onPick: () => void; onEdit: (id: string | null) => void }) {
-  const hold = useRef(0);
-  const held = useRef(false);
-  const cancelHold = () => window.clearTimeout(hold.current);
-  useEffect(() => cancelHold, []);
+/**
+ * A folder along the top of the page: a click shows its notes; held, right-clicked or clicked again, its name and
+ * colour open; moved, it is dragged to another place among the folders.
+ */
+function NoteFolderChip({ folder, isActive, isEditing, isDragged, onPick, onEdit, onDrag }: {
+  folder: NoteFolder;
+  isActive: boolean;
+  isEditing: boolean;
+  isDragged: boolean;
+  onPick: () => void;
+  onEdit: (id: string | null) => void;
+  onDrag: OnTabDrag;
+}) {
+  const press = useTabPress<HTMLButtonElement>({ onDrag, onHoldRelease: () => onEdit(folder.id) });
 
-  function onPointerDown(e: PointerEvent) {
-    if (e.button !== 0) return;
-    held.current = false;
-    cancelHold();
-    hold.current = window.setTimeout(() => {
-      held.current = true;
-      onEdit(folder.id);
-    }, HOLD_MS);
-  }
-  function onClick(e: MouseEvent) {
-    if (held.current) return e.preventDefault();
+  // A plain click (one that ends a hold or a drag is stopped before this).
+  function onClick() {
     if (isActive) onEdit(isEditing ? null : folder.id);
     else onPick();
   }
 
   return (
     <button
+      ref={press.ref}
       type="button"
       className={chip(isActive)}
       data-tab-drop={`${NOTES_TAB}${folder.id}`}
       data-note-folder={folder.name}
+      data-bar-item={folder.id}
+      data-lifted={press.isLifted || undefined}
+      data-dragged={isDragged || undefined}
       aria-pressed={isActive}
       aria-expanded={isEditing}
-      title={`${folder.name}. Click again, hold or right-click for its name, colour or to remove it; drop a note here to put it in.`}
+      title={`${folder.name}. Drag to move it among the folders; click again, hold or right-click for its name, colour or to remove it; drop a note here to put it in.`}
       style={{ WebkitTouchCallout: "none", userSelect: "none" }}
-      onPointerDown={onPointerDown}
-      onPointerUp={cancelHold}
-      onPointerLeave={cancelHold}
-      onPointerCancel={cancelHold}
+      onPointerDown={press.onPointerDown}
+      onClickCapture={press.onClickCapture}
       onClick={onClick}
       onContextMenu={(e) => {
         e.preventDefault();
-        cancelHold();
+        // A finger's long-press: letting go opens it, unless the folder is dragged meanwhile.
+        if (press.pressing.current) return;
         onEdit(folder.id);
       }}
     >
@@ -168,12 +170,14 @@ export function NotesPage() {
   const newNote = useNewNote();
   const editNote = useEditNote();
   const createFolder = useCreateNoteFolder();
+  const reorder = useReorderNoteFolders();
+  const [draggedId, setDraggedId] = useState<string | null>(null);
   const [params, setParams] = useSearchParams();
   const [editingId, setEditingId] = useState<string | null>(null);
   const closeEditor = useCallback(() => setEditingId(null), []);
   const startDrag = useTabDrag(
     (id, tab) => (tab.startsWith(NOTES_TAB) ? editNote.mutate({ id, changes: { noteFolderId: tab.slice(NOTES_TAB.length) || null } }) : drop.dropOnTab(noteView(id), tab)),
-    // Newest first: there is no order of the user's own to change.
+    // Newest first: there is no order of the user's own to change (the folders' is changed by dragging them).
     () => {},
   );
 
@@ -184,6 +188,22 @@ export function NotesPage() {
   const pick = (id: string | null) => {
     rememberNoteFolder(id);
     setParams(id ? { folder: id } : {}, { replace: true });
+  };
+  // Let go beside another folder, it takes that place ("All" stays first, "+ Folder" last).
+  const dragFolder = (id: string, el: HTMLElement, at: { x: number; y: number }) => {
+    const order = noteFolders.map((folder) => folder.id);
+    setEditingId(null);
+    setDraggedId(id);
+    dragAlong({
+      key: id,
+      rows: [el.closest("nav") ?? el.parentElement!],
+      at,
+      onEnd: () => setDraggedId(null),
+      onDrop: (drop) => {
+        const next = moveItem({ left: order, right: [] }, id, drop).left;
+        if (next.join() !== order.join()) reorder.mutate(next);
+      },
+    });
   };
   const editingFolder = noteFolders.find((folder) => folder.id === editingId);
   const shown = notes.data.notes.filter((note) => pickedId === null || note.noteFolderId === pickedId);
@@ -198,7 +218,16 @@ export function NotesPage() {
             All
           </button>
           {noteFolders.map((folder) => (
-            <NoteFolderChip key={folder.id} folder={folder} isActive={pickedId === folder.id} isEditing={editingId === folder.id} onPick={() => pick(folder.id)} onEdit={setEditingId} />
+            <NoteFolderChip
+              key={folder.id}
+              folder={folder}
+              isActive={pickedId === folder.id}
+              isEditing={editingId === folder.id}
+              isDragged={draggedId === folder.id}
+              onPick={() => pick(folder.id)}
+              onEdit={setEditingId}
+              onDrag={(el, at) => dragFolder(folder.id, el, at)}
+            />
           ))}
           <NeedsConnection>
             <button
@@ -214,7 +243,7 @@ export function NotesPage() {
         </nav>
         {editingFolder && <NoteFolderEditor key={editingFolder.id} folder={editingFolder} onClose={closeEditor} />}
       </div>
-      {createFolder.error && <p className="text-sm text-red-600">{createFolder.error.message}</p>}
+      {(createFolder.error ?? reorder.error) && <p className="text-sm text-red-600">{(createFolder.error ?? reorder.error)!.message}</p>}
       <div className="flex justify-center">
         {/* Made in the folder that is shown, and opened to be written in. */}
         <button type="button" className="nes-btn btn-small" onClick={newNote}>

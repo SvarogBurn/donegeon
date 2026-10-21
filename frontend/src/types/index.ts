@@ -1,7 +1,7 @@
-import type { DeadlineToday, FeedbackKind, ListKind, RepeatUnit, TickedTasks } from "../../../shared/enums";
+import type { DeadlineToday, FeedbackKind, ListKind, RepeatUnit, TextFont, TickedTasks } from "../../../shared/enums";
 
 // The fixed choices are shared with the server (shared/enums.ts).
-export type { DeadlineToday, FeedbackKind, ListKind, RepeatUnit, TickedTasks };
+export type { DeadlineToday, FeedbackKind, ListKind, RepeatUnit, TextFont, TickedTasks };
 
 // The rest is mirrored by hand from what the server sends (its Prisma models); the rules both sides follow are in shared/.
 import type { DashboardLayout } from "../lib/tileLayout";
@@ -19,8 +19,10 @@ export interface User {
   pointsCap: number | null;
   /** A reminder to take a break after every so many tasks done in a day; null (the default) = none. */
   breakEvery: number | null;
-  /** Theme: the text inside the boxes is in an ordinary font instead of the pixel one. */
-  plainFont: boolean;
+  /** Theme: the font of the text inside the boxes (task notes too); "pixel" (the default) = the pixel font. Missing in an account kept on the device from before. */
+  boxFont?: TextFont;
+  /** Theme: the font of the Notes page's notes (title and text). */
+  notesFont?: TextFont;
   /** Whether the Notes tab (notes of their own, on no task) is shown; off by default. */
   notesTab: boolean;
   /** The character at the top of the user's page as saved; null = the defaults. Read it with normalizeProfile (lib/character/profile.ts). */
@@ -29,6 +31,8 @@ export interface User {
   taskBar: unknown;
   /** The colours picked for the built-in boxes, by box key; null = none picked. Read it with useBoxColors (hooks/useAuth.ts). */
   boxColors: Record<string, string> | null;
+  /** Whether the built-in boxes show their colour button; off (the default), they keep the colours picked. */
+  boxColorEdit: boolean;
   /** One of the developers' accounts: its page has the inbox of the suggestion box. */
   isDev: boolean;
 }

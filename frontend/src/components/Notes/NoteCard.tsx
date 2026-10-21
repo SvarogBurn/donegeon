@@ -12,9 +12,10 @@ import { DeleteOrKeep } from "../DeleteOrKeep";
  * under it as much of its text as fits, as it reads (lists, headings at the text's size); without a title, the text
  * fills the card from the top. A tap opens it on a screen of its own (/notes/:id). The x in its corner
  * deletes it (asked first, over the card); the tab button beside it drags it onto a folder (TileFrame's controls,
- * given by the grid or the Notes page).
+ * given by the grid or the Notes page). On the Notes page it is in the notes' font; shown in a folder (`inBox`), in the
+ * boxes' one.
  */
-export function NoteCard({ note }: { note: Note }) {
+export function NoteCard({ note, inBox = false }: { note: Note; inBox?: boolean }) {
   const controls = useContext(TileControlsContext);
   const remove = useDeleteNote();
   const [confirming, setConfirming] = useState(false);
@@ -22,10 +23,10 @@ export function NoteCard({ note }: { note: Note }) {
   // What it is called (to be read out, and in the delete button's name): its title, or else its first line.
   const name = note.title || text.split("\n")[0].trim();
   return (
-    <div className="relative">
+    <div className="relative" data-text={inBox ? "box" : "notes"}>
       <Link to={`/notes/${note.id}`} className="note-paper note-card flex flex-col" data-note={note.id} aria-label={`Note ${name || "with nothing in it yet"}`}>
         {(note.title || !text) && (
-          <span className={`mb-1 block flex-none truncate font-pixel text-[10px] leading-snug markup-bold ${controls ? "pr-12" : "pr-6"}`}>
+          <span className={`mb-1 block flex-none truncate note-title text-sm leading-snug font-bold markup-bold ${controls ? "pr-12" : "pr-6"}`}>
             {note.title ? <RichText text={note.title} /> : <span className="text-stone-400">Empty note</span>}
           </span>
         )}

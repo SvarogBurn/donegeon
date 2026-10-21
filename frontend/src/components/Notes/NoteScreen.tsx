@@ -130,34 +130,37 @@ function Screen({ note }: { note: Note }) {
             </button>
           )}
         </div>
-        <input
-          className="w-full bg-transparent font-pixel text-base outline-none placeholder:text-stone-400"
-          value={title}
-          placeholder="Title"
-          onChange={(e) => setTitle(e.target.value)}
-          onBlur={save}
-          onKeyDown={(e) => e.key === "Enter" && (field.current?.focus(), e.preventDefault())}
-          aria-label="Note title"
-          maxLength={100}
-        />
-        {/* Always the editor: it reads as written, and a tap anywhere in it (or the empty page under it) writes there. */}
-        <NoteEditor
-          ref={field}
-          value={text}
-          onChange={setText}
-          onFocus={() => setEditing(true)}
-          onDone={() => {
-            save();
-            setEditing(false);
-          }}
-          label="Note"
-          bare
-          aligner={aligner}
-          onSelect={setCaret}
-          hint="Tap to write. * or - starts a list"
-          autoFocus={Boolean((location.state as NoteScreenState | null)?.fresh)}
-          className="min-h-[60dvh] cursor-text text-sm"
-        />
+        {/* The title and the text: in the font picked for notes. */}
+        <div className="space-y-3" data-text="notes">
+          <input
+            className="note-title w-full bg-transparent text-base outline-none placeholder:text-stone-400"
+            value={title}
+            placeholder="Title"
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={save}
+            onKeyDown={(e) => e.key === "Enter" && (field.current?.focus(), e.preventDefault())}
+            aria-label="Note title"
+            maxLength={100}
+          />
+          {/* Always the editor: it reads as written, and a tap anywhere in it (or the empty page under it) writes there. */}
+          <NoteEditor
+            ref={field}
+            value={text}
+            onChange={setText}
+            onFocus={() => setEditing(true)}
+            onDone={() => {
+              save();
+              setEditing(false);
+            }}
+            label="Note"
+            bare
+            aligner={aligner}
+            onSelect={setCaret}
+            hint="Tap to write. * or - starts a list"
+            autoFocus={Boolean((location.state as NoteScreenState | null)?.fresh)}
+            className="min-h-[60dvh] cursor-text text-sm"
+          />
+        </div>
       </div>
     </div>,
     document.body,

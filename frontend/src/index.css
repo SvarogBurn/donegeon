@@ -55,6 +55,14 @@
     font-synthesis: none;
     -webkit-font-smoothing: none;
   }
+  /*
+   * A dropdown's choices, when it is open, in the dropdown's own font (the pixel one, or the one picked for its box):
+   * the reset gives the dropdown itself the font around it, but not its choices.
+   */
+  option,
+  optgroup {
+    font: inherit;
+  }
   /* What needs a connection, while offline (components/NeedsConnection): its direct children, so it greys once. */
   fieldset:disabled > * {
     opacity: 0.5;
@@ -854,15 +862,17 @@
     transform-origin: -28px -3px;
   }
   /*
-   * The text inside the boxes (a tile's body, and the small cards: menus, dialogs, a big task's page) in the
-   * system font, for those who switched the pixel font off for it in their settings. Titles (a tile's band, the
-   * task bar, anything "font-pixel") keep the pixel font. The app's text sizes are stepped down for the pixel
-   * font, which is much wider; an ordinary font needs them back up to read, so they are restated in here.
+   * The fonts picked in the settings (lib/fonts.ts, set on the page by AppShell). The box font is for the text inside
+   * the boxes (a tile's body, task notes included, and the small cards: menus, dialogs, a big task's page; a note shown
+   * in a folder, data-text="box"); titles there (a tile's band, the task bar, anything "font-pixel") keep the pixel font.
+   * The notes font is for the Notes page's notes, their titles too (data-text="notes"). The app's text sizes are
+   * stepped down for the pixel font, which is much wider; another font needs them back up to read, so they are
+   * restated in here.
    */
-  [data-font="plain"] :is(.tile-body, .card) {
-    font-family: ui-sans-serif, system-ui, sans-serif;
+  html[data-box-font] :is(.tile-body, .card, [data-text="box"]),
+  html[data-notes-font] [data-text="notes"] {
     font-size: 14px;
-    /* The pixel font has neither a bold nor smoothing; this one has both. */
+    /* The pixel font has neither a bold nor smoothing; these have both. */
     font-synthesis: weight style;
     -webkit-font-smoothing: auto;
     --text-xs: 12px;
@@ -880,9 +890,37 @@
     --text-3xl: 30px;
     --text-3xl--line-height: 1.2;
   }
+  html[data-box-font] :is(.tile-body, .card, [data-text="box"]) {
+    font-family: var(--box-font);
+  }
+  html[data-notes-font] [data-text="notes"] {
+    font-family: var(--notes-font);
+  }
+  /* Large print: every size half as big again as the simple font's. */
+  html[data-box-font="large"] :is(.tile-body, .card, [data-text="box"]),
+  html[data-notes-font="large"] [data-text="notes"] {
+    font-size: 21px;
+    --text-xs: 18px;
+    --text-sm: 21px;
+    --text-base: 24px;
+    --text-lg: 27px;
+    --text-xl: 32px;
+    --text-2xl: 38px;
+    --text-3xl: 44px;
+  }
+  /* A note's title is in the pixel font, like other titles, but it is the note's own text: it follows the font picked for it. */
+  .note-title {
+    font-family: var(--font-pixel);
+  }
+  html[data-box-font] :is(.tile-body, .card, [data-text="box"]) .note-title {
+    font-family: var(--box-font);
+  }
+  html[data-notes-font] [data-text="notes"] .note-title {
+    font-family: var(--notes-font);
+  }
   /*
    * Bold and italic in a title's markup. The pixel font has neither and none is faked (see body), so bold is the
-   * letters drawn twice, one pixel apart, and italic is the one slant the browser may make. The ordinary font has both.
+   * letters drawn twice, one pixel apart, and italic is the one slant the browser may make. The other fonts have both.
    */
   .markup-bold {
     text-shadow: 1px 0 currentColor;
@@ -890,15 +928,18 @@
   .markup-italic {
     font-synthesis: style;
   }
-  [data-font="plain"] :is(.tile-body, .card) .markup-bold {
+  html[data-box-font] :is(.tile-body, .card, [data-text="box"]) .markup-bold,
+  html[data-notes-font] [data-text="notes"] .markup-bold {
     text-shadow: none;
   }
-  /* The ordinary font has a real bold for a note's headings; the pixel font's size and colour have to do. */
-  [data-font="plain"] .note-heading {
+  /* The other fonts have a real bold for a note's headings; the pixel font's size and colour have to do. */
+  html[data-box-font] :is(.tile-body, .card, [data-text="box"]) .note-heading,
+  html[data-notes-font] [data-text="notes"] .note-heading {
     font-weight: 700;
   }
   /* Already bold: **bold** inside it would only smear it. */
-  [data-font="plain"] .note-heading .markup-bold {
+  html[data-box-font] :is(.tile-body, .card, [data-text="box"]) .note-heading .markup-bold,
+  html[data-notes-font] [data-text="notes"] .note-heading .markup-bold {
     font-weight: inherit;
     text-shadow: none;
   }

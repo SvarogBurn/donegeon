@@ -66,5 +66,18 @@ export function useUpdateNoteFolder() {
     onError: () => queryClient.invalidateQueries({ queryKey: NOTES }),
   });
 }
+/** The folders in another order (`ids` left to right): shows at once and is saved in the background. */
+export function useReorderNoteFolders() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: notesApi.reorderNoteFolders,
+    onMutate: (ids) => {
+      queryClient.setQueryData<NotesData>(NOTES, (data) =>
+        data && { ...data, noteFolders: [...data.noteFolders].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id)) },
+      );
+    },
+    onError: () => queryClient.invalidateQueries({ queryKey: NOTES }),
+  });
+}
 // Its notes stay, back under "All".
 export const useDeleteNoteFolder = () => useInvalidating(notesApi.deleteNoteFolder, [NOTES]);
