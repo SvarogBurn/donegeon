@@ -6,6 +6,7 @@ import { useUpdateMe } from "../../hooks/useAuth";
 import { useStandalone } from "../../lib/standalone";
 import { folderOfKey, folderOrder, moveItem, resolveTaskBar, type BarSide } from "../../lib/taskBar";
 import type { User } from "../../types";
+import { CharacterFace } from "../Character/CharacterFace";
 import { Bell } from "../Notifications/Bell";
 import { AppBars } from "./AppBars";
 import { barTab as tab, useNewFolderTab, usePublishedHeight } from "./barHooks";
@@ -145,7 +146,7 @@ function TaskBar({ user }: { user: User }) {
         // The user's own page (and logging out), under their name.
         content = (
           <NavLink to="/user" className={tab} aria-label="Account" title={`${user.username}. ${DRAG_HINT}`} draggable={false}>
-            <span className="tab-icon tab-icon-user" aria-hidden />
+            <CharacterFace user={user} className="tab-icon" iconClass="tab-icon tab-icon-user" />
             <span className="max-w-16 truncate sm:max-w-28">{user.username}</span>
           </NavLink>
         );

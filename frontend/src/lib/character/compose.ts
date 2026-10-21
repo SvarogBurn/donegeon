@@ -1,10 +1,12 @@
-import { bodyOf, choiceOf, type Look, type Material } from "./bodies";
+import { bodyOf, choiceOf, type Body, type Look, type Material } from "./bodies";
 import { recolorRamp } from "./ramps";
 
 /** A row of pixels of one colour: x, y, width, "#RRGGBB". */
 export type Run = [x: number, y: number, w: number, hex: string];
-/** What `npm run parts` exports: every layer of every drawing, bottom to top. */
-export type PartsData = Record<string, { width: number; height: number; layers: { name: string; visible: boolean; runs: Run[] }[] }>;
+/** A drawing as `npm run parts` exports it: every layer, bottom to top. */
+export type Drawing = { width: number; height: number; layers: { name: string; visible: boolean; runs: Run[] }[] };
+/** What `npm run parts` exports: every drawing, the bodies in parts.data.json, the faces in faces.data.json. */
+export type PartsData = Record<string, Drawing>;
 
 export interface Pixel {
   x: number;
@@ -22,6 +24,8 @@ export const HEIGHT = 52;
 export const LIFT = 3;
 /** The row a lifted drawing's feet are on. */
 export const FLOOR = HEIGHT - LIFT - 1;
+/** A face's canvas, both ways. */
+export const FACE = 21;
 
 const claims = (m: Material, layer: string, x: number, y: number, hex: string) =>
   m.hexes.includes(hex) &&
@@ -36,14 +40,36 @@ const cache = new Map<string, Pixel[]>();
  * skipped), each pixel in the colour picked for the material that claims it (see bodies.ts), or as drawn.
  */
 export function compose(look: Look, data: PartsData): Pixel[] {
-  const key = JSON.stringify(look);
+  return cached(`body${JSON.stringify(look)}`, () => {
+    const body = bodyOf(look);
+    const drawing = data[body.file];
+    if (!drawing) return [];
+    const dx = Math.floor((WIDTH - drawing.width) / 2);
+    // Lifted, so the feet and the shadow under them aren't cut off by the stage's bottom; a drawing out to its edges stays down.
+    const dy = HEIGHT - (body.toEdge ? 0 : LIFT) - drawing.height;
+    return paint(look, body, drawing, body.materials, dx, dy);
+  });
+}
+
+/** The look's face on its 21x21 canvas, drawn the same way; null if its body has none. */
+export function composeFace(look: Look, faces: PartsData): Pixel[] | null {
+  const body = bodyOf(look);
+  const drawing = body.face && faces[body.face.file];
+  if (!drawing) return null;
+  return cached(`face${JSON.stringify(look)}`, () => paint(look, body, drawing, body.face?.materials ?? body.materials, 0, 0));
+}
+
+function cached(key: string, make: () => Pixel[]) {
   const kept = cache.get(key);
   if (kept) return kept;
+  const pixels = make();
+  if (cache.size > 200) cache.clear();
+  cache.set(key, pixels);
+  return pixels;
+}
 
-  const body = bodyOf(look);
-  const drawing = data[body.file];
+function paint(look: Look, body: Body, drawing: Drawing, materials: Material[], dx: number, dy: number): Pixel[] {
   const pixels: Pixel[] = [];
-  if (!drawing) return pixels;
   const shown = new Set<string>();
   const optional = new Set<string>();
   for (const option of body.options ?? []) {
@@ -51,17 +77,14 @@ export function compose(look: Look, data: PartsData): Pixel[] {
     choiceOf(look, option).layers.forEach((l) => shown.add(l));
   }
   // Each material's swap, made once: drawn hex → picked shade.
-  const swaps = body.materials.map((m) => (look.colors[m.id] ? recolorRamp(m.hexes, look.colors[m.id]) : null));
-  const dx = Math.floor((WIDTH - drawing.width) / 2);
-  // Lifted, so the feet and the shadow under them aren't cut off by the stage's bottom; a drawing out to its edges stays down.
-  const dy = HEIGHT - (body.toEdge ? 0 : LIFT) - drawing.height;
+  const swaps = materials.map((m) => (look.colors[m.id] ? recolorRamp(m.hexes, look.colors[m.id]) : null));
 
   for (const layer of drawing.layers) {
     if (body.skip?.includes(layer.name)) continue;
     if (optional.has(layer.name) ? !shown.has(layer.name) : !layer.visible) continue;
     for (const [x0, y, w, hex] of layer.runs) {
       for (let x = x0; x < x0 + w; x++) {
-        const i = body.materials.findIndex((m) => claims(m, layer.name, x, y, hex));
+        const i = materials.findIndex((m) => claims(m, layer.name, x, y, hex));
         const fill = (i >= 0 && swaps[i]?.get(hex)) || hex;
         const last = pixels[pixels.length - 1];
         if (last && last.y === y + dy && last.fill === fill && last.x + last.w === x + dx) last.w++;
@@ -69,8 +92,6 @@ export function compose(look: Look, data: PartsData): Pixel[] {
       }
     }
   }
-  if (cache.size > 200) cache.clear();
-  cache.set(key, pixels);
   return pixels;
 }
 

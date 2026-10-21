@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Completion, StatTask } from "../stats";
-import { compose, FLOOR, HEIGHT, LIFT, type PartsData } from "./compose";
+import { compose, composeFace, FACE, FLOOR, HEIGHT, LIFT, type PartsData } from "./compose";
 import { expFor, levelOf, spanOf } from "./levels";
 import { BODIES, DEFAULT_LOOK, type Look } from "./bodies";
+import facesData from "./faces.data.json";
 import partsData from "./parts.data.json";
 import { normalizeLook, normalizeProfile } from "./profile";
 import { customStatValue, skillExp } from "./profileStats";
@@ -190,5 +191,47 @@ describe("bodies", () => {
     const count = (pixels: { fill: string; w: number }[], hex: string) => pixels.filter((p) => p.fill === hex).reduce((n, p) => n + p.w, 0);
     expect(count(furred, "#A63A3A")).toBe(count(plain, "#A63A3A"));
     expect(count(furred, "#C27A47")).toBeGreaterThan(50);
+  });
+});
+
+describe("faces", () => {
+  const faces = facesData as unknown as PartsData;
+  const withFace = BODIES.filter((body) => body.face);
+  const fills = (look: Look) => composeFace(look, faces)!.map((p) => `${p.x},${p.y},${p.w}${p.fill}`).join();
+
+  it("each is a drawing in assets/character/faces, 21x21 at most, its layers named like its body's", () => {
+    expect(withFace.map((b) => b.id)).toEqual(["bunny", "human", "whitecat", "frog", "wolf", "dragon"]);
+    for (const body of withFace) {
+      const drawing = faces[body.face!.file];
+      expect(drawing, body.face!.file).toBeDefined();
+      expect(drawing.width).toBeLessThanOrEqual(FACE);
+      expect(drawing.height).toBeLessThanOrEqual(FACE);
+      // A layer that isn't always shown must be one a choice of the body names, or nothing would ever show it.
+      const chosen = new Set((body.options ?? []).flatMap((o) => o.choices.flatMap((c) => c.layers)));
+      for (const layer of drawing.layers) expect(layer.visible || chosen.has(layer.name), `${body.id} ${layer.name}`).toBe(true);
+    }
+  });
+
+  it("every material of its own changes something when a colour is picked for it", () => {
+    for (const body of withFace) {
+      const look: Look = { v: 2, body: body.id, options: {}, colors: {} };
+      for (const material of body.face!.materials ?? []) {
+        expect(fills({ ...look, colors: { [material.id]: "#00FF00" } }), `${body.id} ${material.id}`).not.toBe(fills(look));
+      }
+    }
+  });
+
+  it("shows the human's chosen hair, glasses and ears in the body's colours, and never a hat", () => {
+    const human: Look = { v: 2, body: "human", options: {}, colors: {} };
+    const dressed: Look = { ...human, options: { hair: "afro", glasses: "glasses2", ears: "cat", beard: "full" } };
+    expect(fills(dressed)).not.toBe(fills(human));
+    expect(fills({ ...dressed, options: { ...dressed.options, hat: "fedora" } })).toBe(fills(dressed));
+    for (const id of ["hair", "skin", "eyes", "glasses", "fur"]) {
+      expect(fills({ ...dressed, colors: { [id]: "#00FF00" } }), id).not.toBe(fills(dressed));
+    }
+  });
+
+  it("has none for a body not drawn yet", () => {
+    expect(composeFace({ v: 2, body: "boar", options: {}, colors: {} }, faces)).toBeNull();
   });
 });

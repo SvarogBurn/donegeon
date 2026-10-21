@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from "react-router";
 import { useNewNote } from "../../hooks/notes";
 import { usePoints } from "../../hooks/points";
 import type { User } from "../../types";
+import { CharacterFace } from "../Character/CharacterFace";
 import { Bell } from "../Notifications/Bell";
 import { QuickAdd } from "../QuickAdd";
 import { SiteSearch } from "../Search/SiteSearch";
@@ -171,7 +172,7 @@ export function AppBars({ user }: { user: User }) {
           </NavLink>
           {/* The user's own page (and logging out), under their name. */}
           <NavLink to="/user" className={barTab} aria-label="Account" title={user.username}>
-            <span className="tab-icon tab-icon-user bar-user-icon !size-[21px] !bg-size-[15px]" aria-hidden />
+            <CharacterFace user={user} className="tab-icon !size-[21px]" iconClass="tab-icon tab-icon-user bar-user-icon !size-[21px] !bg-size-[15px]" />
             <span className="max-w-16 truncate">{user.username}</span>
           </NavLink>
         </nav>

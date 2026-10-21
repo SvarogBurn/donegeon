@@ -10,6 +10,9 @@
 // Coordinates are the file's own; a drawing smaller than the canvas is centred on it, its feet on the bottom row. A drawing is
 // at most 32x48 (32x52 if it is drawn out to its edges, `toEdge`).
 // Sizes are kept true to each other: one pixel is the same size on every body, so the human is drawn the tallest.
+// A body may have a face (assets/character/faces/, 21x21), shown in the task bar instead of the user icon: its layers
+// are named like the body's, so the same choices show its hair, glasses and ears (a hat has no layer there, so it is
+// never shown), and the colours picked for the body recolour it.
 
 export interface Material {
   /** The same id on two bodies keeps the picked colour when the body changes ("fur", "eyes"). */
@@ -49,6 +52,17 @@ export interface Body {
   toEdge?: boolean;
   options?: BodyOption[];
   materials: Material[];
+  face?: Face;
+}
+
+export interface Face {
+  /** Its file in assets/character/faces/, without ".aseprite". */
+  file: string;
+  /**
+   * Its own materials, under the body's ids, where it is drawn in other hexes or on other layers than the body; else
+   * the body's are used.
+   */
+  materials?: Material[];
 }
 
 const NONE = (id = "none"): Choice => ({ id, name: "None", layers: [] });
@@ -74,6 +88,14 @@ export const BODIES: Body[] = [
     name: "Bunny",
     file: "40x15_bunnyman_user",
     skip: ["shadow"],
+    face: {
+      file: "21x21_bunny_face_v1",
+      materials: [
+        { id: "fur", name: "Fur", hexes: ["#3F394D", "#2C2638", "#140B26", "#544D64"] },
+        { id: "eyes", name: "Eyes", hexes: ["#F7F2F4"] },
+        { id: "markings", name: "Nose & ear tips", hexes: ["#F4F2E6", "#C9C2B2", "#D2A4BA"] },
+      ],
+    },
     options: [
       {
         id: "hat",
@@ -112,6 +134,8 @@ export const BODIES: Body[] = [
     id: "human",
     name: "Human",
     file: "48x32_human_v2",
+    // Its layers and hexes are the body's: the body's materials fit it.
+    face: { file: "21x21_human_face_v1" },
     options: [
       {
         // Eyes 1 is what the body had drawn on it before the eyes were layers of their own.
@@ -279,6 +303,7 @@ export const BODIES: Body[] = [
     id: "whitecat",
     name: "White cat",
     file: "40x15_whitecat_user",
+    face: { file: "21x21_cat_face_v1" },
     materials: [
       { id: "cloak", name: "Cloak", hexes: ["#CBDBFC", "#93AFE9", "#6A87C2"], layers: ["Layer 6"] },
       { id: "cloak", name: "Cloak", hexes: ["#6A87C2"], layers: ["Layer 3 Copy Copy Copy"] },
@@ -334,6 +359,14 @@ export const BODIES: Body[] = [
     name: "Frog",
     file: "48x32_frog_v1",
     skip: ["shadow"],
+    face: {
+      file: "21x21_frog_face_v1",
+      materials: [
+        { id: "fur", name: "Skin", hexes: ["#80354D", "#A35468", "#5A2238"] },
+        // The pupils; the mouth is drawn in the same dark.
+        { id: "eyes", name: "Eyes", hexes: ["#140B26"], at: [[6, 7], [14, 7]] },
+      ],
+    },
     materials: [
       { id: "fur", name: "Skin", hexes: ["#80354D", "#A35468", "#5A2238"], layers: ["head"] },
       { id: "eyes", name: "Eyes", hexes: ["#140B26"], layers: ["head"], rows: [16, 16] },
@@ -363,6 +396,14 @@ export const BODIES: Body[] = [
     id: "wolf",
     name: "Wolf",
     file: "48x32_wolf_v2",
+    face: {
+      file: "21x21_wolf_face_v1",
+      materials: [
+        // The nose is drawn in the same dark.
+        { id: "eyes", name: "Eyes", hexes: ["#140B26"], at: [[7, 9], [13, 9]] },
+        { id: "fur", name: "Fur", hexes: ["#F4F2E6", "#C9C2B2", "#9C9585"] },
+      ],
+    },
     options: [{ id: "tail", name: "Tail", choices: [{ id: "bushy", name: "Bushy tail", layers: ["back"] }, NONE()] }],
     materials: [
       { id: "eyes", name: "Eyes", hexes: ["#140B26"], layers: ["head"], at: [[23, 13], [19, 14]] },
@@ -379,6 +420,15 @@ export const BODIES: Body[] = [
     name: "Dragon",
     file: "48x32_dragon_v1",
     toEdge: true,
+    // Drawn bigger than the others' faces, out to its edges, as the dragon is the biggest body. Its fangs stay as drawn.
+    face: {
+      file: "21x21_dragon_face_v3",
+      materials: [
+        { id: "eyes", name: "Eyes", hexes: ["#D9756B"] },
+        { id: "horns", name: "Horns", hexes: ["#411414", "#5C2424"] },
+        { id: "fur", name: "Scales", hexes: ["#803535", "#80354D", "#A74D4D", "#6E2828", "#541C1C", "#451010", "#2D0D0D"] },
+      ],
+    },
     materials: [
       // The eyes are the two light pink pixels; the near-black ones on the snout are its nostrils, and scales.
       { id: "eyes", name: "Eyes", hexes: ["#A74D4D"], layers: ["Layer 6"] },
