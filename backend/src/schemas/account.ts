@@ -58,6 +58,9 @@ const profile = z
 const barSide = z.array(z.string().max(80)).max(200);
 const taskBar = z.object({ left: barSide, right: barSide }).nullable();
 
+/** The built-in boxes' picked colours, by box key (see useBoxColors in frontend/src/hooks/useAuth.ts). */
+const boxColors = capped(hex.transform((value) => value.toLowerCase()), 100).nullable();
+
 /** The account's own settings, from the user's page; any of them at a time. */
 export const settings = z
   .object({
@@ -75,5 +78,7 @@ export const settings = z
     profile,
     /** null = back to the default. */
     taskBar,
+    /** null = every box back to its own colour. */
+    boxColors,
   })
   .partial();

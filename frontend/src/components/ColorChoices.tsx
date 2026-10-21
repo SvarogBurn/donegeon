@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { LIST_COLORS } from "../lib/frameTones";
 
 interface Props {
@@ -11,7 +11,7 @@ interface Props {
 
 /**
  * A few colours to pick from, the browser's own picker for any other, and the
- * way back to the default. Used for a list's box and for a folder's icon.
+ * way back to the default. Used for a list's box, a built-in box (ColorSwatch) and for a folder's icon.
  */
 export function ColorChoices({ current, onPick, reset }: Props) {
   const other = useRef<HTMLInputElement>(null);
@@ -57,5 +57,61 @@ export function ColorChoices({ current, onPick, reset }: Props) {
         </button>
       )}
     </div>
+  );
+}
+
+interface SwatchProps extends Props {
+  /** What the button and its popup are called: "List colour", "Today's colour". */
+  label: string;
+  title: string;
+  /** The button's look, drawn from --swatch (the colour in use): a list's plate has a small square, a box's band a 7x7 button like its others. */
+  className: string;
+  /** Which edge of the button the popup lines up with: a box's band button sits at the right of the box. */
+  align?: "left" | "right";
+}
+
+/**
+ * A button showing the colour in use (as --swatch, for its className to draw) that opens ColorChoices under it;
+ * a click outside or Escape closes them.
+ */
+export function ColorSwatch({ label, title, className, align = "left", ...choices }: SwatchProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setIsOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && setIsOpen(false);
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isOpen]);
+
+  return (
+    <span ref={ref} className="relative flex flex-none">
+      <button
+        type="button"
+        className={className}
+        style={{ "--swatch": choices.current } as CSSProperties}
+        aria-label={label}
+        aria-expanded={isOpen}
+        title={title}
+        onClick={() => setIsOpen(!isOpen)}
+      />
+      {isOpen && (
+        <div
+          className={`card absolute top-full z-40 mt-2 w-44 !p-2 text-left font-normal text-stone-900 shadow-lg dark:text-stone-100 ${align === "right" ? "right-0" : "left-0 max-sm:right-0 max-sm:left-auto"}`}
+          role="dialog"
+          aria-label={label}
+        >
+          <ColorChoices {...choices} />
+        </div>
+      )}
+    </span>
   );
 }

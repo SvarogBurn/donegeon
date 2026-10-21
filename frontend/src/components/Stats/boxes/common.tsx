@@ -1,10 +1,9 @@
 import type { ComponentProps, CSSProperties, ReactNode } from "react";
 import { formatDay } from "../../../lib/dates";
-import { frameIn, isLight } from "../../../lib/frameTones";
 import type { Completion, Outcome, StatFilter, StatTask } from "../../../lib/stats";
 import type { StatsView } from "../../../lib/statsView";
 import type { Folder, Goal, List, PointsSummary, Tag } from "../../../types";
-import { TileFrame } from "../../Tiles/TileFrame";
+import { TileFrame, usePickedColor } from "../../Tiles/TileFrame";
 import type { ListedTask } from "../TaskListDialog";
 
 /** What a box of the stats is drawn from: the filtered view, what the filter offers, and the point ledger. */
@@ -62,15 +61,12 @@ export function listDone(done: Completion[], isIn: (day: string) => boolean): Li
 /**
  * A stats box in a colour of its own, so the boxes can be told apart at a glance: its frame's band takes it,
  * and so do its bars and dots (--chart; the dots' steps are mixed from it in index.css). Without `color` the frame
- * keeps its tone's colour, and `chart` alone colours the bars and dots to go with it.
+ * keeps its tone's colour, and `chart` alone colours the bars and dots to go with it. A colour the user picked
+ * for the box takes the place of both.
  */
-export function StatFrame({ color, chart = color, style: more, ...frame }: ComponentProps<typeof TileFrame> & { color?: string; chart?: string }) {
-  const style = {
-    ...more,
-    "--chart": chart,
-    ...(color ? { "--frame": frameIn(color), "--band-text": isLight(color) ? "#222034" : "#fff" } : {}),
-  } as CSSProperties;
-  return <TileFrame {...frame} data-chart="" style={style} />;
+export function StatFrame({ color, chart = color, style, ...frame }: ComponentProps<typeof TileFrame> & { chart?: string }) {
+  const picked = usePickedColor();
+  return <TileFrame {...frame} color={color} data-chart="" style={{ ...style, "--chart": picked ?? chart } as CSSProperties} />;
 }
 
 /** A row of buttons picking one of `choices`, the picked one pressed. */

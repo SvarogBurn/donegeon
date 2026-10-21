@@ -95,6 +95,9 @@ model User {
   // The browser task bar's items in the user's own order, each side of the logo: {left, right} of keys such as
   // "tasks", "clock" or "folder:<id>" (see frontend/src/lib/taskBar.ts). null = the default.
   taskBar         Json?
+  // The colours the user picked for the built-in boxes (Today, Done, the character, a stats box…), by the box's key:
+  // {"box:today": "#c8423b"} (see useBoxColors in frontend/src/hooks/useAuth.ts). A box with none keeps its own. null = none picked.
+  boxColors       Json?
 
   goals             Goal[]
   tags              Tag[]

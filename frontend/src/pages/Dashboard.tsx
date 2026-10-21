@@ -107,6 +107,7 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
     view: listView(card.list.id),
     name: `list "${card.list.name}"`,
     label: card.list.name,
+    ownColor: true,
     node: <ListCard list={card.list} tasks={card.tasks} taskCount={card.taskCount} />,
   }));
   const newListTile = !filtering && { key: NEW_LIST_TILE, name: "the new-list field", node: <ListForm folderId={folderId} /> };

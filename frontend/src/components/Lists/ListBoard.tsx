@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useCreateList, useUpdateList } from "../../hooks/lists";
 import { useOnline } from "../../lib/offline/online";
@@ -8,7 +8,7 @@ import { filterTree, isFiltering, type LabelFilter } from "../../lib/labels";
 import { pointsFieldWidth, typedPoints } from "../../lib/points";
 import { isShown } from "../../lib/recent";
 import type { List, ListKind, TaskTreeNode, TickedTasks } from "../../types";
-import { ColorChoices } from "../ColorChoices";
+import { ColorSwatch } from "../ColorChoices";
 import { TaskForm } from "../TaskTree/TaskForm";
 import { TaskTree } from "../TaskTree/TaskNode";
 import { useDrag, useTree } from "../TaskTree/TreeContext";
@@ -87,46 +87,16 @@ function KindFields({ kind, points, onKind, onPoints, onPointsDone, inCorner = f
  * the kind's own colour (blue for tasks, orange for rewards).
  */
 function ColorPicker({ list, onPick }: { list: List; onPick: (color: string | null) => void }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
-  const current = listColor(list);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setIsOpen(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && setIsOpen(false);
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [isOpen]);
-
   return (
-    <span ref={ref} className="relative flex">
-      <button
-        type="button"
-        className="size-4 cursor-pointer border-2 border-[#222034]"
-        style={{ backgroundColor: current }}
-        aria-label="List colour"
-        aria-expanded={isOpen}
-        title="Pick this list's colour"
-        onClick={() => setIsOpen(!isOpen)}
-      />
-      {isOpen && (
-        <div className="card absolute top-full left-0 z-40 mt-2 w-44 !p-2 shadow-lg max-sm:right-0 max-sm:left-auto" role="dialog" aria-label="List colour">
-          <ColorChoices
-            current={current}
-            // The kind's own colour is "no colour picked", so the list follows its kind again.
-            onPick={(hex) => onPick(hex === KIND_COLORS[list.kind] ? null : hex)}
-            reset={list.color ? { label: `Back to ${list.kind === "reward" ? "orange" : "blue"}`, onReset: () => onPick(null) } : undefined}
-          />
-        </div>
-      )}
-    </span>
+    <ColorSwatch
+      label="List colour"
+      title="Pick this list's colour"
+      className="size-4 cursor-pointer border-2 border-[#222034] bg-(--swatch)"
+      current={listColor(list)}
+      // The kind's own colour is "no colour picked", so the list follows its kind again.
+      onPick={(hex) => onPick(hex === KIND_COLORS[list.kind] ? null : hex)}
+      reset={list.color ? { label: `Back to ${list.kind === "reward" ? "orange" : "blue"}`, onReset: () => onPick(null) } : undefined}
+    />
   );
 }
 

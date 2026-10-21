@@ -694,6 +694,25 @@
     @apply cursor-grab touch-none select-none active:cursor-grabbing;
     background-image: url("../../assets/buttons/7x7tab_blue_v1.svg");
   }
+  /*
+   * A built-in box's colour (TileFrame's BoxColorButton): no art of its own, drawn like the others' plate (light
+   * edge top and left, pale face) with a square of the box's colour (--swatch) in a dark ring for the glyph.
+   */
+  .tile-button-color {
+    @apply relative;
+    background-color: #cbdbfc;
+    box-shadow: inset var(--u) var(--u) #eaf0fd;
+  }
+  .tile-button-color::after {
+    @apply absolute;
+    content: "";
+    top: var(--u);
+    left: var(--u);
+    width: calc(5 * var(--u));
+    height: calc(5 * var(--u));
+    background-color: var(--swatch);
+    box-shadow: inset 0 0 0 var(--u) #3f3f74;
+  }
   .tile-body {
     padding: calc(3 * var(--u)) calc(4 * var(--u));
   }

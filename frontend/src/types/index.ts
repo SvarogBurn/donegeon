@@ -27,6 +27,8 @@ export interface User {
   profile: unknown;
   /** The task bar's items in the user's own order, each side of the logo, as saved; null = the default. Read it with resolveTaskBar (lib/taskBar.ts). */
   taskBar: unknown;
+  /** The colours picked for the built-in boxes, by box key; null = none picked. Read it with useBoxColors (hooks/useAuth.ts). */
+  boxColors: Record<string, string> | null;
   /** One of the developers' accounts: its page has the inbox of the suggestion box. */
   isDev: boolean;
 }

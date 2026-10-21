@@ -30,6 +30,14 @@ const SLIDER_DARK = "#3544A1";
 /** What a list's box is coloured when the user hasn't picked: the art's blue for tasks, the reward tone for rewards. */
 export const KIND_COLORS = { task: BAND_BRIGHT.toLowerCase(), reward: TONES.reward.bright.toLowerCase() };
 
+/** Each tone's band colour (its bright one), as the colour pickers name it. */
+export const TONE_COLORS = {
+  blue: BAND_BRIGHT.toLowerCase(),
+  reward: TONES.reward.bright.toLowerCase(),
+  setup: TONES.setup.bright.toLowerCase(),
+  record: TONES.record.bright.toLowerCase(),
+};
+
 /** The colours offered for a list; any other can be picked from the browser's colour picker. */
 export const LIST_COLORS: [name: string, hex: string][] = [
   ["Blue", KIND_COLORS.task],
@@ -74,6 +82,8 @@ function recolour(art: string, artDark: string, bright: string, name: string, ar
 
 /** The tile frame with its band in any colour, as a CSS url(); made once per colour. */
 export const frameIn = (hex: string) => recolour(frameSvg, BAND_DARK, hex, "frame");
+/** A tile frame's style for a band in any colour: the recoloured border, and the title dark on a light colour. */
+export const frameStyle = (hex: string) => ({ "--frame": frameIn(hex), "--band-text": isLight(hex) ? "#222034" : "#fff" }) as CSSProperties;
 /**
  * What a list's frame looks like, for its own box and for anything shown as being in it (a task's note): the
  * reward tone for a reward list, and the band in the list's picked colour, its title dark on a light one.
@@ -81,7 +91,7 @@ export const frameIn = (hex: string) => recolour(frameSvg, BAND_DARK, hex, "fram
 export function listFrame(list: Pick<List, "kind" | "color"> | undefined): { tone: "blue" | "reward"; style?: CSSProperties } {
   const tone = list?.kind === "reward" ? "reward" : "blue";
   if (!list?.color) return { tone };
-  return { tone, style: { "--frame": frameIn(list.color), "--band-text": isLight(list.color) ? "#222034" : "#fff" } as CSSProperties };
+  return { tone, style: frameStyle(list.color) };
 }
 /** The Task / Reward switch's track in any colour. */
 export const sliderIn = (hex: string) => recolour(sliderSvg, SLIDER_DARK, hex, "slider");

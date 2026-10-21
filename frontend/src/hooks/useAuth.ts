@@ -48,6 +48,26 @@ export function useNotesTab(): boolean {
   return useMe().user?.notesTab ?? false;
 }
 
+/**
+ * The colour the user picked for a built-in box (Today, Done, the character, a stats box…), by the box's key: its
+ * folder view where it has one ("box:today", "stat:points", "cal:month"), else its tile key ("done", "character"). So a
+ * box and its copies in folders share one colour. A box with none keeps its own; a list has its own `color` instead.
+ */
+export function useBoxColor(key: string | undefined): string | undefined {
+  const colors = useMe().user?.boxColors;
+  return key ? colors?.[key] : undefined;
+}
+
+/** Picks a built-in box's colour (see useBoxColor); null = back to the box's own. */
+export function useSetBoxColor() {
+  const colors = useMe().user?.boxColors;
+  const update = useUpdateMe();
+  return (key: string, color: string | null) => {
+    const others = Object.fromEntries(Object.entries(colors ?? {}).filter(([other]) => other !== key));
+    update.mutate({ boxColors: color ? { ...others, [key]: color } : others });
+  };
+}
+
 /** A setting of the account's: shows at once and is saved in the background. */
 export function useUpdateMe() {
   const queryClient = useQueryClient();

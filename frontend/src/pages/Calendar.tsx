@@ -88,6 +88,7 @@ export function CalendarPage() {
                 isPinned: false,
                 onDragStart: (e) => startDrag(e, name),
                 dragTitle: "Drag onto the other box to change places; or onto a tab of the task bar: Tasks, or a folder, shows this box too",
+                colorKey: calView(name),
               }}
             >
               <CalBoxView name={name} />

@@ -345,6 +345,7 @@ export function UserPage() {
                 onDragStart: (e) => startDrag(e, box.key),
                 dragTitle: "Drag onto another box to put this one in its place",
                 onHide: () => saveLayout.mutate(withHidden(saved, box.key, true)),
+                colorKey: box.key,
               }}
             >
               {box.node}

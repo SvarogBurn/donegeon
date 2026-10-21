@@ -26,6 +26,8 @@ export interface Tile {
   view?: string;
   /** A small box: half its column's width, so two of them in a row sit side by side where the column has room for two frames. */
   half?: boolean;
+  /** A box with a colour of its own (a list's), so the frame offers no pick of the user's box colours. */
+  ownColor?: boolean;
 }
 
 interface Props {
@@ -197,6 +199,8 @@ export function TileGrid({ tiles, order, layout, onChange, onDropOnTab }: Props)
             onTogglePin: () => save(togglePin(arrangement, tile.key)),
             onDragStart: (e) => startDrag(e, tile.key),
             onHide: tile.canHide ? () => onChange(withHidden(layout, tile.key, true)) : undefined,
+            // By its view where it has one, so the box and its copies in folders share a colour.
+            colorKey: tile.ownColor ? undefined : (tile.view ?? tile.key),
           }}
         >
           {tile.node}
