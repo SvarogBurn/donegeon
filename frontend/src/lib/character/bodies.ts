@@ -318,6 +318,8 @@ export const BODIES: Body[] = [
     id: "boar",
     name: "Boar",
     file: "48x32_boar_user_v2",
+    // Its layers and hexes are the body's: the body's materials fit it.
+    face: { file: "21x21_boar_face_v1" },
     skip: ["shadow"],
     options: [{ id: "horns", name: "Horns", choices: [{ id: "curly", name: "Curly horns", layers: ["headwear"] }, NONE()] }],
     materials: [
@@ -339,6 +341,8 @@ export const BODIES: Body[] = [
     id: "deer",
     name: "Deer",
     file: "48x32_deer_v1",
+    // Its layers and hexes are the body's: the body's materials fit it.
+    face: { file: "21x21_deer_face_v1" },
     skip: ["shadow"],
     options: [{ id: "hair", name: "Hair", choices: [{ id: "long", name: "Long hair", layers: ["hair"] }, NONE()] }],
     materials: [
@@ -380,6 +384,15 @@ export const BODIES: Body[] = [
     id: "sheep",
     name: "Sheep",
     file: "48x32_sheep_v1",
+    face: {
+      file: "21x21_sheep_face_v1",
+      materials: [
+        // The eyes are drawn in the wool's white.
+        { id: "eyes", name: "Eyes", hexes: ["#F4F2E6"], at: [[7, 11], [13, 11]] },
+        { id: "wool", name: "Wool", hexes: ["#F4F2E6", "#C9C2B2", "#9C9585"] },
+        { id: "fur", name: "Face", hexes: ["#564A62", "#3F394D"] },
+      ],
+    },
     skip: ["shadow"],
     materials: [
       { id: "eyes", name: "Eyes", hexes: ["#F4F2E6"], layers: ["head"], at: [[18, 17]] },
@@ -418,23 +431,24 @@ export const BODIES: Body[] = [
   {
     id: "dragon",
     name: "Dragon",
-    file: "48x32_dragon_v1",
+    // The user's v1 body with the head of its face (21x21_dragon_face_v4) on it.
+    file: "48x32_dragon_v3",
     toEdge: true,
-    // Drawn bigger than the others' faces, out to its edges, as the dragon is the biggest body. Its fangs stay as drawn.
+    // Its fangs stay as drawn.
     face: {
-      file: "21x21_dragon_face_v3",
+      file: "21x21_dragon_face_v5",
       materials: [
         { id: "eyes", name: "Eyes", hexes: ["#D9756B"] },
         { id: "horns", name: "Horns", hexes: ["#411414", "#5C2424"] },
-        { id: "fur", name: "Scales", hexes: ["#803535", "#80354D", "#A74D4D", "#6E2828", "#541C1C", "#451010", "#2D0D0D"] },
+        { id: "fur", name: "Scales", hexes: ["#803535", "#6E2828", "#541C1C", "#2D0D0D"] },
       ],
     },
     materials: [
-      // The eyes are the two light pink pixels; the near-black ones on the snout are its nostrils, and scales.
-      { id: "eyes", name: "Eyes", hexes: ["#A74D4D"], layers: ["Layer 6"] },
+      // The glowing eyes; the near-black on the snout is its nostrils, and scales. Its fangs stay as drawn.
+      { id: "eyes", name: "Eyes", hexes: ["#D9756B"] },
       // The horns' dark red, down to their roots on the head; under that row the same red outlines the head.
-      { id: "horns", name: "Horns", hexes: ["#411414"], rows: [0, 7] },
-      { id: "fur", name: "Scales", hexes: ["#803535", "#80354D", "#541C1C", "#451010", "#411414", "#2D0D0D"] },
+      { id: "horns", name: "Horns", hexes: ["#411414", "#5C2424"], rows: [0, 6] },
+      { id: "fur", name: "Scales", hexes: ["#803535", "#80354D", "#A74D4D", "#6E2828", "#541C1C", "#451010", "#411414", "#2D0D0D"] },
     ],
   },
 ];

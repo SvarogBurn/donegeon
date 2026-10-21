@@ -200,7 +200,7 @@ describe("faces", () => {
   const fills = (look: Look) => composeFace(look, faces)!.map((p) => `${p.x},${p.y},${p.w}${p.fill}`).join();
 
   it("each is a drawing in assets/character/faces, 21x21 at most, its layers named like its body's", () => {
-    expect(withFace.map((b) => b.id)).toEqual(["bunny", "human", "whitecat", "frog", "wolf", "dragon"]);
+    expect(withFace).toEqual(BODIES);
     for (const body of withFace) {
       const drawing = faces[body.face!.file];
       expect(drawing, body.face!.file).toBeDefined();
@@ -231,7 +231,10 @@ describe("faces", () => {
     }
   });
 
-  it("has none for a body not drawn yet", () => {
-    expect(composeFace({ v: 2, body: "boar", options: {}, colors: {} }, faces)).toBeNull();
+  it("shows the boar's horns and the deer's hair only when chosen", () => {
+    for (const [body, option] of [["boar", "horns"], ["deer", "hair"]]) {
+      const look: Look = { v: 2, body, options: {}, colors: {} };
+      expect(fills({ ...look, options: { [option]: "none" } }), body).not.toBe(fills(look));
+    }
   });
 });
