@@ -12,18 +12,16 @@ export interface Title {
   rank?: boolean;
 }
 
+// A rank every 5 levels (and the first at the start), up to Lv 40.
 const RANKS: [number, string][] = [
-  [1, "Scavenger"],
-  [3, "Wanderer"],
-  [5, "Wayfarer"],
-  [8, "Torchbearer"],
-  [12, "Delver"],
-  [16, "Pathfinder"],
-  [20, "Dungeoneer"],
-  [25, "Warden"],
-  [30, "Champion"],
-  [35, "Legend"],
-  [40, "Lord of the Donegeon"],
+  [1, "Outsider"],
+  [10, "Wanderer"],
+  [15, "Smoke Tester"],
+  [20, "Torchbearer"],
+  [25, "Rat Czar"],
+  [30, "Scavenger"],
+  [35, "Space Janitor"],
+  [40, "Harbringer"],
 ];
 
 const DEEDS: [string, string, Rule][] = [
@@ -48,8 +46,8 @@ const RETURNER: Title = { id: "returner", name: "Returner", rules: [] };
 
 /** A skill's titles: [level, the word before "of <skill>"]. */
 const SKILL_TITLES: [number, string][] = [
-  [10, "Adept"],
-  [20, "Master"],
+  [20, "Adept"],
+  [100, "Master"],
 ];
 
 /** Every title earned, ranks first (lowest first), then the rest. */
