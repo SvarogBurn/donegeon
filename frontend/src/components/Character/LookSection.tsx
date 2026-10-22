@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { BODIES, bodyOf, choiceOf, materialsOf, materialsWorn, type Look } from "../../lib/character/bodies";
 import { CLOTH_COLORS, FUR_COLORS } from "../../lib/character/ramps";
-import { earnedTitles, nextRank, shownTitle } from "../../lib/character/titles";
+import { earnedTitles, shownTitle } from "../../lib/character/titles";
 import { bodyLock, choiceLock, lockedIn, requirementOf, type Reward, type Unlocks } from "../../lib/character/unlocks";
 import { CharacterSprite } from "./CharacterSprite";
 import { type SectionProps } from "./StatsEditor";
@@ -137,7 +137,6 @@ function randomLook(unlocks: Unlocks): Look {
 export function LookSection({ look, setLook, draft, set, username, unlocks }: SectionProps & { look: Look; setLook: (update: (look: Look) => Look) => void; username: string; unlocks: Unlocks }) {
   const body = bodyOf(look);
   const titles = earnedTitles(unlocks.progress);
-  const nextTitle = nextRank(unlocks.progress);
   const locked = lockedIn(look, unlocks);
   const lockText = (reward: Reward | null) => (reward ? requirementOf(reward) : undefined);
   const undiscovered = Boolean(bodyLock(unlocks, body.id));
@@ -169,7 +168,6 @@ export function LookSection({ look, setLook, draft, set, username, unlocks }: Se
           <Stepper label="Title" name="title" options={titles} value={shownTitle(draft.title, unlocks.progress).id} onChange={(id) => set({ title: id })} />
           <p className="text-xs text-stone-500" data-title-count={titles.length}>
             {titles.length === 1 ? "1 title earned" : `${titles.length} titles earned`}
-            {nextTitle && <> · next: {nextTitle}</>}
           </p>
         </div>
         <div className="space-y-2 border-t-2 border-stone-300 pt-3 dark:border-stone-700">

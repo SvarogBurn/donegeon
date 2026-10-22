@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BODIES, BODY_BY_ID, DEFAULT_LOOK, type Look } from "./bodies";
-import { defaultTitle, earnedTitles, nextRank, shownTitle, TITLES, unseenOf } from "./titles";
+import { defaultTitle, earnedTitles, shownTitle, TITLES, unseenOf } from "./titles";
 import { bodyLock, choiceLock, daysProgress, earnedRewards, lockedIn, nextGoals, REWARDS, tryOn, withoutLocked, type Progress, type Unlocks } from "./unlocks";
 
 const start: Progress = { level: 1, longest: 0, current: 0, onTime: 0, mail: 0, returned: false, skills: [], presses: 0, frogs: 0, earlyDays: 0, onTimeRun: 0, busiestDay: 0, steady: false };
@@ -167,8 +167,6 @@ describe("titles", () => {
     expect(defaultTitle(start).name).toBe("Scavenger");
     expect(defaultTitle(at({ level: 3 })).name).toBe("Wanderer");
     expect(defaultTitle(at({ level: 41 })).name).toBe("Lord of the Donegeon");
-    expect(nextRank(at({ level: 5 }))).toBe("Torchbearer at Lv 8");
-    expect(nextRank(at({ level: 40 }))).toBeNull();
   });
 
   it("show the one picked while it is earned, else the highest rank (a title typed before is no id)", () => {

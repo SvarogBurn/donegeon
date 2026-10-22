@@ -52,6 +52,10 @@ export interface Profile {
   custom: CustomStat[];
   skills: Skill[];
   look?: Look;
+  /** No red dot on the task bar's face when something new is earned (the user page's Settings). */
+  hideDot?: boolean;
+  /** No Unlocked box (LEVEL UP!) and no News box on the sheet; the dot goes with them, as nothing would clear it. */
+  hideNews?: boolean;
 }
 
 export const STAT_NAME_MAX = 12;
@@ -113,7 +117,7 @@ export function normalizeProfile(raw: unknown, known?: Known): Profile {
   });
   const title = text(p.title, 80);
   const seenIds = Array.isArray(p.seen) ? [...new Set(p.seen.filter((id): id is string => typeof id === "string"))] : null;
-  return { ...(title && { title }), stats, custom, skills, ...(p.look !== undefined && { look: normalizeLook(p.look) }), ...(seenIds && { seen: seenIds }) };
+  return { ...(title && { title }), stats, custom, skills, ...(p.look !== undefined && { look: normalizeLook(p.look) }), ...(seenIds && { seen: seenIds }), ...(p.hideDot === true && { hideDot: true }), ...(p.hideNews === true && { hideNews: true }) };
 }
 
 /** A fresh id for a custom stat. */

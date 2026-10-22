@@ -54,6 +54,9 @@ const profile = z
     look: z.object({ v: z.literal(2), body: z.string().max(40), options: capped(z.string().max(40), 30), colors: capped(hex, 40) }).optional(),
     /** The unlocks and titles already announced on the character sheet. */
     seen: z.array(z.string().max(80)).max(400).optional(),
+    /** The user page's settings for the dot on the task bar's face and the sheet's Unlocked and News boxes. */
+    hideDot: z.boolean().optional(),
+    hideNews: z.boolean().optional(),
   })
   .nullable();
 

@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router";
 import { FeedbackBox } from "../components/Feedback/FeedbackBox";
 import { FeedbackInbox } from "../components/Feedback/FeedbackInbox";
 import { CharacterSheet } from "../components/Character/CharacterSheet";
+import { useProfile } from "../components/Character/useProfile";
 import { Cheatsheet } from "../components/Help/Cheatsheet";
 import { PixelCheckbox } from "../components/PixelCheckbox";
 import { HiddenRow } from "../components/Tiles/HiddenRow";
@@ -209,6 +210,7 @@ export function UserPage() {
   const { user } = useMe();
   const logout = useLogout();
   const update = useUpdateMe();
+  const { profile, save: saveProfile } = useProfile();
   const navigate = useNavigate();
   const online = useOnline();
   const { hash } = useLocation();
@@ -301,6 +303,16 @@ export function UserPage() {
           ? "A Notes tab for notes of their own, on no task, with folders of their own."
           : "No Notes tab. A task can still have its note."}
       </p>
+      <label className="flex items-center gap-2 text-xs">
+        <PixelCheckbox small checked={!profile.hideDot} onChange={(e) => saveProfile({ ...profile, hideDot: !e.target.checked || undefined })} data-character-dot />
+        New things dot
+      </label>
+      <p className="text-xs text-stone-500">A red dot on your face in the task bar when the character has earned something new.</p>
+      <label className="flex items-center gap-2 text-xs">
+        <PixelCheckbox small checked={!profile.hideNews} onChange={(e) => saveProfile({ ...profile, hideNews: !e.target.checked || undefined })} data-character-news />
+        Unlocks and news on the character
+      </label>
+      <p className="text-xs text-stone-500">The LEVEL UP box with what was unlocked, and the News box with what's next. Off also hides the red dot.</p>
       {/* How the app looks. */}
       <h3 className="border-t-2 border-stone-300 pt-3 font-pixel text-xs text-stone-500 dark:border-stone-700">Theme</h3>
       <FontChoice

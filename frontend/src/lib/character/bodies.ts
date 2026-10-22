@@ -313,10 +313,11 @@ export const BODIES: Body[] = ([
   },
   {
     // The user's human (40x15_default_user), drawn again bigger, every piece on a layer of its own over a whole skin body
-    // (v3: v2 with the held things; v5: the robe, the ruffled collar, a top hat, sunglasses, a gun, a staff, a bow).
+    // (v3: v2 with the held things; v5: the robe, the ruffled collar, a top hat, sunglasses, a gun, a staff, a bow; v6:
+    // fringes 2-4 a row taller, up to the afro's hairline, which left a row of skin between them).
     id: "human",
     name: "Human",
-    file: "48x32_human_v5",
+    file: "48x32_human_v6",
     // Its layers and hexes are the body's: the body's materials fit it.
     face: { file: "21x21_human_face_v3" },
     options: [

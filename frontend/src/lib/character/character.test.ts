@@ -14,15 +14,15 @@ describe("levelOf", () => {
     expect(levelOf(0)).toEqual({ level: 1, into: 0, span: 5 });
   });
 
-  it("grows each level by 15%: a level takes round(5·1.15^(L−1))", () => {
-    expect([1, 2, 3, 4, 10].map(spanOf)).toEqual([5, 6, 7, 8, 18]);
-    expect([2, 3, 5, 10, 20, 30, 40].map(expFor)).toEqual([5, 11, 26, 85, 443, 1887, 7733]);
+  it("grows each level by 40%: a level takes round(5·1.4^(L−1))", () => {
+    expect([1, 2, 3, 4, 10].map(spanOf)).toEqual([5, 7, 10, 14, 103]);
+    expect([2, 3, 5, 10, 20, 30, 40].map(expFor)).toEqual([5, 12, 36, 247, 7459, 216071, 6250324]);
     expect(levelOf(4)).toEqual({ level: 1, into: 4, span: 5 });
-    expect(levelOf(5)).toEqual({ level: 2, into: 0, span: 6 });
-    expect(levelOf(10)).toEqual({ level: 2, into: 5, span: 6 });
-    expect(levelOf(11)).toEqual({ level: 3, into: 0, span: 7 });
-    expect(levelOf(1886).level).toBe(29);
-    expect(levelOf(1887).level).toBe(30);
+    expect(levelOf(5)).toEqual({ level: 2, into: 0, span: 7 });
+    expect(levelOf(11)).toEqual({ level: 2, into: 6, span: 7 });
+    expect(levelOf(12)).toEqual({ level: 3, into: 0, span: 10 });
+    expect(levelOf(216070).level).toBe(29);
+    expect(levelOf(216071).level).toBe(30);
   });
 });
 

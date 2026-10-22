@@ -1,4 +1,4 @@
-import { earnedRewards, isEarned, ruleText, type Progress, type Reward, type Rule } from "./unlocks";
+import { earnedRewards, isEarned, type Progress, type Reward, type Rule } from "./unlocks";
 
 // The character's titles are earned, not typed: ranks that come with levels, and titles for streaks, deadlines met,
 // mail to the devs, coming back, and a skill grown far. The user picks one of the earned ones in the editor; until
@@ -67,12 +67,6 @@ export const defaultTitle = (p: Progress) => TITLES.filter((t) => t.rank && isEa
 
 /** The title shown: the one picked, if it is earned, else the highest rank. */
 export const shownTitle = (picked: string | undefined, p: Progress) => earnedTitles(p).find((t) => t.id === picked) ?? defaultTitle(p);
-
-/** The next rank, said short: "Torchbearer at Lv 8"; null at the top. */
-export function nextRank(p: Progress) {
-  const next = TITLES.find((t) => t.rank && !isEarned(t, p));
-  return next ? `${next.name} at ${ruleText(next.rules[0])}` : null;
-}
 
 /** Titles earned from the start, never announced. */
 export const isStarter = (t: Title) => t.rules.length === 1 && "level" in t.rules[0] && t.rules[0].level <= 1;

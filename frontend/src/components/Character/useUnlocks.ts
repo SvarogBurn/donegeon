@@ -56,17 +56,17 @@ export function useCharacterProgress() {
 /**
  * Whether something earned waits to be announced on the sheet, for the dot on the task bar's face. It goes by the
  * small count of tasks done per day, so only what levels, streaks and mail bring counts here; the deeds and the rest
- * show on the sheet.
+ * show on the sheet. None with the dot or the sheet's boxes switched off in Settings (Profile.hideDot / hideNews).
  */
 export function useSomethingNew(user: User) {
   const days = useProgressDays();
   const mailSent = useFeedbackSent();
-  const seen = useMemo(() => normalizeProfile(user.profile).seen ?? [], [user.profile]);
-  if (!days.data || mailSent.data === undefined) return false;
+  const profile = useMemo(() => normalizeProfile(user.profile), [user.profile]);
+  if (!days.data || mailSent.data === undefined || profile.hideDot || profile.hideNews) return false;
   const mail = mailSent.data;
   const exp = days.data.reduce((sum, { count }) => sum + count, 0) + mail;
   const { longest, current } = daysProgress(days.data.map(({ day }) => day), localDate());
   const progress: Progress = { ...NOTHING_YET, level: levelOf(exp).level, longest, current, mail };
-  const { rewards, titles } = unseenOf(progress, seen);
+  const { rewards, titles } = unseenOf(progress, profile.seen ?? []);
   return rewards.length + titles.length > 0;
 }
