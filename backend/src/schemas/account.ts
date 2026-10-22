@@ -25,7 +25,8 @@ const capped = <T extends z.ZodType>(value: T, max: number) =>
  */
 const profile = z
   .object({
-    title: z.string().trim().max(20, "A title is at most 20 characters").optional(),
+    /** The id of a title the character earned (frontend/src/lib/character/titles.ts). */
+    title: z.string().max(80).optional(),
     stats: z.array(z.string().max(24)).max(30),
     custom: z
       .array(
@@ -51,6 +52,8 @@ const profile = z
       )
       .max(30, "At most 30 skills"),
     look: z.object({ v: z.literal(2), body: z.string().max(40), options: capped(z.string().max(40), 30), colors: capped(hex, 40) }).optional(),
+    /** The unlocks and titles already announced on the character sheet. */
+    seen: z.array(z.string().max(80)).max(400).optional(),
   })
   .nullable();
 

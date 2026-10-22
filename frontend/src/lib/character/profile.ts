@@ -44,17 +44,18 @@ export interface Skill {
 
 /** The character's name is always the username: a name saved before is dropped. */
 export interface Profile {
+  /** The id of the title picked among the earned ones (titles.ts); one typed before is no id and shows the highest rank. */
   title?: string;
+  /** The unlocks and titles already announced on the sheet (unlocks.ts, titles.ts). */
+  seen?: string[];
   stats: StatKey[];
   custom: CustomStat[];
   skills: Skill[];
   look?: Look;
 }
 
-export const TITLE_MAX = 20;
 export const STAT_NAME_MAX = 12;
 export const SKILL_NAME_MAX = 20;
-export const DEFAULT_TITLE = "Wanderer";
 
 /** The ids that exist now; left out while they load, and then nothing is dropped. */
 export interface Known {
@@ -110,8 +111,9 @@ export function normalizeProfile(raw: unknown, known?: Known): Profile {
     const color = typeof s.color === "string" && HEX.test(s.color) ? s.color.toLowerCase() : undefined;
     return [{ kind, id: s.id, ...(name && { name }), ...(color && { color }) }];
   });
-  const title = text(p.title, TITLE_MAX);
-  return { ...(title && { title }), stats, custom, skills, ...(p.look !== undefined && { look: normalizeLook(p.look) }) };
+  const title = text(p.title, 80);
+  const seenIds = Array.isArray(p.seen) ? [...new Set(p.seen.filter((id): id is string => typeof id === "string"))] : null;
+  return { ...(title && { title }), stats, custom, skills, ...(p.look !== undefined && { look: normalizeLook(p.look) }), ...(seenIds && { seen: seenIds }) };
 }
 
 /** A fresh id for a custom stat. */

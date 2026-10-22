@@ -4,9 +4,12 @@ import { useMe } from "../../hooks/useAuth";
 import { useOnline } from "../../lib/offline/online";
 import type { Look } from "../../lib/character/bodies";
 import { normalizeLook, type Profile } from "../../lib/character/profile";
+import { earnedTitles } from "../../lib/character/titles";
+import { withoutLocked } from "../../lib/character/unlocks";
 import { LookSection, useEscape } from "./LookSection";
 import { SkillsSection, StatsSection } from "./StatsEditor";
 import { useProfile } from "./useProfile";
+import { useCharacterProgress } from "./useUnlocks";
 
 const SECTIONS = [
   ["look", "Look"],
@@ -17,14 +20,16 @@ type Section = (typeof SECTIONS)[number][0];
 
 /**
  * Everything about the character, over the page, in three sections: its look (and title), the stats the
- * sheet shows, and its skills. Save keeps all of it; Cancel (or Esc) leaves the character as it was.
+ * sheet shows, and its skills. Save keeps all of it but what is only tried on (locked); Cancel (or Esc) leaves the
+ * character as it was. `trying` opens it with something new on.
  */
-export function CharacterEditor({ onClose }: { onClose: () => void }) {
+export function CharacterEditor({ onClose, trying }: { onClose: () => void; trying?: Look }) {
   const { profile, look: savedLook, save } = useProfile();
+  const { progress, unlocks } = useCharacterProgress();
   const { user } = useMe();
   const online = useOnline();
   const [draft, setDraft] = useState<Profile>(profile);
-  const [look, setLook] = useState<Look>(savedLook);
+  const [look, setLook] = useState<Look>(trying ?? savedLook);
   const [section, setSection] = useState<Section>("look");
   useEscape(onClose);
   const set = (changes: Partial<Profile>) => setDraft((d) => ({ ...d, ...changes }));
@@ -63,7 +68,9 @@ export function CharacterEditor({ onClose }: { onClose: () => void }) {
             disabled={!online}
             title={online ? undefined : "Needs a connection"}
             onClick={() => {
-              save({ ...draft, look: normalizeLook(look), custom: draft.custom.filter((c) => c.name.trim()) });
+              // A title no longer earned is let go (the highest rank shows); before the tasks are in, it is kept.
+              const title = progress && !earnedTitles(progress).some((t) => t.id === draft.title) ? undefined : draft.title;
+              save({ ...draft, title, look: normalizeLook(withoutLocked(look, unlocks)), custom: draft.custom.filter((c) => c.name.trim()) });
               onClose();
             }}
             data-editor-save
@@ -71,7 +78,7 @@ export function CharacterEditor({ onClose }: { onClose: () => void }) {
             Save
           </button>
         </div>
-        {section === "look" && <LookSection look={look} setLook={setLook} draft={draft} set={set} username={user?.username ?? ""} />}
+        {section === "look" && <LookSection look={look} setLook={setLook} draft={draft} set={set} username={user?.username ?? ""} unlocks={unlocks} />}
         {section === "stats" && <StatsSection draft={draft} set={set} />}
         {section === "skills" && <SkillsSection draft={draft} set={set} />}
       </div>

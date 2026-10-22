@@ -7,7 +7,7 @@ import { localDate } from "../schemas/common.js";
 import { moveInput, roundInput, taskInput, taskPatch, weekInput } from "../schemas/task.js";
 import { placeInWeek } from "../services/ordering.service.js";
 import { ownTask } from "../services/ownership.js";
-import { countdownOf, donePage, doneOn, openTrees, searchTasks, statRows } from "../services/taskRead.service.js";
+import { countdownOf, donePage, doneOn, openTrees, progressDays, searchTasks, statRows } from "../services/taskRead.service.js";
 import { createTask, deleteTask, doneToday, moveRound, moveTask, restoreTask, toggleTask, updateTask } from "../services/taskWrite.service.js";
 import { completionsRouter } from "./completions.routes.js";
 
@@ -38,6 +38,11 @@ tasksRouter.get("/done/:day", async (req, res) => {
 // Every task there is, as small flat rows for the stats.
 tasksRouter.get("/stats", async (req, res) => {
   res.json({ tasks: await statRows(userId(req)) });
+});
+
+// Tasks done per day, for the level and streak on the task bar's face.
+tasksRouter.get("/progress", async (req, res) => {
+  res.json({ days: await progressDays(userId(req)) });
 });
 
 // The search at the top of the Tasks page (see searchTasks).

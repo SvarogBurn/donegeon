@@ -1,40 +1,22 @@
-import { useMemo, useState, useSyncExternalStore } from "react";
-import { localDate } from "../../lib/clock";
-import { useFeedbackSent } from "../../hooks/feedback";
-import { useGoals, useTags } from "../../hooks/labels";
-import { useLists } from "../../hooks/lists";
+import { useState, useSyncExternalStore } from "react";
 import { usePoints } from "../../hooks/points";
-import { useStatRows } from "../../hooks/tasks";
-import { listColor } from "../../lib/frameTones";
 import { useOnline } from "../../lib/offline/online";
-import { bodyOf } from "../../lib/character/bodies";
-import { DEFAULT_TITLE, RANGES, type Skill } from "../../lib/character/profile";
-import { builtInStats, characterLevel, customStatValue, skillExp } from "../../lib/character/profileStats";
+import { bodyOf, type Look } from "../../lib/character/bodies";
+import { RANGES } from "../../lib/character/profile";
+import { builtInStats, customStatValue, skillExp } from "../../lib/character/profileStats";
 import { levelOf } from "../../lib/character/levels";
-import { collectStats } from "../../lib/stats";
+import { shownTitle } from "../../lib/character/titles";
+import { nextGoals, tryOn } from "../../lib/character/unlocks";
 import { TileFrame } from "../Tiles/TileFrame";
 import { CellBar, ExpBar } from "./Bars";
 import { CharacterEditor } from "./CharacterEditor";
 import { CharacterSprite } from "./CharacterSprite";
+import { Unlocked } from "./Unlocked";
 import { useProfile } from "./useProfile";
+import { useCharacterProgress, useSkillNames } from "./useUnlocks";
 
 // What the old Account box called its numbers, kept for the browser checks that read them.
 const STAT_DATA: Record<string, string> = { streak: "data-streak", longest: "data-streak-longest", year: "data-done-year" };
-
-/** A skill's name and bar colour: its own if given, else its list's, goal's or tag's name and its list's colour (none: the exp bar's yellow). */
-export function useSkillNames() {
-  const { data: lists = [] } = useLists();
-  const { data: goals = [] } = useGoals();
-  const { data: tags = [] } = useTags();
-  return (skill: Skill): { name: string; color?: string } => {
-    if (skill.kind === "list") {
-      const list = lists.find((l) => l.id === skill.id);
-      return { name: skill.name ?? list?.name ?? "", color: skill.color ?? (list ? listColor(list) : undefined) };
-    }
-    const pool = skill.kind === "goal" ? goals : tags;
-    return { name: skill.name ?? pool.find((x) => x.id === skill.id)?.name ?? "", color: skill.color };
-  };
-}
 
 const PHONE = "(max-width: 639.98px)";
 const subscribePhone = (onChange: () => void) => {
@@ -53,19 +35,15 @@ const useIsPhone = () => useSyncExternalStore(subscribePhone, () => matchMedia(P
  * all of it in the editor.
  */
 export function CharacterSheet() {
-  const { profile, look, name } = useProfile();
-  const rows = useStatRows();
-  const lists = useLists();
+  const { profile, look, name, save } = useProfile();
+  const { collected, level, progress, unlocks, today } = useCharacterProgress();
   const points = usePoints();
-  const mailSent = useFeedbackSent();
   const online = useOnline();
   const skillName = useSkillNames();
-  const [editing, setEditing] = useState(false);
+  // Open, maybe with something new tried on.
+  const [editing, setEditing] = useState<{ trying?: Look } | null>(null);
   const isPhone = useIsPhone();
 
-  const today = localDate();
-  const collected = useMemo(() => (rows.data && lists.data ? collectStats(rows.data, lists.data) : null), [rows.data, lists.data]);
-  const level = characterLevel(collected?.completions ?? [], mailSent.data ?? 0);
   const values = collected && builtInStats({ ...collected, today, balance: points.data?.balance ?? null });
 
   return (
@@ -74,19 +52,27 @@ export function CharacterSheet() {
       aria-label="Character"
       data-character
     >
+      {progress && <Unlocked progress={progress} profile={profile} onTry={(reward) => setEditing({ trying: tryOn(look, reward) })} onSeen={(seen) => save({ ...profile, seen })} />}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="flex flex-none flex-col items-center gap-2 sm:w-[calc(var(--u)*76)]">
-          <div className="character-stage max-sm:w-full max-sm:!px-0" data-edge={bodyOf(look).toEdge || undefined}>
-            <CharacterSprite look={look} scale={2} fit={isPhone} label={`${name}, the character`} />
+          <div className="character-stage max-sm:w-full max-sm:!px-0">
+            <CharacterSprite look={look} scale={2} fit={isPhone} cover={bodyOf(look).toEdge} label={`${name}, the character`} />
           </div>
           <p className="text-xs text-stone-500" data-character-title>
-            {profile.title ?? DEFAULT_TITLE}
+            {shownTitle(profile.title, unlocks.progress).name}
           </p>
           <div className="flex w-full flex-col items-center gap-1">
             <p className="font-pixel text-xs" data-character-level={level.level}>
               Lv. {level.level}
             </p>
             <ExpBar into={level.into} span={level.span} label="Exp to the next level" />
+            {progress && (
+              <ul className="text-center text-xs text-stone-500" data-next-goals>
+                {nextGoals(progress).map((goal) => (
+                  <li key={goal}>Next: {goal}</li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 
@@ -155,11 +141,11 @@ export function CharacterSheet() {
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <p className="flex-1 text-xs text-stone-500">Every task done is 1 exp, and so is every mail to the devs. Do at least one task a day to keep the streak going.</p>
-        <button type="button" className="band-button justify-center max-sm:h-8 max-sm:w-full" disabled={!online} title={online ? "The character's look, name, stats and skills" : "Needs a connection"} onClick={() => setEditing(true)} data-character-edit>
+        <button type="button" className="band-button justify-center max-sm:h-8 max-sm:w-full" disabled={!online} title={online ? "The character's look, name, stats and skills" : "Needs a connection"} onClick={() => setEditing({})} data-character-edit>
           Edit
         </button>
       </div>
-      {editing && <CharacterEditor onClose={() => setEditing(false)} />}
+      {editing && <CharacterEditor trying={editing.trying} onClose={() => setEditing(null)} />}
     </TileFrame>
   );
 }

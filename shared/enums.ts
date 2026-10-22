@@ -25,5 +25,5 @@ export type DeadlineToday = (typeof DEADLINE_TODAY)[number];
 export const TEXT_FONTS = ["pixel", "plain", "dyslexic", "large"] as const;
 export type TextFont = (typeof TEXT_FONTS)[number];
 
-export const FEEDBACK_KINDS = ["bug", "feature"] as const;
+export const FEEDBACK_KINDS = ["bug", "feature", "feedback"] as const;
 export type FeedbackKind = (typeof FEEDBACK_KINDS)[number];

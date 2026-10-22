@@ -30,9 +30,13 @@ const SHADOW: [number, number, number][] = [
 /**
  * The character, drawn from its parts, `scale` art pixels of --u each per pixel of the 32x48 canvas, so it stays
  * crisp at any size. Its shadow is drawn under it. With `fit` it is as big as fits across the box it is in, a whole
- * number of screen pixels per pixel of the canvas (and never smaller than `scale`).
+ * number of screen pixels per pixel of the canvas (and never smaller than `scale`). With `silhouette` it is one grey
+ * shape: a body not yet discovered. With `cover` (a body drawn out to its edges, the dragon) it is zoomed in until it
+ * fills the whole width of the box it is in, padding included, a whole number of screen pixels per pixel still, from
+ * the box's top down; the box keeps its size and cuts off what is beyond it (a little at the sides, some rows at the
+ * bottom, where the drawing is cut off anyway).
  */
-export function CharacterSprite({ look, scale, label, fit }: { look: Look; scale: number; label: string; fit?: boolean }) {
+export function CharacterSprite({ look, scale, label, fit, silhouette, cover }: { look: Look; scale: number; label: string; fit?: boolean; silhouette?: boolean; cover?: boolean }) {
   const data = usePartsData();
   const pixels = data ? compose(look, data) : [];
   const ref = useRef<SVGSVGElement>(null);
@@ -51,16 +55,33 @@ export function CharacterSprite({ look, scale, label, fit }: { look: Look; scale
     observer.observe(box);
     return () => observer.disconnect();
   }, [fit, scale]);
+  const [zoom, setZoom] = useState<string | undefined>(undefined);
+  useLayoutEffect(() => {
+    const svg = ref.current;
+    const box = svg?.parentElement;
+    if (!cover || !svg || !box) return setZoom(undefined);
+    const measure = () => {
+      // Screen pixels per pixel of the canvas as laid out, before the zoom (a transform leaves clientWidth alone).
+      const pixel = svg.clientWidth / WIDTH;
+      if (!pixel) return;
+      const top = parseFloat(getComputedStyle(box).paddingTop);
+      setZoom(`translateY(${-top}px) scale(${Math.ceil(box.clientWidth / WIDTH) / pixel})`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [cover, fitted, scale]);
   const size = fitted
     ? { width: `${WIDTH * fitted}px`, height: `${HEIGHT * fitted}px` }
     : { width: `calc(var(--u) * ${WIDTH * scale})`, height: `calc(var(--u) * ${HEIGHT * scale})` };
   return (
-    <svg ref={ref} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} shapeRendering="crispEdges" className="mx-auto block flex-none" style={size} role="img" aria-label={label} data-character-sprite>
+    <svg ref={ref} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} shapeRendering="crispEdges" className={`mx-auto block flex-none ${silhouette ? "text-stone-400 dark:text-stone-600" : ""}`} style={{ ...size, ...(zoom && { transform: zoom, transformOrigin: "top center" }) }} role="img" aria-label={label} data-character-sprite data-silhouette={silhouette || undefined}>
       {SHADOW.map(([x, y, w]) => (
         <rect key={`s${y}`} x={x} y={y} width={w} height={1} className="fill-black/15 dark:fill-black/40" />
       ))}
       {pixels.map((p, i) => (
-        <rect key={i} x={p.x} y={p.y} width={p.w} height={1} fill={p.fill} />
+        <rect key={i} x={p.x} y={p.y} width={p.w} height={1} fill={silhouette ? "currentColor" : p.fill} />
       ))}
     </svg>
   );

@@ -4,10 +4,18 @@ import { useOnline } from "../../lib/offline/online";
 import type { FeedbackKind } from "../../types";
 import { TileFrame } from "../Tiles/TileFrame";
 
-const KIND_CHOICES: [FeedbackKind, string][] = [
+/** The kinds of mail, by their names; feedback is anything else: what someone thinks, or something nice. */
+export const KIND_CHOICES: [FeedbackKind, string][] = [
   ["bug", "Bug"],
   ["feature", "Feature"],
+  ["feedback", "Feedback"],
 ];
+
+const PLACEHOLDERS: Record<FeedbackKind, string> = {
+  bug: "What went wrong, and what were you doing?",
+  feature: "What would you like Donegeon to do?",
+  feedback: "What do you think? Anything at all, or something nice.",
+};
 
 const ROW = "flex items-center gap-2 border-b-2 border-stone-300 py-1 text-xs dark:border-stone-700";
 const LABEL = "w-16 flex-none text-stone-500";
@@ -78,7 +86,7 @@ export function FeedbackBox({ username }: { username: string }) {
           rows={6}
           value={message}
           maxLength={4000}
-          placeholder={kind === "bug" ? "What went wrong, and what were you doing?" : "What would you like Donegeon to do?"}
+          placeholder={PLACEHOLDERS[kind]}
           aria-label="Message"
           onChange={(e) => {
             setMessage(e.target.value);

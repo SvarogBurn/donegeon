@@ -63,6 +63,7 @@ enum TextFont {
 enum FeedbackKind {
   bug
   feature
+  feedback
 }
 
 model User {

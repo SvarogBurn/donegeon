@@ -27,6 +27,8 @@ export const useDoneOn = (day: string, enabled = true) =>
   useQuery({ queryKey: [...DONE, day], queryFn: () => tasksApi.listDoneOn(day), enabled });
 /** Every task, cut down for the stats. */
 export const useStatRows = () => useQuery({ queryKey: STATS, queryFn: tasksApi.listStatRows });
+/** Tasks done per day: the level and streak the task bar's face goes by. Under the tasks' key, so a tick asks again. */
+export const useProgressDays = () => useQuery({ queryKey: [...TASKS, "progress"], queryFn: tasksApi.getProgressDays });
 /** The tasks of the site's search. Under the tasks' key, so a change to any task asks again; nothing is asked for an empty `q`. */
 export const useTaskSearch = (q: string) =>
   useQuery({ queryKey: [...TASKS, "search", q], queryFn: () => tasksApi.searchTasks(q), enabled: q !== "", placeholderData: keepPreviousData });

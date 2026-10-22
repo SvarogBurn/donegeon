@@ -1,6 +1,9 @@
 import { activeDays, countByDay, deadlineOutcomes, isOnTime, periodCounts, rangeStart, streaks, type Completion, type StatTask } from "../stats";
 import { levelOf } from "./levels";
 import type { CustomStat, Skill, StatKey } from "./profile";
+import type { StatRow } from "../../types";
+import { deedsOf } from "./deeds";
+import { daysProgress, type Progress } from "./unlocks";
 
 // The numbers on the character sheet, from what the Stats page already loads (collectStats): every tick, at any depth,
 // and every press of a persistent task is one task done and one exp; for the character, so is every mail sent to the
@@ -77,4 +80,16 @@ export function skillExp(skill: Skill, completions: Completion[]) {
 export function characterLevel(completions: Completion[], mailSent = 0) {
   const exp = completions.length + mailSent;
   return { exp, ...levelOf(exp) };
+}
+
+/** What the unlocks and titles go by (unlocks.ts): the level, the streaks, deadlines met, mail sent, the deeds (deeds.ts), and each skill's level. */
+export function characterProgress({ rows, tasks, completions, today, mailSent, skills }: { rows: StatRow[]; tasks: StatTask[]; completions: Completion[]; today: string; mailSent: number; skills: { key: string; name: string; exp: number }[] }): Progress {
+  return {
+    ...deedsOf({ rows, tasks, completions, today }),
+    level: characterLevel(completions, mailSent).level,
+    ...daysProgress([...countByDay(completions).keys()], today),
+    onTime: deadlineOutcomes(tasks, today).filter(isOnTime).length,
+    mail: mailSent,
+    skills: skills.map(({ key, name, exp }) => ({ key, name, level: levelOf(exp).level })),
+  };
 }

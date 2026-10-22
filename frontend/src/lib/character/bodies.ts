@@ -49,7 +49,7 @@ export interface Body {
   skip?: string[];
   /**
    * Drawn out to the canvas's edges (the dragon, cut off at the bottom): it stays on the stage's floor instead of being
-   * lifted off it, and the stage has no room at its sides, so it fills the box's whole width.
+   * lifted off it. Its stage is as big as every other body's, and it is zoomed in to fill it (CharacterSprite's `cover`).
    */
   toEdge?: boolean;
   options?: BodyOption[];

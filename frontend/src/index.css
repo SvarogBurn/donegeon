@@ -971,13 +971,9 @@
    * for exp.
    */
   .character-stage {
-    @apply bg-stone-200 dark:bg-stone-800;
+    @apply overflow-hidden bg-stone-200 dark:bg-stone-800;
     padding: calc(2 * var(--u)) calc(4 * var(--u)) 0;
     image-rendering: pixelated;
-  }
-  /* A character drawn out to its edges (the dragon) fills the floor's whole width. */
-  .character-stage[data-edge] {
-    padding-inline: 0;
   }
   .cell-bar {
     @apply inline-flex flex-none;

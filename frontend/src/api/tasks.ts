@@ -41,6 +41,8 @@ export const listDone = (before: string | null) => api<DonePage>(before ? `/task
 /** The trees holding what was ticked or pressed on `day`. */
 export const listDoneOn = (day: string) => api<{ tasks: TaskTreeNode[] }>(`/tasks/done/${day}`).then((r) => r.tasks);
 export const listStatRows = () => api<{ tasks: StatRow[] }>("/tasks/stats").then((r) => r.tasks);
+/** How many tasks were done on each day, counted as the stats count them; for the task bar's face. */
+export const getProgressDays = () => api<{ days: { day: string; count: number }[] }>("/tasks/progress").then((r) => r.days);
 /** Every task whose title holds `q`, those finished long ago too; `more` when there were too many to send. */
 export const searchTasks = (q: string) => api<{ results: SearchResult[]; more: boolean }>(`/tasks/search?q=${encodeURIComponent(q)}`);
 export interface NewTask {

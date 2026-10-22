@@ -95,6 +95,27 @@ describe("pressing a persistent task", () => {
   });
 });
 
+describe("progress", () => {
+  it("counts each day's ticks at any depth and presses, as the stats do: not a reward list's, not a deleted task's", async () => {
+    const { call, listId } = await user();
+    const main = (await call("POST", "/tasks", { title: "Main", listId })).body.task;
+    const sub = (await call("POST", "/tasks", { title: "Sub", parentId: main.id })).body.task;
+    await call("PATCH", `/tasks/${sub.id}/toggle`, { done: true });
+    await call("PATCH", `/tasks/${main.id}/toggle`, { done: true });
+    const daily = (await call("POST", "/tasks", { title: "Daily", listId, isPersistent: true })).body.task;
+    await call("POST", `/tasks/${daily.id}/completions`, { id: crypto.randomUUID() });
+    await call("POST", `/tasks/${daily.id}/completions`, { id: crypto.randomUUID() });
+    const rewards = (await call("POST", "/lists", { name: "Treats", kind: "reward", defaultPoints: 0 })).body.list;
+    const treat = (await call("POST", "/tasks", { title: "Treat", listId: rewards.id })).body.task;
+    expect((await call("PATCH", `/tasks/${treat.id}/toggle`, { done: true })).status).toBe(200);
+    const gone = (await call("POST", "/tasks", { title: "Gone", listId })).body.task;
+    await call("PATCH", `/tasks/${gone.id}/toggle`, { done: true });
+    await call("DELETE", `/tasks/${gone.id}`);
+
+    expect((await call("GET", "/tasks/progress")).body).toEqual({ days: [{ day: TODAY, count: 4 }] });
+  });
+});
+
 describe("deleting and bringing back", () => {
   it("brings a task back with its subtasks, and a restore sent twice is no error", async () => {
     const { call, listId } = await user();
