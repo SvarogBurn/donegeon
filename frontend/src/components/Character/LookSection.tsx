@@ -132,14 +132,22 @@ function randomLook(unlocks: Unlocks): Look {
  * (each one of the user's drawings, whole), a row for each piece that body can change, and a colour row for each
  * material of what it has on. Locked pieces can be tried on, with what they wait for; a body not yet discovered is
  * only a grey silhouette called "???", without its rows and colours (their names would give it away). Save leaves
- * whatever is locked off.
+ * whatever is locked off. Seven quick taps on the character switch the hidden dev mode (everything unlocked) on or off.
  */
-export function LookSection({ look, setLook, draft, set, username, unlocks }: SectionProps & { look: Look; setLook: (update: (look: Look) => Look) => void; username: string; unlocks: Unlocks }) {
+export function LookSection({ look, setLook, draft, set, username, unlocks, toggleDevMode }: SectionProps & { look: Look; setLook: (update: (look: Look) => Look) => void; username: string; unlocks: Unlocks; toggleDevMode: () => void }) {
   const body = bodyOf(look);
   const titles = earnedTitles(unlocks.progress);
   const locked = lockedIn(look, unlocks);
   const lockText = (reward: Reward | null) => (reward ? requirementOf(reward) : undefined);
   const undiscovered = Boolean(bodyLock(unlocks, body.id));
+  const taps = useRef<number[]>([]);
+  const tap = () => {
+    const now = Date.now();
+    taps.current = [...taps.current.filter((t) => now - t < 2000), now];
+    if (taps.current.length < 7) return;
+    taps.current = [];
+    toggleDevMode();
+  };
 
   // A colour picked on one body stays for the next where it has the same material ("fur", "eyes"), and choices stay
   // for going back; what the body doesn't have is dropped when saved.
@@ -156,12 +164,17 @@ export function LookSection({ look, setLook, draft, set, username, unlocks }: Se
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start" data-editor-section="look">
       <div className="sticky top-0 z-10 flex w-full flex-none flex-col items-center gap-2 bg-stone-100 pb-2 sm:top-3 sm:w-auto sm:bg-transparent sm:pb-0 dark:bg-stone-950 sm:dark:bg-transparent">
-        <div className="character-stage">
+        <div className="character-stage" onClick={tap}>
           <CharacterSprite look={look} scale={3} cover={body.toEdge} silhouette={undiscovered} label={undiscovered ? "A body not yet discovered" : `${username}, as customized`} />
         </div>
         <button type="button" className="nes-btn btn-small" onClick={() => setLook(() => randomLook(unlocks))} data-creator-random>
           Random
         </button>
+        {unlocks.devMode && (
+          <p className="text-xs text-stone-500" data-dev-mode>
+            dev mode
+          </p>
+        )}
       </div>
       <div className="w-full min-w-0 flex-1 space-y-4">
         <div className="space-y-1">

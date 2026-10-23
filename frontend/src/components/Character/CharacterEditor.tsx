@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useMe } from "../../hooks/useAuth";
+import { readDevMode, writeDevMode } from "../../lib/devMode";
 import { useOnline } from "../../lib/offline/online";
 import type { Look } from "../../lib/character/bodies";
 import { normalizeLook, type Profile } from "../../lib/character/profile";
@@ -25,12 +26,18 @@ type Section = (typeof SECTIONS)[number][0];
  */
 export function CharacterEditor({ onClose, trying }: { onClose: () => void; trying?: Look }) {
   const { profile, look: savedLook, save } = useProfile();
-  const { progress, unlocks } = useCharacterProgress();
+  const { progress, unlocks: earned } = useCharacterProgress();
   const { user } = useMe();
   const online = useOnline();
   const [draft, setDraft] = useState<Profile>(profile);
   const [look, setLook] = useState<Look>(trying ?? savedLook);
   const [section, setSection] = useState<Section>("look");
+  const [devMode, setDevMode] = useState(readDevMode);
+  const unlocks = { ...earned, devMode };
+  const toggleDevMode = () => {
+    writeDevMode(!devMode);
+    setDevMode(!devMode);
+  };
   useEscape(onClose);
   const set = (changes: Partial<Profile>) => setDraft((d) => ({ ...d, ...changes }));
 
@@ -78,7 +85,7 @@ export function CharacterEditor({ onClose, trying }: { onClose: () => void; tryi
             Save
           </button>
         </div>
-        {section === "look" && <LookSection look={look} setLook={setLook} draft={draft} set={set} username={user?.username ?? ""} unlocks={unlocks} />}
+        {section === "look" && <LookSection look={look} setLook={setLook} draft={draft} set={set} username={user?.username ?? ""} unlocks={unlocks} toggleDevMode={toggleDevMode} />}
         {section === "stats" && <StatsSection draft={draft} set={set} />}
         {section === "skills" && <SkillsSection draft={draft} set={set} />}
       </div>

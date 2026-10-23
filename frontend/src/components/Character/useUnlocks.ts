@@ -3,8 +3,8 @@ import { useFeedbackSent } from "../../hooks/feedback";
 import { useGoals, useTags } from "../../hooks/labels";
 import { useLists } from "../../hooks/lists";
 import { useProgressDays, useStatRows } from "../../hooks/tasks";
-import { useMe } from "../../hooks/useAuth";
 import { localDate } from "../../lib/clock";
+import { readDevMode } from "../../lib/devMode";
 import { listColor } from "../../lib/frameTones";
 import { levelOf } from "../../lib/character/levels";
 import { characterLevel, characterProgress, skillExp } from "../../lib/character/profileStats";
@@ -39,7 +39,6 @@ const NOTHING_YET: Progress = { level: 1, longest: 0, current: 0, onTime: 0, mai
  */
 export function useCharacterProgress() {
   const { profile, look } = useProfile();
-  const { user } = useMe();
   const rows = useStatRows();
   const lists = useLists();
   const mailSent = useFeedbackSent();
@@ -49,7 +48,7 @@ export function useCharacterProgress() {
   const mail = mailSent.data ?? 0;
   const skills = profile.skills.map((skill) => ({ key: `${skill.kind}:${skill.id}`, name: skillName(skill).name, exp: skillExp(skill, collected?.completions ?? []) }));
   const progress = collected && rows.data ? characterProgress({ ...collected, rows: rows.data, today, mailSent: mail, skills }) : null;
-  const unlocks: Unlocks = { progress: progress ?? NOTHING_YET, isDev: user?.isDev ?? false, saved: look, seen: profile.seen ?? [] };
+  const unlocks: Unlocks = { progress: progress ?? NOTHING_YET, devMode: readDevMode(), saved: look, seen: profile.seen ?? [] };
   return { collected, level: characterLevel(collected?.completions ?? [], mail), progress, unlocks, today };
 }
 

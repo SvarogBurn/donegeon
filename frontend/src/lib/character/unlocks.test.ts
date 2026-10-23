@@ -5,7 +5,7 @@ import { bodyLock, choiceLock, daysProgress, earnedRewards, lockedIn, nextGoals,
 
 const start: Progress = { level: 1, longest: 0, current: 0, onTime: 0, mail: 0, returned: false, skills: [], presses: 0, frogs: 0, earlyDays: 0, onTimeRun: 0, busiestDay: 0, steady: false };
 const at = (p: Partial<Progress>): Progress => ({ ...start, ...p });
-const unlocks = (p: Partial<Progress> = {}, saved: Look = DEFAULT_LOOK, isDev = false, seen: string[] = []): Unlocks => ({ progress: at(p), isDev, saved, seen });
+const unlocks = (p: Partial<Progress> = {}, saved: Look = DEFAULT_LOOK, devMode = false, seen: string[] = []): Unlocks => ({ progress: at(p), devMode, saved, seen });
 const skilled = (level: number) => [{ key: "list:a", name: "Cooking", level }];
 
 describe("the rewards", () => {
@@ -100,7 +100,7 @@ describe("locks", () => {
     expect(choiceLock(unlocks(), "human", "hat", "none")).toBeNull();
   });
 
-  it("let whatever the saved look wears stay, and open everything on a developer's account", () => {
+  it("let whatever the saved look wears stay, and open everything in the hidden dev mode", () => {
     const saved: Look = { v: 2, body: "wolf", options: { glasses: "sunglasses" }, colors: {} };
     expect(bodyLock(unlocks({}, saved), "wolf")).toBeNull();
     expect(choiceLock(unlocks({}, saved), "human", "glasses", "sunglasses")).toBeNull();

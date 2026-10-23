@@ -197,11 +197,20 @@ describe("bodies", () => {
     expect(fills(wolf)).toContain("#564A62");
     expect(fills({ ...wolf, options: { top: "shirt", bottoms: "skirt", shoes: "flats" } })).not.toContain("#564A62");
     for (const body of BODIES) {
-      const has = (id: string) => body.options?.some((o) => o.id === id);
+      const has = (id: string, choice: string) => body.options?.some((o) => o.id === id && o.choices.some((c) => c.id === choice));
       const look: Look = { v: 2, body: body.id, options: {}, colors: {} };
-      if (has("top")) expect(fills({ ...look, options: { top: "shirt" } }), body.id).toContain("#722120");
-      if (has("bottoms")) expect(fills({ ...look, options: { bottoms: "trousers" } }), body.id).toContain("#3D3D3D");
+      if (has("top", "shirt")) expect(fills({ ...look, options: { top: "shirt" } }), body.id).toContain("#722120");
+      if (has("bottoms", "trousers")) expect(fills({ ...look, options: { bottoms: "trousers" } }), body.id).toContain("#3D3D3D");
     }
+  });
+
+  it("lets the mice take their coat off and go bare-headed until a hat is picked", () => {
+    const fills = (look: Look) => compose(look, data).map((p) => p.fill);
+    const mice: Look = { v: 2, body: "mice", options: {}, colors: {} };
+    expect(fills(mice)).toContain("#B88C58");
+    expect(fills(mice)).not.toContain("#2A2630");
+    expect(fills({ ...mice, options: { hat: "own" } })).toContain("#2A2630");
+    expect(fills({ ...mice, options: { top: "none" } })).not.toContain("#B88C58");
   });
 
   it("draws the user's cat and the first deer as they were drawn until something else is picked", () => {

@@ -140,7 +140,7 @@ const HELD: BodyOption = {
 
 /** A body's own pieces, first in their option, so a body is drawn as it always was until the user picks. */
 interface Own {
-  /** Its own hats, instead of the human's first two (the bunny's are the very hats the human was given). */
+  /** Its own hats, instead of the human's first two (the bunny's are the very hats the human was given); None last unless it comes first. */
   hat?: Choice[];
   top?: Choice[];
   /** A scarf, collar or ruff of its own, which can come off. */
@@ -156,7 +156,7 @@ interface Own {
   halfRims?: boolean;
   /** Layers of the shared clothes it doesn't have (the boar's shoes and flats, which didn't fit it; the deer's robe). */
   without?: string[];
-  /** Only these options (the mice in their coat wear a hat and glasses and hold things, nothing else). */
+  /** Only these options (the mice wear their coat, a hat and glasses and hold things, nothing else). */
   only?: string[];
 }
 
@@ -164,7 +164,7 @@ interface Own {
 function outfit(own: Own = {}): BodyOption[] {
   const socks = own.socks === "none" ? [NONE(), ...SOCKS] : [...(own.socks ?? []), ...SOCKS, NONE()];
   const options: BodyOption[] = [
-    { id: "hat", name: "Hat", choices: own.hat ? [...own.hat, TOP_HAT, NONE()] : [NONE(), ...HATS] },
+    { id: "hat", name: "Hat", choices: own.hat ? [...own.hat, TOP_HAT, ...(own.hat[0].id === "none" ? [] : [NONE()])] : [NONE(), ...HATS] },
     { id: "top", name: "Top", choices: [...(own.top ?? []), ...TOPS] },
     { id: "scarf", name: "Scarf", choices: own.scarf ? [...own.scarf, ...SCARVES, NONE()] : [NONE(), ...SCARVES] },
     { id: "bottoms", name: "Bottoms", choices: [...(own.bottoms ?? []), ...BOTTOMS] },
@@ -615,18 +615,24 @@ export const BODIES: Body[] = ([
   {
     id: "mice",
     name: "Three mice",
-    // Drawn 2026-10-21 (the user's ask): three mice stacked in a trenchcoat, one under a hat, two looking out of the
-    // coat's front, a tail out of its hem. The coat is them: they wear a hat and glasses and hold things, nothing else.
-    file: "48x32_mice_v2",
+    // Drawn 2026-10-21 (the user's ask): three mice stacked in a trenchcoat, two looking out of the coat's front, a
+    // tail out of its hem. The user's v3 (2026-10-23) drew the stack under the coat and ears on the head, so the coat
+    // comes off and they go bare-headed until a hat is picked. They wear their coat, a hat and glasses and hold things,
+    // nothing else; the shoes are drawn on the body.
+    file: "48x32_mice_v3",
     // Its layers and hexes are the body's: the body's materials fit it.
     face: { file: "21x21_mice_face_v2" },
-    options: outfit({ hat: [{ id: "own", name: "Its hat", layers: ["mice hat"] }, ...HATS.slice(0, 2)], only: ["hat", "glasses", "held"] }),
+    options: outfit({
+      hat: [NONE(), { id: "own", name: "Its hat", layers: ["mice hat"] }, ...HATS.slice(0, 2)],
+      top: [{ id: "own", name: "Trenchcoat", layers: ["mice coat"] }, NONE()],
+      without: ["hoodie", "shirt", "blouse", "dress", "coat", "robe"],
+      only: ["hat", "top", "glasses", "held"],
+    }),
     materials: [
-      { id: "fur", name: "Fur", hexes: ["#8C7B70", "#6B5C52", "#6E6058", "#54483F"], layers: ["head", "mice", "mice paws", ...HELD_LAYERS] },
+      { id: "fur", name: "Fur", hexes: ["#8C7B70", "#6B5C52", "#6E6058", "#54483F"], layers: ["head", "body", "mice", "mice paws", ...HELD_LAYERS] },
       { id: "eyes", name: "Eyes", hexes: ["#140B26"], layers: ["head", "mice"] },
-      { id: "markings", name: "Ears, noses & tail", hexes: ["#D9A0A0", "#E8B4B4", "#D98C98"], layers: ["head", "mice", "back"] },
-      // The belt and its buckle stay as drawn.
-      { id: "coat", name: "Trenchcoat", hexes: ["#B8955E", "#8F7144", "#D1B07A", "#6E5432", "#3A2C1E"], layers: ["mice coat"] },
+      { id: "markings", name: "Ears, noses & tail", hexes: ["#D9A0A0", "#E8B4B4", "#D98C98"], layers: ["head", "body", "mice", "back"] },
+      { id: "coat", name: "Trenchcoat", hexes: ["#B88C58", "#A97B45", "#D8AA74", "#8B602F", "#644017", "#A2743F", "#8F7144"], layers: ["mice coat"] },
       { id: "hat", name: "Hat", hexes: ["#2A2630", "#3E3846", "#55505E"], layers: ["mice hat"] },
       { id: "shoes", name: "Shoes", hexes: ["#3A2C1E"], layers: ["body"] },
     ],

@@ -194,10 +194,11 @@ export function daysProgress(days: string[], today: string) {
   return { longest, current, returned };
 }
 
-/** What a look may wear: what was earned, and on a developer's account everything. */
+/** What a look may wear: what was earned, and with the hidden dev mode on (lib/devMode.ts) everything. */
 export interface Unlocks {
   progress: Progress;
-  isDev: boolean;
+  /** The hidden dev mode, on this device: everything may be worn. No account has it by itself, developers' neither. */
+  devMode: boolean;
   /** The look as saved: whatever it wears stays allowed, earned or not. */
   saved: Look;
   /** What the sheet has announced (Profile.seen): it stays unlocked, whatever happens to the tasks and skills since. */
@@ -207,14 +208,14 @@ export interface Unlocks {
 /** The reward a body still waits for; null when it may be worn. */
 export function bodyLock(u: Unlocks, body: string): Reward | null {
   const reward = BODY_REWARDS.get(body);
-  if (!reward || u.isDev || u.saved.body === body || u.seen.includes(reward.id) || isEarned(reward, u.progress)) return null;
+  if (!reward || u.devMode || u.saved.body === body || u.seen.includes(reward.id) || isEarned(reward, u.progress)) return null;
   return reward;
 }
 
 /** The reward a choice still waits for; null when it may be worn. The first choice of a row is always free. */
 export function choiceLock(u: Unlocks, body: string, option: string, choice: string): Reward | null {
   const reward = PIECE_REWARDS.get(`${body}:${option}:${choice}`) ?? PIECE_REWARDS.get(`*:${option}:${choice}`);
-  if (!reward || u.isDev || u.saved.options[option] === choice || u.seen.includes(reward.id) || isEarned(reward, u.progress)) return null;
+  if (!reward || u.devMode || u.saved.options[option] === choice || u.seen.includes(reward.id) || isEarned(reward, u.progress)) return null;
   const first = BODY_BY_ID.get(body)?.options?.find((o) => o.id === option)?.choices[0];
   return first?.id === choice ? null : reward;
 }

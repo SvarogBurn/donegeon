@@ -165,24 +165,21 @@ interface CombinedSource {
 }
 
 /**
- * A future day on the dashboard's table: the plan, i.e. today's pace kept up
- * every day until the deadline (7 tasks over 7 days reads 1 on each of them).
- * Up to the deadline day, Left is what is open now; after it, the plan
- * has it finished. A deadline that is already overdue today stays overdue.
+ * A future day on the dashboard's table, as in the spreadsheet: what is open now over the days left
+ * from that day, so each day without work shows the pace climbing (6 tasks over 4 days, then 3, 2, 1).
+ * After its deadline day the deadline leaves the later rows; one already overdue today stays overdue.
  */
-function plannedPace(item: CombinedSource, date: string, today: string): Pace {
-  const now = paceOn(today, item.total, item.done, item.deadlineDate);
-  const daysLeft = daysBetween(date, item.deadlineDate) + 1;
-  if (daysLeft > 0) return { ...now, daysLeft };
-  if (now.perDay === null) return { ...now, daysLeft };
-  return { daysLeft, remaining: 0, perDay: 0 };
+function futurePace(item: CombinedSource, date: string, today: string): Pace {
+  const pace = paceOn(date, item.total, item.done, item.deadlineDate);
+  if (pace.daysLeft > 0 || paceOn(today, item.total, item.done, item.deadlineDate).perDay === null) return pace;
+  return { daysLeft: pace.daysLeft, remaining: 0, perDay: 0 };
 }
 
 /**
  * The dashboard's table: every deadline, hard and soft, added up day by day.
  * Each deadline keeps its own pace (its tasks left over its days left), and a
  * day's "Per day" is the sum of the paces of the deadlines running that day.
- * Past days and today use what was actually done; later days follow the plan.
+ * Past days and today use what was actually done; later days show the pace if nothing more gets done.
  * A subtask's deadline is skipped when its parent has one too, so nothing is counted twice.
  * A deadline whose task is ticked (or sits in a finished main task) leaves the table at once, with its numbers.
  */
@@ -217,7 +214,7 @@ export function combinedCountdown(tasks: PressureTask[], today: string): Combine
       const row: CombinedRow = { date, doneThatDay: 0, remaining: 0, perDay: 0, overdue: false };
       for (const item of items) {
         if (date < item.start) continue;
-        const pace = date > today ? plannedPace(item, date, today) : paceOn(date, item.total, item.done, item.deadlineDate);
+        const pace = date > today ? futurePace(item, date, today) : paceOn(date, item.total, item.done, item.deadlineDate);
         row.doneThatDay += item.done.filter((day) => day === date).length;
         row.remaining += pace.remaining;
         row.perDay += pace.perDay ?? pace.remaining;
