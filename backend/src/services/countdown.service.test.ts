@@ -174,4 +174,25 @@ describe("combinedCountdown", () => {
     expect(combinedCountdown(nested, "2026-10-03").items.map((i) => i.taskId)).toEqual(["exam"]);
     expect(combinedCountdown(kids("x", 3), "2026-10-03")).toMatchObject({ items: [], rows: [], totalTasks: 0 });
   });
+
+  it("leaves soft deadlines out when asked, so a hard one under a soft one counts on its own", () => {
+    expect(combinedCountdown([...exam, ...essay], "2026-10-03", { soft: false }).items.map((i) => i.taskId)).toEqual(["exam"]);
+    const inSoft = [essay[0], { ...essay[1], deadlineDate: "2026-10-05", deadlineType: "hard" as const }, ...essay.slice(2)];
+    expect(combinedCountdown(inSoft, "2026-10-03").items.map((i) => i.taskId)).toEqual(["essay"]);
+    const { items, totalTasks } = combinedCountdown(inSoft, "2026-10-03", { soft: false });
+    expect(items.map((i) => i.taskId)).toEqual(["essay-0"]);
+    expect(totalTasks).toBe(1);
+  });
+
+  it("gives each deadline's own pace per row, adding up to Per day, and null while it isn't running", () => {
+    const later = essay.map((t) => ({ ...t, startDate: "2026-10-05" }));
+    const { rows } = combinedCountdown([...exam, ...later], "2026-10-03");
+    expect(rows[0].paces).toEqual([null, { remaining: 7, perDay: 7 / 8 }]);
+    expect(rows[2].paces).toEqual([{ remaining: 6, perDay: 6 / 2 }, { remaining: 7, perDay: 7 / 6 }]);
+    // After its deadline day the essay is gone from the row.
+    expect(rows[4].paces).toEqual([null, { remaining: 7, perDay: 7 / 4 }]);
+    for (const row of rows) expect(row.paces.reduce((sum, pace) => sum + (pace ? (pace.perDay ?? pace.remaining) : 0), 0)).toBeCloseTo(row.perDay);
+    // Overdue: work left and no days left.
+    expect(combinedCountdown([...exam, ...essay], "2026-10-07").rows[4].paces[0]).toEqual({ remaining: 6, perDay: null });
+  });
 });

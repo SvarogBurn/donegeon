@@ -1,4 +1,5 @@
 import { Prisma, type Task } from "@prisma/client";
+import { addDays, mondayOf } from "../../../shared/dates.js";
 import { HttpError } from "../lib/httpError.js";
 import type { TaskPatch } from "../schemas/task.js";
 
@@ -57,6 +58,8 @@ export function taskPatchData(task: Current, input: TaskPatch, today: string): P
   }
   if (input.today !== undefined) data.todaySince = input.today ? (task.todaySince ?? today) : null;
   if (input.week === false) data.weekDay = null;
+  // Put in Today, a task put off to next week is taken out of it again: it is for today after all.
+  if (input.today && task.weekDay && task.weekDay >= addDays(mondayOf(today), 7)) data.weekDay = null;
 
   // A schedule only makes sense on a task that is done again and again, so setting one makes the task persistent.
   const isPersistent = input.isPersistent ?? (input.repeatEvery ? true : task.isPersistent);

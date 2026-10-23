@@ -1,17 +1,17 @@
 import { Link } from "react-router";
 import { usePressure, useTaskTrees } from "../../hooks/tasks";
 import { findNode } from "../../lib/optimisticToggle";
-import { hasTaskPage } from "../../lib/taskPage";
+import { hasDeadlinePage } from "../../lib/taskPage";
 import type { TaskTreeNode } from "../../types";
 import { formatDay, formatPace } from "../../lib/dates";
 import { TileFrame } from "../Tiles/TileFrame";
 import { pressureColor } from "./pressureColor";
 import { RichText } from "../RichText";
 
-/** Links to the task's page when it has one (big tasks only). */
+/** Links to the task's page: every deadline has one from here. */
 function ItemTitle({ taskId, title, trees }: { taskId: string; title: string; trees: TaskTreeNode[] }) {
   const node = findNode(trees, taskId);
-  if (!node || !hasTaskPage(node)) return <span className="min-w-0 truncate font-medium"><RichText text={title} /></span>;
+  if (!node || !hasDeadlinePage(node)) return <span className="min-w-0 truncate font-medium"><RichText text={title} /></span>;
   return (
     <Link to={`/tasks/${taskId}`} className="min-w-0 truncate font-medium underline-offset-2 hover:underline">
       <RichText text={title} />

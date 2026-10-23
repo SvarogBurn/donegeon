@@ -37,6 +37,7 @@ const publicUser = (user: User) => ({
   taskBar: user.taskBar,
   boxColors: user.boxColors,
   boxColorEdit: user.boxColorEdit,
+  deadlineTable: user.deadlineTable,
   isDev: isDev(user.username),
 });
 
@@ -96,12 +97,13 @@ authRouter.get("/me", async (req, res) => {
 
 // The account's own settings, from the user's page.
 authRouter.patch("/me", requireAuth, async (req, res) => {
-  const { profile, taskBar, boxColors, ...rest } = settings.parse(req.body);
+  const { profile, taskBar, boxColors, deadlineTable, ...rest } = settings.parse(req.body);
   const data = {
     ...rest,
     ...(profile !== undefined && { profile: profile ?? Prisma.DbNull }),
     ...(taskBar !== undefined && { taskBar: taskBar ?? Prisma.DbNull }),
     ...(boxColors !== undefined && { boxColors: boxColors ?? Prisma.DbNull }),
+    ...(deadlineTable !== undefined && { deadlineTable: deadlineTable ?? Prisma.DbNull }),
   };
   res.json({ user: publicUser(await prisma.user.update({ where: { id: userId(req) }, data })) });
 });

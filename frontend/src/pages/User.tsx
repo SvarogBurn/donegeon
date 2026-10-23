@@ -5,6 +5,7 @@ import { FeedbackBox } from "../components/Feedback/FeedbackBox";
 import { FeedbackInbox } from "../components/Feedback/FeedbackInbox";
 import { CharacterSheet } from "../components/Character/CharacterSheet";
 import { useProfile } from "../components/Character/useProfile";
+import { DeadlineSettings } from "../components/Countdown/DeadlineSettings";
 import { Cheatsheet } from "../components/Help/Cheatsheet";
 import { PixelCheckbox } from "../components/PixelCheckbox";
 import { HiddenRow } from "../components/Tiles/HiddenRow";
@@ -313,6 +314,8 @@ export function UserPage() {
         Unlocks and news on the character
       </label>
       <p className="text-xs text-stone-500">The LEVEL UP box with what was unlocked, and the News box with what's next. Off also hides the red dot.</p>
+      {/* The dashboard's deadlines box: its tabs, its Per day, its colours. */}
+      <DeadlineSettings />
       {/* How the app looks. */}
       <h3 className="border-t-2 border-stone-300 pt-3 font-pixel text-xs text-stone-500 dark:border-stone-700">Theme</h3>
       <FontChoice
@@ -329,25 +332,28 @@ export function UserPage() {
         covers="The notes on the Notes page, their titles too."
         name="notes-font"
       />
-      <label className="flex items-center gap-2 text-xs">
-        <PixelCheckbox small checked={user.boxColorEdit} onChange={(e) => update.mutate({ boxColorEdit: e.target.checked })} data-box-color-edit />
-        Allow changing box colours
-      </label>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <label className="flex items-center gap-2">
+          <PixelCheckbox small checked={user.boxColorEdit} onChange={(e) => update.mutate({ boxColorEdit: e.target.checked })} data-box-color-edit />
+          Allow changing box colours
+        </label>
+        {/* Every built-in box back to its own colour; the lists keep theirs. Small and quiet: it is seldom wanted. */}
+        <button
+          type="button"
+          className="btn-quiet underline"
+          data-reset-box-colors
+          disabled={Object.keys(user.boxColors ?? {}).length === 0}
+          title="Every box back to its own colour (lists keep theirs)"
+          onClick={() => update.mutate({ boxColors: null })}
+        >
+          Reset to default
+        </button>
+      </div>
       <p className="text-xs text-stone-500">
         {user.boxColorEdit
           ? "Every box but the task and reward lists has a colour button on its band, left of the pin. Lists have theirs on their plate."
           : "No colour buttons on the boxes. The colours picked stay."}
       </p>
-      {/* Every built-in box back to its own colour; the lists keep theirs. */}
-      <button
-        type="button"
-        className="nes-btn btn"
-        data-reset-box-colors
-        disabled={Object.keys(user.boxColors ?? {}).length === 0}
-        onClick={() => update.mutate({ boxColors: null })}
-      >
-        Reset box colours to default
-      </button>
       {/* The tutorial shows while the account has not seen it: this says it hasn't, and goes where it starts. */}
       <button
         type="button"

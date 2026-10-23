@@ -60,6 +60,12 @@ describe("taskPatchData", () => {
     expect(taskPatchData(task(), { today: true }, TODAY)).toMatchObject({ todaySince: TODAY });
   });
 
+  it("takes a task put off to next week out of it when it is put in Today, one planned for this week not", () => {
+    expect(taskPatchData(task({ weekDay: "2026-10-26" }), { today: true }, TODAY)).toMatchObject({ todaySince: TODAY, weekDay: null });
+    expect(taskPatchData(task({ listId: null, weekDay: "2026-10-26" }), { today: true }, TODAY)).toMatchObject({ todaySince: TODAY, weekDay: null });
+    expect(taskPatchData(task({ weekDay: "2026-10-22" }), { today: true }, TODAY).weekDay).toBeUndefined();
+  });
+
   it("makes a first deadline hard, and never rewrites the type a deadline has", () => {
     expect(taskPatchData(task(), { deadlineDate: "2026-11-01" }, TODAY)).toMatchObject({ deadlineDate: "2026-11-01", deadlineType: "hard" });
     expect(taskPatchData(task({ deadlineType: "soft" }), { deadlineDate: "2026-11-01" }, TODAY).deadlineType).toBeUndefined();

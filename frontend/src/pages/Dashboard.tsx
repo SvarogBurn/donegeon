@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router";
 import { CalBoxView } from "../components/Calendar/CalBoxView";
 import { CAL_BOXES } from "../components/Calendar/calendarData";
-import { CombinedTable } from "../components/Countdown/CombinedTable";
+import { DeadlinesBox } from "../components/Countdown/DeadlinesBox";
 import { PressureSummary } from "../components/Countdown/PressureSummary";
 import { DoneLog } from "../components/Done/DoneLog";
 import { LabelsPanel } from "../components/Labels/LabelsPanel";
@@ -143,7 +143,7 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   // The two deadline boxes only exist once there is a deadline.
   const mainTiles: ((Tile & { label?: string }) | false)[] = [
     Boolean(pressure.data?.items.length) && { key: "pressure", name: "deadline pressure", node: <PressureSummary /> },
-    Boolean(combined.data?.items.length) && { key: "deadlines", name: "All deadlines", node: <CombinedTable /> },
+    Boolean(combined.data?.items.length) && { key: "deadlines", name: "All deadlines", node: <DeadlinesBox /> },
     // Goals, Today and Tags can be dropped on a folder's tab too: a copy, shown there as well.
     { key: "goals", view: GOALS_VIEW, name: "Goals", node: goalsBox },
     { key: "today", view: TODAY_VIEW, name: "Today", node: <TodayBox tasks={tasks.data} /> },

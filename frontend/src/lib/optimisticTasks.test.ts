@@ -79,6 +79,11 @@ describe("patchFor", () => {
     expect(patchFor(task, { deadlineDate: "2026-11-01" }, "2026-10-18")).toMatchObject({ deadlineDate: "2026-11-01", deadlineType: "soft" });
     expect(patchFor(task, { repeatEvery: 3 }, "2026-10-18")).toMatchObject({ isPersistent: true, repeatEvery: 3, nextDue: "2026-10-18" });
   });
+
+  it("takes a task put off to next week out of it when it is put in Today", () => {
+    expect(patchFor(node("A", { weekDay: "2026-10-19" }), { today: true }, "2026-10-18")).toMatchObject({ todaySince: "2026-10-18", weekDay: null });
+    expect(patchFor(node("A", { weekDay: "2026-10-16" }), { today: true }, "2026-10-18").weekDay).toBeUndefined();
+  });
 });
 
 describe("pressedInTrees", () => {

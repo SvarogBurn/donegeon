@@ -22,8 +22,8 @@ dashboardRouter.get("/", async (req, res) => {
   res.json({ pressure: todayPressure(tasks, req.localDate, finished) });
 });
 
-// One table for every deadline, hard and soft, added up day by day.
+// One table for every deadline, hard and soft (?soft=0: hard only), added up day by day.
 dashboardRouter.get("/countdown", async (req, res) => {
   const { tasks } = await deadlineTrees(userId(req));
-  res.json({ countdown: combinedCountdown(tasks, req.localDate) });
+  res.json({ countdown: combinedCountdown(tasks, req.localDate, { soft: req.query.soft !== "0" }) });
 });

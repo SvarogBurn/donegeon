@@ -67,6 +67,18 @@ const taskBar = z.object({ left: barSide, right: barSide }).nullable();
 /** The built-in boxes' picked colours, by box key (see useBoxColors in frontend/src/hooks/useAuth.ts). */
 const boxColors = capped(hex.transform((value) => value.toLowerCase()), 100).nullable();
 
+/** The dashboard's deadlines box (see frontend/src/lib/deadlineTable.ts); the app fills in what is missing. */
+const lowerHex = hex.transform((value) => value.toLowerCase());
+const deadlineTable = z
+  .object({
+    range: z.object({ amount: z.number().int().min(1).max(52), unit: z.enum(["day", "week"]) }).optional(),
+    perDay: z.enum(["sum", "soonest", "columns"]).optional(),
+    soft: z.boolean().optional(),
+    colors: z.object({ hard: lowerHex.optional(), soft: lowerHex.optional(), big: lowerHex.optional() }).optional(),
+    taskColors: capped(lowerHex, 200).optional(),
+  })
+  .nullable();
+
 /** The account's own settings, from the user's page; any of them at a time. */
 export const settings = z
   .object({
@@ -88,5 +100,7 @@ export const settings = z
     taskBar,
     /** null = every box back to its own colour. */
     boxColors,
+    /** null = back to the defaults. */
+    deadlineTable,
   })
   .partial();

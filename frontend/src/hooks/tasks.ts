@@ -9,6 +9,7 @@ import { newId } from "../lib/offline/changes";
 import { parseShortSyntax, parseTitleEdit, type SyntaxContext } from "../lib/shortSyntax";
 import type { Goal, List, Tag, TaskTreeNode } from "../types";
 import { useGoals, useTags } from "./labels";
+import { useDeadlineTable } from "./useAuth";
 import { useLists } from "./lists";
 import { useChange } from "./mutations";
 import { COUNTDOWN, DONE, GOALS, LISTS, PRESSURE, STATS, TAGS, TASKS } from "./queryKeys";
@@ -33,8 +34,11 @@ export const useProgressDays = () => useQuery({ queryKey: [...TASKS, "progress"]
 export const useTaskSearch = (q: string) =>
   useQuery({ queryKey: [...TASKS, "search", q], queryFn: () => tasksApi.searchTasks(q), enabled: q !== "", placeholderData: keepPreviousData });
 export const usePressure = () => useQuery({ queryKey: PRESSURE, queryFn: tasksApi.getPressure });
-/** Kept under the countdown key so every task change refreshes it too. */
-export const useCombinedCountdown = () => useQuery({ queryKey: [...COUNTDOWN, "all"], queryFn: tasksApi.getCombinedCountdown });
+/** Kept under the countdown key so every task change refreshes it too. Soft deadlines in or out as the user set it. */
+export function useCombinedCountdown() {
+  const [{ soft }] = useDeadlineTable();
+  return useQuery({ queryKey: [...COUNTDOWN, "all", soft], queryFn: () => tasksApi.getCombinedCountdown(soft) });
+}
 
 /** Only tasks with a hard deadline have a countdown; pass `enabled` false for the rest. */
 export const useCountdown = (taskId: string, enabled = true) =>
@@ -116,7 +120,8 @@ export function useAddTask() {
           deadlineDate: typed.repeat || typed.persistent ? undefined : (typed.deadlineDate ?? place.deadlineDate),
           deadlineType: typed.deadlineDate ? typed.deadlineType : place.deadlineType,
           points: typed.points,
-          today: typed.today || undefined,
+          // Typed into Today (no list, parent or day of Week) and sent to a list with /list, it stays in Today too.
+          today: typed.today || (movesList && !place.parentId && !place.listId && !place.weekDay) || undefined,
           isPersistent: typed.persistent || undefined,
           repeatEvery: typed.repeat?.every,
           repeatUnit: typed.repeat?.unit,

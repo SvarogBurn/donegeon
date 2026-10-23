@@ -33,6 +33,8 @@ export interface User {
   boxColors: Record<string, string> | null;
   /** Whether the built-in boxes show their colour button; off (the default), they keep the colours picked. */
   boxColorEdit: boolean;
+  /** The dashboard's deadlines box as saved; null = the defaults. Read it with normalizeDeadlineTable (lib/deadlineTable.ts). Missing in an account kept on the device from before. */
+  deadlineTable?: unknown;
   /** One of the developers' accounts: its page has the inbox of the suggestion box. */
   isDev: boolean;
 }
@@ -266,18 +268,30 @@ export interface PressureSummary {
   items: PressureItem[];
 }
 
-/** The dashboard's table: every deadline, hard and soft, added up day by day. */
+/** One deadline's own numbers on one day of the dashboard's table; perDay null = overdue (work left, no days left). */
+export interface DeadlinePace {
+  remaining: number;
+  perDay: number | null;
+}
+
+export type CombinedItem = { taskId: string; title: string; deadlineDate: string; deadlineType: "hard" | "soft" };
+
+export interface CombinedRow {
+  date: string;
+  doneThatDay: number;
+  remaining: number;
+  /** Sum of each deadline's pace; overdue work counts in full. */
+  perDay: number;
+  overdue: boolean;
+  /** Each deadline's own pace, in the order of `items`; null while it isn't running that day. */
+  paces: (DeadlinePace | null)[];
+}
+
+/** The dashboard's table: every deadline, hard and soft (unless left out), added up day by day. */
 export interface CombinedCountdown {
   today: string;
   totalTasks: number;
   /** Soonest deadline first. */
-  items: { taskId: string; title: string; deadlineDate: string; deadlineType: "hard" | "soft" }[];
-  rows: {
-    date: string;
-    doneThatDay: number;
-    remaining: number;
-    /** Sum of each deadline's pace; overdue work counts in full. */
-    perDay: number;
-    overdue: boolean;
-  }[];
+  items: CombinedItem[];
+  rows: CombinedRow[];
 }

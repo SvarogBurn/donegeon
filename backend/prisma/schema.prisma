@@ -111,6 +111,9 @@ model User {
   boxColors       Json?
   // Whether the built-in boxes show their colour button; off, they keep the colours picked.
   boxColorEdit    Boolean  @default(false)
+  // The dashboard's deadlines box: {range: {amount, unit}, perDay: "sum" | "soonest" | "columns", soft, colors: {hard, soft, big},
+  // taskColors: {taskId: hex}} (see frontend/src/lib/deadlineTable.ts). null = the defaults.
+  deadlineTable   Json?
 
   goals             Goal[]
   tags              Tag[]

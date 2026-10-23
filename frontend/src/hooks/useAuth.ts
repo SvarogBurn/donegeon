@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import * as authApi from "../api/auth";
 import { ApiError } from "../api/client";
 import type { DeadlineToday, TickedTasks, User } from "../types";
 import { readStored, writeStored } from "../lib/storage";
+import { normalizeDeadlineTable, type DeadlineTable } from "../lib/deadlineTable";
 
 export const ME = ["me"];
 
@@ -41,6 +43,14 @@ export function useSortByDeadline(): boolean {
 /** When a task with a deadline comes into Today by itself; never, unless the user chose otherwise on their page. */
 export function useDeadlineToday(): DeadlineToday {
   return useMe().user?.deadlineToday ?? "never";
+}
+
+/** The dashboard's deadlines box as the user set it on their page, and the way to change it (saved whole). */
+export function useDeadlineTable(): [DeadlineTable, (next: DeadlineTable) => void] {
+  const saved = useMe().user?.deadlineTable;
+  const update = useUpdateMe();
+  const table = useMemo(() => normalizeDeadlineTable(saved), [saved]);
+  return [table, (next) => update.mutate({ deadlineTable: next })];
 }
 
 /** Whether the Notes tab is shown; off unless switched on on the user's page. */

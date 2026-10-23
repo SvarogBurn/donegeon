@@ -103,5 +103,6 @@ export const restoreTask = (id: string, when?: When) => api(`/tasks/${id}/restor
 
 export const getCountdown = (id: string) => api<{ countdown: Countdown }>(`/tasks/${id}/countdown`).then((r) => r.countdown);
 export const getPressure = () => api<{ pressure: PressureSummary }>("/dashboard").then((r) => r.pressure);
-export const getCombinedCountdown = () =>
-  api<{ countdown: CombinedCountdown }>("/dashboard/countdown").then((r) => r.countdown);
+/** `soft` false leaves soft deadlines out. */
+export const getCombinedCountdown = (soft: boolean) =>
+  api<{ countdown: CombinedCountdown }>(`/dashboard/countdown${soft ? "" : "?soft=0"}`).then((r) => r.countdown);

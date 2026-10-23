@@ -46,15 +46,18 @@ export function SummaryCells({ cells }: { cells: readonly (readonly [label: stri
   );
 }
 
-/** Bold centred headers over full-length rows; never scrolled for you, so rows stay put as the days go by. */
-export function SheetTable({ headers, children }: { headers: string[]; children: ReactNode }) {
+/**
+ * Bold centred headers over full-length rows; never scrolled for you, so rows stay put as the days go by.
+ * `wide`: many columns, so the table scrolls sideways inside its box instead of squeezing them.
+ */
+export function SheetTable({ headers, wide = false, children }: { headers: ReactNode[]; wide?: boolean; children: ReactNode }) {
   return (
-    <div className={`border-t border-l ${LINE}`}>
+    <div className={`border-t border-l ${LINE} ${wide ? "overflow-x-auto" : ""}`}>
       <table className="w-full border-separate border-spacing-0 text-xs tabular-nums sm:text-sm">
         <thead className="sticky top-0 z-10 bg-stone-100 dark:bg-stone-800">
           <tr>
-            {headers.map((label) => (
-              <th key={label} className={`${CELL} text-center font-bold sm:whitespace-nowrap`}>
+            {headers.map((label, i) => (
+              <th key={i} className={`${CELL} text-center font-bold sm:whitespace-nowrap`}>
                 {label}
               </th>
             ))}

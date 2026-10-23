@@ -5,7 +5,7 @@ import { localDate } from "../../lib/clock";
 import { orderDay } from "../../lib/deadlines";
 import { areaScroller, edgeScroller } from "../../lib/edgeScroll";
 import { isInRound, isShown } from "../../lib/recent";
-import { livesInToday, livesInWeek, weekColumn, weekDays } from "../../lib/week";
+import { isPutOff, livesInToday, livesInWeek, weekColumn, weekDays } from "../../lib/week";
 import { weekDropFor } from "../../lib/weekDrop";
 import type { TaskTreeNode, TickedTasks } from "../../types";
 import { hitTest, type DragStore, type DropTarget } from "./dragState";
@@ -78,7 +78,12 @@ export function useTaskMoves({ tasks, byId, drag, rootId, ticked, byDeadline }: 
       // Today is a view: dropping a list's task on it (or among the tasks written there) marks it for today and leaves it in its list.
       const over = target?.kind === "task" ? nodes.get(target.id) : undefined;
       const amongTodays = target?.kind === "task" && target.zone !== "inside" && over !== undefined && livesInToday(over);
-      if (target?.kind === "today" || (amongTodays && !livesInToday(node))) return setToday({ id: node.id, today: true });
+      // What was put off to next week comes out of it (see taskPatchData); so does a round of a schedule moved there, back to its own day.
+      if (target?.kind === "today" || (amongTodays && !livesInToday(node))) {
+        const movedTo = round === undefined ? undefined : node.roundMoves?.[round];
+        if (round !== undefined && movedTo !== undefined && isPutOff({ ...node, weekDay: movedTo }, localDate())) moveRound({ id: node.id, from: round, to: round });
+        return setToday({ id: node.id, today: true });
+      }
       // So is Week, with an order of its own on each day: a task dropped there takes that place, and stays in its list.
       if (target?.kind === "week" || target?.kind === "weekDay" || target?.kind === "weekItem") {
         const column =

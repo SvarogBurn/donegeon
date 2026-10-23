@@ -139,6 +139,13 @@ export interface CombinedItem {
   deadlineType: "hard" | "soft";
 }
 
+/** One deadline's own numbers on one day of the dashboard's table. */
+export interface DeadlinePace {
+  remaining: number;
+  /** null: work left and no days left (overdue, all of it due now). */
+  perDay: number | null;
+}
+
 export interface CombinedRow {
   date: string;
   /** Tasks finished that day, across every deadline. */
@@ -149,6 +156,8 @@ export interface CombinedRow {
   perDay: number;
   /** Some deadline had work left and no days left that day. */
   overdue: boolean;
+  /** Each deadline's own pace that day, in the order of `items`; null while it isn't running (before its task was written down, after its deadline day once done with). */
+  paces: (DeadlinePace | null)[];
 }
 
 export interface CombinedCountdown {
@@ -182,10 +191,11 @@ function futurePace(item: CombinedSource, date: string, today: string): Pace {
  * Past days and today use what was actually done; later days show the pace if nothing more gets done.
  * A subtask's deadline is skipped when its parent has one too, so nothing is counted twice.
  * A deadline whose task is ticked (or sits in a finished main task) leaves the table at once, with its numbers.
+ * With `soft` false soft deadlines are left out, so a hard one under a soft one counts on its own.
  */
-export function combinedCountdown(tasks: PressureTask[], today: string): CombinedCountdown {
+export function combinedCountdown(tasks: PressureTask[], today: string, { soft = true } = {}): CombinedCountdown {
   const byId = new Map(tasks.map((t) => [t.id, t]));
-  const hasDeadline = (t: PressureTask | undefined) => Boolean(t?.deadlineDate);
+  const hasDeadline = (t: PressureTask | undefined) => Boolean(t?.deadlineDate) && (soft || t?.deadlineType !== "soft");
 
   const items = tasks
     .filter((t) => hasDeadline(t) && !t.completedOn && !(t.parentId && hasDeadline(byId.get(t.parentId))))
@@ -211,14 +221,18 @@ export function combinedCountdown(tasks: PressureTask[], today: string): Combine
     if (daysBetween(start, end) >= MAX_ROWS) start = addDays(end, -(MAX_ROWS - 1));
 
     for (let date = start; date <= end; date = addDays(date, 1)) {
-      const row: CombinedRow = { date, doneThatDay: 0, remaining: 0, perDay: 0, overdue: false };
+      const row: CombinedRow = { date, doneThatDay: 0, remaining: 0, perDay: 0, overdue: false, paces: [] };
       for (const item of items) {
-        if (date < item.start) continue;
+        if (date < item.start) {
+          row.paces.push(null);
+          continue;
+        }
         const pace = date > today ? futurePace(item, date, today) : paceOn(date, item.total, item.done, item.deadlineDate);
         row.doneThatDay += item.done.filter((day) => day === date).length;
         row.remaining += pace.remaining;
         row.perDay += pace.perDay ?? pace.remaining;
         row.overdue ||= pace.perDay === null;
+        row.paces.push(pace.daysLeft <= 0 && pace.remaining === 0 ? null : { remaining: pace.remaining, perDay: pace.perDay });
       }
       rows.push(row);
     }

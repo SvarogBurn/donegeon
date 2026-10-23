@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { Link, Navigate, useParams } from "react-router";
 import { CountdownTable } from "../components/Countdown/CountdownTable";
+import { DeadlineColors } from "../components/Countdown/DeadlineColors";
 import { DeadlineFields } from "../components/TaskTree/DeadlineFields";
 import { TaskForm } from "../components/TaskTree/TaskForm";
 import { NoteFrame, NoteView } from "../components/TaskTree/NoteView";
@@ -9,7 +10,7 @@ import { TreeProvider } from "../components/TaskTree/TreeContext";
 import { TileFrame } from "../components/Tiles/TileFrame";
 import { TreeError, UndoBar } from "../components/TaskTree/TreeStatus";
 import { useCountdown, useTaskTrees } from "../hooks/tasks";
-import { hasTaskPage } from "../lib/taskPage";
+import { hasDeadlinePage } from "../lib/taskPage";
 import type { TaskTreeNode } from "../types";
 import { RichText } from "../components/RichText";
 
@@ -28,7 +29,7 @@ export function CountdownRedirect() {
   return <Navigate to={`/tasks/${taskId}`} replace />;
 }
 
-/** A task's own page (see hasTaskPage): its note and countdown table beside its tree. */
+/** A task's own page (see hasTaskPage, and hasDeadlinePage from the deadline boxes): its note and countdown table beside its tree. */
 export function TaskPage() {
   const { taskId = "" } = useParams();
   const tasks = useTaskTrees();
@@ -40,7 +41,7 @@ export function TaskPage() {
   const table = hasHardDeadline ? countdown.data : undefined;
   // Decided once, on arrival: switching to soft or deleting a subtask here shouldn't throw you off the page mid-edit.
   const allowed = useRef<{ taskId: string; ok: boolean } | null>(null);
-  if (found && allowed.current?.taskId !== taskId) allowed.current = { taskId, ok: hasTaskPage(found.node) };
+  if (found && allowed.current?.taskId !== taskId) allowed.current = { taskId, ok: hasDeadlinePage(found.node) };
 
   if (tasks.error) return <p className="text-sm text-red-600">Couldn't load your tasks: {tasks.error.message}</p>;
   if (!tasks.data) return <p className="text-sm text-stone-500">Loading…</p>;
@@ -61,6 +62,7 @@ export function TaskPage() {
               {canHaveDeadline && (
                 <div className="w-56 shrink-0">
                   <DeadlineFields task={found.node} />
+                  <DeadlineColors node={found.node} />
                 </div>
               )}
             </header>
@@ -72,7 +74,9 @@ export function TaskPage() {
                   <CountdownTable countdown={table} />
                 ) : !hasHardDeadline ? (
                   <p className="card text-sm text-stone-500">
-                    {canHaveDeadline
+                    {found.node.deadlineType === "soft" && found.node.deadlineDate
+                      ? "Soft deadlines have no countdown table. Make it hard above to get its day-by-day table."
+                      : canHaveDeadline
                       ? "No countdown yet. Give this task a hard deadline above to get its day-by-day table."
                       : "No countdown: deadlines go on main tasks and their direct subtasks."}
                   </p>

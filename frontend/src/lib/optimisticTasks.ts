@@ -185,6 +185,7 @@ export function patchFor(node: TaskTreeNode, changes: TaskChanges, day: string):
   const patch: Partial<TaskTreeNode> = { ...plain };
   if (today !== undefined) patch.todaySince = today ? (node.todaySince ?? day) : null;
   if (week === false) patch.weekDay = null;
+  if (today && node.weekDay !== null && node.weekDay >= addDays(mondayOf(day), 7)) patch.weekDay = null;
   if (deadlineDate !== undefined) {
     patch.deadlineDate = deadlineDate;
     patch.deadlineType = deadlineDate ? (changes.deadlineType ?? node.deadlineType ?? "soft") : null;
