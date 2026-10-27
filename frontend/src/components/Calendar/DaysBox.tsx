@@ -1,6 +1,6 @@
 import { addDays, daysBetween } from "../../../../shared/dates";
 import { currentRound } from "../../../../shared/repeat";
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { localDate } from "../../lib/clock";
 import { useAddTask, useSyntaxContext } from "../../hooks/tasks";
 import { daysFrom, type DoneItem, type PlanItem } from "../../lib/calendar";
@@ -70,25 +70,60 @@ function PlanRow({ item, today, listName, onInfo }: { item: PlanItem; today: str
 }
 
 /**
- * The field a day's "+ Add" opens: Enter adds a task to the picked list, with that day as its soft deadline.
- * Shortcuts typed into it are set on the task; a typed deadline or list is the one it gets.
+ * The field a day's "+ Add" opens: Enter adds a task to the picked list, with that day as its soft deadline (or the
+ * `deadlineType` passed). Shortcuts typed into it are set on the task; a typed deadline or list is the one it gets.
+ * With `withSubtasks` (the Deadlines tab), "+ Subtask" adds fields for subtasks under it: Enter in a filled one opens
+ * the next, Enter in an empty one (or "Add") adds the task and then its subtasks, in order.
  */
-function AddOnDay({ day, lists, onClose }: { day: string; lists: List[]; onClose: () => void }) {
+function AddOnDay({ day, lists, deadlineType, withSubtasks = false, onClose }: { day: string; lists: List[]; deadlineType?: "hard" | "soft"; withSubtasks?: boolean; onClose: () => void }) {
   const createTask = useAddTask();
   const ctx = useSyntaxContext();
   const [title, setTitle] = useState("");
+  const [subtasks, setSubtasks] = useState<string[]>([]);
+  const subtaskFields = useRef<(HTMLInputElement | null)[]>([]);
+  // Set when a subtask field is added: it takes the focus once it is there.
+  const focusSubtask = useRef<number | null>(null);
   const [listId, setListId] = useState(() => {
     const last = readStored(LIST_KEY);
     return last && lists.some((list) => list.id === last) ? last : lists[0].id;
   });
 
-  function submit(e: FormEvent) {
-    e.preventDefault();
+  useEffect(() => {
+    if (focusSubtask.current === null) return;
+    subtaskFields.current[focusSubtask.current]?.focus();
+    focusSubtask.current = null;
+  }, [subtasks.length]);
+
+  function addSubtaskField(at = subtasks.length) {
+    focusSubtask.current = at;
+    setSubtasks([...subtasks.slice(0, at), "", ...subtasks.slice(at)]);
+  }
+
+  async function submit(e?: FormEvent) {
+    e?.preventDefault();
     if (!title.trim()) return;
     const submitted = title;
+    const under = subtasks.filter((text) => text.trim());
     setTitle("");
+    setSubtasks([]);
     writeStored(LIST_KEY, listId);
-    createTask.mutate({ text: submitted, listId, deadlineDate: day }, { onError: () => setTitle(submitted) });
+    let id: string;
+    try {
+      id = await createTask.add({ text: submitted, listId, deadlineDate: day, deadlineType });
+    } catch {
+      setTitle(submitted);
+      setSubtasks(under);
+      return;
+    }
+    // One after the other, so they keep the order they were written in; one refused shows its error below.
+    for (const text of under) await createTask.add({ text, parentId: id, listId: null }).catch(() => {});
+  }
+
+  function onSubtaskKey(e: KeyboardEvent<HTMLInputElement>, i: number) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (subtasks[i].trim()) addSubtaskField(i + 1);
+    else void submit();
   }
 
   return (
@@ -109,6 +144,32 @@ function AddOnDay({ day, lists, onClose }: { day: string; lists: List[]; onClose
         maxLength={300}
       />
       <SyntaxChips tokens={parseShortSyntax(title, ctx).tokens} />
+      {withSubtasks && (
+        <div className="space-y-1 border-l-2 border-stone-200 pl-2 dark:border-stone-700" data-add-subtasks>
+          {subtasks.map((text, i) => (
+            <div key={i} className="flex items-center gap-1">
+              <input
+                ref={(el) => {
+                  subtaskFields.current[i] = el;
+                }}
+                className="nes-input input min-w-0 flex-1 !text-xs"
+                value={text}
+                onChange={(e) => setSubtasks(subtasks.map((other, j) => (j === i ? e.target.value : other)))}
+                onKeyDown={(e) => onSubtaskKey(e, i)}
+                placeholder="Subtask, then Enter for another"
+                aria-label={`Subtask ${i + 1}`}
+                maxLength={300}
+              />
+              <button type="button" className="btn-quiet glyph" aria-label={`Take subtask ${i + 1} out`} onClick={() => setSubtasks(subtasks.filter((_, j) => j !== i))}>
+                ×
+              </button>
+            </div>
+          ))}
+          <button type="button" className="btn-quiet text-xs" onClick={() => addSubtaskField()}>
+            + Subtask
+          </button>
+        </div>
+      )}
       <div className="flex items-center gap-1.5">
         <select
           value={listId}
@@ -122,6 +183,11 @@ function AddOnDay({ day, lists, onClose }: { day: string; lists: List[]; onClose
             </option>
           ))}
         </select>
+        {withSubtasks && (
+          <button type="submit" className="btn-quiet" disabled={!title.trim()}>
+            Add
+          </button>
+        )}
         <button type="button" className="btn-quiet glyph" aria-label="Close" onClick={onClose}>
           ×
         </button>
@@ -143,9 +209,11 @@ interface DayProps {
 /**
  * What is on one day: what there is to do on it (today and after), or what was done on it (before today).
  * In the row it scrolls within its own height; `isWhole` shows all of it, for the Calendar box's day popup.
+ * "+ Add" gives the new task a soft deadline on the day; `forDeadlines` (the Deadlines tab's popup) opens it at once,
+ * giving a hard deadline, with fields for subtasks.
  */
-export function DayTasks({ day, today, plan, done, lists, onInfo, isWhole = false }: DayProps & { isWhole?: boolean }) {
-  const [isAdding, setIsAdding] = useState(false);
+export function DayTasks({ day, today, plan, done, lists, onInfo, isWhole = false, forDeadlines = false }: DayProps & { isWhole?: boolean; forDeadlines?: boolean }) {
+  const [isAdding, setIsAdding] = useState(forDeadlines);
   const isPast = day < today;
   const open = plan.filter(isOpen).length;
   const taskLists = lists.filter((list) => list.kind === "task");
@@ -194,7 +262,7 @@ export function DayTasks({ day, today, plan, done, lists, onInfo, isWhole = fals
           {taskLists.length > 0 &&
             (isAdding ? (
               <div className="pt-2">
-                <AddOnDay day={day} lists={taskLists} onClose={() => setIsAdding(false)} />
+                <AddOnDay day={day} lists={taskLists} deadlineType={forDeadlines ? "hard" : undefined} withSubtasks={forDeadlines} onClose={() => setIsAdding(false)} />
               </div>
             ) : (
               <button type="button" className="btn-quiet mx-auto mt-1 block" aria-label={`Add a task on ${formatDay(day, true)}`} onClick={() => setIsAdding(true)}>

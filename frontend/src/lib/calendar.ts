@@ -29,6 +29,8 @@ export interface DoneItem {
   path: string[];
   /** A persistent task: how often it was pressed that day. */
   times?: number;
+  /** Ticked with a hard deadline on it. */
+  isHard?: boolean;
 }
 
 
@@ -117,7 +119,7 @@ export function doneByDay(rows: StatRow[]): Map<string, DoneItem[]> {
   const put = (day: string, item: DoneItem) => days.set(day, [...(days.get(day) ?? []), item]);
   for (const row of rows) {
     const title = firstLine(row.title);
-    if (row.isComplete && row.completedOn) put(row.completedOn, { id: row.id, title, path: pathOf(row) });
+    if (row.isComplete && row.completedOn) put(row.completedOn, { id: row.id, title, path: pathOf(row), isHard: Boolean(row.deadlineDate) && row.deadlineType === "hard" });
     const presses = new Map<string, number>();
     for (const day of row.pressDays) presses.set(day, (presses.get(day) ?? 0) + 1);
     for (const [day, times] of presses) put(day, { id: row.id, title, path: [], times });

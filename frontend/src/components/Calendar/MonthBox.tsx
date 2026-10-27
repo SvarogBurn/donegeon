@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router";
+import { useCombinedCountdown, useTaskTrees } from "../../hooks/tasks";
+import { useDeadlineTable } from "../../hooks/useAuth";
 import { localDate } from "../../lib/clock";
 import { addMonths, monthOf, monthWeeks, type DoneItem, type PlanItem } from "../../lib/calendar";
 import { formatDay, formatFullDay } from "../../lib/dates";
@@ -10,6 +13,64 @@ import { TaskInfo } from "./TaskInfo";
 import { DayTasks } from "./DaysBox";
 import { RichText } from "../RichText";
 import { firstLine, plainFirstLine, plainTitle } from "../../lib/markup";
+import { deadlineColor } from "../../lib/deadlineTable";
+import { findNode } from "../../lib/optimisticToggle";
+import { readStored, writeStored } from "../../lib/storage";
+import { isBigTask } from "../../lib/taskPage";
+import { DeadlineList } from "../Countdown/DeadlinesBox";
+
+type Tab = "calendar" | "deadlines" | "list";
+/** The tab last opened, kept on this device. */
+const TAB_KEY = "donegeon.calendarTab";
+
+function savedTab(): Tab {
+  const tab = readStored(TAB_KEY);
+  return tab === "deadlines" || tab === "list" ? tab : "calendar";
+}
+
+/** Calendar, Deadlines and List on the box's band. */
+function Tabs({ tab, onPick }: { tab: Tab; onPick: (tab: Tab) => void }) {
+  const tabs: [Tab, string, string][] = [
+    ["calendar", "Calendar", "Everything on each day"],
+    ["deadlines", "Deadlines", "Only the tasks with a hard deadline, on their day"],
+    ["list", "List", "The tasks with a hard deadline, soonest first"],
+  ];
+  return (
+    <span role="tablist" className="band-tabs">
+      {tabs.map(([key, label, title]) => (
+        <button key={key} type="button" role="tab" className="band-tab" aria-selected={tab === key} title={title} onClick={() => onPick(key)} data-cal-tab={key}>
+          {label}
+        </button>
+      ))}
+    </span>
+  );
+}
+
+/** Whether something on a day is there for its hard deadline: on that day, or on today once it has passed. */
+const isHardPlan = ({ node, kind }: PlanItem) => node.deadlineType === "hard" && (kind === "deadline" || kind === "overdue");
+
+/** Every hard deadline still open, soonest first, as in the All deadlines box's list; a click on a row opens its task's page. */
+function HardDeadlineList() {
+  const navigate = useNavigate();
+  const { data: countdown, error } = useCombinedCountdown();
+  const { data: trees = [] } = useTaskTrees();
+  const [table] = useDeadlineTable();
+  if (error) return <p className="text-sm text-red-600">Couldn't load your deadlines: {error.message}</p>;
+  if (!countdown) return <p className="text-sm text-stone-500">Loading…</p>;
+  const items = countdown.items.filter((item) => item.deadlineType === "hard");
+  if (items.length === 0) return <p className="py-2 text-center text-xs text-stone-500">No hard deadlines</p>;
+  return (
+    <DeadlineList
+      items={items}
+      trees={trees}
+      colorOf={(item) => {
+        const node = findNode(trees, item.taskId);
+        return deadlineColor(item, node ? isBigTask(node) : false, table);
+      }}
+      onOpen={(taskId) => navigate(`/tasks/${taskId}`)}
+    />
+  );
+}
 
 /** How many tasks a day of the month names before it says how many more there are. */
 const NAMED = 3;
@@ -28,12 +89,14 @@ function nameTone({ node, kind }: PlanItem) {
 }
 
 /** A day of the month opened up: all that is on it, ticked and added to as in the Days box. */
-function DayPopup({ day, today, plan, done, lists, onInfo, onClose }: {
+function DayPopup({ day, today, plan, done, lists, forDeadlines, onInfo, onClose }: {
   day: string;
   today: string;
   plan: PlanItem[];
   done: DoneItem[];
   lists: List[];
+  /** The Deadlines tab's: the add field open at once, for a task with a hard deadline that day and its subtasks. */
+  forDeadlines: boolean;
   onInfo: (info: Info) => void;
   onClose: () => void;
 }) {
@@ -44,9 +107,9 @@ function DayPopup({ day, today, plan, done, lists, onInfo, onClose }: {
       onKeyDown={(e) => e.key === "Escape" && onClose()}
     >
       <div className="card max-h-full w-[32rem] max-w-full overflow-y-auto" role="dialog" aria-modal="true" aria-label={formatFullDay(day)} data-day-popup={day}>
-        <DayTasks day={day} today={today} plan={plan} done={done} lists={lists} onInfo={onInfo} isWhole />
+        <DayTasks day={day} today={today} plan={plan} done={done} lists={lists} forDeadlines={forDeadlines} onInfo={onInfo} isWhole />
         <div className="flex justify-end pt-3">
-          <button type="button" className="nes-btn btn-small" onClick={onClose} autoFocus>
+          <button type="button" className="nes-btn btn-small" onClick={onClose} autoFocus={!forDeadlines || day < today}>
             Close
           </button>
         </div>
@@ -61,18 +124,31 @@ function DayPopup({ day, today, plan, done, lists, onInfo, onClose }: {
  * (before today); a box too narrow for names shows how many instead, filled for to do and outlined for done.
  * A click on a name opens more about that task; a click anywhere else on a day opens the whole day in a popup, and brings
  * that day to the front of the Days box.
+ * Three tabs: Calendar (all of it), Deadlines (the same month, only the tasks with a hard deadline) and List (those
+ * still open, soonest first). The tab is kept on this device.
  */
 export function MonthBox() {
   const [picked, setPicked] = useState<{ month: string; selected: string } | null>(null);
   const [info, setInfo] = useState<Info | null>(null);
   const [openDay, setOpenDay] = useState<string | null>(null);
   const [shownMonth, setShownMonth] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>(savedTab);
   const today = localDate();
   // Until a month is asked for, it is the one today is in, so the box rolls over with the day.
   const month = shownMonth ?? picked?.month ?? monthOf(today);
   // The month's page reaches a week into the months either side.
-  const { lists, isLoaded, error, planOn, doneOn } = useCalendar(monthWeeks(month).at(-1)!.at(-1)!);
+  const calendar = useCalendar(monthWeeks(month).at(-1)!.at(-1)!);
+  const { lists, isLoaded, error } = calendar;
   const selected = picked?.selected ?? today;
+  const isHardOnly = tab === "deadlines";
+  // The Deadlines tab leaves out all but what has a hard deadline: in the month, its counts and the day popup.
+  const planOn = (day: string) => (isHardOnly ? calendar.planOn(day).filter(isHardPlan) : calendar.planOn(day));
+  const doneOn = (day: string) => (isHardOnly ? calendar.doneOn(day).filter((item) => item.isHard) : calendar.doneOn(day));
+
+  function pick(next: Tab) {
+    setTab(next);
+    writeStored(TAB_KEY, next);
+  }
 
   useDayPicked((day) => {
     setPicked({ month: monthOf(day), selected: day });
@@ -80,94 +156,100 @@ export function MonthBox() {
   });
 
   return (
-    <TileFrame title={CAL_BOXES.month} aria-label="Calendar" className="@container">
-      <div className="relative flex items-center justify-center gap-1">
-        <button type="button" className="btn-quiet glyph px-2 py-2 text-2xl sm:px-3" aria-label="Previous month" onClick={() => setShownMonth(addMonths(month, -1))}>
-          ‹
-        </button>
-        <p className="w-32 text-center text-sm @xl:w-48" data-month={month} aria-live="polite">
-          {monthName(month)}
-        </p>
-        <button type="button" className="btn-quiet glyph px-2 py-2 text-2xl sm:px-3" aria-label="Next month" onClick={() => setShownMonth(addMonths(month, 1))}>
-          ›
-        </button>
-        <button type="button" className="btn-quiet absolute right-0" onClick={() => pickDay(today)}>
-          Today
-        </button>
-      </div>
-      {error && <p className="text-sm text-red-600">Couldn't load your tasks: {error.message}</p>}
-      <div className={`grid grid-cols-7 gap-1 ${isLoaded ? "" : "opacity-50"}`} role="grid" aria-label={monthName(month)}>
-        {WEEKDAYS.map((weekday) => (
-          <span key={weekday} className="pb-1 text-center text-xs text-stone-500" role="columnheader">
-            {weekday}
-          </span>
-        ))}
-        {monthWeeks(month)
-          .flat()
-          .map((day) => {
-            const plan = planOn(day);
-            const done = doneOn(day);
-            const open = plan.filter(isOpen).length;
-            const more = Math.max(plan.length + done.length - NAMED, 0);
-            return (
-              <div
-                key={day}
-                role="gridcell"
-                data-cal-day={day}
-                data-selected={day === selected || undefined}
-                // Anywhere on the day but on a task's name.
-                onClick={(e) => {
-                  if ((e.target as Element).closest("[data-cal-task]")) return;
-                  pickDay(day);
-                  setOpenDay(day);
-                }}
-                className={`flex min-h-12 min-w-0 cursor-pointer flex-col gap-1 border-2 p-1 text-xs hover:bg-stone-100 @xl:min-h-24 dark:hover:bg-stone-800 ${
-                  day === selected ? "border-[#3544a1] dark:border-[#cbdbfc]" : "border-stone-200 dark:border-stone-800"
-                } ${monthOf(day) === month ? "" : "opacity-40"}`}
-              >
-                <button
-                  type="button"
-                  aria-pressed={day === selected}
-                  aria-label={`${formatDay(day, true)}${open ? `, ${open} to do` : ""}${done.length ? `, ${done.length} done` : ""}`}
-                  className={`cursor-pointer self-center px-1 tabular-nums @xl:self-start ${day === today ? "bg-[#3544a1] text-white" : ""}`}
-                >
-                  {Number(day.slice(8))}
-                </button>
-                <span className="flex min-h-3 flex-wrap items-center justify-center gap-1 text-[8px] leading-none @xl:hidden">
-                  {open > 0 && (
-                    <span data-cal-open={open} className="bg-[#3544a1] px-1 py-0.5 text-white" title={`${open} to do`}>
-                      {open}
+    <TileFrame title={<Tabs tab={tab} onPick={pick} />} aria-label={CAL_BOXES.month} data-tab={tab} className="@container">
+      {tab === "list" ? (
+        <HardDeadlineList />
+      ) : (
+        <>
+          <div className="relative flex items-center justify-center gap-1">
+            <button type="button" className="btn-quiet glyph px-2 py-2 text-2xl sm:px-3" aria-label="Previous month" onClick={() => setShownMonth(addMonths(month, -1))}>
+              ‹
+            </button>
+            <p className="w-32 text-center text-sm @xl:w-48" data-month={month} aria-live="polite">
+              {monthName(month)}
+            </p>
+            <button type="button" className="btn-quiet glyph px-2 py-2 text-2xl sm:px-3" aria-label="Next month" onClick={() => setShownMonth(addMonths(month, 1))}>
+              ›
+            </button>
+            <button type="button" className="btn-quiet absolute right-0" onClick={() => pickDay(today)}>
+              Today
+            </button>
+          </div>
+          {error && <p className="text-sm text-red-600">Couldn't load your tasks: {error.message}</p>}
+          <div className={`grid grid-cols-7 gap-1 ${isLoaded ? "" : "opacity-50"}`} role="grid" aria-label={monthName(month)}>
+            {WEEKDAYS.map((weekday) => (
+              <span key={weekday} className="pb-1 text-center text-xs text-stone-500" role="columnheader">
+                {weekday}
+              </span>
+            ))}
+            {monthWeeks(month)
+              .flat()
+              .map((day) => {
+                const plan = planOn(day);
+                const done = doneOn(day);
+                const open = plan.filter(isOpen).length;
+                const more = Math.max(plan.length + done.length - NAMED, 0);
+                return (
+                  <div
+                    key={day}
+                    role="gridcell"
+                    data-cal-day={day}
+                    data-selected={day === selected || undefined}
+                    // Anywhere on the day but on a task's name.
+                    onClick={(e) => {
+                      if ((e.target as Element).closest("[data-cal-task]")) return;
+                      pickDay(day);
+                      setOpenDay(day);
+                    }}
+                    className={`flex min-h-12 min-w-0 cursor-pointer flex-col gap-1 border-2 p-1 text-xs hover:bg-stone-100 @xl:min-h-24 dark:hover:bg-stone-800 ${
+                      day === selected ? "border-[#3544a1] dark:border-[#cbdbfc]" : "border-stone-200 dark:border-stone-800"
+                    } ${monthOf(day) === month ? "" : "opacity-40"}`}
+                  >
+                    <button
+                      type="button"
+                      aria-pressed={day === selected}
+                      aria-label={`${formatDay(day, true)}${open ? `, ${open} to do` : ""}${done.length ? `, ${done.length} done` : ""}`}
+                      className={`cursor-pointer self-center px-1 tabular-nums @xl:self-start ${day === today ? "bg-[#3544a1] text-white" : ""}`}
+                    >
+                      {Number(day.slice(8))}
+                    </button>
+                    <span className="flex min-h-3 flex-wrap items-center justify-center gap-1 text-[8px] leading-none @xl:hidden">
+                      {open > 0 && (
+                        <span data-cal-open={open} className="bg-[#3544a1] px-1 py-0.5 text-white" title={`${open} to do`}>
+                          {open}
+                        </span>
+                      )}
+                      {done.length > 0 && (
+                        <span data-cal-done={done.length} className="border border-stone-400 px-1 py-0.5 text-stone-500" title={`${done.length} done`}>
+                          {done.length}
+                        </span>
+                      )}
                     </span>
-                  )}
-                  {done.length > 0 && (
-                    <span data-cal-done={done.length} className="border border-stone-400 px-1 py-0.5 text-stone-500" title={`${done.length} done`}>
-                      {done.length}
-                    </span>
-                  )}
-                </span>
-                <ul className="hidden min-w-0 space-y-0.5 @xl:block">
-                  {plan.slice(0, NAMED).map((item) => (
-                    <li key={item.node.id}>
-                      <button type="button" data-cal-task={item.node.id} title={plainFirstLine(item.node.title)} className={`${NAME} ${nameTone(item)}`} onClick={() => setInfo({ plan: item, day })}>
-                        <RichText text={firstLine(item.node.title)} />
-                      </button>
-                    </li>
-                  ))}
-                  {done.slice(0, Math.max(NAMED - plan.length, 0)).map((item) => (
-                    <li key={item.id}>
-                      <button type="button" data-cal-task={item.id} title={plainTitle(item.title)} className={`${NAME} text-stone-500`} onClick={() => setInfo({ done: item, day })}>
-                        <span className="glyph !text-[10px]">✓</span> <RichText text={item.title} />
-                      </button>
-                    </li>
-                  ))}
-                  {more > 0 && <li className="px-1 text-[10px] text-stone-500">+{more} more</li>}
-                </ul>
-              </div>
-            );
-          })}
-      </div>
-      {openDay && lists && (
-        <DayPopup day={openDay} today={today} plan={planOn(openDay)} done={doneOn(openDay)} lists={lists} onInfo={setInfo} onClose={() => setOpenDay(null)} />
+                    <ul className="hidden min-w-0 space-y-0.5 @xl:block">
+                      {plan.slice(0, NAMED).map((item) => (
+                        <li key={item.node.id}>
+                          <button type="button" data-cal-task={item.node.id} title={plainFirstLine(item.node.title)} className={`${NAME} ${nameTone(item)}`} onClick={() => setInfo({ plan: item, day })}>
+                            <RichText text={firstLine(item.node.title)} />
+                          </button>
+                        </li>
+                      ))}
+                      {done.slice(0, Math.max(NAMED - plan.length, 0)).map((item) => (
+                        <li key={item.id}>
+                          <button type="button" data-cal-task={item.id} title={plainTitle(item.title)} className={`${NAME} text-stone-500`} onClick={() => setInfo({ done: item, day })}>
+                            <span className="glyph !text-[10px]">✓</span> <RichText text={item.title} />
+                          </button>
+                        </li>
+                      ))}
+                      {more > 0 && <li className="px-1 text-[10px] text-stone-500">+{more} more</li>}
+                    </ul>
+                  </div>
+                );
+              })}
+          </div>
+          {openDay && lists && (
+            <DayPopup day={openDay} today={today} plan={planOn(openDay)} done={doneOn(openDay)} lists={lists} forDeadlines={isHardOnly} onInfo={setInfo} onClose={() => setOpenDay(null)} />
+          )}
+        </>
       )}
       {info && <TaskInfo info={info} onClose={() => setInfo(null)} />}
     </TileFrame>

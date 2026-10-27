@@ -205,7 +205,7 @@ interface ListProps {
 }
 
 /** The tasks the table counts, soonest deadline first, each as in its list: ticked here, its subtasks under its arrow. */
-function DeadlineList({ items, trees, colorOf, onOpen }: ListProps) {
+export function DeadlineList({ items, trees, colorOf, onOpen }: ListProps) {
   return (
     <ul className="space-y-1 text-sm" data-deadline-list>
       {items.map((item) => {
