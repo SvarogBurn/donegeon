@@ -20,7 +20,18 @@ export interface Draft {
   afterId: string | null;
   /** A main task written into this day of the Week box: `afterId` is its place there. */
   weekDay?: string;
+  /** Opened in a calendar day's popup (`DraftScope`): shown there only, not in the lists behind it. */
+  scope?: string;
+  /** Opened below a task with a deadline in that popup: the new task gets the same one, so it shows there too. */
+  deadline?: { date: string; type: "hard" | "soft" };
 }
+
+/**
+ * Rows shown somewhere other than the lists: a calendar day's popup (Deadlines tab). A row opened from them carries
+ * `scope` and shows only there; one opened below a task in `deadlines` gets that deadline; subtasks show from the start.
+ */
+export const DraftScope = createContext<{ scope: string; deadlines: Map<string, NonNullable<Draft["deadline"]>> } | null>(null);
+export const useDraftScope = () => useContext(DraftScope);
 
 interface TreeContextValue {
   draft: Draft | null;

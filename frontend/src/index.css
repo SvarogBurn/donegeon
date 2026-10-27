@@ -180,6 +180,24 @@
     min-height: calc(72 * var(--u));
     min-width: calc(96 * var(--u));
   }
+  /*
+   * Folded to its band (a click on the band): a frame of its own, just the band (assets/140x140minimized_v1.svg, drawn
+   * at 21 units per art pixel: slices of 18, 4, 1 and 89 art pixels), no body. The band stays where it was.
+   */
+  .tile-frame.tile-collapsed {
+    min-height: 0;
+    height: calc(19 * var(--u));
+    border-bottom-width: var(--u);
+    border-image-source: var(--frame-min, url("../../assets/140x140minimized_v1.svg"));
+    border-image-slice: 378 84 21 1869;
+    border-image-width: calc(18 * var(--u)) calc(4 * var(--u)) var(--u) calc(89 * var(--u));
+  }
+  .tile-collapsed > .tile-body {
+    display: none;
+  }
+  .tile-band[data-collapsible] {
+    @apply cursor-pointer;
+  }
   /* The band sits exactly over the border's title strip. */
   .tile-band {
     @apply absolute flex items-start;
@@ -207,7 +225,8 @@
     gap: calc(2 * var(--u));
   }
   .band-tab,
-  .band-button {
+  .band-button,
+  .band-pick select {
     @apply inline-flex cursor-pointer items-center leading-none;
     height: calc(9 * var(--u));
     padding: 0 calc(1.5 * var(--u));
@@ -228,6 +247,16 @@
   }
   .band-button:hover:not(:disabled) {
     color: #3f3f74;
+  }
+  /* A dropdown on a band, after a word saying what it is, on the same plate in the dark text (a day's "in <list>"). */
+  .band-pick {
+    @apply flex min-w-0 items-center self-center leading-none;
+    gap: var(--u);
+    font-size: max(10px, calc(3.5 * var(--u)));
+  }
+  .band-pick select {
+    @apply max-w-32 min-w-0 truncate;
+    color: #222034;
   }
   .band-tab[aria-selected="true"] {
     @apply cursor-default;
@@ -259,12 +288,15 @@
    */
   .tile-tone-reward {
     --frame: var(--frame-reward);
+    --frame-min: var(--frame-min-reward);
   }
   .tile-tone-setup {
     --frame: var(--frame-setup);
+    --frame-min: var(--frame-min-setup);
   }
   .tile-tone-record {
     --frame: var(--frame-record);
+    --frame-min: var(--frame-min-record);
   }
   /* A chip with the stepped corners of pixel art: a near-black edge one block thick on each side, none at the corners. */
   .pixel-chip {

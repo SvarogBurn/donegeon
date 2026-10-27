@@ -1,6 +1,6 @@
 import { addDays, daysBetween } from "../../../../shared/dates";
 import { currentRound } from "../../../../shared/repeat";
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { localDate } from "../../lib/clock";
 import { useAddTask, useSyntaxContext } from "../../hooks/tasks";
 import { daysFrom, type DoneItem, type PlanItem } from "../../lib/calendar";
@@ -10,9 +10,9 @@ import { parseShortSyntax } from "../../lib/shortSyntax";
 import type { List } from "../../types";
 import { TickOrPress } from "../TaskTree/TickOrPress";
 import { DeadlineBadge } from "../TaskTree/DeadlineBadge";
-import { SyntaxChips } from "../TaskTree/ShortSyntaxEditor";
+import { ShortSyntaxEditor, SyntaxChips } from "../TaskTree/ShortSyntaxEditor";
 import { TileFrame } from "../Tiles/TileFrame";
-import { CAL_BOXES, isOpen, pickDay, useCalendar, useDayPicked, type Info } from "./calendarData";
+import { CAL_BOXES, isOpen, LIST_KEY, pickDay, useCalendar, useDayPicked, type Info } from "./calendarData";
 import { TaskInfo } from "./TaskInfo";
 import { DayList, panStrip, stepStrip, STRIP } from "./dayStrip";
 import { RichText } from "../RichText";
@@ -25,8 +25,6 @@ const DAYS_AFTER = 27;
 const MORE_DAYS = 14;
 /** A day picked further than this from the days in the row starts the row afresh around it, instead of stretching to it. */
 const MAX_STRETCH = 60;
-/** The list the last task written into a day went to. */
-const LIST_KEY = "donegeon.calendarList";
 
 const CHIP = "pixel-chip px-1.5 py-0.5 text-[10px] whitespace-nowrap";
 
@@ -70,106 +68,51 @@ function PlanRow({ item, today, listName, onInfo }: { item: PlanItem; today: str
 }
 
 /**
- * The field a day's "+ Add" opens: Enter adds a task to the picked list, with that day as its soft deadline (or the
- * `deadlineType` passed). Shortcuts typed into it are set on the task; a typed deadline or list is the one it gets.
- * With `withSubtasks` (the Deadlines tab), "+ Subtask" adds fields for subtasks under it: Enter in a filled one opens
- * the next, Enter in an empty one (or "Add") adds the task and then its subtasks, in order.
+ * The field a day's "+ Add" opens, written in like a list's new row: Enter adds a task to the picked list, with that
+ * day as its soft deadline, and leaves the field open for the next one; Enter on an empty field, or Esc, closes it.
+ * Shortcuts typed into it are set on the task; a typed deadline or list is the one it gets.
  */
-function AddOnDay({ day, lists, deadlineType, withSubtasks = false, onClose }: { day: string; lists: List[]; deadlineType?: "hard" | "soft"; withSubtasks?: boolean; onClose: () => void }) {
+function AddOnDay({ day, lists, onClose }: { day: string; lists: List[]; onClose: () => void }) {
   const createTask = useAddTask();
   const ctx = useSyntaxContext();
   const [title, setTitle] = useState("");
-  const [subtasks, setSubtasks] = useState<string[]>([]);
-  const subtaskFields = useRef<(HTMLInputElement | null)[]>([]);
-  // Set when a subtask field is added: it takes the focus once it is there.
-  const focusSubtask = useRef<number | null>(null);
   const [listId, setListId] = useState(() => {
     const last = readStored(LIST_KEY);
     return last && lists.some((list) => list.id === last) ? last : lists[0].id;
   });
 
-  useEffect(() => {
-    if (focusSubtask.current === null) return;
-    subtaskFields.current[focusSubtask.current]?.focus();
-    focusSubtask.current = null;
-  }, [subtasks.length]);
-
-  function addSubtaskField(at = subtasks.length) {
-    focusSubtask.current = at;
-    setSubtasks([...subtasks.slice(0, at), "", ...subtasks.slice(at)]);
-  }
-
-  async function submit(e?: FormEvent) {
-    e?.preventDefault();
-    if (!title.trim()) return;
-    const submitted = title;
-    const under = subtasks.filter((text) => text.trim());
+  function submit() {
+    const submitted = title.trim();
     setTitle("");
-    setSubtasks([]);
     writeStored(LIST_KEY, listId);
-    let id: string;
-    try {
-      id = await createTask.add({ text: submitted, listId, deadlineDate: day, deadlineType });
-    } catch {
-      setTitle(submitted);
-      setSubtasks(under);
-      return;
-    }
-    // One after the other, so they keep the order they were written in; one refused shows its error below.
-    for (const text of under) await createTask.add({ text, parentId: id, listId: null }).catch(() => {});
+    createTask.mutate({ text: submitted, listId, deadlineDate: day }, { onError: () => setTitle(submitted) });
   }
 
-  function onSubtaskKey(e: KeyboardEvent<HTMLInputElement>, i: number) {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    if (subtasks[i].trim()) addSubtaskField(i + 1);
-    else void submit();
+  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Escape" || (e.key === "Enter" && !e.shiftKey && !title.trim())) {
+      // Only the field closes, not a popup it is in.
+      e.stopPropagation();
+      onClose();
+    } else if (e.key === "Enter" && !e.shiftKey) {
+      submit();
+    }
   }
 
   return (
-    <form onSubmit={submit} className="space-y-1.5" data-add-on={day} onKeyDown={(e) => {
-        // Only the field closes, not a popup it is in.
-        if (e.key !== "Escape") return;
-        e.stopPropagation();
-        onClose();
-      }}>
-      <input
+    <div className="space-y-1.5" data-add-on={day}>
+      <ShortSyntaxEditor
         autoFocus
-        className="nes-input input"
+        editorId={`add-${day}`}
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        onChange={setTitle}
+        onKeyDown={onKeyDown}
         placeholder="New task, then Enter"
         aria-label={`New task for ${formatDay(day, true)}`}
         enterKeyHint="done"
         maxLength={300}
+        className="border border-dashed border-stone-300 dark:border-stone-700"
       />
       <SyntaxChips tokens={parseShortSyntax(title, ctx).tokens} />
-      {withSubtasks && (
-        <div className="space-y-1 border-l-2 border-stone-200 pl-2 dark:border-stone-700" data-add-subtasks>
-          {subtasks.map((text, i) => (
-            <div key={i} className="flex items-center gap-1">
-              <input
-                ref={(el) => {
-                  subtaskFields.current[i] = el;
-                }}
-                className="nes-input input min-w-0 flex-1 !text-xs"
-                value={text}
-                onChange={(e) => setSubtasks(subtasks.map((other, j) => (j === i ? e.target.value : other)))}
-                onKeyDown={(e) => onSubtaskKey(e, i)}
-                placeholder="Subtask, then Enter for another"
-                aria-label={`Subtask ${i + 1}`}
-                maxLength={300}
-              />
-              <button type="button" className="btn-quiet glyph" aria-label={`Take subtask ${i + 1} out`} onClick={() => setSubtasks(subtasks.filter((_, j) => j !== i))}>
-                ×
-              </button>
-            </div>
-          ))}
-          <button type="button" className="btn-quiet text-xs" onClick={() => addSubtaskField()}>
-            + Subtask
-          </button>
-        </div>
-      )}
       <div className="flex items-center gap-1.5">
         <select
           value={listId}
@@ -183,17 +126,29 @@ function AddOnDay({ day, lists, deadlineType, withSubtasks = false, onClose }: {
             </option>
           ))}
         </select>
-        {withSubtasks && (
-          <button type="submit" className="btn-quiet" disabled={!title.trim()}>
-            Add
-          </button>
-        )}
         <button type="button" className="btn-quiet glyph" aria-label="Close" onClick={onClose}>
           ×
         </button>
       </div>
       {createTask.error && <p className="text-xs text-red-600">{createTask.error.message}</p>}
-    </form>
+    </div>
+  );
+}
+
+/** What was ticked off on a day gone by; a name opens more about it. */
+export function DoneList({ day, done, isWhole, onInfo, className = "" }: { day: string; done: DoneItem[]; isWhole: boolean; onInfo: (info: Info) => void; className?: string }) {
+  return (
+    <DayList isWhole={isWhole} className={className}>
+      {done.map((item) => (
+        <li key={item.id} data-done-item={item.id} className="space-y-0.5 py-1.5 text-sm text-stone-500">
+          <button type="button" data-task-name title="More about this task" className="block max-w-full cursor-pointer text-left break-words hover:underline" onClick={() => onInfo({ done: item, day })}>
+            <span className="glyph !text-xs">✓</span> <RichText text={item.title} />
+            {item.times && item.times > 1 && <span className="tabular-nums"> ×{item.times}</span>}
+          </button>
+          {item.path.length > 0 && <p className="truncate text-xs">{item.path.join(" › ")}</p>}
+        </li>
+      ))}
+    </DayList>
   );
 }
 
@@ -209,11 +164,10 @@ interface DayProps {
 /**
  * What is on one day: what there is to do on it (today and after), or what was done on it (before today).
  * In the row it scrolls within its own height; `isWhole` shows all of it, for the Calendar box's day popup.
- * "+ Add" gives the new task a soft deadline on the day; `forDeadlines` (the Deadlines tab's popup) opens it at once,
- * giving a hard deadline, with fields for subtasks.
+ * "+ Add" gives the new task a soft deadline on the day.
  */
-export function DayTasks({ day, today, plan, done, lists, onInfo, isWhole = false, forDeadlines = false }: DayProps & { isWhole?: boolean; forDeadlines?: boolean }) {
-  const [isAdding, setIsAdding] = useState(forDeadlines);
+export function DayTasks({ day, today, plan, done, lists, onInfo, isWhole = false }: DayProps & { isWhole?: boolean }) {
+  const [isAdding, setIsAdding] = useState(false);
   const isPast = day < today;
   const open = plan.filter(isOpen).length;
   const taskLists = lists.filter((list) => list.kind === "task");
@@ -236,17 +190,7 @@ export function DayTasks({ day, today, plan, done, lists, onInfo, isWhole = fals
         done.length === 0 ? (
           <p className="py-2 text-center text-xs text-stone-500">Nothing ticked off</p>
         ) : (
-          <DayList isWhole={isWhole} className="border-t border-stone-200 dark:border-stone-800">
-            {done.map((item) => (
-              <li key={item.id} data-done-item={item.id} className="space-y-0.5 py-1.5 text-sm text-stone-500">
-                <button type="button" data-task-name title="More about this task" className="block max-w-full cursor-pointer text-left break-words hover:underline" onClick={() => onInfo({ done: item, day })}>
-                  <span className="glyph !text-xs">✓</span> <RichText text={item.title} />
-                  {item.times && item.times > 1 && <span className="tabular-nums"> ×{item.times}</span>}
-                </button>
-                {item.path.length > 0 && <p className="truncate text-xs">{item.path.join(" › ")}</p>}
-              </li>
-            ))}
-          </DayList>
+          <DoneList day={day} done={done} isWhole={isWhole} onInfo={onInfo} className="border-t border-stone-200 dark:border-stone-800" />
         )
       ) : (
         <>
@@ -262,7 +206,7 @@ export function DayTasks({ day, today, plan, done, lists, onInfo, isWhole = fals
           {taskLists.length > 0 &&
             (isAdding ? (
               <div className="pt-2">
-                <AddOnDay day={day} lists={taskLists} deadlineType={forDeadlines ? "hard" : undefined} withSubtasks={forDeadlines} onClose={() => setIsAdding(false)} />
+                <AddOnDay day={day} lists={taskLists} onClose={() => setIsAdding(false)} />
               </div>
             ) : (
               <button type="button" className="btn-quiet mx-auto mt-1 block" aria-label={`Add a task on ${formatDay(day, true)}`} onClick={() => setIsAdding(true)}>

@@ -11,6 +11,9 @@ export const CAL_BOXES: Record<string, string> = {
   month: "Calendar",
 };
 
+/** The list the last task written into a day went to, kept on this device. */
+export const LIST_KEY = "donegeon.calendarList";
+
 /** What a click on a task opens the details of: something to do on a day, or something done on one. */
 export type Info = { plan: PlanItem; day: string } | { done: DoneItem; day: string };
 

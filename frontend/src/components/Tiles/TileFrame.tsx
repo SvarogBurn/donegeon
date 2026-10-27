@@ -1,4 +1,4 @@
-import { createContext, useContext, type HTMLAttributes, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { createContext, useContext, type HTMLAttributes, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { useBoxColor, useBoxColorEdit, useSetBoxColor } from "../../hooks/useAuth";
 import { frameStyle, TONE_COLORS } from "../../lib/frameTones";
 import { ColorSwatch } from "../ColorChoices";
@@ -16,6 +16,10 @@ export interface TileControls {
   dragTitle?: string;
   /** Minimizes the tile away (it can be brought back from the "Hidden" row under the grid); absent on tiles that can't be hidden. */
   onHide?: () => void;
+  /** Folded to its band: only the band shows. */
+  isCollapsed?: boolean;
+  /** Folds the tile to its band, or opens it again: a click on the band that isn't on a button or field. Absent where it can't fold. */
+  onToggleCollapse?: () => void;
   /**
    * The box's key among the user's picked box colours (useBoxColors): its frame takes the colour picked for it, and gets
    * a button to pick one (while the setting "Box colours" is on). Absent on a box with a colour of its own (a list's).
@@ -63,7 +67,8 @@ function BoxColorButton({ colorKey, name, own, picked }: { colorKey: string; nam
  * The pixel-art border around a dashboard box. The title sits on the border's
  * darker band; on the same line at the right are the colour button, the pin button and the tab
  * button, which drags the tile, then the minimize button, then the tile's own
- * buttons (a list's delete). Sizes all follow --u (see index.css). Outside
+ * buttons (a list's delete). A click anywhere else on the band folds the box to
+ * the band, and another opens it again. Sizes all follow --u (see index.css). Outside
  * the grid there is nothing to pin or drag, and the buttons are left out.
  */
 export function TileFrame({ title, actions, tone = "blue", color, className = "", style, children, ...rest }: Props) {
@@ -73,10 +78,20 @@ export function TileFrame({ title, actions, tone = "blue", color, className = ""
   const canPick = useBoxColorEdit();
   // A picked colour recolours the band, as a list's does; without one the box keeps its own colour, or its tone's.
   const shown = picked ?? color;
+  const collapsed = Boolean(controls?.onToggleCollapse && controls.isCollapsed);
+  // The band's buttons, tabs and fields (a list's name) do their own thing.
+  const toggleCollapse = (e: ReactMouseEvent<HTMLElement>) => {
+    if ((e.target as HTMLElement).closest("button, a, input, select, textarea, label, [contenteditable]")) return;
+    controls?.onToggleCollapse?.();
+  };
 
   return (
-    <section {...rest} data-tone={tone} style={shown ? { ...style, ...frameStyle(shown) } : style} className={`tile-frame tile-tone-${tone} ${className}`}>
-      <div className="tile-band">
+    <section {...rest} data-tone={tone} style={shown ? { ...style, ...frameStyle(shown) } : style} className={`tile-frame tile-tone-${tone} ${collapsed ? "tile-collapsed" : ""} ${className}`} data-collapsed={collapsed || undefined}>
+      <div
+        className="tile-band"
+        data-collapsible={controls?.onToggleCollapse ? "" : undefined}
+        onClick={controls?.onToggleCollapse ? toggleCollapse : undefined}
+      >
         <h2 className="tile-title">{title}</h2>
         {controls && (
           <>

@@ -6,6 +6,7 @@ import {
   moveTile,
   togglePin,
   withArrangement,
+  withCollapsed,
   withHidden,
   type DashboardLayout,
   type Zone,
@@ -199,6 +200,8 @@ export function TileGrid({ tiles, order, layout, onChange, onDropOnTab }: Props)
             onTogglePin: () => save(togglePin(arrangement, tile.key)),
             onDragStart: (e) => startDrag(e, tile.key),
             onHide: tile.canHide ? () => onChange(withHidden(layout, tile.key, true)) : undefined,
+            isCollapsed: layout.collapsed?.includes(tile.key),
+            onToggleCollapse: () => onChange(withCollapsed(layout, tile.key, !layout.collapsed?.includes(tile.key))),
             // By its view where it has one, so the box and its copies in folders share a colour.
             colorKey: tile.ownColor ? undefined : (tile.view ?? tile.key),
           }}

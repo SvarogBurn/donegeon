@@ -9,11 +9,12 @@ const column = z.array(key).max(200);
  * "list:<id>", ...). Two arrangements are kept, "wide" and "phone", so
  * rearranging on a phone doesn't undo the desktop layout. (Older saves used
  * "1".."4"; the frontend converts those.) `hidden` are the tiles the user has
- * minimized away; they keep their place for when they are brought back.
+ * minimized away; they keep their place for when they are brought back. `collapsed` are the tiles folded to their band.
  */
 export const layoutSchema = z.object({
   pinned: column,
   hidden: column.optional(),
+  collapsed: column.optional(),
   /** The dashboard's only: boxes of other pages (the calendar's, "cal:<name>") that are shown on it too. */
   extras: column.optional(),
   byColumns: z.record(z.string().min(1).max(10), z.array(column).max(4)).refine((r) => Object.keys(r).length <= 8),

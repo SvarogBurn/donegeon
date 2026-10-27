@@ -197,7 +197,9 @@ export function ListCard({ list, tasks, taskCount }: ListCardProps) {
       tone={listFrame(list).tone}
       title={
         <input
-          className="w-full bg-transparent outline-none focus:ring-2 focus:ring-white/50"
+          // As wide as the name, so the rest of the band is left to click on (it folds the box).
+          className="max-w-full bg-transparent outline-none [field-sizing:content] focus:ring-2 focus:ring-white/50"
+          size={Math.max(name.length, 1)}
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={saveName}

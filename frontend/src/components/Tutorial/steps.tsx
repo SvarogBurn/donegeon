@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { hasTaskPage } from "../../lib/taskPage";
+import { NEW_LIST_TILE } from "../../lib/tileLayout";
 import type { Folder, List, TaskTreeNode } from "../../types";
 
 /** What a step can look at: the account's data, the page that is open, and what the tutorial has noted so far. */
@@ -41,6 +42,8 @@ export interface Step {
   noArrow?: boolean;
   /** Set on <html> (as data-...) while the step is on, for index.css to show something that is otherwise out of sight. */
   flag?: string;
+  /** A box of the Tasks page this step needs: brought back from the Hidden row when the step begins. */
+  show?: string;
   /** The page this step happens on, opened when the step begins. */
   route?: string | ((ctx: TutorialContext) => string | undefined);
   /** True where the step can't be done (no room for it on this screen): it is passed over. */
@@ -436,6 +439,8 @@ export const STEPS: Step[] = [
     ),
     target: () => ['[data-tile="newList"]'],
     also: () => [LISTS],
+    // It starts minimized.
+    show: NEW_LIST_TILE,
     note: (ctx) => ({ rewards: rewardLists(ctx) }),
     done: (ctx) => rewardLists(ctx) > ctx.base.rewards,
   },
@@ -460,9 +465,9 @@ export const STEPS: Step[] = [
   {
     route: "/",
     text: () => <>before you become a slob, learn to minimize your lists and tabs, regardless of folders, tasks, stats,..</>,
-    target: () => ['[data-tile="tags"] .tile-button-min', '[data-tile="goals"] .tile-button-min', ".tile-button-min"],
-    note: (ctx) => ({ hidden: ctx.hidden }),
-    done: (ctx) => ctx.hidden > ctx.base.hidden,
+    // The new-list field, done with now.
+    target: () => ['[data-tile="newList"] .tile-button-min', ".tile-button-min"],
+    done: (ctx) => ctx.hiddenBoxes.includes(NEW_LIST_TILE),
   },
   {
     text: () => <>Better. It waits in the Hidden row at the bottom if you ever miss it.</>,

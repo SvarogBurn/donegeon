@@ -1,4 +1,5 @@
 import frameSvg from "../../../assets/140x140border_blue_v3.svg?raw";
+import minimizedSvg from "../../../assets/140x140minimized_v1.svg?raw";
 import sliderSvg from "../../../assets/buttons/20x10slider_blue_v1.svg?raw";
 import folderSvg from "../../../assets/icons/21x21folder_icon_v1.svg?raw";
 import type { CSSProperties } from "react";
@@ -82,8 +83,11 @@ function recolour(art: string, artDark: string, bright: string, name: string, ar
 
 /** The tile frame with its band in any colour, as a CSS url(); made once per colour. */
 export const frameIn = (hex: string) => recolour(frameSvg, BAND_DARK, hex, "frame");
-/** A tile frame's style for a band in any colour: the recoloured border, and the title dark on a light colour. */
-export const frameStyle = (hex: string) => ({ "--frame": frameIn(hex), "--band-text": isLight(hex) ? "#222034" : "#fff" }) as CSSProperties;
+/** The same for a tile folded to its band (its own art, in the same two blues). */
+const minimizedIn = (hex: string) => recolour(minimizedSvg, BAND_DARK, hex, "minimized");
+/** A tile frame's style for a band in any colour: the recoloured border (open and folded), and the title dark on a light colour. */
+export const frameStyle = (hex: string) =>
+  ({ "--frame": frameIn(hex), "--frame-min": minimizedIn(hex), "--band-text": isLight(hex) ? "#222034" : "#fff" }) as CSSProperties;
 /**
  * What a list's frame looks like, for its own box and for anything shown as being in it (a task's note): the
  * reward tone for a reward list, and the band in the list's picked colour, its title dark on a light one.
@@ -99,11 +103,13 @@ export const sliderIn = (hex: string) => recolour(sliderSvg, SLIDER_DARK, hex, "
 /** A folder's icon in any colour. */
 export const folderIn = (hex: string) => recolour(folderSvg, FOLDER_DARK, hex, "folder", FOLDER_COLOR.toUpperCase());
 
-/** Sets --frame-<tone> on the page for each tone; index.css picks them up. Blue needs none: it is the file itself. */
+/** Sets --frame-<tone> and --frame-min-<tone> (folded) on the page for each tone; index.css picks them up. Blue needs none: it is the files themselves. */
 export function installFrameTones() {
   for (const [tone, { bright, dark }] of Object.entries(TONES)) {
-    const svg = frameSvg.replaceAll(BAND_BRIGHT, bright).replaceAll(BAND_DARK, dark);
-    const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
-    document.documentElement.style.setProperty(`--frame-${tone}`, `url("${url}")`);
+    for (const [name, art] of [["frame", frameSvg], ["frame-min", minimizedSvg]]) {
+      const svg = art.replaceAll(BAND_BRIGHT, bright).replaceAll(BAND_DARK, dark);
+      const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+      document.documentElement.style.setProperty(`--${name}-${tone}`, `url("${url}")`);
+    }
   }
 }

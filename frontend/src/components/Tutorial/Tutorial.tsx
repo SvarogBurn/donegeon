@@ -2,12 +2,13 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { useLocation, useNavigate } from "react-router";
 import { useUpdateMe } from "../../hooks/useAuth";
 import { useFolders } from "../../hooks/folders";
-import { useLayout } from "../../hooks/layout";
+import { useLayout, useSaveLayout } from "../../hooks/layout";
 import { useLists } from "../../hooks/lists";
 import { useTaskTrees } from "../../hooks/tasks";
 import type { User } from "../../types";
 import { MAKE_TASK, STEPS, type TutorialContext } from "./steps";
 import { readStored } from "../../lib/storage";
+import { normalizeLayout, withCollapsed, withHidden } from "../../lib/tileLayout";
 
 /** Where the tutorial has got to, kept for the tab so a reload doesn't start it over. */
 interface Progress {
@@ -164,6 +165,7 @@ function Running({ user }: { user: User }) {
   const lists = useLists();
   const folders = useFolders();
   const layout = useLayout();
+  const saveLayout = useSaveLayout();
   const update = useUpdateMe();
   const navigate = useNavigate();
   const path = useLocation().pathname;
@@ -235,6 +237,9 @@ function Running({ user }: { user: User }) {
       if ((step.needsTask && !ctx.task && progress.noTask) || step.skip?.(ctx)) return next();
       const route = typeof step.route === "function" ? step.route(ctx) : step.route;
       if (route && path !== route) navigate(route);
+      // Shown, and opened if it was folded to its band.
+      if (step.show && (ctx.hiddenBoxes.includes(step.show) || layout.data?.collapsed?.includes(step.show)))
+        saveLayout.mutate(withCollapsed(withHidden(normalizeLayout(layout.data), step.show, false), step.show, false));
       setProgress((was) => ({
         ...was,
         entered: was.step,

@@ -11,6 +11,7 @@ import { TileFrame } from "../Tiles/TileFrame";
 import { CAL_BOXES, isOpen, pickDay, useCalendar, useDayPicked, type Info } from "./calendarData";
 import { TaskInfo } from "./TaskInfo";
 import { DayTasks } from "./DaysBox";
+import { DeadlineDayPopup } from "./DeadlineDay";
 import { RichText } from "../RichText";
 import { firstLine, plainFirstLine, plainTitle } from "../../lib/markup";
 import { deadlineColor } from "../../lib/deadlineTable";
@@ -89,14 +90,12 @@ function nameTone({ node, kind }: PlanItem) {
 }
 
 /** A day of the month opened up: all that is on it, ticked and added to as in the Days box. */
-function DayPopup({ day, today, plan, done, lists, forDeadlines, onInfo, onClose }: {
+function DayPopup({ day, today, plan, done, lists, onInfo, onClose }: {
   day: string;
   today: string;
   plan: PlanItem[];
   done: DoneItem[];
   lists: List[];
-  /** The Deadlines tab's: the add field open at once, for a task with a hard deadline that day and its subtasks. */
-  forDeadlines: boolean;
   onInfo: (info: Info) => void;
   onClose: () => void;
 }) {
@@ -107,9 +106,9 @@ function DayPopup({ day, today, plan, done, lists, forDeadlines, onInfo, onClose
       onKeyDown={(e) => e.key === "Escape" && onClose()}
     >
       <div className="card max-h-full w-[32rem] max-w-full overflow-y-auto" role="dialog" aria-modal="true" aria-label={formatFullDay(day)} data-day-popup={day}>
-        <DayTasks day={day} today={today} plan={plan} done={done} lists={lists} forDeadlines={forDeadlines} onInfo={onInfo} isWhole />
+        <DayTasks day={day} today={today} plan={plan} done={done} lists={lists} onInfo={onInfo} isWhole />
         <div className="flex justify-end pt-3">
-          <button type="button" className="nes-btn btn-small" onClick={onClose} autoFocus={!forDeadlines || day < today}>
+          <button type="button" className="nes-btn btn-small" onClick={onClose} autoFocus>
             Close
           </button>
         </div>
@@ -246,9 +245,13 @@ export function MonthBox() {
                 );
               })}
           </div>
-          {openDay && lists && (
-            <DayPopup day={openDay} today={today} plan={planOn(openDay)} done={doneOn(openDay)} lists={lists} forDeadlines={isHardOnly} onInfo={setInfo} onClose={() => setOpenDay(null)} />
-          )}
+          {openDay &&
+            lists &&
+            (isHardOnly ? (
+              <DeadlineDayPopup day={openDay} today={today} plan={planOn(openDay)} done={doneOn(openDay)} lists={lists} onInfo={setInfo} onClose={() => setOpenDay(null)} />
+            ) : (
+              <DayPopup day={openDay} today={today} plan={planOn(openDay)} done={doneOn(openDay)} lists={lists} onInfo={setInfo} onClose={() => setOpenDay(null)} />
+            ))}
         </>
       )}
       {info && <TaskInfo info={info} onClose={() => setInfo(null)} />}

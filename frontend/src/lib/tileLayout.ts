@@ -1,3 +1,5 @@
+import { calView } from "./folders";
+
 /**
  * How the dashboard's tiles are arranged. Tiles are named by key ("today",
  * "goals", "list:<id>", ...). Pinned tiles sit in a band at the top; the rest
@@ -14,6 +16,8 @@
 export interface DashboardLayout {
   pinned: string[];
   hidden?: string[];
+  /** Tiles folded to their band (a click on it): only the band shows, in the tile's place. */
+  collapsed?: string[];
   /** The Tasks page's only: boxes of other pages (the calendar's, "cal:<name>") that it shows too. */
   extras?: string[];
   byColumns: Record<string, string[][]>;
@@ -23,6 +27,10 @@ export const EMPTY_LAYOUT: DashboardLayout = { pinned: [], byColumns: {} };
 export const MAX_COLUMNS = 4;
 /** The "New list" field's tile: new lists appear just above it. */
 export const NEW_LIST_TILE = "newList";
+/** The Tasks page of an account that never arranged it: the Calendar shown too, and Done, Tags, New list and Goals minimized. */
+export const START_LAYOUT: DashboardLayout = { pinned: [], hidden: ["done", "tags", NEW_LIST_TILE, "goals"], extras: [calView("month")], byColumns: {} };
+/** The Stats page of an account that never arranged it: By list, Time of day, Points and Unorganized minimized. */
+export const STATS_START_LAYOUT: DashboardLayout = { pinned: [], hidden: ["groups", "written", "points", "unorganized"], byColumns: {} };
 
 export interface Arrangement {
   pinned: string[];
@@ -54,7 +62,7 @@ export function normalizeLayout(layout: DashboardLayout | null | undefined): Das
   const byColumns: Record<string, string[][]> = {};
   if (wide ?? legacyWide) byColumns.wide = (wide ?? legacyWide)!;
   if (phone ?? legacy["1"]) byColumns.phone = (phone ?? legacy["1"])!;
-  return { pinned: layout.pinned, hidden: layout.hidden ?? [], extras: layout.extras ?? [], byColumns };
+  return { pinned: layout.pinned, hidden: layout.hidden ?? [], collapsed: layout.collapsed ?? [], extras: layout.extras ?? [], byColumns };
 }
 
 /** The saved arrangement for a screen that fits `n` columns, if there is one to go by. */
@@ -143,4 +151,10 @@ export function withArrangement(layout: DashboardLayout, n: number, arrangement:
 export function withHidden(layout: DashboardLayout, key: string, hidden: boolean): DashboardLayout {
   const others = (layout.hidden ?? []).filter((other) => other !== key);
   return { ...layout, hidden: hidden ? [...others, key] : others };
+}
+
+/** The layout with `key` folded to its band or opened again. */
+export function withCollapsed(layout: DashboardLayout, key: string, collapsed: boolean): DashboardLayout {
+  const others = (layout.collapsed ?? []).filter((other) => other !== key);
+  return { ...layout, collapsed: collapsed ? [...others, key] : others };
 }

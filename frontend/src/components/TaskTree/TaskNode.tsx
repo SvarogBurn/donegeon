@@ -17,7 +17,7 @@ import { ShortSyntaxEditor } from "./ShortSyntaxEditor";
 import { TaskMenu } from "./TaskMenu";
 import { focusNeighbor } from "./TitleEditor";
 import { TickOrPress } from "./TickOrPress";
-import { useDrag, useTree } from "./TreeContext";
+import { useDrag, useDraftScope, useTree } from "./TreeContext";
 import { zoneOn } from "./dragState";
 import { livesInWeek, weekColumn } from "../../lib/week";
 
@@ -67,13 +67,15 @@ const ROW_CONTROLS = "button, input, textarea, a, label, [role=dialog]";
 /** `inWeek`: shown as a row of the Week box, where its place is the box's own order. */
 export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; depth: number; inWeek?: boolean }) {
   const tree = useTree();
+  const scope = useDraftScope();
   const navigate = useNavigate();
   // A drag starts on the handle but can end on the row's empty space, which the browser reports as a click there.
   const pressedControl = useRef(false);
   // Subtasks start hidden behind the row's arrow, so a list reads as its main tasks. They show from the start on a
-  // task's own page, and while a filter is on (a matching subtask must not hide in its parent), until the arrow says otherwise.
+  // task's own page, in a calendar day's popup, and while a filter is on (a matching subtask must not hide in its parent),
+  // until the arrow says otherwise.
   const [opened, setOpened] = useState<boolean | null>(null);
-  const isOpen = opened ?? (tree.rootId !== null || isFiltering(tree.newTaskLabels));
+  const isOpen = opened ?? (tree.rootId !== null || scope !== null || isFiltering(tree.newTaskLabels));
   const [title, setTitle] = useState(node.title);
   useEffect(() => setTitle(node.title), [node.title]);
 
@@ -93,7 +95,7 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
   const round = currentRound(node, today);
   const hasChildren = node.children.length > 0;
   // A task is ticked last: everything beneath it first.
-  const hasDraftChild = tree.draft?.parentId === node.id;
+  const hasDraftChild = tree.draft?.parentId === node.id && tree.draft.scope === scope?.scope;
   const drop = useDrag((state) => zoneOn(state.dropTarget, node.id, inWeek ? ["task", "weekItem"] : ["task"]));
   const isDragged = useDrag((state) => state.draggingId === node.id);
 
@@ -109,7 +111,7 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
 
   function addSubtask() {
     setOpened(true);
-    tree.setDraft({ parentId: node.id, listId: null, afterId: node.children.at(-1)?.id ?? null });
+    tree.setDraft({ parentId: node.id, listId: null, afterId: node.children.at(-1)?.id ?? null, scope: scope?.scope });
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -118,8 +120,16 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
       if (e.ctrlKey || e.metaKey) addSubtask();
       else if (node.id === tree.rootId) {
         setOpened(true);
-        tree.setDraft({ parentId: node.id, listId: null, afterId: null });
-      } else tree.setDraft({ parentId: node.parentId, listId: node.parentId ? null : node.listId, afterId: node.id, weekDay: livesInWeek(node) ? weekColumn(node, today) : undefined });
+        tree.setDraft({ parentId: node.id, listId: null, afterId: null, scope: scope?.scope });
+      } else
+        tree.setDraft({
+          parentId: node.parentId,
+          listId: node.parentId ? null : node.listId,
+          afterId: node.id,
+          weekDay: livesInWeek(node) && !scope ? weekColumn(node, today) : undefined,
+          scope: scope?.scope,
+          deadline: scope?.deadlines.get(node.id),
+        });
     } else if (e.key === "Escape") {
       setTitle(node.title);
     } else if (e.key === "Delete" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
@@ -267,7 +277,12 @@ export function DraftRow() {
   useEffect(() => ref.current?.focus(), []);
 
   // In the Week box it goes on the same day, right after the row it was opened from.
-  const placement = () => ({ ...tree.draftPlacement(), ...tree.newTaskLabels, ...(draft.weekDay && { weekDay: draft.weekDay, weekAfter: draft.afterId }) });
+  const placement = () => ({
+    ...tree.draftPlacement(),
+    ...tree.newTaskLabels,
+    ...(draft.weekDay && { weekDay: draft.weekDay, weekAfter: draft.afterId }),
+    ...(draft.deadline && { deadlineDate: draft.deadline.date, deadlineType: draft.deadline.type }),
+  });
 
   function close() {
     tree.setDraft(null);
@@ -283,7 +298,7 @@ export function DraftRow() {
       const created = { id: await createTask.add({ text: title, ...placement() }) };
       tree.setDraft(
         next === "subtask"
-          ? { parentId: created.id, listId: null, afterId: null }
+          ? { parentId: created.id, listId: null, afterId: null, scope: draft.scope }
           : { ...draft, afterId: created.id },
       );
     } catch {
@@ -353,10 +368,11 @@ const tickedLast = (nodes: TaskTreeNode[]) => [...nodes.filter((n) => !n.isCompl
 
 export function TaskTree({ nodes, parentId, listId, depth = 0 }: TaskTreeProps) {
   const { draft, ticked, byDeadline } = useTree();
+  const scope = useDraftScope();
   // If the user chose so: soonest date first. Shown that way only, like the ticked ones: nothing is moved.
   const ordered = byDeadline ? soonestFirst(nodes) : nodes;
-  // A row opened in the Week box is shown there, by the box itself.
-  const draftIsHere = draft !== null && draft.parentId === parentId && (parentId !== null || (draft.listId === listId && !draft.weekDay));
+  // A row opened in the Week box is shown there, by the box itself; one opened in a day's popup, there only.
+  const draftIsHere = draft !== null && draft.scope === scope?.scope && draft.parentId === parentId && (parentId !== null || (draft.listId === listId && !draft.weekDay));
 
   return (
     <ul>

@@ -140,19 +140,19 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
       error={createTag.error ?? deleteTag.error}
     />
   );
-  // The two deadline boxes only exist once there is a deadline.
+  // In their order where nothing was arranged. The two deadline boxes only exist once there is a deadline.
   const mainTiles: ((Tile & { label?: string }) | false)[] = [
-    Boolean(pressure.data?.items.length) && { key: "pressure", name: "deadline pressure", node: <PressureSummary /> },
     Boolean(combined.data?.items.length) && { key: "deadlines", name: "All deadlines", node: <DeadlinesBox /> },
-    // Goals, Today and Tags can be dropped on a folder's tab too: a copy, shown there as well.
-    { key: "goals", view: GOALS_VIEW, name: "Goals", node: goalsBox },
-    { key: "today", view: TODAY_VIEW, name: "Today", node: <TodayBox tasks={tasks.data} /> },
+    // The calendar's boxes that were dropped on the Tasks tab (and its Calendar, from the start).
+    ...(saved.extras ?? []).flatMap(calTile),
     ...listTiles,
     newListTile,
+    // Today, Goals and Tags can be dropped on a folder's tab too: a copy, shown there as well.
+    { key: "today", view: TODAY_VIEW, name: "Today", node: <TodayBox tasks={tasks.data} /> },
+    Boolean(pressure.data?.items.length) && { key: "pressure", name: "deadline pressure", node: <PressureSummary /> },
+    { key: "goals", view: GOALS_VIEW, name: "Goals", node: goalsBox },
     { key: "tags", view: TAGS_VIEW, name: "Tags", node: tagsBox },
     { key: "done", name: "Done", node: <DoneLog tasks={tasks.data} /> },
-    // The calendar's boxes that were dropped on the Tasks tab.
-    ...(saved.extras ?? []).flatMap(calTile),
   ];
   // A folder's page: its views, in the order they were added. Each is a copy: the list is on the Tasks page too,
   // the stats box on the Stats page, the note on the Notes page. A view whose list or note is gone (or filtered out) shows nothing.

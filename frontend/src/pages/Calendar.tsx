@@ -9,7 +9,7 @@ import { useDropOnTab, useFolders } from "../hooks/folders";
 import { useLayout, useSaveLayout } from "../hooks/layout";
 import { useTaskTrees } from "../hooks/tasks";
 import { calView } from "../lib/folders";
-import { normalizeLayout } from "../lib/tileLayout";
+import { normalizeLayout, withCollapsed } from "../lib/tileLayout";
 
 const NAMES = Object.keys(CAL_BOXES);
 
@@ -55,7 +55,7 @@ export function CalendarPage() {
       next.splice(next.indexOf(onto) + (after ? 1 : 0), 0, name);
       if (next.join() === order.join()) return;
       scrolled.current = [...page.current!.querySelectorAll<HTMLElement>("*")].filter((el) => el.scrollLeft || el.scrollTop).map((el) => [el, el.scrollLeft, el.scrollTop]);
-      saveOwnLayout.mutate({ pinned: [], byColumns: { wide: [next] } });
+      saveOwnLayout.mutate({ ...normalizeLayout(ownLayout.data), pinned: [], byColumns: { wide: [next] } });
       setNote(null);
     },
   );
@@ -89,6 +89,8 @@ export function CalendarPage() {
                 onDragStart: (e) => startDrag(e, name),
                 dragTitle: "Drag onto the other box to change places; or onto a tab of the task bar: Tasks, or a folder, shows this box too",
                 colorKey: calView(name),
+                isCollapsed: ownLayout.data?.collapsed?.includes(name),
+                onToggleCollapse: () => saveOwnLayout.mutate(withCollapsed(normalizeLayout(ownLayout.data), name, !ownLayout.data?.collapsed?.includes(name))),
               }}
             >
               <CalBoxView name={name} />

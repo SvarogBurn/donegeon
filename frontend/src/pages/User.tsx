@@ -17,7 +17,7 @@ import { useOnline } from "../lib/offline/online";
 import { NeedsConnection } from "../components/NeedsConnection";
 import { FONT_CHOICES, FONT_STACKS, textFont } from "../lib/fonts";
 import { typedPoints } from "../lib/points";
-import { normalizeLayout, withHidden } from "../lib/tileLayout";
+import { normalizeLayout, withCollapsed, withHidden } from "../lib/tileLayout";
 import type { DeadlineToday, TextFont, TickedTasks } from "../types";
 
 const TICKED_CHOICES: [TickedTasks, string][] = [
@@ -418,6 +418,8 @@ export function UserPage() {
                 onDragStart: (e) => startDrag(e, box.key),
                 dragTitle: "Drag onto another box to put this one in its place",
                 onHide: () => saveLayout.mutate(withHidden(saved, box.key, true)),
+                isCollapsed: saved.collapsed?.includes(box.key),
+                onToggleCollapse: () => saveLayout.mutate(withCollapsed(saved, box.key, !saved.collapsed?.includes(box.key))),
                 colorKey: box.key,
               }}
             >
