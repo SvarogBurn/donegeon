@@ -12,7 +12,7 @@ import { useGoals, useTags } from "./labels";
 import { useDeadlineTable } from "./useAuth";
 import { useLists } from "./lists";
 import { useChange } from "./mutations";
-import { COUNTDOWN, DONE, GOALS, LISTS, PRESSURE, STATS, TAGS, TASKS } from "./queryKeys";
+import { COUNTDOWN, DONE, GOALS, LISTS, PAST_DONE, PRESSURE, STATS, TAGS, TASKS } from "./queryKeys";
 
 export const useTaskTrees = () => useQuery({ queryKey: TASKS, queryFn: tasksApi.listTaskTrees });
 /** The Done page: a few days of ticks at a time, newest first; fetchNextPage brings the days before. */
@@ -28,6 +28,8 @@ export const useDoneOn = (day: string, enabled = true) =>
   useQuery({ queryKey: [...DONE, day], queryFn: () => tasksApi.listDoneOn(day), enabled });
 /** Every task, cut down for the stats. */
 export const useStatRows = () => useQuery({ queryKey: STATS, queryFn: tasksApi.listStatRows });
+/** The same rows for the calendar's days gone by (see PAST_DONE): not asked for again on every tick. */
+export const usePastDone = () => useQuery({ queryKey: PAST_DONE, queryFn: tasksApi.listStatRows });
 /** Tasks done per day: the level and streak the task bar's face goes by. Under the tasks' key, so a tick asks again. */
 export const useProgressDays = () => useQuery({ queryKey: [...TASKS, "progress"], queryFn: tasksApi.getProgressDays });
 /** The tasks of the site's search. Under the tasks' key, so a change to any task asks again; nothing is asked for an empty `q`. */

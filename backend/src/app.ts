@@ -1,12 +1,11 @@
 import { Prisma } from "@prisma/client";
-import connectPgSimple from "connect-pg-simple";
 import express, { type NextFunction, type Request, type Response } from "express";
-import session from "express-session";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { ZodError } from "zod";
 import { HttpError } from "./lib/httpError.js";
 import { localDateMiddleware } from "./lib/localDate.js";
+import { keepSessionAlive, sessions } from "./lib/sessions.js";
 import { requireAuth } from "./middleware/requireAuth.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { dashboardRouter } from "./routes/dashboard.routes.js";
@@ -16,11 +15,10 @@ import { goalsRouter } from "./routes/goals.routes.js";
 import { layoutRouter } from "./routes/layout.routes.js";
 import { listsRouter } from "./routes/lists.routes.js";
 import { notesRouter } from "./routes/notes.routes.js";
+import { notificationsRouter } from "./routes/notifications.routes.js";
 import { pointsRouter } from "./routes/points.routes.js";
 import { tagsRouter } from "./routes/tags.routes.js";
 import { tasksRouter } from "./routes/tasks.routes.js";
-
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
  * The backend folder, wherever this file runs from: src/ (in development) or dist/backend/src/ (built, as the shared/
@@ -55,19 +53,9 @@ export function createApp() {
 
   app.use(express.json({ limit: "100kb" }));
 
-  const PgStore = connectPgSimple(session);
-  app.use(
-    session({
-      name: "donegeon.sid",
-      store: new PgStore({ conString: process.env.DATABASE_URL, tableName: "session" }),
-      secret: sessionSecret,
-      resave: false,
-      saveUninitialized: false,
-      rolling: true,
-      cookie: { httpOnly: true, sameSite: "lax", secure: isProd, maxAge: THIRTY_DAYS_MS },
-    }),
-  );
+  app.use(sessions(sessionSecret, isProd));
   app.use(localDateMiddleware);
+  app.use(keepSessionAlive);
 
   const api = express.Router();
   // For the host's "is it up?" check; needs no login and no database.
@@ -85,6 +73,8 @@ export function createApp() {
   api.use("/points", requireAuth, pointsRouter);
   api.use("/layout", requireAuth, layoutRouter);
   api.use("/feedback", requireAuth, feedbackRouter);
+  // Its own requireAuth: the hourly call that wakes the server comes with a secret, not a session.
+  api.use("/notifications", notificationsRouter);
   api.use((_req, _res) => {
     throw new HttpError(404, "No such endpoint");
   });

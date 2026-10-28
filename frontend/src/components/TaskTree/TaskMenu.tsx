@@ -3,10 +3,15 @@ import { currentRound } from "../../../../shared/repeat";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { PixelCheckbox } from "../PixelCheckbox";
+import { ReminderEditor } from "../Notifications/ReminderEditor";
 import { useGoals, useTags } from "../../hooks/labels";
 import { useLists } from "../../hooks/lists";
 import { useMoveRound, usePlaceInWeek, useSetToday, useSetWeek, useUpdateTask } from "../../hooks/tasks";
+import { useReminders } from "../../hooks/useAuth";
 import { localDate } from "../../lib/clock";
+import { plainFirstLine } from "../../lib/markup";
+import { reminderSummary } from "../../lib/notifySettings";
+import { useOnline } from "../../lib/offline/online";
 import { toggleId } from "../../lib/labels";
 import { pointsFieldWidth, typedPoints } from "../../lib/points";
 import { REPEAT_UNIT_NAMES } from "../../lib/repeat";
@@ -327,6 +332,41 @@ function Repeat({ node }: { node: TaskTreeNode }) {
  * none by default), deadline (main tasks and their direct subtasks), the note (main
  * tasks), and the touch-friendly equivalents of Ctrl+Enter and Delete.
  */
+/**
+ * The task's reminders: notifications at set times (or N times a day), every day, on weekdays, or, on a task on a
+ * schedule, the days it is due; each with Done and Snooze. Saved with the account's settings, so they need a connection.
+ */
+function Reminders({ node }: { node: TaskTreeNode }) {
+  const { reminders, put, remove } = useReminders(node.id);
+  const online = useOnline();
+  // The reminder being changed, or "new"; null = none.
+  const [editing, setEditing] = useState<string | null>(null);
+  const task = { id: node.id, title: plainFirstLine(node.title), scheduled: Boolean(node.repeatEvery) };
+  return (
+    <div className="space-y-1 text-xs" data-menu-part="reminders">
+      <span className="font-medium">Reminders</span>
+      {reminders.map((reminder) =>
+        editing === reminder.id ? (
+          <ReminderEditor key={reminder.id} value={reminder} task={task} onSave={(next) => (put(next), setEditing(null))} onCancel={() => setEditing(null)} onDelete={() => (remove(reminder.id), setEditing(null))} />
+        ) : (
+          <button key={reminder.id} type="button" className="btn-quiet block w-full text-left" disabled={!online} onClick={() => setEditing(reminder.id)} data-task-reminder={reminder.id}>
+            {reminder.on ? "" : "(off) "}
+            {reminder.text ? `"${reminder.text}" · ` : ""}
+            {reminderSummary(reminder)}
+          </button>
+        ),
+      )}
+      {editing === "new" ? (
+        <ReminderEditor task={task} onSave={(next) => (put(next), setEditing(null))} onCancel={() => setEditing(null)} />
+      ) : (
+        <button type="button" className="btn-quiet underline" disabled={!online} title={online ? undefined : "Needs a connection"} onClick={() => setEditing("new")} data-task-reminder-new>
+          + Add reminder
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function TaskMenu({ node, depth, onAddSubtask, onOpenNote }: Props) {
   const tree = useTree();
   const [isOpen, setIsOpen] = useState(false);
@@ -368,10 +408,11 @@ export function TaskMenu({ node, depth, onAddSubtask, onOpenNote }: Props) {
       if (e.key === "Escape") setIsOpen(false);
       if (e.key !== "Enter" || e.isComposing || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
       // Enter is OK: it saves the field being typed in and closes. Not where the key has a job of its own: on a
-      // button (the calendar, Add subtask, the ⋯ itself), in a dropdown, in the calendar's own field. A switch
+      // button (the calendar, Add subtask, the ⋯ itself), in a dropdown, in the calendar's own field, in a reminder
+      // being made (Enter saves the reminder). A switch
       // that is one of a pair (Hard / Soft) was set by its click, so there Enter is OK too.
       const target = e.target as HTMLElement;
-      if (target.closest("select, input[type=date]") || target.closest("button:not([aria-pressed])")) return;
+      if (target.closest("select, input[type=date], [data-own-enter]") || target.closest("button:not([aria-pressed])")) return;
       e.preventDefault();
       // Leaving a typed field saves it. A date that can't be read keeps the menu open, with its message.
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
@@ -417,6 +458,7 @@ export function TaskMenu({ node, depth, onAddSubtask, onOpenNote }: Props) {
               </div>
             )}
             <Labels node={node} />
+            <Reminders node={node} />
             {depth <= 1 && !node.isPersistent && (
               <div className="space-y-1 text-xs" data-menu-part="deadline">
                 <span className="font-medium">Deadline</span>

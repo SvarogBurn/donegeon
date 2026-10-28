@@ -2,6 +2,10 @@ export const TASKS = ["tasks"];
 // What was done before yesterday is loaded apart from the task trees. These sit under their key, so whatever refreshes the trees refreshes them.
 export const DONE = [...TASKS, "done"];
 export const STATS = [...TASKS, "stats"];
+// The same rows for the calendar's days gone by, kept apart and not under the tasks' key: they are every task there is,
+// the biggest answer, and a change made today doesn't change those days. A task change only marks them out of date
+// (refresh in lib/offline/changes), so they are asked for again when the calendar is next opened or the page comes back.
+export const PAST_DONE = ["pastDone"];
 export const GOALS = ["goals"];
 export const TAGS = ["tags"];
 export const LISTS = ["lists"];

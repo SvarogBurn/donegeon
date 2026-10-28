@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { MAX_POINTS } from "../../../shared/constants.js";
-import { DEADLINE_TODAY, TEXT_FONTS, TICKED_TASKS } from "../../../shared/enums.js";
+import { MAX_POINTS, MAX_REMINDER_TIMES, MAX_REMINDERS, NOTIFY_FROM, NOTIFY_TO } from "../../../shared/constants.js";
+import { DEADLINE_TODAY, REMINDER_KINDS, TEXT_FONTS, TICKED_TASKS } from "../../../shared/enums.js";
 import { hex } from "./common.js";
 
 export const credentials = z.object({
@@ -79,6 +79,43 @@ const deadlineTable = z
   })
   .nullable();
 
+/** "HH:MM" between NOTIFY_FROM and NOTIFY_TO: the hours the server is awake to send. */
+const time = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "A time looks like 08:30")
+  .refine((value) => value >= NOTIFY_FROM && value <= NOTIFY_TO, `Notifications come between ${NOTIFY_FROM} and ${NOTIFY_TO}`);
+
+/** One of the user's reminders (see frontend/src/lib/notifySettings.ts). */
+const reminder = z.object({
+  id: ref,
+  on: z.boolean(),
+  kind: z.enum(REMINDER_KINDS),
+  /** Every day, the days a task on a schedule is due, or weekdays (0 = Monday). */
+  days: z.union([z.literal("all"), z.literal("due"), z.array(z.number().int().min(0).max(6)).min(1, "Pick a day").max(7)]),
+  times: z.array(time).min(1, "A reminder needs a time").max(MAX_REMINDER_TIMES, `At most ${MAX_REMINDER_TIMES} times a day`),
+  /** Made as "N times a day from A to B": kept to show it again. */
+  spread: z.object({ count: z.number().int().min(1).max(MAX_REMINDER_TIMES), from: time, to: time }).optional(),
+  text: z.string().trim().max(200, "A reminder's text is at most 200 characters").optional(),
+  /** "deadlines": the next so many days. */
+  ahead: z.number().int().min(1).max(60).optional(),
+  taskId: ref.optional(),
+  noteId: ref.optional(),
+  linkTitle: z.string().max(200).optional(),
+});
+
+/** Which notifications the account gets, and when; the app fills in what is missing. */
+const amount = (min: number, max: number) => z.object({ on: z.boolean(), amount: z.number().int().min(min).max(max) });
+const notifications = z
+  .object({
+    deadline: z
+      .object({ on: z.boolean(), dayBefore: z.boolean().optional(), days: amount(2, 13).optional(), weeks: amount(1, 8).optional(), time: time.optional() })
+      .optional(),
+    passed: z.object({ on: z.boolean() }).optional(),
+    snoozeMinutes: z.number().int().min(5).max(120).optional(),
+    reminders: z.array(reminder).max(MAX_REMINDERS, `At most ${MAX_REMINDERS} reminders`).optional(),
+  })
+  .nullable();
+
 /** The account's own settings, from the user's page; any of them at a time. */
 export const settings = z
   .object({
@@ -102,5 +139,7 @@ export const settings = z
     boxColors,
     /** null = back to the defaults. */
     deadlineTable,
+    /** null = back to the defaults. */
+    notifications,
   })
   .partial();

@@ -17,3 +17,14 @@ export const RESTORABLE_MS = 60_000;
 
 /** A ticked task stays in its list this long, shown as done so it can still be taken back; after that only the Done page has it. */
 export const KEPT_WHEN_DONE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The hours a reminder or notice can be set for, "HH:MM" on the user's clock: the server is kept awake only then
+ * (a health check every 15 minutes from 07:00 to 22:00), and asleep it sends nothing.
+ */
+export const NOTIFY_FROM = "07:00";
+export const NOTIFY_TO = "22:00";
+
+/** The most reminders an account can have, and times a reminder can come in a day. */
+export const MAX_REMINDERS = 50;
+export const MAX_REMINDER_TIMES = 12;

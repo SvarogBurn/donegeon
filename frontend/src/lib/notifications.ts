@@ -47,9 +47,12 @@ export function readDismissed(): Set<string> {
   }
 }
 
-/** Keeps only what still means something: a dismissal of a deadline since moved or done is forgotten. */
-export function saveDismissed(dismissed: Set<string>, passed: PassedDeadline[]) {
-  const live = passed.map((item) => item.key).filter((key) => dismissed.has(key));
+/**
+ * Keeps only what still means something (`shown`: the keys of what the bell could show now): a dismissal of a
+ * deadline since moved or done, or of yesterday's morning message, is forgotten.
+ */
+export function saveDismissed(dismissed: Set<string>, shown: string[]) {
+  const live = shown.filter((key) => dismissed.has(key));
   // Storage full or blocked: the dismissal lasts until the page is closed.
   writeStored(DISMISSED_KEY, live.length ? JSON.stringify(live) : null);
 }

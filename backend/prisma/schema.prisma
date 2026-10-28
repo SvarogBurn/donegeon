@@ -1,5 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // A query's includes (a task's goals, tags and presses) are read in the same query, not one query each.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
@@ -114,6 +116,9 @@ model User {
   // The dashboard's deadlines box: {range: {amount, unit}, perDay: "sum" | "soonest" | "columns", soft, colors: {hard, soft, big},
   // taskColors: {taskId: hex}} (see frontend/src/lib/deadlineTable.ts). null = the defaults.
   deadlineTable   Json?
+  // Which notifications the account gets and at what hour: {morning: {on, hour}, deadline: {on, dayBefore, days: {on, amount},
+  // weeks: {on, amount}}, ...} (see frontend/src/lib/notifySettings.ts). null = the defaults.
+  notifications   Json?
 
   goals             Goal[]
   tags              Tag[]
@@ -125,6 +130,8 @@ model User {
   feedback          Feedback[]
   notes             Note[]
   noteFolders       NoteFolder[]
+  pushSubscriptions PushSubscription[]
+  scheduledNotifications ScheduledNotification[]
 }
 
 model Goal {
@@ -306,6 +313,41 @@ model TaskCompletion {
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@index([taskId])
+}
+
+// A device (a browser, an installed app) that notifications are pushed to: what the browser gave when it was turned on.
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// A notification the app planned (it works out the days and the texts) for the server to push at `sendAt`. The app
+// sends the whole plan again whenever the tasks change; `key` ("morning:2026-10-28", "deadline:2026-10-30:<task id>:1d")
+// keeps one that was sent from being sent twice. `params` is what the server needs to write the text itself (the recap).
+model ScheduledNotification {
+  id     String    @id @default(uuid())
+  userId String
+  key    String
+  kind   String
+  sendAt DateTime
+  title  String
+  body   String
+  url    String
+  params Json?
+  sentAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([sentAt, sendAt])
 }
 
 // A message from the suggestion box on the user's page. Shown only in the inbox on a developer's page.

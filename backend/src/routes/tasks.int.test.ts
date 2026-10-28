@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../app.js";
 import { RESTORABLE_MS } from "../../../shared/constants.js";
 import { prisma } from "../lib/prisma.js";
+import { closeSessions } from "../lib/sessions.js";
 
 /*
  * The routes against the real database: what only shows with the server, Postgres and two requests at once.
@@ -23,7 +24,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await prisma.user.deleteMany({ where: { username: { startsWith: "uitestint" } } });
-  await prisma.$disconnect();
+  await Promise.all([prisma.$disconnect(), closeSessions()]);
   await new Promise((resolve) => server.close(resolve));
 });
 

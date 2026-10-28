@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { whenNow } from "../lib/clock";
-import { changeKey, type ChangeKind, type ChangeVars } from "../lib/offline/changes";
+import { changeKey, refresh, type ChangeKind, type ChangeVars } from "../lib/offline/changes";
 import type { Change } from "../lib/offline/changeSpec";
 
 /**
@@ -13,7 +13,7 @@ export function useInvalidating<TArgs, TResult>(mutationFn: (args: TArgs) => Pro
   return useMutation({
     mutationFn: (args: TArgs) => mutationFn(args),
     onError,
-    onSettled: () => Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey }))),
+    onSettled: () => refresh(queryClient, keys),
   });
 }
 

@@ -1,5 +1,6 @@
 import { onlineManager, type Mutation, type QueryClient, type QueryKey } from "@tanstack/react-query";
 import { ApiError, isUnreachable } from "../../api/client";
+import { PAST_DONE, TASKS } from "../../hooks/queryKeys";
 import { clockNow } from "../clock";
 import { refuse } from "../refusal";
 import { getServerStatus, reportFailure } from "../serverStatus";
@@ -53,6 +54,18 @@ const isChange = (mutation: Mutation<unknown, Error, unknown, unknown>) => mutat
 /** How many changes are still to be saved, the one being sent included. */
 export const changesWaiting = (queryClient: QueryClient) => queryClient.isMutating({ predicate: isChange });
 
+/**
+ * Asks again for `keys`. A change to the tasks also marks the calendar's days gone by out of date (PAST_DONE), without
+ * asking for them now: they are every task there is, and today's change doesn't show on those days.
+ */
+export function refresh(queryClient: QueryClient, keys: QueryKey[]) {
+  const touchesTasks = keys.some((key) => key[0] === TASKS[0]);
+  return Promise.all([
+    ...keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+    touchesTasks && queryClient.invalidateQueries({ queryKey: PAST_DONE, refetchType: "none" }),
+  ]);
+}
+
 /** What the page asks again for once every waiting change is saved: refetching earlier would undo the ones still waiting. */
 const toRefresh = new Map<string, QueryKey>();
 
@@ -98,7 +111,7 @@ function register<V>(queryClient: QueryClient, kind: string, spec: Spec<V>) {
       if (changesWaiting(queryClient) > 1) return;
       const keys = [...toRefresh.values()];
       toRefresh.clear();
-      return Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
+      return refresh(queryClient, keys);
     },
   });
 }

@@ -1,17 +1,40 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { localDate } from "../../lib/clock";
-import { useTaskTrees } from "../../hooks/tasks";
+import { useNavigate, useSearchParams } from "react-router";
+import { appNow, localDate } from "../../lib/clock";
+import { usePressTask, useTaskTrees, useToggleTask } from "../../hooks/tasks";
+import { useDeadlineToday, useNotifySettings, useTickedTasks } from "../../hooks/useAuth";
 import { formatDay } from "../../lib/dates";
 import { passedDeadlines, readDismissed, saveDismissed, type PassedDeadline } from "../../lib/notifications";
+import { dueToday, findTask, type Planned } from "../../lib/notifySchedule";
+import { newId } from "../../lib/offline/changes";
 import { PretendNotice } from "../layout/Clock";
 import { RichText } from "../RichText";
 import { PostponeDeadline } from "./PostponeDeadline";
 
 const ago = (n: number) => (n === 1 ? "yesterday" : `${n} days ago`);
 
+/** The colour of each of today's messages in the list: a deadline coming is amber, a reminder blue. */
+const KIND_COLORS: Partial<Record<Planned["kind"], string>> = {
+  reminder: "text-sky-700 dark:text-sky-400",
+  deadline: "text-amber-700 dark:text-amber-400",
+};
+const timeOf = (at: Date) => `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
+
+/** The app's moment, again every minute: today's messages come into the bell at their hour. */
+function useMinute() {
+  const [now, setNow] = useState(appNow);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(appNow()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+  return now;
+}
+
 /**
- * The bell: a count of what wants an answer, and under it the notifications. For now these are deadlines whose day
- * is over with the task still open; a tap on one asks for a new deadline. Dismissed ones stay away on this device
+ * The bell: a count of what wants an answer, and under it the notifications: today's messages once their hour has
+ * come (the morning's, the evening's, Saturday's, a hard deadline coming: the ones pushed, if push is on, as they are
+ * now), a tap opening their page; and deadlines whose day is over with the task still open, a tap asking for a new
+ * deadline. Dismissed ones stay away on this device
  * until that deadline is moved and passes again. `inStrip` = the installed app's top strip (the list opens below);
  * otherwise the browser's task bar along the bottom (it opens above), where the bell is teeny and `children` places it
  * (the clock puts it beside the time), and a click anywhere on them opens the list.
@@ -31,17 +54,38 @@ export function Bell({
   const { data: trees = [] } = useTaskTrees();
   const today = localDate();
   const passed = useMemo(() => passedDeadlines(trees, today), [trees, today]);
+  const [settings] = useNotifySettings();
+  const ticked = useTickedTasks();
+  const deadlines = useDeadlineToday();
+  const now = useMinute();
+  const messages = useMemo(() => dueToday(trees, today, now, settings, ticked, deadlines), [trees, today, now, settings, ticked, deadlines]);
+  const navigate = useNavigate();
+  const { mutate: toggle } = useToggleTask();
+  const { mutate: press } = usePressTask();
+  const [params, setParams] = useSearchParams();
   const [dismissed, setDismissed] = useState(readDismissed);
   const [isOpen, setIsOpen] = useState(false);
   const [asking, setAsking] = useState<PassedDeadline | null>(null);
   const panel = useRef<HTMLDivElement>(null);
   const shown = passed.filter((item) => !dismissed.has(item.key));
+  const shownMessages = messages.filter((item) => !dismissed.has(item.key));
+  const count = shown.length + shownMessages.length;
 
   useEffect(() => onOpenChange?.(isOpen || asking !== null), [isOpen, asking, onOpenChange]);
   // Only once the tasks are in: before that every dismissal would look out of date.
   useEffect(() => {
-    if (trees.length) saveDismissed(dismissed, passed);
-  }, [dismissed, passed, trees.length]);
+    if (trees.length) saveDismissed(dismissed, [...passed, ...messages].map((item) => item.key));
+  }, [dismissed, passed, messages, trees.length]);
+
+  // A tap on a pushed "deadline passed" opens the app on /?bell=1: the list opens, where its new day is picked.
+  useEffect(() => {
+    if (params.get("bell") !== "1") return;
+    setIsOpen(true);
+    setParams((old) => {
+      old.delete("bell");
+      return old;
+    }, { replace: true });
+  }, [params, setParams]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -59,11 +103,11 @@ export function Bell({
   }, [isOpen]);
 
   const dismiss = (keys: string[]) => setDismissed((old) => new Set([...old, ...keys]));
-  const label = shown.length ? `Notifications: ${shown.length} new` : "Notifications";
+  const label = count ? `Notifications: ${count} new` : "Notifications";
   // The strip's bell is small: the count sits off its corner rather than over it.
-  const badge = shown.length > 0 && (
+  const badge = count > 0 && (
     <span className="absolute -top-1 -right-2.5 min-w-3 bg-red-600 px-0.5 text-center font-pixel text-[8px] leading-3 text-white tabular-nums" aria-hidden>
-      {shown.length > 9 ? "9+" : shown.length}
+      {count > 9 ? "9+" : count}
     </span>
   );
 
@@ -81,14 +125,14 @@ export function Bell({
           data-bell
           aria-label={label}
           aria-expanded={isOpen}
-          title={shown.length ? `Notifications: ${shown.length} new` : "Notifications"}
+          title={label}
           onClick={() => setIsOpen(!isOpen)}
         >
           {children?.(
             // The teeny bell has no room for a number: a red dot says there is something new.
             <span className="relative flex-none">
               <span className="bar-glyph bar-glyph-bell-tiny" aria-hidden />
-              {shown.length > 0 && <span className="absolute -top-0.5 -right-1 size-1 bg-red-600" data-bell-dot aria-hidden />}
+              {count > 0 && <span className="absolute -top-0.5 -right-1 size-1 bg-red-600" data-bell-dot aria-hidden />}
             </span>,
           )}
         </button>
@@ -103,16 +147,61 @@ export function Bell({
         >
           <div className="flex items-center justify-between gap-2 border-b border-stone-200 px-3 py-2 dark:border-stone-700">
             <h2 className="font-pixel text-[10px]">Notifications</h2>
-            {shown.length > 1 && (
-              <button type="button" className="btn-quiet text-xs" onClick={() => dismiss(shown.map((item) => item.key))}>
+            {count > 1 && (
+              <button type="button" className="btn-quiet text-xs" onClick={() => dismiss([...shownMessages, ...shown].map((item) => item.key))}>
                 Dismiss all
               </button>
             )}
           </div>
-          {shown.length === 0 ? (
-            <p className="px-3 py-6 text-center text-xs text-stone-500">Nothing new. A deadline whose day has passed shows up here.</p>
+          {count === 0 ? (
+            <p className="px-3 py-6 text-center text-xs text-stone-500">Nothing new. Today's messages, and deadlines whose day has passed, show up here.</p>
           ) : (
             <ul className="max-h-[60svh] divide-y divide-stone-200 overflow-y-auto dark:divide-stone-700">
+              {shownMessages.map((item) => {
+                const color = KIND_COLORS[item.kind] ?? KIND_COLORS.reminder;
+                // A reminder on a task can be done from here, as from the notification (it works offline too).
+                const task = item.params?.taskId ? findTask(trees, item.params.taskId)?.node : undefined;
+                const waits = task !== undefined && !task.isPersistent && task.descendantDoneCount < task.descendantCount;
+                return (
+                  <li key={item.key} className="flex items-start gap-1 hover:bg-stone-100 dark:hover:bg-stone-800">
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 px-3 py-2 text-left"
+                      data-notification-message={item.key}
+                      onClick={() => {
+                        setIsOpen(false);
+                        void navigate(item.url);
+                      }}
+                    >
+                      <span className={`flex items-center gap-1.5 font-pixel text-[8px] ${color}`}>
+                        <span className="size-1.5 flex-none bg-current" aria-hidden />
+                        {item.label ?? "Reminder"} · {timeOf(item.sendAt)}
+                      </span>
+                      <span className="mt-1 block truncate text-sm">{item.title}</span>
+                      {item.body && <span className="mt-0.5 line-clamp-3 block whitespace-pre-line text-xs text-stone-500">{item.body}</span>}
+                    </button>
+                    {task && (
+                      <button
+                        type="button"
+                        className="btn-quiet px-1 py-2 text-xs"
+                        disabled={waits}
+                        title={waits ? "Tick its subtasks first" : task.isPersistent ? "Done it (once more)" : "Tick it"}
+                        onClick={() => {
+                          if (task.isPersistent) press({ id: task.id, completionId: newId() });
+                          else toggle({ id: task.id, done: true });
+                          dismiss([item.key]);
+                        }}
+                        data-notification-done={item.key}
+                      >
+                        Done
+                      </button>
+                    )}
+                    <button type="button" className="btn-quiet px-2 py-2 text-base leading-none" aria-label="Dismiss" title="Dismiss" onClick={() => dismiss([item.key])}>
+                      ×
+                    </button>
+                  </li>
+                );
+              })}
               {shown.map((item) => (
                 <li key={item.key} className="flex items-start gap-1 hover:bg-stone-100 dark:hover:bg-stone-800">
                   <button

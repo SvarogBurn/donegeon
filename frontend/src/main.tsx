@@ -49,7 +49,9 @@ const queryClient = new QueryClient({
   mutationCache: new MutationCache({ onError: (error) => isUnreachable(error) && reportFailure(error.message) }),
   defaultOptions: {
     queries: {
-      staleTime: 10_000,
+      // Only this user changes their data, and every change made here asks again for what it touched: coming back to
+      // the page asks for everything again only after a minute (another device's changes show by then).
+      staleTime: 60_000,
       retry: 1,
       gcTime: KEEP_MS,
       // While changes wait to be sent, what the server has is behind the page: asking would undo them on screen.

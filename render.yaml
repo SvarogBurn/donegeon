@@ -9,10 +9,13 @@ services:
     # Same place as the database (Neon, Frankfurt): every request makes several
     # database calls, and each one pays the distance between the two.
     region: frankfurt
+    # The migrations run here, once per deploy, not at every start: the free plan sleeps when idle and starts again on
+    # the next visit, and loading Prisma's command line on its tenth of a CPU made every wake-up seconds longer.
     buildCommand: >-
       (cd frontend && npm ci --include=dev && npm run build) &&
-      (cd backend && npm ci --include=dev && npx prisma generate && npm run build)
-    startCommand: cd backend && npx prisma migrate deploy && npm start
+      (cd backend && npm ci --include=dev && npx prisma generate && npm run build && npx prisma migrate deploy)
+    # Node itself, without npm in front (npm start would be the same, a little slower to start).
+    startCommand: cd backend && node dist/backend/src/index.js
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
@@ -25,4 +28,11 @@ services:
       - key: DEV_USERNAMES
         value: reo
       - key: DATABASE_URL
+        sync: false
+      # Push notifications: `npx web-push generate-vapid-keys`, pasted in by hand. Without them nothing is pushed.
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
         sync: false

@@ -6,6 +6,7 @@ import { FeedbackInbox } from "../components/Feedback/FeedbackInbox";
 import { CharacterSheet } from "../components/Character/CharacterSheet";
 import { useProfile } from "../components/Character/useProfile";
 import { DeadlineSettings } from "../components/Countdown/DeadlineSettings";
+import { NotificationSettings } from "../components/Notifications/NotificationSettings";
 import { Cheatsheet } from "../components/Help/Cheatsheet";
 import { PixelCheckbox } from "../components/PixelCheckbox";
 import { HiddenRow } from "../components/Tiles/HiddenRow";
@@ -316,6 +317,8 @@ export function UserPage() {
       <p className="text-xs text-stone-500">The LEVEL UP box with what was unlocked, and the News box with what's next. Off also hides the red dot.</p>
       {/* The dashboard's deadlines box: its tabs, its Per day, its colours. */}
       <DeadlineSettings />
+      {/* Which notifications come, and when; and this device's switch. */}
+      <NotificationSettings />
       {/* How the app looks. */}
       <h3 className="border-t-2 border-stone-300 pt-3 font-pixel text-xs text-stone-500 dark:border-stone-700">Theme</h3>
       <FontChoice

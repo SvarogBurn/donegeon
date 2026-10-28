@@ -6,6 +6,7 @@ import { FONT_STACKS, textFont } from "../../lib/fonts";
 import { useOnline } from "../../lib/offline/online";
 import { useStandalone } from "../../lib/standalone";
 import { BreakReminder } from "../BreakReminder";
+import { NotificationPlanner } from "../Notifications/NotificationPlanner";
 import { RefusalPopup } from "../RefusalPopup";
 import { Tutorial } from "../Tutorial/Tutorial";
 import { NavBar } from "./NavBar";
@@ -53,6 +54,7 @@ export function AppShell() {
       <Tutorial user={user} />
       <RefusalPopup />
       <BreakReminder />
+      <NotificationPlanner />
     </>
   );
 }

@@ -2,8 +2,8 @@ import { addDays, daysBetween, mondayOf } from "../../../shared/dates";
 import { addInterval, currentRound, movedDay } from "../../../shared/repeat";
 import type { DeadlineToday, TaskTreeNode, TickedTasks } from "../types";
 import { deadlineTodayFrom } from "./deadlines";
-import { roundsDue } from "./repeat";
-import { plainTitle } from "./markup";
+import { isDue, roundsDue } from "./repeat";
+import { plainFirstLine, plainTitle } from "./markup";
 
 /** Whole weeks from the week of `from` to the week of `to`: a Sunday and the next day's Monday are 1 apart. */
 export const weeksBetween = (from: string, to: string) => Math.round(daysBetween(mondayOf(from), mondayOf(to)) / 7);
@@ -111,4 +111,37 @@ export function weekDays(trees: TaskTreeNode[], today: string, ticked: TickedTas
     items: byDay.get(day)!.sort((a, b) => tickedLast(a) - tickedLast(b) || rank(a) - rank(b) || a.node.weekPosition - b.node.weekPosition),
     ...(day === nextMonday && { nextWeek: true }),
   }));
+}
+
+export interface TodayItem {
+  node: TaskTreeNode;
+  /** The day it came into Today: marked for it, due (a task on a schedule), or its deadline near. */
+  since: string;
+  /** Titles of the tasks it sits under, outermost first. */
+  path: string[];
+}
+
+/**
+ * Everything from the lists that is marked for Today, at any depth, plus the tasks (any depth) on a
+ * schedule that are due and, if the user chose so, the tasks whose deadline is near (`deadlines`): those come in by
+ * themselves and leave when done. Open items stay from day to day;
+ * a ticked one stays for the rest of the day it was ticked on (or goes at once, if the user chose to hide
+ * ticked tasks). Subtasks left open inside a finished main task went to the Done page with it. What was put off to
+ * next week isn't for today, whatever would bring it in (its subtasks still can be).
+ */
+export function todayItems(trees: TaskTreeNode[], today: string, ticked: TickedTasks, deadlines: DeadlineToday): TodayItem[] {
+  const found: TodayItem[] = [];
+  const visit = (nodes: TaskTreeNode[], path: string[], rootFinished: boolean) => {
+    for (const node of nodes) {
+      const shown = node.isComplete ? ticked !== "hide" && node.completedOn === today : !rootFinished;
+      const fromDeadline = deadlineTodayFrom(node, deadlines);
+      const since = node.todaySince ?? (isDue(node, today) ? currentRound(node, today)!.day : null) ?? (fromDeadline !== null && fromDeadline <= today ? fromDeadline : null);
+      if (since !== null && shown && !livesInToday(node) && !isPutOff(node, today)) found.push({ node, since, path });
+      visit(node.children, [...path, plainFirstLine(node.title)], rootFinished || (path.length === 0 && node.isComplete));
+    }
+  };
+  visit(trees, [], false);
+  // Longest-waiting first; ticked ones under the open ones, unless the user chose to leave them where they are.
+  const tickedLast = (item: TodayItem) => Number(ticked === "bottom" && item.node.isComplete);
+  return found.sort((a, b) => tickedLast(a) - tickedLast(b) || a.since.localeCompare(b.since));
 }

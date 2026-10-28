@@ -5,6 +5,8 @@ import { ApiError } from "../api/client";
 import type { DeadlineToday, TickedTasks, User } from "../types";
 import { readStored, writeStored } from "../lib/storage";
 import { normalizeDeadlineTable, type DeadlineTable } from "../lib/deadlineTable";
+import { normalizeNotifications, type NotifySettings, type Reminder } from "../lib/notifySettings";
+import { unsubscribe } from "../lib/pushDevice";
 
 export const ME = ["me"];
 
@@ -51,6 +53,29 @@ export function useDeadlineTable(): [DeadlineTable, (next: DeadlineTable) => voi
   const update = useUpdateMe();
   const table = useMemo(() => normalizeDeadlineTable(saved), [saved]);
   return [table, (next) => update.mutate({ deadlineTable: next })];
+}
+
+/** Which notifications the account gets and when, as the user set it on their page, and the way to change it (saved whole). */
+export function useNotifySettings(): [NotifySettings, (next: NotifySettings) => void] {
+  const saved = useMe().user?.notifications;
+  const update = useUpdateMe();
+  const settings = useMemo(() => normalizeNotifications(saved), [saved]);
+  return [settings, (next) => update.mutate({ notifications: next })];
+}
+
+/** The account's reminders (on a task: `taskId`, only that task's), and adding, changing or removing one: saved whole. */
+export function useReminders(taskId?: string) {
+  const [settings, save] = useNotifySettings();
+  const reminders = taskId ? settings.reminders.filter((reminder) => reminder.taskId === taskId) : settings.reminders;
+  return {
+    reminders,
+    /** A new one goes last; one already there is changed in place. */
+    put: (reminder: Reminder) => {
+      const there = settings.reminders.some((old) => old.id === reminder.id);
+      save({ ...settings, reminders: there ? settings.reminders.map((old) => (old.id === reminder.id ? reminder : old)) : [...settings.reminders, reminder] });
+    },
+    remove: (id: string) => save({ ...settings, reminders: settings.reminders.filter((old) => old.id !== id) }),
+  };
 }
 
 /** Whether the Notes tab is shown; off unless switched on on the user's page. */
@@ -132,7 +157,8 @@ function forgetAccount(queryClient: QueryClient) {
 export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: authApi.logout,
+    // This device's notifications stop first, while the server still knows whose they are.
+    mutationFn: () => unsubscribe().then(authApi.logout),
     onSuccess: () => forgetAccount(queryClient),
   });
 }
@@ -142,6 +168,10 @@ export function useDeleteAccount() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: authApi.deleteMe,
-    onSuccess: () => forgetAccount(queryClient),
+    onSuccess: () => {
+      forgetAccount(queryClient);
+      // The server forgot the account's devices with it; the browser is told too.
+      void unsubscribe();
+    },
   });
 }

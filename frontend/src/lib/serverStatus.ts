@@ -23,8 +23,9 @@ const AWAY_MS = 60_000;
 const WAITS_MS = [1000, 2000, 3000, 5000];
 
 let current: ServerStatus = { state: "up", failure: null };
-// The page itself came from this server.
-let lastOk = Date.now();
+// The page itself came from this server, unless the service worker kept it on the device: then the server may well
+// be asleep, and the first request asks first, so the wait shows as "Waking the server up…" instead of a page that hangs.
+let lastOk = typeof navigator !== "undefined" && navigator.serviceWorker?.controller ? 0 : Date.now();
 let check: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 

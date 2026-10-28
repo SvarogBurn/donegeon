@@ -35,6 +35,8 @@ export interface User {
   boxColorEdit: boolean;
   /** The dashboard's deadlines box as saved; null = the defaults. Read it with normalizeDeadlineTable (lib/deadlineTable.ts). Missing in an account kept on the device from before. */
   deadlineTable?: unknown;
+  /** Which notifications the account gets, and when, as saved; null = the defaults. Read it with normalizeNotifications (lib/notifySettings.ts). Missing in an account kept on the device from before. */
+  notifications?: unknown;
   /** One of the developers' accounts: its page has the inbox of the suggestion box. */
   isDev: boolean;
 }

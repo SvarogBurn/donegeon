@@ -6,6 +6,7 @@ import { isDev } from "../lib/devs.js";
 import { HttpError } from "../lib/httpError.js";
 import { LoginLimit } from "../lib/loginLimit.js";
 import { prisma } from "../lib/prisma.js";
+import { SESSION_COOKIE } from "../lib/sessions.js";
 import { requireAuth, userId } from "../middleware/requireAuth.js";
 import { credentials, settings } from "../schemas/account.js";
 
@@ -38,6 +39,7 @@ const publicUser = (user: User) => ({
   boxColors: user.boxColors,
   boxColorEdit: user.boxColorEdit,
   deadlineTable: user.deadlineTable,
+  notifications: user.notifications,
   isDev: isDev(user.username),
 });
 
@@ -83,7 +85,7 @@ authRouter.post("/login", async (req, res) => {
 authRouter.post("/logout", (req, res, next) => {
   req.session.destroy((err) => {
     if (err) return next(err);
-    res.clearCookie("donegeon.sid");
+    res.clearCookie(SESSION_COOKIE);
     res.status(204).end();
   });
 });
@@ -97,13 +99,14 @@ authRouter.get("/me", async (req, res) => {
 
 // The account's own settings, from the user's page.
 authRouter.patch("/me", requireAuth, async (req, res) => {
-  const { profile, taskBar, boxColors, deadlineTable, ...rest } = settings.parse(req.body);
+  const { profile, taskBar, boxColors, deadlineTable, notifications, ...rest } = settings.parse(req.body);
   const data = {
     ...rest,
     ...(profile !== undefined && { profile: profile ?? Prisma.DbNull }),
     ...(taskBar !== undefined && { taskBar: taskBar ?? Prisma.DbNull }),
     ...(boxColors !== undefined && { boxColors: boxColors ?? Prisma.DbNull }),
     ...(deadlineTable !== undefined && { deadlineTable: deadlineTable ?? Prisma.DbNull }),
+    ...(notifications !== undefined && { notifications: notifications ?? Prisma.DbNull }),
   };
   res.json({ user: publicUser(await prisma.user.update({ where: { id: userId(req) }, data })) });
 });
@@ -125,7 +128,7 @@ authRouter.delete("/me", requireAuth, async (req, res, next) => {
   ]);
   req.session.destroy((err) => {
     if (err) return next(err);
-    res.clearCookie("donegeon.sid");
+    res.clearCookie(SESSION_COOKIE);
     res.status(204).end();
   });
 });

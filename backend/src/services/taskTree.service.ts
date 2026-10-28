@@ -149,26 +149,27 @@ export async function findRoot(db: Prisma.TransactionClient, id: string): Promis
 
 /**
  * Ids of the whole trees the user's tasks matching `where` sit in: up to their main tasks, then everything
- * beneath those. The rest of the user's tasks are never read, however many there are.
+ * beneath those. The rest of the user's tasks are never read, however many there are. Two queries however deep the
+ * trees: the matches, then one that climbs to their main tasks and comes down again.
  */
 export async function wholeTreeIds(db: Prisma.TransactionClient, owner: string, where: Prisma.TaskWhereInput): Promise<string[]> {
-  const live = { userId: owner, deletedAt: null };
-  const rootIds = new Set<string>();
-  const asked = new Set<string>();
-  let level = await db.task.findMany({ where: { ...live, ...where }, select: { id: true, parentId: true } });
-  while (level.length > 0) {
-    const parentIds: string[] = [];
-    for (const task of level) {
-      if (!task.parentId) rootIds.add(task.id);
-      else if (!asked.has(task.parentId)) parentIds.push(task.parentId);
-      if (task.parentId) asked.add(task.parentId);
-    }
-    level =
-      parentIds.length > 0
-        ? await db.task.findMany({ where: { ...live, id: { in: parentIds } }, select: { id: true, parentId: true } })
-        : [];
-  }
-  return (await findSubtree(db, [...rootIds])).map((task) => task.id);
+  const matches = await db.task.findMany({ where: { userId: owner, deletedAt: null, ...where }, select: { id: true } });
+  if (matches.length === 0) return [];
+  // UNION, not UNION ALL, on the way up: matches in one tree meet on the way, and are climbed from once.
+  const rows = await db.$queryRaw<{ id: string }[]>`
+    WITH RECURSIVE up AS (
+      SELECT id, "parentId" FROM "Task" WHERE id = ANY(${matches.map((task) => task.id)}::text[])
+      UNION
+      SELECT t.id, t."parentId" FROM "Task" t JOIN up ON t.id = up."parentId" WHERE t."userId" = ${owner} AND t."deletedAt" IS NULL
+    ),
+    below AS (
+      SELECT id, 0 AS depth FROM up WHERE "parentId" IS NULL
+      UNION ALL
+      SELECT t.id, b.depth + 1 FROM "Task" t JOIN below b ON t."parentId" = b.id
+      WHERE t."deletedAt" IS NULL AND b.depth < ${MAX_DEPTH}
+    )
+    SELECT id FROM below`;
+  return rows.map((row) => row.id);
 }
 
 /** `ids` with `id` inserted at `index` (clamped to the list). `ids` must not already contain `id`. */

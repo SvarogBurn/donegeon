@@ -27,3 +27,17 @@ export type TextFont = (typeof TEXT_FONTS)[number];
 
 export const FEEDBACK_KINDS = ["bug", "feature", "feedback"] as const;
 export type FeedbackKind = (typeof FEEDBACK_KINDS)[number];
+
+/**
+ * What a notification is about: one of the user's reminders, a hard deadline coming, a deadline gone by, the week's
+ * recap (its text written by the server when it is sent), a reminder snoozed, and the test sent from the settings.
+ */
+export const NOTIFICATION_KINDS = ["reminder", "deadline", "passed", "recap", "snooze", "test"] as const;
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
+
+/**
+ * What a reminder says: today's tasks, what is still open today, tomorrow's tasks, next week's plan, the week so far,
+ * the hard deadlines coming, or the user's own words (on a task, a note, or nothing).
+ */
+export const REMINDER_KINDS = ["today", "open", "tomorrow", "nextWeek", "recap", "deadlines", "text"] as const;
+export type ReminderKind = (typeof REMINDER_KINDS)[number];

@@ -14,8 +14,8 @@ export default defineConfig({
     react(),
     tailwindcss(),
     // A service worker keeps the built app on the phone, so it opens with no connection (the data comes from the
-    // query cache kept in IndexedDB, see main.tsx). It never answers /api. A deploy reaches the phone on its next
-    // open: the new worker takes over and the page reloads into it (see main.tsx). Not in dev.
+    // query cache kept in IndexedDB, see main.tsx), and shows pushed notifications. It never answers /api. A deploy
+    // reaches the phone on its next open: the new worker takes over and the page reloads into it (see main.tsx). Not in dev.
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: false,
@@ -23,6 +23,18 @@ export default defineConfig({
       manifest: false,
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        // The fonts only some pick (lib/fonts.ts) and the pixel font's Greek and Cyrillic letters aren't fetched on the
+        // first visit, where they held up the phone's connection: each is kept once it is first used (below).
+        globIgnores: ["**/opendyslexic-*", "**/atkinson-hyperlegible-*", "**/press-start-2p-{cyrillic,cyrillic-ext,greek}-*"],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith("/assets/") && url.pathname.endsWith(".woff2"),
+            handler: "CacheFirst",
+            options: { cacheName: "fonts", expiration: { maxEntries: 20 } },
+          },
+        ],
+        // Shows the notifications the server pushes, and opens their page on a tap (public/push-sw.js).
+        importScripts: ["push-sw.js"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,

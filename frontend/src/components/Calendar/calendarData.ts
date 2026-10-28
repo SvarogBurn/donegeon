@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { localDate } from "../../lib/clock";
 import { useTickedTasks } from "../../hooks/useAuth";
 import { useLists } from "../../hooks/lists";
-import { useStatRows, useTaskTrees } from "../../hooks/tasks";
+import { usePastDone, useTaskTrees } from "../../hooks/tasks";
 import { doneByDay, planByDay, type DoneItem, type PlanItem } from "../../lib/calendar";
 
 /** The calendar's boxes, by the name a folder's view ("cal:<name>") knows them by. */
@@ -41,7 +41,7 @@ export function useDayPicked(onPick: (day: string) => void) {
 export function useCalendar(until: string) {
   const tasks = useTaskTrees();
   const lists = useLists();
-  const stats = useStatRows();
+  const stats = usePastDone();
   const ticked = useTickedTasks();
   const today = localDate();
   const plan = useMemo(() => {
