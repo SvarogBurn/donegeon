@@ -19,6 +19,8 @@ export const LAYOUT = ["layout"];
 // Any change to a task can change the countdown tables, the dashboard totals, the point balance, and how many tasks a
 // list holds (which decides whether deleting it asks first).
 export const TASK_DATA = [TASKS, COUNTDOWN, PRESSURE, POINTS, LISTS];
+// A story event's page (+ the event's id): the user's story, and everyone's once it is closed.
+export const STORIES = ["stories"];
 // The developers' inbox of letters from the suggestion box.
 export const FEEDBACK = ["feedback"];
 /** Under FEEDBACK, so a letter sent refreshes both. */

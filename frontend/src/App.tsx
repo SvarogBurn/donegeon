@@ -62,6 +62,8 @@ const DonePage = page(() => import("./pages/Done"), "DonePage");
 const NoteScreen = page(() => import("./components/Notes/NoteScreen"), "NoteScreen");
 const NotesPage = page(() => import("./pages/Notes"), "NotesPage");
 const PointsPage = page(() => import("./pages/Points"), "PointsPage");
+const NewsPage = page(() => import("./pages/News"), "NewsPage");
+const NewsEventPage = page(() => import("./pages/NewsEvent"), "NewsEventPage");
 const StatsPage = page(() => import("./pages/Stats"), "StatsPage");
 const TaskPage = page(() => import("./pages/TaskPage"), "TaskPage");
 const CountdownRedirect = page(() => import("./pages/TaskPage"), "CountdownRedirect");
@@ -91,6 +93,8 @@ export function App() {
         <Route path="notes" element={later(<NotesPage />)} />
         <Route path="notes/:noteId" element={later(<NoteScreen />)} />
         <Route path="points" element={later(<PointsPage />)} />
+        <Route path="news" element={later(<NewsPage />)} />
+        <Route path="news/events/:eventId" element={later(<NewsEventPage />)} />
         <Route path="user" element={later(<UserPage />)} />
         <Route path="tasks/:taskId" element={later(<TaskPage />)} />
         <Route path="tasks/:taskId/countdown" element={later(<CountdownRedirect />)} />

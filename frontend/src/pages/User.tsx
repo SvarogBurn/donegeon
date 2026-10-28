@@ -170,7 +170,7 @@ function DeleteAccount({ username, onCancel }: { username: string; onCancel: () 
       <form onSubmit={submit} className="card w-96 max-w-full space-y-3 text-xs" role="alertdialog" aria-modal="true" aria-label="Delete account" data-delete-account>
         <p className="text-sm text-red-600 dark:text-red-400">Delete your account?</p>
         <p>
-          This deletes “{username}” and everything in it: your tasks, lists, folders, goals, tags, points and their history, your stats and the mail you sent. It can't be undone.
+          This deletes “{username}” and everything in it: your tasks, lists, folders, goals, tags, points and their history, your stats, the mail you sent and your stories. It can't be undone.
         </p>
         <label className="block space-y-1">
           <span>
@@ -287,15 +287,6 @@ export function UserPage() {
         name="break-every"
         note={breakNote}
       />
-      <label className="flex items-center gap-2 text-xs">
-        <PixelCheckbox small checked={user.notesTab} onChange={(e) => update.mutate({ notesTab: e.target.checked })} data-notes-tab />
-        Notes tab
-      </label>
-      <p className="text-xs text-stone-500">
-        {user.notesTab
-          ? "A Notes tab for notes of their own, on no task, with folders of their own."
-          : "No Notes tab. A task can still have its note."}
-      </p>
       {/* The dashboard's deadlines box: its tabs, its Per day, its colours. */}
       <DeadlineSettings />
       {/* Which notifications come, and when; and this device's switch. */}
@@ -332,8 +323,26 @@ export function UserPage() {
         Unlocks and news on the character
       </label>
       <p className="text-xs text-stone-500">The LEVEL UP box with what was unlocked, and the editor's Next up box with what's next. Off also hides the red dot.</p>
-      {/* How the app looks. */}
-      <h3 className="border-t-2 border-stone-300 pt-3 font-pixel text-xs text-stone-500 dark:border-stone-700">Theme</h3>
+      {/* How the app looks, and which tabs it has. */}
+      <h3 className="border-t-2 border-stone-300 pt-3 font-pixel text-xs text-stone-500 dark:border-stone-700">Theme and design</h3>
+      <label className="flex items-center gap-2 text-xs">
+        <PixelCheckbox small checked={user.notesTab} onChange={(e) => update.mutate({ notesTab: e.target.checked })} data-notes-tab />
+        Notes tab
+      </label>
+      <p className="text-xs text-stone-500">
+        {user.notesTab
+          ? "A Notes tab for notes of their own, on no task, with folders of their own."
+          : "No Notes tab. A task can still have its note."}
+      </p>
+      <label className="flex items-center gap-2 text-xs">
+        <PixelCheckbox small checked={user.newsTab ?? true} onChange={(e) => update.mutate({ newsTab: e.target.checked })} data-news-tab />
+        News tab
+      </label>
+      <p className="text-xs text-stone-500">
+        {(user.newsTab ?? true)
+          ? "A News tab: what's new in Donegeon, the devs' other projects and the story events."
+          : "No News tab."}
+      </p>
       <FontChoice
         label="Font in boxes"
         value={textFont(user.boxFont)}

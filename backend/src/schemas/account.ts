@@ -128,6 +128,7 @@ export const settings = z
     boxFont: z.enum(TEXT_FONTS),
     notesFont: z.enum(TEXT_FONTS),
     notesTab: z.boolean(),
+    newsTab: z.boolean(),
     boxColorEdit: z.boolean(),
     pointsOff: z.boolean(),
     /** null = no cap. */

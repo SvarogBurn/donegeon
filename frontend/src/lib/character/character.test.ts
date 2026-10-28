@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Completion, StatTask } from "../stats";
-import { compose, composeFace, FACE, FLOOR, HEIGHT, LIFT, WIDTH, type PartsData } from "./compose";
+import { compose, composeFace, FACE, FLOOR, HEIGHT, LIFT, type PartsData } from "./compose";
 import { expFor, levelOf, spanOf } from "./levels";
 import { BODIES, BODY_BY_ID, DEFAULT_LOOK, materialsWorn, type Body, type Look, type Material } from "./bodies";
 import facesData from "./faces.data.json";
@@ -131,7 +131,7 @@ const showing = (body: Body, material: Material) =>
 describe("bodies", () => {
   const data = partsData as unknown as PartsData;
 
-  it("each is a drawing in assets/character, with the layers its options name", () => {
+  it("each is a drawing in assets/character/body2, with the layers its options name", () => {
     for (const body of BODIES) {
       const drawing = data[body.file];
       expect(drawing, body.file).toBeDefined();
@@ -213,32 +213,6 @@ describe("bodies", () => {
     expect(fills({ ...mice, options: { top: "none" } })).not.toContain("#B88C58");
   });
 
-  it("draws the user's cat and the first deer as they were drawn until something else is picked", () => {
-    const at = (pixels: { x: number; y: number; w: number; fill: string }[]) => {
-      const out = new Map<string, string>();
-      for (const p of pixels) for (let i = 0; i < p.w; i++) out.set(`${p.x + i},${p.y}`, p.fill);
-      return [...out].sort().join();
-    };
-    for (const [id, old] of [["whitecat", "40x15_whitecat_user"], ["deer", "48x32_deer_v1"]]) {
-      // The old drawing as the app drew it: its visible layers but the drawn shadow, centred, lifted off the floor.
-      const drawing = data[old];
-      const dx = Math.floor((WIDTH - drawing.width) / 2);
-      const dy = HEIGHT - LIFT - drawing.height;
-      const before = drawing.layers.filter((l) => l.visible && l.name !== "shadow").flatMap((l) => l.runs.map(([x, y, w, fill]) => ({ x: x + dx, y: y + dy, w, fill })));
-      expect(at(compose({ v: 2, body: id, options: {}, colors: {} }, data)), id).toBe(at(before));
-    }
-  });
-
-  it("keeps every piece the user drew or changed in the bunny, the boar and the deer", () => {
-    const runs = (file: string, layer: string) => JSON.stringify(data[file].layers.find((l) => l.name === layer)?.runs);
-    const kept: [string, string, string[]][] = [
-      ["40x15_bunnyman_v2", "40x15_bunnyman_v4", ["back ear", "back ear up", "body", "bunny trousers", "bunny boots", "head", "ears", "ears up", "headwear", "headwear Copy", "hoodie", "shirt", "blouse"]],
-      ["48x32_boar_v3", "48x32_boar_v5", ["body", "boar shoes", "boar trousers", "boar apron", "boar ruff", "head", "headwear", "hoodie", "shirt", "dress", "coat", "shooes boots"]],
-      ["48x32_deer_v3", "48x32_deer_v4", ["overalls", "body", "head", "hair", "deer shirt", "deer shorts", "deer socks", "deer shoes", "deer scarf"]],
-    ];
-    for (const [before, after, layers] of kept) for (const layer of layers) expect(runs(after, layer), `${after} ${layer}`).toBe(runs(before, layer));
-  });
-
   it("puts the chosen thing in the hand of every body, the dragon's too", () => {
     const holders = BODIES.filter((body) => body.options?.some((o) => o.id === "held"));
     expect(holders).toEqual(BODIES);
@@ -280,7 +254,7 @@ describe("faces", () => {
   const withFace = BODIES.filter((body) => body.face);
   const fills = (look: Look) => composeFace(look, faces)!.map((p) => `${p.x},${p.y},${p.w}${p.fill}`).join();
 
-  it("each is a drawing in assets/character/faces, 21x21 at most, its layers named like its body's", () => {
+  it("each is a drawing in assets/character/body2/faces, 21x21 at most, its layers named like its body's", () => {
     expect(withFace).toEqual(BODIES);
     for (const body of withFace) {
       const drawing = faces[body.face!.file];

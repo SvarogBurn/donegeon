@@ -22,7 +22,7 @@ type Section = (typeof SECTIONS)[number][0];
 /**
  * Everything about the character, over the page, in three sections: its look (and title), the stats the
  * sheet shows, and its skills. Save keeps all of it but what is only tried on (locked); Cancel (or Esc) leaves the
- * character as it was. `trying` opens it with something new on. Under the tabs, a Next up box with what's next.
+ * character as it was. `trying` opens it with something new on. At the bottom, a Next up box with what's next.
  */
 export function CharacterEditor({ onClose, trying }: { onClose: () => void; trying?: Look }) {
   const { profile, look: savedLook, save } = useProfile();
@@ -86,6 +86,9 @@ export function CharacterEditor({ onClose, trying }: { onClose: () => void; tryi
             Save
           </button>
         </div>
+        {section === "look" && <LookSection look={look} setLook={setLook} draft={draft} set={set} username={user?.username ?? ""} unlocks={unlocks} toggleDevMode={toggleDevMode} />}
+        {section === "stats" && <StatsSection draft={draft} set={set} />}
+        {section === "skills" && <SkillsSection draft={draft} set={set} />}
         {goals.length > 0 && (
           <section className="space-y-1 border-2 border-stone-300 p-3 dark:border-stone-700" aria-label="Next up" data-next-goals>
             <h3 className="font-pixel text-xs text-stone-500">Next up:</h3>
@@ -96,9 +99,6 @@ export function CharacterEditor({ onClose, trying }: { onClose: () => void; tryi
             </ul>
           </section>
         )}
-        {section === "look" && <LookSection look={look} setLook={setLook} draft={draft} set={set} username={user?.username ?? ""} unlocks={unlocks} toggleDevMode={toggleDevMode} />}
-        {section === "stats" && <StatsSection draft={draft} set={set} />}
-        {section === "skills" && <SkillsSection draft={draft} set={set} />}
       </div>
     </div>,
     document.body,

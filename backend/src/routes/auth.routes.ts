@@ -35,6 +35,7 @@ const publicUser = (user: User) => ({
   boxFont: user.boxFont,
   notesFont: user.notesFont,
   notesTab: user.notesTab,
+  newsTab: user.newsTab,
   profile: user.profile,
   taskBar: user.taskBar,
   boxColors: user.boxColors,

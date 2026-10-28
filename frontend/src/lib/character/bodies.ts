@@ -1,5 +1,5 @@
-// The characters a user can be. Each is one of the user's own drawings in assets/character/ or, drawn since the
-// wardrobe came to the animals, assets/character/body2/ (exported to parts.data.json with `npm run parts`), whole, so
+// The characters a user can be. Each is one of the user's own drawings in assets/character/body2/, which holds only
+// the ones used here (exported to parts.data.json with `npm run parts`), whole, so
 // bodies can be as different as a bunny, a boar and a human. Every body but the dragon also has the human's clothes
 // drawn again on it, fitted to its build, under the human's layer names and hexes (`outfit`, `OUTFIT_MATERIALS`), its
 // own outfit first. What can change is listed here:
@@ -12,7 +12,7 @@
 // Coordinates are the file's own; a drawing smaller than the canvas is centred on it, its feet on the bottom row. A drawing is
 // at most 32x48 (32x52 if it is drawn out to its edges, `toEdge`).
 // Sizes are kept true to each other: one pixel is the same size on every body, so the human is drawn the tallest.
-// A body may have a face (assets/character/faces/, 21x21), shown in the task bar instead of the user icon: its layers
+// A body may have a face (assets/character/body2/faces/, 21x21), shown in the task bar instead of the user icon: its layers
 // are named like the body's, so the same choices show its hair, glasses and ears (a hat has no layer there, so it is
 // never shown), and the colours picked for the body recolour it.
 
@@ -43,7 +43,7 @@ export interface BodyOption {
 export interface Body {
   id: string;
   name: string;
-  /** Its file in assets/character/ or assets/character/body2/, without ".aseprite". */
+  /** Its file in assets/character/body2/, without ".aseprite". */
   file: string;
   /** Layers never drawn: the drawn shadow (the page draws one), drafts. */
   skip?: string[];
@@ -58,7 +58,7 @@ export interface Body {
 }
 
 export interface Face {
-  /** Its file in assets/character/faces/ or assets/character/body2/faces/, without ".aseprite". */
+  /** Its file in assets/character/body2/faces/, without ".aseprite". */
   file: string;
   /**
    * Its own materials, under the body's ids, where it is drawn in other hexes or on other layers than the body; else
@@ -635,6 +635,49 @@ export const BODIES: Body[] = ([
       { id: "coat", name: "Trenchcoat", hexes: ["#B88C58", "#A97B45", "#D8AA74", "#8B602F", "#644017", "#A2743F", "#8F7144"], layers: ["mice coat"] },
       { id: "hat", name: "Hat", hexes: ["#2A2630", "#3E3846", "#55505E"], layers: ["mice hat"] },
       { id: "shoes", name: "Shoes", hexes: ["#3A2C1E"], layers: ["body"] },
+    ],
+  },
+  {
+    id: "duck",
+    name: "Duck",
+    // The user's duck (2026-10-28, from their duck-default.svg), seen from the side, the human's clothes fitted to it in
+    // v4-v8 (every held thing and both canes in its beak). v10 is the user's own, used as they drew it: smaller, on a
+    // 30x38 canvas (what reached past it in Aseprite is cut off, as there), one eye ("eyes 2", the brow on the body),
+    // and of the shared wardrobe only what they kept: no trousers, plain socks, flats, choker, fedora or top hat.
+    file: "48x32_duck_v10",
+    // Its face (v11) is the head and cap of the user's poses/48x32_duck_wave_v2, front on (the cap only while it wears it).
+    face: {
+      file: "21x21_duck_face_v11",
+      materials: [
+        { id: "fur", name: "Feathers", hexes: ["#60CCF2", "#0091D4"], layers: ["head"] },
+        { id: "eyes", name: "Eyes", hexes: ["#303B70"], layers: ["eyes 2"] },
+        { id: "markings", name: "Beak & feet", hexes: ["#F58431", "#B54E36"], layers: ["head"] },
+        { id: "hat", name: "Cap", hexes: ["#F58431"], layers: ["duck cap"] },
+        { id: "visor", name: "Visor", hexes: ["#303B70"], layers: ["duck cap"] },
+        FACE_GLASSES,
+      ],
+    },
+    options: outfit({
+      hat: [{ id: "own", name: "Cap", layers: ["duck cap"] }, ...HATS.slice(0, 2)],
+      top: [NONE()],
+      scarf: [{ id: "own", name: "Whistle", layers: ["duck whistle"] }],
+      bottoms: [NONE()],
+      socks: "none",
+      shoes: [{ id: "own", name: "Sneakers", layers: ["duck shoes"] }],
+      without: ["trousers", "socks", "shoes flats", "neckwear choker", "headwear fedora", "top hat"],
+    }),
+    materials: [
+      { id: "eyes", name: "Eyes", hexes: ["#303B70"], layers: ["eyes 2"] },
+      { id: "fur", name: "Feathers", hexes: ["#60CCF2", "#0091D4"], layers: ["body"] },
+      { id: "markings", name: "Beak & feet", hexes: ["#F58431", "#B54E36"], layers: ["body"] },
+      { id: "legs", name: "Legs", hexes: ["#303B70"], layers: ["body"], rows: [29, 37] },
+      { id: "hat", name: "Cap", hexes: ["#F58431"], layers: ["duck cap"] },
+      { id: "visor", name: "Visor", hexes: ["#303B70"], layers: ["duck cap"] },
+      { id: "scarf", name: "Whistle", hexes: ["#F58431"], layers: ["duck whistle"] },
+      { id: "cord", name: "Cord", hexes: ["#5C6699", "#303B70"], layers: ["duck whistle"] },
+      // The light blue stripe and the orange's shade stay as drawn.
+      { id: "shoes", name: "Sneakers", hexes: ["#F58431"], layers: ["duck shoes"] },
+      { id: "soles", name: "Soles", hexes: ["#303B70"], layers: ["duck shoes"] },
     ],
   },
   {

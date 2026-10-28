@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { folderOrder, moveItem, resolveTaskBar } from "./taskBar";
 
-const DEFAULT = { left: ["tasks", "stats", "calendar", "notes"], right: ["points", "user", "clock"] };
+const DEFAULT = { left: ["tasks", "stats", "calendar", "notes", "news"], right: ["points", "user", "clock"] };
 
 describe("resolveTaskBar", () => {
   it("is the usual bar when nothing was saved, the folders after the pages", () => {
@@ -15,30 +15,35 @@ describe("resolveTaskBar", () => {
   });
 
   it("keeps the saved order and sides", () => {
-    const saved = { left: ["clock", "tasks", "folder:a"], right: ["stats", "calendar", "notes", "points", "user"] };
+    const saved = { left: ["clock", "tasks", "folder:a"], right: ["stats", "calendar", "notes", "news", "points", "user"] };
     expect(resolveTaskBar(saved, ["a"])).toEqual(saved);
   });
 
   it("drops unknown items, repeats and folders that are gone", () => {
     const saved = { left: ["tasks", "nope", "folder:gone", "tasks", "folder:a"], right: ["clock"] };
-    expect(resolveTaskBar(saved, ["a"]).left).toEqual(["tasks", "folder:a", "stats", "calendar", "notes"]);
+    expect(resolveTaskBar(saved, ["a"]).left).toEqual(["tasks", "folder:a", "stats", "calendar", "notes", "news"]);
   });
 
   it("puts a missing page back on its usual side", () => {
     const saved = { left: ["user"], right: ["tasks"] };
-    expect(resolveTaskBar(saved, [])).toEqual({ left: ["user", "stats", "calendar", "notes"], right: ["tasks", "points", "clock"] });
+    expect(resolveTaskBar(saved, [])).toEqual({ left: ["user", "stats", "calendar", "notes", "news"], right: ["tasks", "points", "clock"] });
+  });
+
+  it("gives a bar saved before News its tab at the end of the left side", () => {
+    const saved = { left: ["tasks", "stats", "calendar", "notes", "folder:a"], right: ["points", "user", "clock"] };
+    expect(resolveTaskBar(saved, ["a"]).left).toEqual([...saved.left, "news"]);
   });
 
   it("puts a new folder at the end of the left side", () => {
-    const saved = { left: ["tasks", "stats", "calendar", "notes"], right: ["folder:a", "points", "user", "clock"] };
+    const saved = { left: ["tasks", "stats", "calendar", "notes", "news"], right: ["folder:a", "points", "user", "clock"] };
     expect(resolveTaskBar(saved, ["a", "b"])).toEqual({ ...saved, left: [...saved.left, "folder:b"] });
   });
 
   it("fills the folders' places in their own order", () => {
     // Reordered elsewhere (the installed app's strip): b now comes before a.
-    const saved = { left: ["tasks", "folder:a", "stats", "calendar", "notes"], right: ["points", "folder:b", "user", "clock"] };
+    const saved = { left: ["tasks", "folder:a", "stats", "calendar", "notes", "news"], right: ["points", "folder:b", "user", "clock"] };
     expect(resolveTaskBar(saved, ["b", "a"])).toEqual({
-      left: ["tasks", "folder:b", "stats", "calendar", "notes"],
+      left: ["tasks", "folder:b", "stats", "calendar", "notes", "news"],
       right: ["points", "folder:a", "user", "clock"],
     });
   });

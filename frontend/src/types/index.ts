@@ -1,4 +1,5 @@
 import type { DeadlineToday, FeedbackKind, ListKind, RepeatUnit, TextFont, TickedTasks } from "../../../shared/enums";
+import type { EventState } from "../../../shared/events";
 
 // The fixed choices are shared with the server (shared/enums.ts).
 export type { DeadlineToday, FeedbackKind, ListKind, RepeatUnit, TextFont, TickedTasks };
@@ -27,6 +28,8 @@ export interface User {
   notesFont?: TextFont;
   /** Whether the Notes tab (notes of their own, on no task) is shown; off by default. */
   notesTab: boolean;
+  /** Whether the News tab (the newspaper) is shown; on by default. Missing in an account kept on the device from before (= on). */
+  newsTab?: boolean;
   /** The character at the top of the user's page as saved; null = the defaults. Read it with normalizeProfile (lib/character/profile.ts). */
   profile: unknown;
   /** The task bar's items in the user's own order, each side of the logo, as saved; null = the default. Read it with resolveTaskBar (lib/taskBar.ts). */
@@ -44,6 +47,24 @@ export interface User {
 }
 
 /** A message from the suggestion box, as a developer's inbox shows it. */
+/** A story written for one of the newspaper's story events (news/events/). */
+export interface Story {
+  id: string;
+  title: string;
+  /** In the markup of a note. */
+  text: string;
+  words: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** An event's page: the user's own story, and once the event is closed everyone's, with who wrote them. */
+export interface EventStories {
+  state: EventState;
+  mine: Story | null;
+  stories: (Story & { username: string })[];
+}
+
 export interface FeedbackLetter {
   id: string;
   /** Who sent it. */

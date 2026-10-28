@@ -8,6 +8,8 @@ export interface Title {
   id: string;
   name: string;
   rules: Rule[];
+  /** How it was earned, in a sentence, shown under it in the editor. */
+  how: string;
   /** A rank: the default title is the highest one earned. */
   rank?: boolean;
 }
@@ -36,13 +38,21 @@ const DEEDS: [string, string, Rule][] = [
   ["herald", "Herald", { mail: 1 }],
 ];
 
+/** How a deed's title was earned. */
+function howOf(rule: Rule) {
+  if ("streak" in rule) return `Kept up a ${rule.streak}-day streak.`;
+  if ("onTime" in rule) return `Met ${rule.onTime} deadlines.`;
+  if ("mail" in rule) return rule.mail === 1 ? "Sent a mail to the devs." : `Sent ${rule.mail} mails to the devs.`;
+  return "";
+}
+
 export const TITLES: Title[] = [
-  ...RANKS.map(([level, name]): Title => ({ id: `rank:${name.toLowerCase().replaceAll(" ", "-")}`, name, rules: [{ level }], rank: true })),
-  ...DEEDS.map(([id, name, rule]): Title => ({ id, name, rules: [rule] })),
+  ...RANKS.map(([level, name]): Title => ({ id: `rank:${name.toLowerCase().replaceAll(" ", "-")}`, name, rules: [{ level }], how: level <= 1 ? "Where everyone starts." : `Reached Lv ${level}.`, rank: true })),
+  ...DEEDS.map(([id, name, rule]): Title => ({ id, name, rules: [rule], how: howOf(rule) })),
 ];
 
 /** Back after 7 days or more with nothing done. */
-const RETURNER: Title = { id: "returner", name: "Returner", rules: [] };
+const RETURNER: Title = { id: "returner", name: "Returner", rules: [], how: "Came back after 7 days or more with nothing done." };
 
 /** A skill's titles: [level, the word before "of <skill>"]. */
 const SKILL_TITLES: [number, string][] = [
@@ -56,7 +66,7 @@ export function earnedTitles(p: Progress): Title[] {
   if (p.returned) titles.push(RETURNER);
   for (const skill of p.skills) {
     for (const [level, word] of SKILL_TITLES) {
-      if (skill.level >= level) titles.push({ id: `${word.toLowerCase()}:${skill.key}`, name: `${word} of ${skill.name}`, rules: [] });
+      if (skill.level >= level) titles.push({ id: `${word.toLowerCase()}:${skill.key}`, name: `${word} of ${skill.name}`, rules: [], how: `Got ${skill.name} to Lv ${level}.` });
     }
   }
   return titles;

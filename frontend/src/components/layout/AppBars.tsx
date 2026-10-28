@@ -105,7 +105,7 @@ export function AppBars({ user }: { user: User }) {
         className={`${BAR} app-bar-fill top-0 border-b pt-[env(safe-area-inset-top)] ${isHidden ? "-translate-y-full" : ""}`}
         data-bar-hidden={isHidden || undefined}
       >
-        <div className={`flex items-center gap-2 py-1 pr-3 ${user.notesTab ? "" : "pl-1"}`}>
+        <div className={`flex items-center gap-2 py-1 pr-3 ${user.notesTab || (user.newsTab ?? true) ? "" : "pl-1"}`}>
           {isSearching ? (
             <SiteSearch
               inBar
@@ -115,10 +115,15 @@ export function AppBars({ user }: { user: User }) {
             />
           ) : (
             <>
-              {/* Notes stays at the far left, just its icon (when the setting shows it); the folders after it scroll sideways in one row. */}
+              {/* Notes and News stay at the far left, just their icons (when the settings show them); the folders after them scroll sideways in one row. */}
               {user.notesTab && (
                 <NavLink to="/notes" className={(state) => `${folderTab(state)} flex-none`} aria-label="Notes" title="Notes">
                   <span className="tab-icon tab-icon-notes-small" aria-hidden />
+                </NavLink>
+              )}
+              {(user.newsTab ?? true) && (
+                <NavLink to="/news" className={(state) => `${folderTab(state)} flex-none`} aria-label="News" title="News">
+                  <span className="tab-icon tab-icon-news !size-[21px] !bg-size-[19px]" aria-hidden />
                 </NavLink>
               )}
               <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]" aria-label="Folders">

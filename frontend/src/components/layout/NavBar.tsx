@@ -126,6 +126,14 @@ function TaskBar({ user }: { user: User }) {
           </NavLink>
         );
         break;
+      case "news":
+        content = (user.newsTab ?? true) && (
+          <NavLink to="/news" className={tab} aria-label="News" title={`News: what's new, our projects and the story events. ${DRAG_HINT}`} draggable={false}>
+            <span className="tab-icon tab-icon-news" aria-hidden />
+            News
+          </NavLink>
+        );
+        break;
       case "points":
         // The balance, laid out like a tab: a big number where the icon would be, "pts" underneath. None while the points system is off.
         content = !user.pointsOff && points && (

@@ -104,6 +104,8 @@ model User {
   notesFont       TextFont @default(pixel)
   // Whether the Notes tab (notes of their own, on no task) is shown in the task bar / the app's top strip.
   notesTab        Boolean  @default(false)
+  // Whether the News tab (the newspaper: what's new, the projects, the story events) is shown; on by default.
+  newsTab         Boolean  @default(true)
   // The character at the top of the user's page: its name and title, the stats and skills it shows, and how it looks
   // (see frontend/src/lib/character/profile.ts). null = the defaults.
   profile         Json?
@@ -130,6 +132,7 @@ model User {
   pointTransactions PointTransaction[]
   taskCompletions   TaskCompletion[]
   feedback          Feedback[]
+  stories           Story[]
   notes             Note[]
   noteFolders       NoteFolder[]
   pushSubscriptions PushSubscription[]
@@ -364,6 +367,24 @@ model Feedback {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// A story written for one of the newspaper's story events (news/events/<eventId>.md): one per user and event, written
+// and changed while the event is open, read by everyone once it is closed.
+model Story {
+  id        String   @id @default(uuid())
+  userId    String
+  eventId   String
+  title     String
+  text      String
+  words     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@index([eventId])
 }
 
 // A note of its own, not on any task: written on the Notes page. It can sit in one of the Notes page's folders

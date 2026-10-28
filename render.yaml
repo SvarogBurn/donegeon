@@ -11,7 +11,10 @@ services:
     region: frankfurt
     # The migrations run here, once per deploy, not at every start: the free plan sleeps when idle and starts again on
     # the next visit, and loading Prisma's command line on its tenth of a CPU made every wake-up seconds longer.
+    # The News page's changelog is the git log, read by the frontend's build: a shallow clone is deepened first (the
+    # repo is public, so no credentials), and without git the build goes on with an empty changelog.
     buildCommand: >-
+      ((git rev-parse --is-shallow-repository | grep -q true && git fetch --unshallow) || true) &&
       (cd frontend && npm ci --include=dev && npm run build) &&
       (cd backend && npm ci --include=dev && npx prisma generate && npm run build && npx prisma migrate deploy)
     # Node itself, without npm in front (npm start would be the same, a little slower to start).

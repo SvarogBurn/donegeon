@@ -18,7 +18,7 @@ export const folderKey = (id: string) => `${FOLDER}${id}`;
 export const folderOfKey = (key: string) => (key.startsWith(FOLDER) ? key.slice(FOLDER.length) : null);
 
 /** The bar as it always was: the pages at the left (the folders after them), the points, account and clock at the right. */
-const DEFAULT: TaskBarLayout = { left: ["tasks", "stats", "calendar", "notes"], right: ["points", "user", "clock"] };
+const DEFAULT: TaskBarLayout = { left: ["tasks", "stats", "calendar", "notes", "news"], right: ["points", "user", "clock"] };
 const BUILT_IN = new Set([...DEFAULT.left, ...DEFAULT.right]);
 
 const isKeys = (value: unknown): value is string[] => Array.isArray(value) && value.every((key) => typeof key === "string");
@@ -27,8 +27,8 @@ const isKeys = (value: unknown): value is string[] => Array.isArray(value) && va
  * What the bar shows, from what was saved (anything, or null) and the folders in their own order. Items it doesn't
  * know and folders that are gone are left out; a page missing from it goes back to its usual side, and a folder not
  * yet placed goes at the end of the left, where a new one appears. The folders fill the places the layout has for
- * folders in their own order (Folder.position), the order the installed app's strip shows them in too. Notes is
- * kept even while its tab is off, so it comes back where it was.
+ * folders in their own order (Folder.position), the order the installed app's strip shows them in too. Notes and News
+ * are kept even while their tab is off, so they come back where they were.
  */
 export function resolveTaskBar(saved: unknown, folderIds: string[]): TaskBarLayout {
   const raw = saved as Partial<TaskBarLayout> | null;

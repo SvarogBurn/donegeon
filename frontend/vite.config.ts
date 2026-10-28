@@ -1,18 +1,81 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { SassString } from "sass";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 const nesRoot = path.dirname(createRequire(import.meta.url).resolve("nes.css/package.json"));
+
+/**
+ * `virtual:git-log`: the repo's commits as the app is built, newest first ([{ hash, date, subject }]), which the News
+ * page makes its changelog of (lib/news.ts). Without git (or a repo) it is empty, and the page says so. In dev a
+ * commit reloads it, and the news/ folder (outside the app's root, so not watched by itself) is watched for its files.
+ */
+function gitLog(): Plugin {
+  const id = "virtual:git-log";
+  const repo = fileURLToPath(new URL("..", import.meta.url));
+  const head = path.join(repo, ".git", "logs", "HEAD");
+  return {
+    name: "git-log",
+    configureServer(server) {
+      const news = path.join(repo, "news");
+      server.watcher.add([news, head]);
+      // A commit, or a file of news/ added, changed or taken away: the modules made from them are made again.
+      const reload = (file: string) => {
+        const made = file === head ? [server.moduleGraph.getModuleById(`\0${id}`)] : file.startsWith(news) ? [...server.moduleGraph.idToModuleMap.values()].filter((found) => found.id?.includes("/src/lib/newsContent.ts") || found.id?.startsWith(news)) : [];
+        if (made.length === 0) return;
+        for (const found of made) if (found) server.moduleGraph.invalidateModule(found);
+        server.ws.send({ type: "full-reload" });
+      };
+      server.watcher.on("change", reload);
+      server.watcher.on("add", reload);
+      server.watcher.on("unlink", reload);
+    },
+    resolveId: (source) => (source === id ? `\0${id}` : null),
+    load(loaded) {
+      if (loaded !== `\0${id}`) return null;
+      let commits: { hash: string; date: string; subject: string }[] = [];
+      try {
+        const out = execFileSync("git", ["log", "--no-merges", "--format=%h%x1f%ad%x1f%s", "--date=short"], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+        commits = out.split("\n").filter(Boolean).map((line) => {
+          const [hash, date, subject] = line.split("\x1f");
+          return { hash, date, subject };
+        });
+      } catch {
+        // No git here: no changelog.
+      }
+      return `export default ${JSON.stringify(commits)};`;
+    },
+  };
+}
+
+/**
+ * A new export of the characters (`npm run parts`) while the app is open reloads the page. The sprite and the face keep
+ * their pixels once loaded, so the data swapped in place left them drawing the old ones: a body moved to a new file
+ * (the duck's v4 to v5) drew nothing until a reload.
+ */
+function characterData(): Plugin {
+  return {
+    name: "character-data",
+    handleHotUpdate({ file, server }) {
+      if (!/\/lib\/character\/(parts|faces)\.data\.json$/.test(file)) return;
+      server.ws.send({ type: "full-reload" });
+      return [];
+    },
+  };
+}
 
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    gitLog(),
+    characterData(),
     // A service worker keeps the built app on the phone, so it opens with no connection (the data comes from the
     // query cache kept in IndexedDB, see main.tsx), and shows pushed notifications. It never answers /api. A deploy
     // reaches the phone on its next open: the new worker takes over and the page reloads into it (see main.tsx). Not in dev.

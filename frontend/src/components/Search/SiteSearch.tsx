@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
-import { useNotesTab, usePointsOff } from "../../hooks/useAuth";
+import { useNewsTab, useNotesTab, usePointsOff } from "../../hooks/useAuth";
 import { useFolders } from "../../hooks/folders";
 import { useGoals, useTags } from "../../hooks/labels";
 import { useLists } from "../../hooks/lists";
@@ -26,6 +26,7 @@ const PLACES: [title: string, path: string, tile: string | null, words?: string]
   ["Done", "/done", null, "finished history log"],
   ["Notes", "/notes", null, "note write jot memo"],
   ["Points", "/points", null, "balance history rewards"],
+  ["News", "/news", null, "newspaper changelog updates what's new projects stories events community"],
   ["Account", "/user", null, "user settings log out password feedback tutorial cheat sheet shortcuts keyboard syntax help"],
   ["Today", "/", "today"],
   ["Goals", "/", "goals"],
@@ -101,8 +102,9 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false, autoFocus = fal
   const { data: notesData } = useNotes();
   // Without the Notes tab, neither the page nor the notes are found.
   const notesTab = useNotesTab();
-  // Nor the Points page and box while the points system is off.
+  // Nor the Points page and box while the points system is off, nor News without its tab.
   const pointsOff = usePointsOff();
+  const newsTab = useNewsTab();
   // What the Tasks page shows: a task that is in here can be gone to.
   const { data: trees = [] } = useTaskTrees();
 
@@ -117,7 +119,7 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false, autoFocus = fal
   const places: Hit[] = !typed
     ? []
     : [
-        ...PLACES.filter(([title, path, key, words]) => (notesTab || path !== "/notes") && !(pointsOff && (path === "/points" || (path === "/stats" && key === "points"))) && has(title, words)).map(([title, path, key]) => ({
+        ...PLACES.filter(([title, path, key, words]) => (notesTab || path !== "/notes") && (newsTab || path !== "/news") && !(pointsOff && (path === "/points" || (path === "/stats" && key === "points"))) && has(title, words)).map(([title, path, key]) => ({
           key: `place:${path}:${key ?? ""}`,
           title,
           kind: key === null ? "Page" : `Box on ${path === "/" ? "Tasks" : "Stats"}`,

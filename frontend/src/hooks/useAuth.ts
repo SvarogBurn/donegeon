@@ -83,6 +83,11 @@ export function useNotesTab(): boolean {
   return useMe().user?.notesTab ?? false;
 }
 
+/** Whether the News tab is shown; on unless switched off on the user's page. */
+export function useNewsTab(): boolean {
+  return useMe().user?.newsTab ?? true;
+}
+
 /** Whether the points system is switched off on the user's page: no points shown, earned or spent. */
 export function usePointsOff(): boolean {
   return useMe().user?.pointsOff ?? false;

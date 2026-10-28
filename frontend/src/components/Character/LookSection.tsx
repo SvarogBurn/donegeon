@@ -32,7 +32,7 @@ function LockGlyph() {
   );
 }
 
-/** ◀ name ▶: steps through `options`, round. A locked one can be tried on: it shows a padlock and what it waits for ("" says nothing). */
+/** ◀ name ▶: steps through `options`, round. A locked one can be tried on: it shows a padlock and what it waits for. */
 function Stepper({ label, options, value, onChange, name }: { label: string; options: { id: string; name: string; locked?: string }[]; value: string; onChange: (id: string) => void; name: string }) {
   const at = Math.max(0, options.findIndex((o) => o.id === value));
   const step = (by: number) => onChange(options[(at + by + options.length) % options.length].id);
@@ -48,7 +48,7 @@ function Stepper({ label, options, value, onChange, name }: { label: string; opt
           {options[at]?.name}
         </span>
         {locked !== undefined && (
-          <span className="block truncate text-xs text-amber-700 dark:text-amber-400" title={locked ? `Unlocks at ${locked}` : "Not yet discovered"} data-stepper-lock>
+          <span className="block truncate text-xs text-amber-700 dark:text-amber-400" title={`Unlocks at ${locked}`} data-stepper-lock>
             <LockGlyph /> {locked}
           </span>
         )}
@@ -130,13 +130,14 @@ function randomLook(unlocks: Unlocks): Look {
  * The Look section of the character editor: the title (picked among the earned ones; the name is the username), the
  * character big, changing as things are picked (in sight while colours further down are picked); a row for the body
  * (each one of the user's drawings, whole), a row for each piece that body can change, and a colour row for each
- * material of what it has on. Locked pieces can be tried on, with what they wait for; a body not yet discovered is
- * only a grey silhouette called "???", without its rows and colours (their names would give it away). Save leaves
+ * material of what it has on, and under the title how it was earned. Locked pieces can be tried on, with what they wait for; a body not yet discovered is
+ * only a grey silhouette called "???" with what unlocks it, without its rows and colours (their names would give it away). Save leaves
  * whatever is locked off. Seven quick taps on the character switch the hidden dev mode (everything unlocked) on or off.
  */
 export function LookSection({ look, setLook, draft, set, username, unlocks, toggleDevMode }: SectionProps & { look: Look; setLook: (update: (look: Look) => Look) => void; username: string; unlocks: Unlocks; toggleDevMode: () => void }) {
   const body = bodyOf(look);
   const titles = earnedTitles(unlocks.progress);
+  const title = shownTitle(draft.title, unlocks.progress);
   const locked = lockedIn(look, unlocks);
   const lockText = (reward: Reward | null) => (reward ? requirementOf(reward) : undefined);
   const undiscovered = Boolean(bodyLock(unlocks, body.id));
@@ -178,7 +179,10 @@ export function LookSection({ look, setLook, draft, set, username, unlocks, togg
       </div>
       <div className="w-full min-w-0 flex-1 space-y-4">
         <div className="space-y-1">
-          <Stepper label="Title" name="title" options={titles} value={shownTitle(draft.title, unlocks.progress).id} onChange={(id) => set({ title: id })} />
+          <Stepper label="Title" name="title" options={titles} value={title.id} onChange={(id) => set({ title: id })} />
+          <p className="text-xs text-stone-500" data-title-how>
+            {title.how}
+          </p>
           <p className="text-xs text-stone-500" data-title-count={titles.length}>
             {titles.length === 1 ? "1 title earned" : `${titles.length} titles earned`}
           </p>
@@ -187,7 +191,7 @@ export function LookSection({ look, setLook, draft, set, username, unlocks, togg
           <Stepper
             label="Body"
             name="body"
-            options={BODIES.map((b) => (bodyLock(unlocks, b.id) ? { id: b.id, name: "???", locked: "" } : { id: b.id, name: b.name }))}
+            options={BODIES.map((b) => ({ id: b.id, name: bodyLock(unlocks, b.id) ? "???" : b.name, locked: lockText(bodyLock(unlocks, b.id)) }))}
             value={body.id}
             onChange={setBody}
           />
@@ -202,9 +206,9 @@ export function LookSection({ look, setLook, draft, set, username, unlocks, togg
                 onChange={(id) => setOption(option.id, id)}
               />
             ))}
-          {locked.length > 0 && (
+          {locked.length > 0 && !undiscovered && (
             <p className="text-xs text-amber-700 dark:text-amber-400" data-locked-note>
-              <LockGlyph /> {undiscovered ? "Not yet discovered: Save keeps the body you have." : `Only tried on, not kept when saved: ${locked.map((r) => `${r.name} (${requirementOf(r)})`).join(", ")}`}
+              <LockGlyph /> Only tried on, not kept when saved: {locked.map((r) => `${r.name} (${requirementOf(r)})`).join(", ")}
             </p>
           )}
         </div>

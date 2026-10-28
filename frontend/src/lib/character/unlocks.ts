@@ -107,6 +107,8 @@ const BODY_RULES: [string, Rule[]][] = [
   ["whitecat", [{ onTimeRun: 20 }]],
   // Stubborn: the hard deadlines' pace kept for a month.
   ["boar", [{ steady: true }]],
+  // Gets its ducks in a row: a week's streak.
+  ["duck", [{ streak: 7 }]],
   ["dragon", [{ level: 30 }, { streak: 100 }]],
 ];
 
