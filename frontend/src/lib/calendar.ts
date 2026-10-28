@@ -63,7 +63,7 @@ export function daysFrom(from: string, to: string) {
 /**
  * What there is to do, by day, from today to `until`: tasks on the day of their deadline (those whose
  * deadline has passed, on today), tasks on a schedule on the day they are due and on the rounds after it,
- * and on today whatever is marked for Today. A task is on a day once, for the first of these that holds.
+ * and whatever is marked for Today on the day it is marked for (today, or one to come). A task is on a day once, for the first of these that holds.
  * A ticked task stays on its day as long as the lists still show it; nothing is on a day before today.
  */
 export function planByDay(trees: TaskTreeNode[], today: string, until: string): Map<string, PlanItem[]> {
@@ -91,8 +91,9 @@ export function planByDay(trees: TaskTreeNode[], today: string, until: string): 
           const at = movedDay(node, day);
           if (at > first) put(at, { ...item, kind: "round" });
         }
-      } else if (node.todaySince !== null && (!node.isComplete || node.completedOn === today)) {
-        put(today, { ...item, kind: "today" });
+      } else if (node.todaySince !== null && node.todaySince >= today && (!node.isComplete || node.completedOn === today)) {
+        // Marked for today, or for a day to come; one left on a day gone by is in the bell.
+        put(node.todaySince, { ...item, kind: "today" });
       }
       // Subtasks left open inside a finished main task went to the Done page with it.
       if (!(isMain && node.isComplete)) visit(node.children, [...path, plainFirstLine(node.title)], inList, pageId);

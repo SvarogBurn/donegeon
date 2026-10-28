@@ -279,15 +279,6 @@ export function UserPage() {
       </label>
       <p className="text-xs text-stone-500">{DEADLINE_TODAY_NOTES[user.deadlineToday]}</p>
       <SwitchedAmount
-        label="Points cap"
-        value={user.pointsCap}
-        first={100}
-        onSave={(pointsCap) => update.mutate({ pointsCap })}
-        amountLabel="The most points you can hold"
-        name="points-cap"
-        note={capNote}
-      />
-      <SwitchedAmount
         label="Break reminder"
         value={user.breakEvery}
         first={5}
@@ -305,6 +296,32 @@ export function UserPage() {
           ? "A Notes tab for notes of their own, on no task, with folders of their own."
           : "No Notes tab. A task can still have its note."}
       </p>
+      {/* The dashboard's deadlines box: its tabs, its Per day, its colours. */}
+      <DeadlineSettings />
+      {/* Which notifications come, and when; and this device's switch. */}
+      <NotificationSettings />
+      {/* The game around the tasks: the points, and the character's news. */}
+      <h3 className="border-t-2 border-stone-300 pt-3 font-pixel text-xs text-stone-500 dark:border-stone-700">Gamification</h3>
+      <label className="flex items-center gap-2 text-xs">
+        <PixelCheckbox small checked={!user.pointsOff} onChange={(e) => update.mutate({ pointsOff: !e.target.checked })} data-points-system />
+        Points
+      </label>
+      <p className="text-xs text-stone-500">
+        {user.pointsOff
+          ? "No points: tasks earn nothing, rewards cost nothing and nothing is capped. Your balance waits as it was for when you switch them back on."
+          : "Tasks earn points and rewards cost them. Your balance is in the task bar."}
+      </p>
+      {!user.pointsOff && (
+        <SwitchedAmount
+          label="Points cap"
+          value={user.pointsCap}
+          first={100}
+          onSave={(pointsCap) => update.mutate({ pointsCap })}
+          amountLabel="The most points you can hold"
+          name="points-cap"
+          note={capNote}
+        />
+      )}
       <label className="flex items-center gap-2 text-xs">
         <PixelCheckbox small checked={!profile.hideDot} onChange={(e) => saveProfile({ ...profile, hideDot: !e.target.checked || undefined })} data-character-dot />
         New things dot
@@ -314,11 +331,7 @@ export function UserPage() {
         <PixelCheckbox small checked={!profile.hideNews} onChange={(e) => saveProfile({ ...profile, hideNews: !e.target.checked || undefined })} data-character-news />
         Unlocks and news on the character
       </label>
-      <p className="text-xs text-stone-500">The LEVEL UP box with what was unlocked, and the News box with what's next. Off also hides the red dot.</p>
-      {/* The dashboard's deadlines box: its tabs, its Per day, its colours. */}
-      <DeadlineSettings />
-      {/* Which notifications come, and when; and this device's switch. */}
-      <NotificationSettings />
+      <p className="text-xs text-stone-500">The LEVEL UP box with what was unlocked, and the editor's Next up box with what's next. Off also hides the red dot.</p>
       {/* How the app looks. */}
       <h3 className="border-t-2 border-stone-300 pt-3 font-pixel text-xs text-stone-500 dark:border-stone-700">Theme</h3>
       <FontChoice

@@ -54,7 +54,7 @@ export interface Profile {
   look?: Look;
   /** No red dot on the task bar's face when something new is earned (the user page's Settings). */
   hideDot?: boolean;
-  /** No Unlocked box (LEVEL UP!) and no News box on the sheet; the dot goes with them, as nothing would clear it. */
+  /** No Unlocked box (LEVEL UP!) on the sheet and no Next up box in the editor; the dot goes with them, as nothing would clear it. */
   hideNews?: boolean;
 }
 

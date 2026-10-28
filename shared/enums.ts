@@ -30,9 +30,10 @@ export type FeedbackKind = (typeof FEEDBACK_KINDS)[number];
 
 /**
  * What a notification is about: one of the user's reminders, a hard deadline coming, a deadline gone by, the week's
- * recap (its text written by the server when it is sent), a reminder snoozed, and the test sent from the settings.
+ * recap (its text written by the server when it is sent), tasks left undone in Today or Week, a reminder snoozed, and
+ * the test sent from the settings.
  */
-export const NOTIFICATION_KINDS = ["reminder", "deadline", "passed", "recap", "snooze", "test"] as const;
+export const NOTIFICATION_KINDS = ["reminder", "deadline", "passed", "recap", "undone", "snooze", "test"] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
 /**
@@ -41,3 +42,7 @@ export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
  */
 export const REMINDER_KINDS = ["today", "open", "tomorrow", "nextWeek", "recap", "deadlines", "text"] as const;
 export type ReminderKind = (typeof REMINDER_KINDS)[number];
+
+/** What the bell lists: everything (the reminders and deadline notices too, once their time has come today), or only what needs an answer. */
+export const BELL_SHOWS = ["all", "actions"] as const;
+export type BellShows = (typeof BELL_SHOWS)[number];

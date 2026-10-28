@@ -1,7 +1,8 @@
-import { daysBetween } from "../../../../shared/dates";
+import { useEffect, useState } from "react";
 import { useDeadlineToday } from "../../hooks/useAuth";
 import { localDate } from "../../lib/clock";
-import { livesInToday, todayItems, weekDays } from "../../lib/week";
+import { readNotToday, saveNotToday } from "../../lib/notifications";
+import { isMarkedFor, livesInToday, todayItems, weekDays } from "../../lib/week";
 import type { TaskTreeNode } from "../../types";
 import { TaskForm } from "../TaskTree/TaskForm";
 import { TaskTree } from "../TaskTree/TaskNode";
@@ -14,8 +15,17 @@ export function TodayTab({ tasks }: { tasks: TaskTreeNode[] }) {
   const { ticked } = useTree();
   const today = localDate();
   const deadlines = useDeadlineToday();
-  const items = todayItems(tasks, today, ticked, deadlines);
-  const own = tasks.filter((task) => livesInToday(task) && (!task.isComplete || (ticked !== "hide" && task.completedOn === today)));
+  // What came in by itself and was taken out for the day, on this device.
+  const [notToday, setNotToday] = useState(() => readNotToday(today));
+  useEffect(() => setNotToday(readNotToday(today)), [today]);
+  const items = todayItems(tasks, today, ticked, deadlines).filter((item) => !(item.auto && notToday.has(item.node.id)));
+  const takeOut = (id: string) => {
+    const next = new Set([...notToday, id]);
+    setNotToday(next);
+    saveNotToday(today, next);
+  };
+  // Written straight into Today: there on the day it is marked for; left open, the bell asks about it after.
+  const own = tasks.filter((task) => livesInToday(task) && (task.isComplete ? ticked !== "hide" && task.completedOn === today : isMarkedFor(task, today)));
   const left = [...items.map((item) => item.node), ...own].filter((node) => !node.isComplete && !node.isPersistent).length;
   // Under the day's tasks, the bin of what was put off to next week, as at the bottom of the Week tab.
   const putOff = weekDays(tasks, today, ticked, deadlines).find((day) => day.nextWeek)!;
@@ -36,7 +46,14 @@ export function TodayTab({ tasks }: { tasks: TaskTreeNode[] }) {
         {items.length > 0 && (
           <ul>
             {items.map((item) => (
-              <PickedRow key={item.node.id} {...item} today={today} box="today" carried={daysBetween(item.since, today)} />
+              <PickedRow
+                key={item.node.id}
+                {...item}
+                today={today}
+                box="today"
+                dueSince={item.auto === "due" && item.since < today ? item.since : undefined}
+                onNotToday={() => takeOut(item.node.id)}
+              />
             ))}
           </ul>
         )}

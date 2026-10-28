@@ -55,7 +55,8 @@ export interface TaskChangeVars {
   toggle: { id: string; done: boolean };
   press: PressChange;
   undoPress: PressChange;
-  today: { id: string; today: boolean };
+  /** A day: in Today on that day. */
+  today: { id: string; today: boolean | string };
   week: { id: string; week: boolean };
   round: { id: string; from: string; to: string };
   placeInWeek: { id: string; day: string; after?: string | null };
@@ -237,7 +238,7 @@ export const taskSpecs: Specs<TaskChangeVars> = {
         return node ? editedInTrees(all, id, patchFor(node, { today }, when.day)) : all;
       }),
     refresh: [TASKS],
-    name: ({ today }, title) => `${quoted(title)} ${today ? "into" : "out of"} Today`,
+    name: ({ today }, title) => `${quoted(title)} ${today === false ? "out of Today" : typeof today === "string" ? `into Today on ${today}` : "into Today"}`,
   },
   week: {
     send: ({ id, week, when }) => tasksApi.updateTask(id, { week }, when),

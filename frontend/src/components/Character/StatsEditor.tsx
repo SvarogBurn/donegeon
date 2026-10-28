@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useGoals, useTags } from "../../hooks/labels";
 import { useLists } from "../../hooks/lists";
+import { usePointsOff } from "../../hooks/useAuth";
 import { LIST_COLORS, listColor } from "../../lib/frameTones";
 import { newId, RANGES, SKILL_NAME_MAX, STAT_KEYS, STAT_NAME_MAX, type CustomStat, type Profile, type Skill, type StatKey } from "../../lib/character/profile";
 import { STAT_NAMES } from "../../lib/character/profileStats";
@@ -86,21 +87,34 @@ function Sources({ stat, onChange }: { stat: CustomStat; onChange: (changes: Par
   );
 }
 
-/** The built-in stats (on or off, in the user's order) and stats of the user's own (tasks done in some lists, goals and tags over a period, toward a target if given). */
+/**
+ * The built-in stats (on or off, in the user's order) and stats of the user's own (tasks done in some lists, goals and tags over a period, toward a target if given).
+ * While the points system is off the points stat isn't offered; one that is on keeps its place for when they are back.
+ */
 export function StatsSection({ draft, set }: SectionProps) {
-  const hidden = STAT_KEYS.filter((key) => !draft.stats.includes(key));
+  const pointsOff = usePointsOff();
+  const offered = (key: StatKey) => !(pointsOff && key === "points");
+  const shown = draft.stats.filter(offered);
+  const hidden = STAT_KEYS.filter((key) => !draft.stats.includes(key) && offered(key));
+  // Moving among the shown ones; the points stat, if on, stays at its own place.
+  const moveShown = (i: number, to: number) => {
+    const next = move(shown, i, to);
+    const at = draft.stats.indexOf("points");
+    if (pointsOff && at !== -1) next.splice(at, 0, "points");
+    set({ stats: next });
+  };
   const setCustom = (id: string, changes: Partial<CustomStat>) => set({ custom: draft.custom.map((c) => (c.id === id ? { ...c, ...changes } : c)) });
 
   return (
     <div className="space-y-3 text-xs" data-editor-section="stats">
       <ul className="space-y-1">
-        {draft.stats.map((key, i) => (
+        {shown.map((key, i) => (
           <li key={key} className="flex items-center gap-2">
             <label className="flex flex-1 items-center gap-2">
               <PixelCheckbox small checked onChange={() => set({ stats: draft.stats.filter((k) => k !== key) })} data-stat-switch={key} />
               {STAT_NAMES[key]}
             </label>
-            <MoveButtons i={i} count={draft.stats.length} name={STAT_NAMES[key]} onMove={(to) => set({ stats: move(draft.stats, i, to) })} />
+            <MoveButtons i={i} count={shown.length} name={STAT_NAMES[key]} onMove={(to) => moveShown(i, to)} />
           </li>
         ))}
         {hidden.map((key: StatKey) => (

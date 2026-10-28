@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { useLocation } from "react-router";
+import { usePointsOff } from "../../hooks/useAuth";
 import { DATE_HELP, SYNTAX_HELP } from "../../lib/shortSyntax";
 import { RichText } from "../RichText";
 import { TileFrame } from "../Tiles/TileFrame";
@@ -47,6 +48,8 @@ function Line({ keys, does, example }: { keys: string; does: ReactNode; example?
 /** The cheat sheet on the user's page: the shortcuts that can be typed into a new task, the markup of a title, and the keys that work in a task. */
 export function Cheatsheet() {
   const { hash } = useLocation();
+  // No "5p" while the points system is off: it is plain text then.
+  const pointsOff = usePointsOff();
   // The "All shortcuts" link under an add field's dropdown comes straight here.
   useEffect(() => {
     if (hash === "#shortcuts") document.getElementById("shortcuts")?.scrollIntoView({ block: "start" });
@@ -61,7 +64,7 @@ export function Cheatsheet() {
         title already stays text.
       </p>
       <ul className="divide-y-2 divide-stone-200 dark:divide-stone-800" data-syntax-help>
-        {SYNTAX_HELP.map(([type, does, example]) => (
+        {SYNTAX_HELP.filter(([type]) => !(pointsOff && type === "5p")).map(([type, does, example]) => (
           <Line key={type} keys={type} does={does} example={example} />
         ))}
       </ul>

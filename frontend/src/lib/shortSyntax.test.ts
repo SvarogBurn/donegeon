@@ -94,6 +94,12 @@ describe("parseShortSyntax", () => {
     expect(parse("Game /side projects now")).toMatchObject({ title: "Game now", listId: "l2" });
   });
 
+  it("leaves points as text while the points system is off", () => {
+    const parsed = parseShortSyntax("Oven 20p /chores", { ...ctx, pointsOff: true });
+    expect(parsed).toMatchObject({ title: "Oven 20p", listId: "l1" });
+    expect(parsed.points).toBeUndefined();
+  });
+
   it("keeps the title tidy around shortcuts in the middle", () => {
     expect(parse("Pay rent @25/12 #home ^Money 5p @today").title).toBe("Pay rent");
     expect(parse("Pay #home rent").title).toBe("Pay rent");

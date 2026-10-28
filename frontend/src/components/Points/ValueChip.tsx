@@ -1,16 +1,18 @@
 import { useLists } from "../../hooks/lists";
+import { usePointsOff } from "../../hooks/useAuth";
 import { formatValue } from "../../lib/points";
 import type { TaskTreeNode } from "../../types";
 
 /**
  * What a task adds (task list) or costs (reward list) when done. A task that
  * lives only in Today has no list and earns Today's amount. A subtask is worth
- * its own amount, or its main task's if that one hands it down. Nothing for a value of 0.
+ * its own amount, or its main task's if that one hands it down. Nothing for a value of 0, nor while the points system is off.
  */
 export function ValueChip({ node }: { node: Pick<TaskTreeNode, "parentId" | "listId" | "value" | "valueKind" | "points"> }) {
   const { data: lists = [] } = useLists();
+  const pointsOff = usePointsOff();
   const list = lists.find((l) => l.id === node.listId);
-  if (!node.value || (node.listId && !list)) return null;
+  if (pointsOff || !node.value || (node.listId && !list)) return null;
   const isReward = node.valueKind === "reward";
   const source = node.points !== null ? "its own amount" : node.parentId ? "its main task's amount" : list ? "the list's amount" : "Today's amount";
 

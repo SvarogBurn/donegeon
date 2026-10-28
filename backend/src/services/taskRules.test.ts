@@ -55,8 +55,11 @@ describe("taskPatchData", () => {
     expect(() => taskPatchData(task({ listId: null, weekDay: "2026-10-21" }), { week: false }, TODAY)).toThrow("only lives in Week");
   });
 
-  it("keeps the day a task came into Today, and stamps today for one coming in", () => {
-    expect(taskPatchData(task({ todaySince: "2026-10-15" }), { today: true }, TODAY)).toMatchObject({ todaySince: "2026-10-15" });
+  it("marks a task for today, or for a day to come, never for one gone by", () => {
+    // A mark left from a day gone by is not kept: in Today again, it is for today.
+    expect(taskPatchData(task({ todaySince: "2026-10-15" }), { today: true }, TODAY)).toMatchObject({ todaySince: TODAY });
+    expect(taskPatchData(task(), { today: "2026-10-23" }, TODAY)).toMatchObject({ todaySince: "2026-10-23" });
+    expect(taskPatchData(task(), { today: "2026-10-01" }, TODAY)).toMatchObject({ todaySince: TODAY });
     expect(taskPatchData(task(), { today: true }, TODAY)).toMatchObject({ todaySince: TODAY });
   });
 

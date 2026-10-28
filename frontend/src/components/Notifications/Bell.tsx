@@ -1,14 +1,16 @@
+import { daysBetween } from "../../../../shared/dates";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { appNow, localDate } from "../../lib/clock";
 import { usePressTask, useTaskTrees, useToggleTask } from "../../hooks/tasks";
 import { useDeadlineToday, useNotifySettings, useTickedTasks } from "../../hooks/useAuth";
 import { formatDay } from "../../lib/dates";
-import { passedDeadlines, readDismissed, saveDismissed, type PassedDeadline } from "../../lib/notifications";
+import { leftUndone, passedDeadlines, readDismissed, saveDismissed, type LeftUndone, type PassedDeadline } from "../../lib/notifications";
 import { dueToday, findTask, type Planned } from "../../lib/notifySchedule";
 import { newId } from "../../lib/offline/changes";
 import { PretendNotice } from "../layout/Clock";
 import { RichText } from "../RichText";
+import { hasHome, LeftUndoneTask, useDropLeftUndone } from "./LeftUndoneTask";
 import { PostponeDeadline } from "./PostponeDeadline";
 
 const ago = (n: number) => (n === 1 ? "yesterday" : `${n} days ago`);
@@ -31,11 +33,12 @@ function useMinute() {
 }
 
 /**
- * The bell: a count of what wants an answer, and under it the notifications: today's messages once their hour has
- * come (the morning's, the evening's, Saturday's, a hard deadline coming: the ones pushed, if push is on, as they are
- * now), a tap opening their page; and deadlines whose day is over with the task still open, a tap asking for a new
- * deadline. Dismissed ones stay away on this device
- * until that deadline is moved and passes again. `inStrip` = the installed app's top strip (the list opens below);
+ * The bell: a count of what is in it, and under it the notifications. Unless the user chose only what needs an
+ * answer (`bell: "actions"`), today's messages once their hour has come (the reminders and the deadline notices, the
+ * ones pushed if push is on), a tap opening their page. Then tasks left undone in Today or Week on a day gone by
+ * (nothing is carried on to the next day by itself), a tap asking when to do them, × dropping them (they stay in their
+ * list); and deadlines whose day is over with the task still open, a tap asking for a new deadline. Dismissed
+ * messages and deadlines stay away on this device (a deadline until it is moved and passes again). `inStrip` = the installed app's top strip (the list opens below);
  * otherwise the browser's task bar along the bottom (it opens above), where the bell is teeny and `children` places it
  * (the clock puts it beside the time), and a click anywhere on them opens the list.
  */
@@ -54,30 +57,35 @@ export function Bell({
   const { data: trees = [] } = useTaskTrees();
   const today = localDate();
   const passed = useMemo(() => passedDeadlines(trees, today), [trees, today]);
+  const undone = useMemo(() => leftUndone(trees, today), [trees, today]);
   const [settings] = useNotifySettings();
   const ticked = useTickedTasks();
   const deadlines = useDeadlineToday();
   const now = useMinute();
+  const showsAll = settings.bell === "all";
+  // Worked out even when not shown, so their dismissals are kept for when they are again.
   const messages = useMemo(() => dueToday(trees, today, now, settings, ticked, deadlines), [trees, today, now, settings, ticked, deadlines]);
   const navigate = useNavigate();
   const { mutate: toggle } = useToggleTask();
   const { mutate: press } = usePressTask();
+  const drop = useDropLeftUndone();
   const [params, setParams] = useSearchParams();
   const [dismissed, setDismissed] = useState(readDismissed);
   const [isOpen, setIsOpen] = useState(false);
   const [asking, setAsking] = useState<PassedDeadline | null>(null);
+  const [askingUndone, setAskingUndone] = useState<LeftUndone | null>(null);
   const panel = useRef<HTMLDivElement>(null);
   const shown = passed.filter((item) => !dismissed.has(item.key));
-  const shownMessages = messages.filter((item) => !dismissed.has(item.key));
-  const count = shown.length + shownMessages.length;
+  const shownMessages = showsAll ? messages.filter((item) => !dismissed.has(item.key)) : [];
+  const count = shownMessages.length + shown.length + undone.length;
 
-  useEffect(() => onOpenChange?.(isOpen || asking !== null), [isOpen, asking, onOpenChange]);
+  useEffect(() => onOpenChange?.(isOpen || asking !== null || askingUndone !== null), [isOpen, asking, askingUndone, onOpenChange]);
   // Only once the tasks are in: before that every dismissal would look out of date.
   useEffect(() => {
     if (trees.length) saveDismissed(dismissed, [...passed, ...messages].map((item) => item.key));
   }, [dismissed, passed, messages, trees.length]);
 
-  // A tap on a pushed "deadline passed" opens the app on /?bell=1: the list opens, where its new day is picked.
+  // A tap on a pushed "deadline passed" or "left undone" opens the app on /?bell=1: the list opens, where its new day is picked.
   useEffect(() => {
     if (params.get("bell") !== "1") return;
     setIsOpen(true);
@@ -148,13 +156,20 @@ export function Bell({
           <div className="flex items-center justify-between gap-2 border-b border-stone-200 px-3 py-2 dark:border-stone-700">
             <h2 className="font-pixel text-[10px]">Notifications</h2>
             {count > 1 && (
-              <button type="button" className="btn-quiet text-xs" onClick={() => dismiss([...shownMessages, ...shown].map((item) => item.key))}>
+              <button
+                type="button"
+                className="btn-quiet text-xs"
+                onClick={() => {
+                  dismiss([...shownMessages, ...shown].map((item) => item.key));
+                  undone.filter(hasHome).forEach(drop);
+                }}
+              >
                 Dismiss all
               </button>
             )}
           </div>
           {count === 0 ? (
-            <p className="px-3 py-6 text-center text-xs text-stone-500">Nothing new. Today's messages, and deadlines whose day has passed, show up here.</p>
+            <p className="px-3 py-6 text-center text-xs text-stone-500">Nothing new. {showsAll && "Today's reminders, "}Tasks left undone and deadlines whose day has passed show up here.</p>
           ) : (
             <ul className="max-h-[60svh] divide-y divide-stone-200 overflow-y-auto dark:divide-stone-700">
               {shownMessages.map((item) => {
@@ -202,6 +217,42 @@ export function Bell({
                   </li>
                 );
               })}
+              {undone.map((item) => (
+                <li key={item.key} className="flex items-start gap-1 hover:bg-stone-100 dark:hover:bg-stone-800">
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 px-3 py-2 text-left"
+                    data-left-undone={item.node.id}
+                    onClick={() => {
+                      setIsOpen(false);
+                      setAskingUndone(item);
+                    }}
+                  >
+                    <span className="flex items-center gap-1.5 font-pixel text-[8px] text-amber-700 dark:text-amber-400">
+                      <span className="size-1.5 flex-none bg-current" aria-hidden />
+                      Left undone · {formatDay(item.day)}, {ago(daysBetween(item.day, today))}
+                    </span>
+                    <span className="mt-1 block truncate text-sm">
+                      <RichText text={item.node.title.split("\n")[0]} />
+                    </span>
+                    {item.path.length > 0 && <span className="block truncate text-xs text-stone-500">in {item.path.join(" › ")}</span>}
+                    <span className="mt-0.5 block text-xs text-stone-500">Tap to pick when to do it</span>
+                  </button>
+                  {/* One in no list lives only in Today or Week: it is answered, not dropped. */}
+                  {hasHome(item) && (
+                    <button
+                      type="button"
+                      className="btn-quiet px-2 py-2 text-base leading-none"
+                      aria-label="Drop it"
+                      title="Drop it: out of Today and the Week, it stays in its list"
+                      onClick={() => drop(item)}
+                      data-drop-undone={item.node.id}
+                    >
+                      ×
+                    </button>
+                  )}
+                </li>
+              ))}
               {shown.map((item) => (
                 <li key={item.key} className="flex items-start gap-1 hover:bg-stone-100 dark:hover:bg-stone-800">
                   <button
@@ -234,6 +285,7 @@ export function Bell({
         </div>
       )}
       {asking && <PostponeDeadline item={asking} onDismiss={() => dismiss([asking.key])} onClose={() => setAsking(null)} />}
+      {askingUndone && <LeftUndoneTask item={askingUndone} onClose={() => setAskingUndone(null)} />}
     </>
   );
 }

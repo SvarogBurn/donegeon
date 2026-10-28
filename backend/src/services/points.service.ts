@@ -70,17 +70,18 @@ async function lockLedger(tx: Prisma.TransactionClient, userId: string) {
 /**
  * Books a task being done (ticked, or pressed if persistent). A subtask is booked
  * in its main task's list: that list's kind decides add or subtract.
- * Returns the row, or null if the task is worth nothing.
+ * Returns the row, or null if the task is worth nothing or the user has the points system off (then nothing is refused either).
  */
 export async function bookTask(tx: Prisma.TransactionClient, task: Task) {
   await lockLedger(tx, task.userId);
   const root = task.parentId ? await tx.task.findUniqueOrThrow({ where: { id: await findRoot(tx, task.id) } }) : task;
   // A task that lives only in Today has no list: it earns its own amount, or the user's amount for Today.
   const list = root.listId ? await tx.list.findUnique({ where: { id: root.listId } }) : null;
-  const { todayPoints, pointsCap } = await tx.user.findUniqueOrThrow({
+  const { todayPoints, pointsCap, pointsOff } = await tx.user.findUniqueOrThrow({
     where: { id: task.userId },
-    select: { todayPoints: true, pointsCap: true },
+    select: { todayPoints: true, pointsCap: true, pointsOff: true },
   });
+  if (pointsOff) return null;
   const rootValue = taskValue(root, list, todayPoints);
   const value = task.parentId ? subtaskValue(task, root, rootValue) : rootValue;
   const booking = bookingFor(list?.kind ?? "task", value, await balanceOf(tx, task.userId), pointsCap);
@@ -109,10 +110,12 @@ export function canTakeBack(amount: number, balance: number): boolean {
 
 /**
  * Cancels a booking with a reversal row; the original row is never edited.
- * If that would take the balance below 0, nothing is written and the points stay as they are.
+ * If that would take the balance below 0, nothing is written and the points stay as they are; nor while the user has
+ * the points system off: the balance waits as it was.
  */
 export async function reverseBooking(tx: Prisma.TransactionClient, row: PointTransaction) {
   if (row.type === "reversal") return;
+  if ((await tx.user.findUniqueOrThrow({ where: { id: row.userId }, select: { pointsOff: true } })).pointsOff) return;
   await lockLedger(tx, row.userId);
   if (await tx.pointTransaction.findUnique({ where: { reversesId: row.id } })) return;
   if (!canTakeBack(row.amount, await balanceOf(tx, row.userId))) return;

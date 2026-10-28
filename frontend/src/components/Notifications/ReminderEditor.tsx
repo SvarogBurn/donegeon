@@ -3,11 +3,13 @@ import { useState, type FormEvent } from "react";
 import { REMINDER_KINDS } from "../../../../shared/enums";
 import { listNotes } from "../../api/notes";
 import { NOTES } from "../../hooks/queryKeys";
+import { usePointsOff } from "../../hooks/useAuth";
 import {
   AHEAD,
   isNotifyTime,
   KIND_NAMES,
   KIND_NOTES,
+  RECAP_NOTE_NO_POINTS,
   MAX_REMINDER_TIMES,
   newReminderId,
   NOTIFY_FROM,
@@ -55,6 +57,7 @@ interface Props {
  */
 export function ReminderEditor({ value, task, onSave, onCancel, onDelete }: Props) {
   const [kind, setKind] = useState<ReminderKind>(value?.kind ?? (task ? "text" : "today"));
+  const pointsOff = usePointsOff();
   const [text, setText] = useState(value?.text ?? "");
   const [noteId, setNoteId] = useState(value?.noteId ?? "");
   const [ahead, setAhead] = useState(String(value?.ahead ?? AHEAD.first));
@@ -120,7 +123,7 @@ export function ReminderEditor({ value, task, onSave, onCancel, onDelete }: Prop
               ))}
             </select>
           </label>
-          <p className="text-stone-500">{KIND_NOTES[kind]}</p>
+          <p className="text-stone-500">{pointsOff && kind === "recap" ? RECAP_NOTE_NO_POINTS : KIND_NOTES[kind]}</p>
           {kind === "text" && (
             <>
               <input className={`w-full ${FIELD}`} value={text} maxLength={200} placeholder="Water the plants" onChange={(e) => setText(e.target.value)} aria-label="What it says" data-reminder-text />

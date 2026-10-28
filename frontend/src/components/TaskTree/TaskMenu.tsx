@@ -7,7 +7,7 @@ import { ReminderEditor } from "../Notifications/ReminderEditor";
 import { useGoals, useTags } from "../../hooks/labels";
 import { useLists } from "../../hooks/lists";
 import { useMoveRound, usePlaceInWeek, useSetToday, useSetWeek, useUpdateTask } from "../../hooks/tasks";
-import { useReminders } from "../../hooks/useAuth";
+import { usePointsOff, useReminders } from "../../hooks/useAuth";
 import { localDate } from "../../lib/clock";
 import { plainFirstLine } from "../../lib/markup";
 import { reminderSummary } from "../../lib/notifySettings";
@@ -109,6 +109,7 @@ function Doing({ node }: { node: TaskTreeNode }) {
   const list = lists.find((l) => l.id === node.listId);
   const isReward = node.valueKind === "reward";
   const isSubtask = node.parentId !== null;
+  const pointsOff = usePointsOff();
   const pointsPlaceholder = String(isSubtask ? (node.points === null ? node.value : "") : (list?.defaultPoints ?? (node.points === null ? node.value : "")));
   const [points, setPoints] = useState(node.points === null ? "" : String(node.points));
   useEffect(() => setPoints(node.points === null ? "" : String(node.points)), [node.points]);
@@ -129,7 +130,7 @@ function Doing({ node }: { node: TaskTreeNode }) {
         <label className={CHECK_ROW} data-menu-part="today">
           <PixelCheckbox
             small
-            checked={node.todaySince !== null}
+            checked={node.todaySince === today}
             onChange={(e) => setToday.mutate({ id: node.id, today: e.target.checked })}
           />
           Do today
@@ -167,7 +168,7 @@ function Doing({ node }: { node: TaskTreeNode }) {
           Do next week (this round)
         </label>
       )}
-      <label className={CHECK_ROW} data-menu-part="persistent" title="Stays in its list and can be done again and again; each time counts its points.">
+      <label className={CHECK_ROW} data-menu-part="persistent" title={pointsOff ? "Stays in its list and can be done again and again." : "Stays in its list and can be done again and again; each time counts its points."}>
         <PixelCheckbox
           small
           checked={node.isPersistent}
@@ -175,26 +176,29 @@ function Doing({ node }: { node: TaskTreeNode }) {
         />
         {isReward ? "Persistent (can be bought again)" : "Persistent (can be done again)"}
       </label>
-      <label className="flex items-center gap-2 px-1 text-xs" data-menu-part="points">
-        <span className="shrink-0">{isReward ? "Costs" : "Points"}</span>
-        {/* The same dark field as a list's "N each". */}
-        <input
-          className="points-field tabular-nums placeholder:text-stone-400"
-          style={pointsFieldWidth(points || pointsPlaceholder, 3)}
-          type="text"
-          inputMode="numeric"
-          value={points}
-          onChange={(e) => setPoints(typedPoints(e.target.value))}
-          onBlur={savePoints}
-          onKeyDown={(e) => e.key === "Enter" && savePoints()}
-          placeholder={pointsPlaceholder}
-          aria-label={`Points for this task (empty = ${isSubtask ? "what its main task hands down" : list ? "the list's amount" : "Today's amount"})`}
-        />
-        <span className="text-stone-500">
-          {node.points !== null ? "its own amount" : isSubtask ? (node.value ? "its main task's amount" : "no points") : list ? "the list's amount" : "Today's amount"}
-        </span>
-      </label>
-      {!isSubtask && (
+      {/* What it earns or costs; none of it while the points system is off. */}
+      {!pointsOff && (
+        <label className="flex items-center gap-2 px-1 text-xs" data-menu-part="points">
+          <span className="shrink-0">{isReward ? "Costs" : "Points"}</span>
+          {/* The same dark field as a list's "N each". */}
+          <input
+            className="points-field tabular-nums placeholder:text-stone-400"
+            style={pointsFieldWidth(points || pointsPlaceholder, 3)}
+            type="text"
+            inputMode="numeric"
+            value={points}
+            onChange={(e) => setPoints(typedPoints(e.target.value))}
+            onBlur={savePoints}
+            onKeyDown={(e) => e.key === "Enter" && savePoints()}
+            placeholder={pointsPlaceholder}
+            aria-label={`Points for this task (empty = ${isSubtask ? "what its main task hands down" : list ? "the list's amount" : "Today's amount"})`}
+          />
+          <span className="text-stone-500">
+            {node.points !== null ? "its own amount" : isSubtask ? (node.value ? "its main task's amount" : "no points") : list ? "the list's amount" : "Today's amount"}
+          </span>
+        </label>
+      )}
+      {!isSubtask && !pointsOff && (
         <label className={CHECK_ROW} title="Every subtask without an amount of its own is worth what this task is, each time one is ticked.">
           <PixelCheckbox small checked={node.pointsToSubtasks} onChange={(e) => save({ pointsToSubtasks: e.target.checked })} />
           {isReward ? "Subtasks cost this too" : "Subtasks earn this too"}

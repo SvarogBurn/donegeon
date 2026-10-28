@@ -6,7 +6,7 @@ import { useOnline } from "../../lib/offline/online";
 import type { Look } from "../../lib/character/bodies";
 import { normalizeLook, type Profile } from "../../lib/character/profile";
 import { earnedTitles } from "../../lib/character/titles";
-import { withoutLocked } from "../../lib/character/unlocks";
+import { nextGoals, withoutLocked } from "../../lib/character/unlocks";
 import { LookSection, useEscape } from "./LookSection";
 import { SkillsSection, StatsSection } from "./StatsEditor";
 import { useProfile } from "./useProfile";
@@ -22,7 +22,7 @@ type Section = (typeof SECTIONS)[number][0];
 /**
  * Everything about the character, over the page, in three sections: its look (and title), the stats the
  * sheet shows, and its skills. Save keeps all of it but what is only tried on (locked); Cancel (or Esc) leaves the
- * character as it was. `trying` opens it with something new on.
+ * character as it was. `trying` opens it with something new on. Under the tabs, a Next up box with what's next.
  */
 export function CharacterEditor({ onClose, trying }: { onClose: () => void; trying?: Look }) {
   const { profile, look: savedLook, save } = useProfile();
@@ -40,6 +40,7 @@ export function CharacterEditor({ onClose, trying }: { onClose: () => void; tryi
   };
   useEscape(onClose);
   const set = (changes: Partial<Profile>) => setDraft((d) => ({ ...d, ...changes }));
+  const goals = progress && !profile.hideNews ? nextGoals(progress) : [];
 
   return createPortal(
     <div
@@ -85,6 +86,16 @@ export function CharacterEditor({ onClose, trying }: { onClose: () => void; tryi
             Save
           </button>
         </div>
+        {goals.length > 0 && (
+          <section className="space-y-1 border-2 border-stone-300 p-3 dark:border-stone-700" aria-label="Next up" data-next-goals>
+            <h3 className="font-pixel text-xs text-stone-500">Next up:</h3>
+            <ul className="text-xs text-stone-500">
+              {goals.map((goal) => (
+                <li key={goal}>{goal}</li>
+              ))}
+            </ul>
+          </section>
+        )}
         {section === "look" && <LookSection look={look} setLook={setLook} draft={draft} set={set} username={user?.username ?? ""} unlocks={unlocks} toggleDevMode={toggleDevMode} />}
         {section === "stats" && <StatsSection draft={draft} set={set} />}
         {section === "skills" && <SkillsSection draft={draft} set={set} />}

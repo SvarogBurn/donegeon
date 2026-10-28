@@ -1,12 +1,9 @@
-import { addDays, daysBetween, mondayOf } from "../../../shared/dates";
+import { addDays, mondayOf } from "../../../shared/dates";
 import { addInterval, currentRound, movedDay } from "../../../shared/repeat";
 import type { DeadlineToday, TaskTreeNode, TickedTasks } from "../types";
 import { deadlineTodayFrom } from "./deadlines";
 import { isDue, roundsDue } from "./repeat";
 import { plainFirstLine, plainTitle } from "./markup";
-
-/** Whole weeks from the week of `from` to the week of `to`: a Sunday and the next day's Monday are 1 apart. */
-export const weeksBetween = (from: string, to: string) => Math.round(daysBetween(mondayOf(from), mondayOf(to)) / 7);
 
 /** Monday to Sunday of the week `day` is in. */
 export const daysOfWeek = (day: string) => Array.from({ length: 7 }, (_, i) => addDays(mondayOf(day), i));
@@ -17,6 +14,12 @@ export const daysOfWeek = (day: string) => Array.from({ length: 7 }, (_, i) => a
  */
 export const livesInWeek = (node: TaskTreeNode) => !node.parentId && !node.listId && node.weekDay !== null;
 export const livesInToday = (node: TaskTreeNode) => !node.parentId && !node.listId && node.weekDay === null;
+
+/**
+ * Marked for Today on `day`. A task is marked for one day: a mark left from a day gone by is not carried on, the
+ * bell asks about it (see leftUndone); one for a day to come brings it into Today then.
+ */
+export const isMarkedFor = (node: TaskTreeNode, day: string) => node.todaySince === day;
 
 /** Put off to next week (or later) in the Week box: it is not for today, whatever else would bring it into Today. */
 export const isPutOff = (node: TaskTreeNode, today: string) => node.weekDay !== null && node.weekDay >= addDays(mondayOf(today), 7);
@@ -64,8 +67,8 @@ export interface WeekDayItems {
  * that deadlines come into Today, tasks on the day of their deadline (Monday, if it passed before the week began).
  * Then everything the user planned for a day, in their order for it, and in the bucket what they put off to next
  * week. A ticked task stays on its day until the week is over (or goes at once, if the user chose to hide ticked
- * tasks); one the user planned and is still open then is on the new week's Monday. Subtasks left open inside a
- * finished main task went to the Done page with it.
+ * tasks); one still open stays on its day, and once the week is over it isn't carried on to the next: the bell asks
+ * when to do it (see leftUndone). Subtasks left open inside a finished main task went to the Done page with it.
  */
 export function weekDays(trees: TaskTreeNode[], today: string, ticked: TickedTasks, deadlines: DeadlineToday): WeekDayItems[] {
   const days = daysOfWeek(today);
@@ -79,7 +82,7 @@ export function weekDays(trees: TaskTreeNode[], today: string, ticked: TickedTas
       const item = { node, path };
       const shown = node.isComplete ? ticked !== "hide" && node.completedOn !== null && node.completedOn >= monday : !rootFinished;
       if (node.weekDay !== null) {
-        if (shown) put(node.weekDay, item);
+        if (shown && node.weekDay >= monday) put(node.weekDay, item);
       } else if (node.repeatEvery && node.nextDue) {
         const round = currentRound(node, today)!;
         const missed = round.missed || round.day < monday;
@@ -115,17 +118,19 @@ export function weekDays(trees: TaskTreeNode[], today: string, ticked: TickedTas
 
 export interface TodayItem {
   node: TaskTreeNode;
-  /** The day it came into Today: marked for it, due (a task on a schedule), or its deadline near. */
+  /** The day it came into Today: marked for it (today), due (a task on a schedule), or its deadline near. */
   since: string;
   /** Titles of the tasks it sits under, outermost first. */
   path: string[];
+  /** Here by itself, not marked for today: a round due, or its deadline near. Taken out for the day per device (see notToday). */
+  auto?: "due" | "deadline";
 }
 
 /**
- * Everything from the lists that is marked for Today, at any depth, plus the tasks (any depth) on a
+ * Everything from the lists that is marked for today, at any depth, plus the tasks (any depth) on a
  * schedule that are due and, if the user chose so, the tasks whose deadline is near (`deadlines`): those come in by
- * themselves and leave when done. Open items stay from day to day;
- * a ticked one stays for the rest of the day it was ticked on (or goes at once, if the user chose to hide
+ * themselves and leave when done. A mark isn't carried on: what was marked for a day gone by and left open is in the
+ * bell instead (see leftUndone), until the user says when to do it. A ticked one stays for the rest of the day it was ticked on (or goes at once, if the user chose to hide
  * ticked tasks). Subtasks left open inside a finished main task went to the Done page with it. What was put off to
  * next week isn't for today, whatever would bring it in (its subtasks still can be).
  */
@@ -135,8 +140,12 @@ export function todayItems(trees: TaskTreeNode[], today: string, ticked: TickedT
     for (const node of nodes) {
       const shown = node.isComplete ? ticked !== "hide" && node.completedOn === today : !rootFinished;
       const fromDeadline = deadlineTodayFrom(node, deadlines);
-      const since = node.todaySince ?? (isDue(node, today) ? currentRound(node, today)!.day : null) ?? (fromDeadline !== null && fromDeadline <= today ? fromDeadline : null);
-      if (since !== null && shown && !livesInToday(node) && !isPutOff(node, today)) found.push({ node, since, path });
+      const due = isDue(node, today) ? currentRound(node, today)!.day : null;
+      const near = fromDeadline !== null && fromDeadline <= today ? fromDeadline : null;
+      const marked = isMarkedFor(node, today);
+      const auto = marked ? undefined : due !== null ? "due" : near !== null ? "deadline" : undefined;
+      const since = marked ? today : (due ?? near);
+      if (since !== null && shown && !livesInToday(node) && !isPutOff(node, today)) found.push({ node, since, path, ...(auto && { auto }) });
       visit(node.children, [...path, plainFirstLine(node.title)], rootFinished || (path.length === 0 && node.isComplete));
     }
   };

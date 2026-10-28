@@ -268,7 +268,7 @@ export function nextGoals(p: Progress): string[] {
   if (Number.isFinite(skill)) {
     const best = [...p.skills].sort((a, b) => b.level - a.level)[0];
     const names = skills.filter((x) => x.at === skill).map((x) => x.r.name).join(", ");
-    goals.push(`${names} at Lv ${skill} in a skill (${best ? `${best.name} is Lv ${best.level}` : "pick one under Edit"})`);
+    goals.push(`${names} at Lv ${skill} in a skill (${best ? `${best.name} is Lv ${best.level}` : "pick one under Skills"})`);
   }
   const streaks = open.flatMap((r) => r.rules.flatMap((rule) => ("streak" in rule ? [{ r, at: rule.streak }] : [])));
   const streak = Math.min(...streaks.map((x) => x.at));

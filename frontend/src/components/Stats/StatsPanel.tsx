@@ -1,5 +1,6 @@
 import { useDropOnTab } from "../../hooks/folders";
 import { useLayout, useSaveLayout } from "../../hooks/layout";
+import { usePointsOff } from "../../hooks/useAuth";
 import { statView } from "../../lib/folders";
 import { normalizeLayout, withHidden, type DashboardLayout } from "../../lib/tileLayout";
 import { HiddenRow } from "../Tiles/HiddenRow";
@@ -27,14 +28,16 @@ export function StatsPanel() {
   const layout = useLayout("stats");
   const saveLayout = useSaveLayout("stats");
   const drop = useDropOnTab();
+  const pointsOff = usePointsOff();
 
   if (stats.error) return <p className="text-sm text-red-600">Couldn't load your stats: {stats.error.message}</p>;
   // The layout is waited for (not required), so the boxes don't jump once it arrives.
   if (!stats.data || layout.isLoading) return <p className="text-sm text-stone-500">Loading…</p>;
   const data = stats.data;
 
-  // Every box is a tile of a grid like the dashboard's: dragged by its tab button, pinned, or minimized away.
-  const boxes = STAT_BOX_LIST.map(({ key, label, Box }) => ({ key, label, name: label, node: <Box stats={data} />, view: statView(key) }));
+  // Every box is a tile of a grid like the dashboard's: dragged by its tab button, pinned, or minimized away. No Points box
+  // while the points system is off; it keeps its place for when they are back.
+  const boxes = STAT_BOX_LIST.filter(({ key }) => !(pointsOff && key === "points")).map(({ key, label, Box }) => ({ key, label, name: label, node: <Box stats={data} />, view: statView(key) }));
   const saved = withTopBoxes(normalizeLayout(layout.data), [FILTER_BOX]);
   const isHidden = (key: string) => (saved.hidden ?? []).includes(key);
   const tiles = boxes.filter((box) => !isHidden(box.key)).map((box) => ({ ...box, canHide: true }));

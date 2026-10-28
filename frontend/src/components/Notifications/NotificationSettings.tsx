@@ -5,7 +5,7 @@ import { usePushDevice } from "../../hooks/notifications";
 import { useTaskTrees } from "../../hooks/tasks";
 import { useNotifySettings, useReminders } from "../../hooks/useAuth";
 import { findTask } from "../../lib/notifySchedule";
-import { DAYS_BEFORE, isNotifyTime, KIND_NAMES, NOTIFY_FROM, NOTIFY_TO, reminderSummary, SNOOZE, WEEKS_BEFORE, type NotifySettings, type Reminder } from "../../lib/notifySettings";
+import { DAYS_BEFORE, isNotifyTime, KIND_NAMES, NOTIFY_FROM, NOTIFY_TO, reminderSummary, SNOOZE, WEEKS_BEFORE, type BellShows, type NotifySettings, type Reminder } from "../../lib/notifySettings";
 import { plainFirstLine } from "../../lib/markup";
 import type { PushState } from "../../lib/pushDevice";
 import type { TaskTreeNode } from "../../types";
@@ -19,6 +19,16 @@ const STATE_NOTES: Record<PushState, string> = {
   denied: "Notifications are blocked for Donegeon in this browser. Allow them in the browser's site settings, then come back here.",
   off: "Off on this device: they only show in the bell. Turn them on here on each phone or computer that should get them.",
   on: "On for this device. Turn them on on your other devices too, if you like.",
+};
+
+const BELL_CHOICES: [BellShows, string][] = [
+  ["all", "All notifications"],
+  ["actions", "Only what needs an answer"],
+];
+
+const BELL_NOTES: Record<BellShows, string> = {
+  all: "Today's reminders and deadline notices come into the bell at their time, as well as what needs an answer: tasks left undone and hard deadlines gone by.",
+  actions: "Only what needs an answer is in the bell: tasks left undone and hard deadlines gone by. The reminders and deadline notices are only pushed.",
 };
 
 /** This device's switch: push notifications are turned on per browser, apart from the account's choices below it. */
@@ -173,7 +183,7 @@ function Reminders() {
   );
 }
 
-/** Notifications, on the user's Settings: this device's push switch, the deadline notices, Snooze, the reminders. */
+/** Notifications, on the user's Settings: this device's push switch, what the bell shows, the deadline notices, Snooze, the reminders. */
 export function NotificationSettings() {
   const [settings, save] = useNotifySettings();
   const { deadline } = settings;
@@ -184,6 +194,22 @@ export function NotificationSettings() {
     <>
       <h3 className="border-t-2 border-stone-300 pt-3 font-pixel text-xs text-stone-500 dark:border-stone-700">Notifications</h3>
       <DeviceSwitch />
+      <label className="flex flex-wrap items-center gap-2 text-xs">
+        The bell shows
+        <select
+          className="max-w-full border-2 border-stone-300 bg-white px-1 py-1 text-xs text-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
+          value={settings.bell}
+          onChange={(e) => set("bell", e.target.value as BellShows)}
+          data-notify-bell
+        >
+          {BELL_CHOICES.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="text-xs text-stone-500">{BELL_NOTES[settings.bell]}</p>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <label className="flex items-center gap-2">
           <PixelCheckbox small checked={deadline.on} onChange={(e) => setDeadline({ on: e.target.checked })} data-notify-deadline />
@@ -215,6 +241,16 @@ export function NotificationSettings() {
         Deadline passed
       </label>
       <p className="text-xs text-stone-500">{`The day after a hard deadline's day, at ${deadline.time}, if it isn't done: a tap picks a new day for it.`}</p>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <label className="flex items-center gap-2">
+          <PixelCheckbox small checked={settings.undone.push} onChange={(e) => set("undone", { ...settings.undone, push: e.target.checked })} data-notify-undone />
+          Left undone, pushed too
+        </label>
+        at <SavedTime value={settings.undone.time} onSave={(time) => set("undone", { ...settings.undone, time })} label="Left undone: at what time" name="notify-undone-time" />
+      </div>
+      <p className="text-xs text-stone-500">
+        Tasks left open in Today or the Week aren't carried on to the next day: the bell asks when you'll do them. With this ticked, they are pushed at that time too, to every device with push turned on.
+      </p>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         Snooze for
         <AmountField value={settings.snoozeMinutes} bounds={SNOOZE} onSave={(snoozeMinutes) => set("snoozeMinutes", snoozeMinutes)} label="Snooze for how many minutes" name="snooze" width="w-12" />

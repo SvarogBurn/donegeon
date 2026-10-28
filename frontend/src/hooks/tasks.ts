@@ -9,7 +9,7 @@ import { newId } from "../lib/offline/changes";
 import { parseShortSyntax, parseTitleEdit, type SyntaxContext } from "../lib/shortSyntax";
 import type { Goal, List, Tag, TaskTreeNode } from "../types";
 import { useGoals, useTags } from "./labels";
-import { useDeadlineTable } from "./useAuth";
+import { useDeadlineTable, usePointsOff } from "./useAuth";
 import { useLists } from "./lists";
 import { useChange } from "./mutations";
 import { COUNTDOWN, DONE, GOALS, LISTS, PAST_DONE, PRESSURE, STATS, TAGS, TASKS } from "./queryKeys";
@@ -65,10 +65,11 @@ export function useSyntaxContext(parentId?: string | null): SyntaxContext {
   const { data: goals } = useGoals();
   const { data: lists } = useLists();
   const { data: trees } = useTaskTrees();
+  const pointsOff = usePointsOff();
   const today = localDate();
   return useMemo(
-    () => ({ today, tags: tags ?? [], goals: goals ?? [], lists: lists ?? [], depth: depthUnder(trees ?? [], parentId) }),
-    [today, tags, goals, lists, trees, parentId],
+    () => ({ today, tags: tags ?? [], goals: goals ?? [], lists: lists ?? [], depth: depthUnder(trees ?? [], parentId), pointsOff }),
+    [today, tags, goals, lists, trees, parentId, pointsOff],
   );
 }
 
@@ -97,6 +98,7 @@ export interface TypedTask extends Omit<tasksApi.NewTask, "title"> {
 export function useAddTask() {
   const queryClient = useQueryClient();
   const change = useChange("add");
+  const pointsOff = usePointsOff();
   const [typo, setTypo] = useState<Error | null>(null);
   const { mutate } = change;
 
@@ -104,7 +106,7 @@ export function useAddTask() {
     async ({ text, ...place }: TypedTask, options?: { onError?: (error: Error) => void }): Promise<string> => {
       try {
         const { tags, goals, lists, trees } = await syntaxLists(queryClient);
-        const typed = parseShortSyntax(text, { today: localDate(), tags, goals, lists, depth: depthUnder(trees, place.parentId) });
+        const typed = parseShortSyntax(text, { today: localDate(), tags, goals, lists, depth: depthUnder(trees, place.parentId), pointsOff });
         if (!typed.title) throw new Error("A task needs a title too, not only shortcuts");
         setTypo(null);
         const newTags = labelsNamed(typed.newTags);
@@ -138,7 +140,7 @@ export function useAddTask() {
         throw error;
       }
     },
-    [queryClient, mutate],
+    [queryClient, mutate, pointsOff],
   );
   return { add, mutate: (typed: TypedTask, options?: { onError?: (error: Error) => void }) => void add(typed, options).catch(() => {}), error: typo ?? change.error };
 }
@@ -152,6 +154,7 @@ export function useAddTask() {
 export function useEditTask() {
   const queryClient = useQueryClient();
   const change = useChange("edit");
+  const pointsOff = usePointsOff();
   const [typo, setTypo] = useState<Error | null>(null);
   const { mutate } = change;
 
@@ -159,7 +162,7 @@ export function useEditTask() {
     async ({ node, text }: { node: TaskTreeNode; text: string }, options?: { onApplied?: (title: string) => void; onError?: (error: Error) => void }) => {
       try {
         const { tags, goals, lists, trees } = await syntaxLists(queryClient);
-        const typed = parseTitleEdit(text, node.title, { today: localDate(), tags, goals, lists, depth: depthUnder(trees, node.parentId) });
+        const typed = parseTitleEdit(text, node.title, { today: localDate(), tags, goals, lists, depth: depthUnder(trees, node.parentId), pointsOff });
         if (!typed.title) throw new Error("A task needs a title too, not only shortcuts");
         setTypo(null);
         const newTags = labelsNamed(typed.newTags);
@@ -186,7 +189,7 @@ export function useEditTask() {
         options?.onError?.(error as Error);
       }
     },
-    [queryClient, mutate],
+    [queryClient, mutate, pointsOff],
   );
   return { mutate: (args: { node: TaskTreeNode; text: string }, options?: { onApplied?: (title: string) => void; onError?: (error: Error) => void }) => void edit(args, options), error: typo ?? change.error };
 }

@@ -127,8 +127,8 @@ function TaskBar({ user }: { user: User }) {
         );
         break;
       case "points":
-        // The balance, laid out like a tab: a big number where the icon would be, "pts" underneath.
-        content = points && (
+        // The balance, laid out like a tab: a big number where the icon would be, "pts" underneath. None while the points system is off.
+        content = !user.pointsOff && points && (
           <NavLink
             to="/points"
             className={tab}

@@ -23,7 +23,8 @@ export interface TaskChanges {
   points?: number | null;
   /** Main tasks only. */
   pointsToSubtasks?: boolean;
-  today?: boolean;
+  /** In or out of Today; a day = in it on that day. */
+  today?: boolean | string;
   week?: boolean;
   isPersistent?: boolean;
   /** null = no schedule. A number also makes the task persistent. */

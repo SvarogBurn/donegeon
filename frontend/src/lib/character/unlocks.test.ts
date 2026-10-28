@@ -149,7 +149,7 @@ describe("daysProgress", () => {
 
 describe("next goals", () => {
   it("name the next level's piece and the next streak's, with how far the streak is, and never a body", () => {
-    expect(nextGoals(at({ level: 4, current: 2, longest: 2 }))).toEqual(["Round glasses at Lv 5", "Pencil at Lv 2 in a skill (pick one under Edit)", "Cat ears at a 3-day streak (2 / 3)"]);
+    expect(nextGoals(at({ level: 4, current: 2, longest: 2 }))).toEqual(["Round glasses at Lv 5", "Pencil at Lv 2 in a skill (pick one under Skills)", "Cat ears at a 3-day streak (2 / 3)"]);
     expect(nextGoals(at({ level: 4, skills: skilled(5) }))[1]).toBe("Bow at Lv 6 in a skill (Cooking is Lv 5)");
     // Never a body: only the puppy's ears and tail are named at 14 days.
     expect(nextGoals(at({ level: 4, current: 9, longest: 9 }))[2]).toBe("Puppy ears, Puppy tail at a 14-day streak (9 / 14)");

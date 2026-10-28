@@ -2,7 +2,7 @@ import { Fragment, useLayoutEffect, useRef } from "react";
 import { useDeadlineToday } from "../../hooks/useAuth";
 import { localDate } from "../../lib/clock";
 import { formatDay } from "../../lib/dates";
-import { livesInWeek, weekDays, weeksBetween, type WeekItem } from "../../lib/week";
+import { livesInWeek, weekDays, type WeekItem } from "../../lib/week";
 import type { TaskTreeNode } from "../../types";
 import { ScrollArea } from "../Calendar/dayStrip";
 import { TaskForm } from "../TaskTree/TaskForm";
@@ -65,7 +65,7 @@ export function WeekDay({ day, items, today, nextWeek = false }: { day: string; 
               {livesInWeek(item.node) && !item.auto ? (
                 <TaskNode node={item.node} depth={0} inWeek />
               ) : (
-                <PickedRow {...item} today={today} box="week" carried={item.auto ? 0 : weeksBetween(item.node.weekDay!, today)} />
+                <PickedRow {...item} today={today} box="week" />
               )}
               {draftAfter(item.node.id)}
             </Fragment>
@@ -82,7 +82,7 @@ export function WeekDay({ day, items, today, nextWeek = false }: { day: string; 
  * The week's working set, Monday to Sunday from top to bottom, each day in the user's own order. Tasks dragged onto
  * a day or marked "Do this week" in their ⋯ menu (today, then) stay in their lists; tasks typed into a day live
  * there alone, until they are dragged to a list. What is ticked stays until the week is over; what is still open
- * then is on the new week's Monday. The week scrolls within the box, with no scroll bar, and opens on today.
+ * stays on its day, and the bell asks when to do it (nothing is carried on to the next week by itself). The week scrolls within the box, with no scroll bar, and opens on today.
  */
 export function WeekTab({ tasks }: { tasks: TaskTreeNode[] }) {
   const { ticked } = useTree();

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useCreateList, useUpdateList } from "../../hooks/lists";
+import { usePointsOff } from "../../hooks/useAuth";
 import { useOnline } from "../../lib/offline/online";
 import { NeedsConnection } from "../NeedsConnection";
 import { KIND_COLORS, listColor, listFrame, sliderIn } from "../../lib/frameTones";
@@ -32,10 +33,12 @@ interface KindFieldsProps {
 /**
  * Task list or reward list, and what each item in it is worth, all on one
  * little plate. The kind is a switch, "Task" at its left and "Reward" at its
- * right; the chosen word is bigger and darker, and either word can be clicked too.
+ * right; the chosen word is bigger and darker, and either word can be clicked too. While the points system is off the
+ * worth isn't there, and a reward costs nothing.
  */
 function KindFields({ kind, points, onKind, onPoints, onPointsDone, inCorner = false, color = null, children }: KindFieldsProps) {
   const isReward = kind === "reward";
+  const pointsOff = usePointsOff();
   return (
     <div className={`kind-plate mr-auto ${inCorner ? "kind-plate-corner" : ""}`} role="group" aria-label="Kind of list">
       <button type="button" className="kind-label w-10" data-active={!isReward} tabIndex={-1} onClick={() => isReward && onKind("task")}>
@@ -50,9 +53,13 @@ function KindFields({ kind, points, onKind, onPoints, onPointsDone, inCorner = f
         data-kind={kind}
         style={color ? { backgroundImage: sliderIn(color) } : undefined}
         title={
-          isReward
-            ? "Reward list: its items cost points. Click to make it a task list."
-            : "Task list: its items add points. Click to make it a reward list."
+          pointsOff
+            ? isReward
+              ? "Reward list. Click to make it a task list."
+              : "Task list. Click to make it a reward list."
+            : isReward
+              ? "Reward list: its items cost points. Click to make it a task list."
+              : "Task list: its items add points. Click to make it a reward list."
         }
         onClick={() => onKind(isReward ? "task" : "reward")}
       >
@@ -61,21 +68,23 @@ function KindFields({ kind, points, onKind, onPoints, onPointsDone, inCorner = f
       <button type="button" className="kind-label w-[60px]" data-active={isReward} tabIndex={-1} onClick={() => !isReward && onKind("reward")}>
         Reward
       </button>
-      <label className="kind-points">
-        <input
-          className="points-field tabular-nums"
-          style={pointsFieldWidth(points)}
-          type="text"
-          inputMode="numeric"
-          value={points}
-          onChange={(e) => onPoints(typedPoints(e.target.value))}
-          onBlur={onPointsDone}
-          onKeyDown={(e) => e.key === "Enter" && onPointsDone && (e.preventDefault(), e.currentTarget.blur())}
-          aria-label="Points per item"
-          title="What each item is worth unless it has its own amount"
-        />
-        each
-      </label>
+      {!pointsOff && (
+        <label className="kind-points">
+          <input
+            className="points-field tabular-nums"
+            style={pointsFieldWidth(points)}
+            type="text"
+            inputMode="numeric"
+            value={points}
+            onChange={(e) => onPoints(typedPoints(e.target.value))}
+            onBlur={onPointsDone}
+            onKeyDown={(e) => e.key === "Enter" && onPointsDone && (e.preventDefault(), e.currentTarget.blur())}
+            aria-label="Points per item"
+            title="What each item is worth unless it has its own amount"
+          />
+          each
+        </label>
+      )}
       {children}
     </div>
   );

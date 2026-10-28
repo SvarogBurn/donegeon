@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { MAX_POINTS, MAX_REMINDER_TIMES, MAX_REMINDERS, NOTIFY_FROM, NOTIFY_TO } from "../../../shared/constants.js";
-import { DEADLINE_TODAY, REMINDER_KINDS, TEXT_FONTS, TICKED_TASKS } from "../../../shared/enums.js";
+import { BELL_SHOWS, DEADLINE_TODAY, REMINDER_KINDS, TEXT_FONTS, TICKED_TASKS } from "../../../shared/enums.js";
 import { hex } from "./common.js";
 
 export const credentials = z.object({
@@ -54,7 +54,7 @@ const profile = z
     look: z.object({ v: z.literal(2), body: z.string().max(40), options: capped(z.string().max(40), 30), colors: capped(hex, 40) }).optional(),
     /** The unlocks and titles already announced on the character sheet. */
     seen: z.array(z.string().max(80)).max(400).optional(),
-    /** The user page's settings for the dot on the task bar's face and the sheet's Unlocked and News boxes. */
+    /** The user page's settings for the dot on the task bar's face and the sheet's Unlocked box and the editor's Next up box. */
     hideDot: z.boolean().optional(),
     hideNews: z.boolean().optional(),
   })
@@ -111,7 +111,9 @@ const notifications = z
       .object({ on: z.boolean(), dayBefore: z.boolean().optional(), days: amount(2, 13).optional(), weeks: amount(1, 8).optional(), time: time.optional() })
       .optional(),
     passed: z.object({ on: z.boolean() }).optional(),
+    undone: z.object({ push: z.boolean(), time: time.optional() }).optional(),
     snoozeMinutes: z.number().int().min(5).max(120).optional(),
+    bell: z.enum(BELL_SHOWS).optional(),
     reminders: z.array(reminder).max(MAX_REMINDERS, `At most ${MAX_REMINDERS} reminders`).optional(),
   })
   .nullable();
@@ -127,6 +129,7 @@ export const settings = z
     notesFont: z.enum(TEXT_FONTS),
     notesTab: z.boolean(),
     boxColorEdit: z.boolean(),
+    pointsOff: z.boolean(),
     /** null = no cap. */
     pointsCap: z.number().int().min(1, "A cap is at least 1 point").max(MAX_POINTS).nullable(),
     /** null = no reminder. */

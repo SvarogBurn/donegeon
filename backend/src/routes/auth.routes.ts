@@ -30,6 +30,7 @@ const publicUser = (user: User) => ({
   deadlineToday: user.deadlineToday,
   tutorialSeen: user.tutorialSeen,
   pointsCap: user.pointsCap,
+  pointsOff: user.pointsOff,
   breakEvery: user.breakEvery,
   boxFont: user.boxFont,
   notesFont: user.notesFont,

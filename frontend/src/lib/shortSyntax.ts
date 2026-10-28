@@ -17,6 +17,8 @@ export interface SyntaxContext {
   lists: Named[];
   /** How deep the new task will sit: 0 for a main task. Decides which shortcuts it can take. */
   depth: number;
+  /** The points system switched off: "5p" is plain text. */
+  pointsOff?: boolean;
 }
 
 export type TokenKind = "tag" | "goal" | "hard" | "soft" | "today" | "repeat" | "points" | "list" | "note";
@@ -147,7 +149,7 @@ export function parseShortSyntax(text: string, ctx: SyntaxContext): ParsedTask {
         parsed.deadlineType = mark === "@" ? "hard" : "soft";
         at = take(at, 1 + date.length, parsed.deadlineType, `${parsed.deadlineType} ${formatDay(date.day, true)}`) - 1;
       }
-    } else if (parsed.points === undefined) {
+    } else if (parsed.points === undefined && !ctx.pointsOff) {
       const points = text.slice(at).match(/^(\d{1,10})p(?=\s|$)/i);
       if (!points || Number(points[1]) > MAX_POINTS) continue;
       parsed.points = Number(points[1]);

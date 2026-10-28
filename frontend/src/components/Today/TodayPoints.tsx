@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { usePoints, useSetTodayPoints } from "../../hooks/points";
+import { usePointsOff } from "../../hooks/useAuth";
 import { pointsFieldWidth, typedPoints } from "../../lib/points";
 
-/** What a task typed into Today or Week is worth unless it has its own amount: the same field as a list's "N each". */
+/** What a task typed into Today or Week is worth unless it has its own amount: the same field as a list's "N each". None while the points system is off. */
 export function TodayPoints() {
   const { data } = usePoints();
+  const pointsOff = usePointsOff();
   const save = useSetTodayPoints();
   const current = data?.todayPoints;
   const [text, setText] = useState("");
   useEffect(() => setText(current === undefined ? "" : String(current)), [current]);
-  if (current === undefined) return null;
+  if (current === undefined || pointsOff) return null;
 
   function done() {
     const next = text.trim() === "" ? null : Number(text);

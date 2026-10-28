@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import { localDate } from "../../lib/clock";
 import { useLists } from "../../hooks/lists";
+import { usePointsOff } from "../../hooks/useAuth";
 import { useTaskTrees } from "../../hooks/tasks";
 import { formatDay, formatFullDay, formatPace } from "../../lib/dates";
 import { repeatLabel } from "../../lib/repeat";
@@ -34,6 +35,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 export function TaskInfo({ info, onClose }: { info: Info; onClose: () => void }) {
   const navigate = useNavigate();
   const { data: lists = [] } = useLists();
+  const pointsOff = usePointsOff();
   const { data: trees = [] } = useTaskTrees();
   const today = localDate();
   const id = "plan" in info ? info.plan.node.id : info.done.id;
@@ -79,7 +81,9 @@ export function TaskInfo({ info, onClose }: { info: Info; onClose: () => void })
             {kind === "round" && ` · on ${formatDay(info.day)} if kept to`}
           </Row>
         )}
-        {node.todaySince && <Row label="Today">marked for Today{node.todaySince < today && ` since ${formatDay(node.todaySince)}`}</Row>}
+        {node.todaySince && (
+          <Row label="Today">{node.todaySince === today ? "marked for Today" : node.todaySince > today ? `for Today on ${formatDay(node.todaySince)}` : `left undone on ${formatDay(node.todaySince)}`}</Row>
+        )}
         {node.descendantCount > 0 && (
           <Row label="Subtasks">
             {node.descendantDoneCount}/{node.descendantCount} done
@@ -92,7 +96,7 @@ export function TaskInfo({ info, onClose }: { info: Info; onClose: () => void })
             </ul>
           </Row>
         )}
-        {node.value > 0 && (
+        {node.value > 0 && !pointsOff && (
           <Row label="Worth">
             <ValueChip node={node} />
           </Row>

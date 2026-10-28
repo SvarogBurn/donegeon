@@ -1,5 +1,6 @@
+import { Navigate } from "react-router";
 import { TileFrame } from "../components/Tiles/TileFrame";
-import { useMe } from "../hooks/useAuth";
+import { useMe, usePointsOff } from "../hooks/useAuth";
 import { usePoints } from "../hooks/points";
 import { formatAmount } from "../lib/points";
 import type { PointsSummary } from "../types";
@@ -17,10 +18,12 @@ function when(createdAt: string) {
   return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${String(date.getFullYear()).slice(2)} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
-/** The balance and everything that led to it: points earned, spent on rewards, and taken back by an untick or undo. */
+/** The balance and everything that led to it: points earned, spent on rewards, and taken back by an untick or undo. Not there while the points system is off. */
 export function PointsPage() {
   const points = usePoints();
   const cap = useMe().user?.pointsCap ?? null;
+  const pointsOff = usePointsOff();
+  if (pointsOff) return <Navigate to="/" replace />;
   if (points.error) return <p className="text-sm text-red-600">Couldn't load your points: {points.error.message}</p>;
   if (!points.data) return <p className="text-sm text-stone-500">Loading…</p>;
   const { balance, transactions } = points.data;

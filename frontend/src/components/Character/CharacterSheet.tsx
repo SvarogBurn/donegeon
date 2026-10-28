@@ -1,12 +1,13 @@
 import { useState, useSyncExternalStore } from "react";
 import { usePoints } from "../../hooks/points";
+import { usePointsOff } from "../../hooks/useAuth";
 import { useOnline } from "../../lib/offline/online";
 import { bodyOf, type Look } from "../../lib/character/bodies";
 import { RANGES } from "../../lib/character/profile";
 import { builtInStats, customStatValue, skillExp } from "../../lib/character/profileStats";
 import { levelOf } from "../../lib/character/levels";
 import { shownTitle } from "../../lib/character/titles";
-import { nextGoals, tryOn } from "../../lib/character/unlocks";
+import { tryOn } from "../../lib/character/unlocks";
 import { TileFrame } from "../Tiles/TileFrame";
 import { CellBar, ExpBar } from "./Bars";
 import { CharacterEditor } from "./CharacterEditor";
@@ -30,22 +31,23 @@ const useIsPhone = () => useSyncExternalStore(subscribePhone, () => matchMedia(P
 /**
  * The top of the user's page, as a game's character sheet, the character's name on its band: the character, its
  * title, level and exp, and beside it (under it on a phone, the character as wide as the box) the stats and skills the
- * user picked; under them a News box with what's next. Every task done (a tick at any depth, a press) is one exp, and
- * so is every mail sent to the devs (the character's only; skills count tasks). "Edit", at the bottom right (the
+ * user picked. Every task done (a tick at any depth, a press) is one exp, and so is every mail sent to the devs (the character's only; skills count tasks). "Edit", at the bottom right (the
  * bottom on a phone, as wide as the box), opens all of it in the editor.
  */
 export function CharacterSheet() {
   const { profile, look, name, save } = useProfile();
   const { collected, level, progress, unlocks, today } = useCharacterProgress();
   const points = usePoints();
+  const pointsOff = usePointsOff();
   const online = useOnline();
   const skillName = useSkillNames();
   // Open, maybe with something new tried on.
   const [editing, setEditing] = useState<{ trying?: Look } | null>(null);
   const isPhone = useIsPhone();
 
-  const goals = progress && !profile.hideNews ? nextGoals(progress) : [];
   const values = collected && builtInStats({ ...collected, today, balance: points.data?.balance ?? null });
+  // No points stat while the points system is off; it stays picked for when they are back.
+  const stats = profile.stats.filter((key) => !(pointsOff && key === "points"));
 
   return (
     <TileFrame
@@ -71,9 +73,9 @@ export function CharacterSheet() {
         </div>
 
         <div className="min-w-0 flex-1 space-y-3">
-          {values && profile.stats.length > 0 && (
+          {values && stats.length > 0 && (
             <ul className="grid grid-cols-2 gap-x-4 gap-y-2" data-character-stats>
-              {profile.stats.map((key) => {
+              {stats.map((key) => {
                 const stat = values[key];
                 return (
                   <li key={key} data-stat={key}>
@@ -133,16 +135,6 @@ export function CharacterSheet() {
           </div>
         </div>
       </div>
-      {goals.length > 0 && (
-        <section className="space-y-1 border-2 border-stone-300 p-3 dark:border-stone-700" aria-label="News" data-next-goals>
-          <h3 className="font-pixel text-xs text-stone-500">News</h3>
-          <ul className="text-xs text-stone-500">
-            {goals.map((goal) => (
-              <li key={goal}>Next: {goal}</li>
-            ))}
-          </ul>
-        </section>
-      )}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <p className="flex-1 text-xs text-stone-500">Every task done is 1 exp, and so is every mail to the devs. Do at least one task a day to keep the streak going.</p>
         <button type="button" className="band-button justify-center max-sm:h-8 max-sm:w-full" disabled={!online} title={online ? "The character's look, name, stats and skills" : "Needs a connection"} onClick={() => setEditing({})} data-character-edit>

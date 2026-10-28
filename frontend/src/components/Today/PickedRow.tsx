@@ -23,10 +23,14 @@ interface PickedRowProps {
   today: string;
   /** Which tab it is shown in: Today rows keep their order (longest-waiting first), Week rows are dragged into theirs, and to other days. */
   box: "today" | "week";
-  /** Days in Today, or weeks in Week, it has been waiting. */
-  carried: number;
-  /** In Week: here by itself (see WeekItem), so it has no × or handle; it leaves by being done. */
+  /** In Today: a round due since a day gone by (its schedule keeps it due until it is done or skipped). */
+  dueSince?: string;
+  /**
+   * Here by itself (see WeekItem, TodayItem). In Week it has no × or handle: it leaves by being done. In Today its ×
+   * (`onNotToday`) takes it out for the rest of the day.
+   */
   auto?: WeekAuto;
+  onNotToday?: () => void;
   missed?: boolean;
   rounds?: number;
   /** One round of a task on a schedule: the day it was planned on. Dragging the row moves only that round. */
@@ -34,7 +38,7 @@ interface PickedRowProps {
 }
 
 /** A task from a list shown in Today or Week: it is only shown here, and taken out with ×, the task itself staying where it is. */
-export function PickedRow({ node, path, today, box, carried, auto, missed = false, rounds = 0, round }: PickedRowProps) {
+export function PickedRow({ node, path, today, box, dueSince, auto, onNotToday, missed = false, rounds = 0, round }: PickedRowProps) {
   const tree = useTree();
   const navigate = useNavigate();
   const setToday = useSetToday();
@@ -58,7 +62,7 @@ export function PickedRow({ node, path, today, box, carried, auto, missed = fals
   // one, else its row in its list (on the Tasks page, if this page doesn't show that list), marked for a moment. The
   // arrow shows its subtasks here.
   const hasPage = hasTaskPage(node);
-  // Its deadline is today: that is what it says, not how long it has waited.
+  // Its deadline is today: that is what it says, not since when its round is due.
   const dueToday = node.deadlineDate === today && !node.isComplete;
   function onRowClick(e: MouseEvent<HTMLDivElement>) {
     if ((e.target as Element).closest("button, input, a, label")) return;
@@ -135,12 +139,12 @@ export function PickedRow({ node, path, today, box, carried, auto, missed = fals
               not done since {formatDay(node.nextDue!)}
             </span>
           )}
-          {carried > 0 && !node.isComplete && !dueToday && (
+          {dueSince && !node.isComplete && !dueToday && (
             <span
-              data-carried={carried}
+              data-due-since={dueSince}
               className="pixel-chip bg-amber-100 px-2 py-0.5 text-xs whitespace-nowrap text-amber-800 dark:bg-amber-950 dark:text-amber-300"
             >
-              carried over {carried} {inWeek ? (carried === 1 ? "week" : "weeks") : carried === 1 ? "day" : "days"}
+              due since {formatDay(dueSince)}
             </span>
           )}
           <ValueChip node={node} />
@@ -174,15 +178,14 @@ export function PickedRow({ node, path, today, box, carried, auto, missed = fals
               </button>
             </>
           ) : (
-            // A task that is here because it is due, or its deadline near, leaves by being done, not by hand.
+            // A task here because it is due, or its deadline near, comes back tomorrow if it is taken out.
             <>
               <button
                 type="button"
-                className="btn-quiet glyph disabled:invisible"
-                disabled={node.todaySince === null}
-                aria-label={`Take "${name}" out of Today`}
-                title="Take out of Today (the task itself stays where it is)"
-                onClick={() => setToday.mutate({ id: node.id, today: false })}
+                className="btn-quiet glyph"
+                aria-label={auto ? `Not "${name}" today` : `Take "${name}" out of Today`}
+                title={auto ? "Not today: it is back tomorrow, as long as it is still due (on this device)" : "Take out of Today (the task itself stays where it is)"}
+                onClick={() => (auto ? onNotToday?.() : setToday.mutate({ id: node.id, today: false }))}
               >
                 ×
               </button>
@@ -194,7 +197,7 @@ export function PickedRow({ node, path, today, box, carried, auto, missed = fals
                 onPointerDown={(e) => tree.startDrag(e, node)}
                 aria-label={`Drag "${name}"`}
                 title={
-                  node.todaySince !== null
+                  !auto
                     ? "Drag to the Next week bin to put it off (it leaves Today), or to a list or the Week tab"
                     : "Drag to the Next week bin to put it off (it leaves Today until then)"
                 }

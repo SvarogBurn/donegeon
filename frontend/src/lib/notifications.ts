@@ -35,6 +35,44 @@ export function passedDeadlines(trees: TaskTreeNode[], today: string): PassedDea
   return passed.sort((a, b) => b.node.deadlineDate!.localeCompare(a.node.deadlineDate!));
 }
 
+/** A task the user meant to do on a day gone by, in Today or on a day of the Week, still open: the bell asks when to do it. */
+export interface LeftUndone {
+  node: TaskTreeNode;
+  /** Titles of the tasks it sits under, outermost first. */
+  path: string[];
+  /** The day it was left on: the later of its mark for Today and its day in Week. */
+  day: string;
+  /** Where it was left: what an answer moves (both, for a task that was in both). */
+  inToday: boolean;
+  inWeek: boolean;
+  key: string;
+}
+
+/**
+ * What was left undone: open tasks (any depth) marked for Today on a day gone by, or planned in Week for one,
+ * and not since marked or planned for today or a day to come. Nothing is carried on to the next day by itself;
+ * these wait in the bell until the user does them, picks a new day, or drops them. A persistent task pressed
+ * since that day was done; a finished main task took its subtasks to the Done page. Latest first.
+ */
+export function leftUndone(trees: TaskTreeNode[], today: string): LeftUndone[] {
+  const found: LeftUndone[] = [];
+  const visit = (nodes: TaskTreeNode[], path: string[]) => {
+    for (const node of nodes) {
+      if (node.isComplete) continue;
+      const inToday = node.todaySince !== null && node.todaySince < today;
+      const inWeek = node.weekDay !== null && node.weekDay < today;
+      const planned = (node.todaySince ?? "") >= today || (node.weekDay ?? "") >= today;
+      if ((inToday || inWeek) && !planned) {
+        const day = [inToday ? node.todaySince! : "", inWeek ? node.weekDay! : ""].sort()[1];
+        if (!(node.isPersistent && node.completions.some((press) => press.day >= day))) found.push({ node, path, day, inToday, inWeek, key: `undone:${node.id}:${day}` });
+      }
+      visit(node.children, [...path, plainFirstLine(node.title)]);
+    }
+  };
+  visit(trees, []);
+  return found.sort((a, b) => b.day.localeCompare(a.day));
+}
+
 // Dismissed notifications are this device's: the bell is a reminder, not part of the task.
 const DISMISSED_KEY = "donegeon.dismissedNotifications";
 
@@ -55,4 +93,21 @@ export function saveDismissed(dismissed: Set<string>, shown: string[]) {
   const live = shown.filter((key) => dismissed.has(key));
   // Storage full or blocked: the dismissal lasts until the page is closed.
   writeStored(DISMISSED_KEY, live.length ? JSON.stringify(live) : null);
+}
+
+// What came into Today by itself (a round due, a deadline near) and was taken out for the day, on this device: back tomorrow.
+const NOT_TODAY_KEY = "donegeon.notToday";
+
+/** The tasks taken out of Today for `day`; a list kept from another day is forgotten. */
+export function readNotToday(day: string): Set<string> {
+  try {
+    const saved = JSON.parse(readStored(NOT_TODAY_KEY) ?? "null") as { day: string; ids: string[] } | null;
+    return new Set(saved?.day === day ? saved.ids : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function saveNotToday(day: string, ids: Set<string>) {
+  writeStored(NOT_TODAY_KEY, ids.size ? JSON.stringify({ day, ids: [...ids] }) : null);
 }

@@ -183,9 +183,11 @@ export function draftNode(task: NewTask & { id: string }, { day, at, lists, toda
 export function patchFor(node: TaskTreeNode, changes: TaskChanges, day: string): Partial<TaskTreeNode> {
   const { today, week, repeatEvery, deadlineDate, points, ...plain } = changes;
   const patch: Partial<TaskTreeNode> = { ...plain };
-  if (today !== undefined) patch.todaySince = today ? (node.todaySince ?? day) : null;
+  const markedFor = today === undefined || today === false ? null : today === true || today < day ? day : today;
+  if (today !== undefined) patch.todaySince = markedFor;
   if (week === false) patch.weekDay = null;
-  if (today && node.weekDay !== null && node.weekDay >= addDays(mondayOf(day), 7)) patch.weekDay = null;
+  const nextMonday = addDays(mondayOf(day), 7);
+  if (markedFor && markedFor < nextMonday && node.weekDay !== null && node.weekDay >= nextMonday) patch.weekDay = null;
   if (deadlineDate !== undefined) {
     patch.deadlineDate = deadlineDate;
     patch.deadlineType = deadlineDate ? (changes.deadlineType ?? node.deadlineType ?? "soft") : null;

@@ -163,10 +163,10 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
         data-task-row={node.id}
         onPointerDown={(e) => (pressedControl.current = Boolean((e.target as Element).closest(ROW_CONTROLS)))}
         onClick={openTask}
-        data-today={node.todaySince ? "" : undefined}
-        title={node.todaySince ? "In Today" : undefined}
+        data-today={node.todaySince === today ? "" : undefined}
+        title={node.todaySince === today ? "In Today" : undefined}
         // Tasks marked for Today are tinted green in their list.
-        className={`flex ${opens ? "cursor-pointer" : ""} flex-wrap items-start gap-x-1.5 gap-y-1 rounded px-1 py-0.5 ${node.todaySince ? "bg-emerald-50 dark:bg-emerald-950/40" : "hover:bg-stone-50 dark:hover:bg-stone-800/50"} ${drop ? DROP_STYLES[drop] : ""}`}
+        className={`flex ${opens ? "cursor-pointer" : ""} flex-wrap items-start gap-x-1.5 gap-y-1 rounded px-1 py-0.5 ${node.todaySince === today ? "bg-emerald-50 dark:bg-emerald-950/40" : "hover:bg-stone-50 dark:hover:bg-stone-800/50"} ${drop ? DROP_STYLES[drop] : ""}`}
       >
         <button
           type="button"

@@ -48,7 +48,16 @@ const plan = (trees: TaskTreeNode[], set: NotifySettings, now = early) => buildS
 const keyed = <T extends { key: string }>(items: T[], key: string) => items.find((item) => item.key === key)!;
 
 describe("a reminder of the day's tasks", () => {
-  const trees = [node("Essay", { todaySince: "2026-10-19" }), node("Gym", { weekDay: today }), node("Read", { weekDay: "2026-10-22" }), node("Done", { todaySince: today, isComplete: true, completedOn: today })];
+  // Old was left undone yesterday: it isn't carried on, so no reminder names it. Later is marked for tomorrow.
+  const trees = [
+    node("Essay", { todaySince: today }),
+    node("Gym", { weekDay: today }),
+    node("Read", { weekDay: "2026-10-22" }),
+    node("Done", { todaySince: today, isComplete: true, completedOn: today }),
+    node("Old", { todaySince: "2026-10-19" }),
+    node("Later", { todaySince: "2026-10-21" }),
+    node("Call", { weekDay: "2026-10-26" }),
+  ];
 
   it("names what is open in Today and planned in the Week that day, at each of its times", () => {
     const items = plan(trees, settings([reminder("today", { times: ["08:00", "12:30"] })]));
@@ -56,13 +65,14 @@ describe("a reminder of the day's tasks", () => {
     expect(morning.title).toBe("Today: 2 tasks");
     expect(morning.body).toBe("Essay, Gym");
     expect(keyed(items, `r:today:${today}:1230`).sendAt).toEqual(momentOf(today, "12:30"));
-    expect(keyed(items, "r:today:2026-10-22:0800").body).toBe("Essay, Read");
+    expect(keyed(items, "r:today:2026-10-21:0800").body).toBe("Later");
+    expect(keyed(items, "r:today:2026-10-22:0800").body).toBe("Read");
   });
 
   it("comes only on the weekdays picked", () => {
     const keys = plan(trees, settings([reminder("today", { days: [0, 3] })])).map((item) => item.key);
-    // Monday 26/10 and 2/11, Thursday 22/10 and 29/10.
-    expect(keys.filter((key) => key.startsWith("r:"))).toEqual(["r:today:2026-10-22:0800", "r:today:2026-10-26:0800", "r:today:2026-10-29:0800", "r:today:2026-11-02:0800"]);
+    // Thursday 22/10 and Monday 26/10; Thursday 29/10 and Monday 2/11 have nothing to do.
+    expect(keys.filter((key) => key.startsWith("r:"))).toEqual(["r:today:2026-10-22:0800", "r:today:2026-10-26:0800"]);
   });
 
   it("can say tomorrow's and what is still open", () => {
@@ -76,8 +86,10 @@ describe("a reminder of the day's tasks", () => {
     expect(items.map((item) => item.key)).toEqual(["last:2026-11-02"]);
     expect(items[0].body).toBe("Open Donegeon to keep your reminders coming.");
     expect(PLAN_DAYS).toBe(14);
-    // Gym and Read, still open, roll onto that Monday as the Week box does.
-    expect(keyed(plan(trees, settings([reminder("today")])), "r:today:2026-11-02:0800").body).toBe("Essay, Gym, Read\nOpen Donegeon to keep your reminders coming.");
+    // Nothing is carried on: Gym and Read, still open, aren't on that Monday, which says only that.
+    const keys = plan(trees, settings([reminder("today")])).map((item) => item.key);
+    expect(keys.includes("r:today:2026-11-02:0800")).toBe(false);
+    expect(keys.includes("last:2026-11-02")).toBe(true);
   });
 
   it("leaves out a moment gone by, but not one the server may not have sent yet, nor one switched off", () => {
@@ -90,11 +102,26 @@ describe("a reminder of the day's tasks", () => {
 
 describe("next week's plan", () => {
   it("tells the week after the reminder's, day by day, on the day picked", () => {
-    // Gym, planned for this week and still open, rolls onto next Monday as the Week box does.
+    // Gym, planned for this week and still open, isn't carried on to next week.
     const trees = [node("Exam", { weekDay: "2026-10-28" }), node("Call", { weekDay: "2026-10-26" }), node("Gym", { weekDay: today })];
     const friday = keyed(plan(trees, settings([reminder("nextWeek", { days: [4], times: ["18:30"] })])), "r:nextWeek:2026-10-23:1830");
-    expect(friday.title).toBe("Next week: 3 tasks");
-    expect(friday.body).toBe("Mon: Call, Gym\nWed: Exam");
+    expect(friday.title).toBe("Next week: 2 tasks");
+    expect(friday.body).toBe("Mon: Call\nWed: Exam");
+  });
+});
+
+describe("tasks left undone", () => {
+  const trees = [node("Old", { todaySince: "2026-10-19" }), node("Essay", { todaySince: today }), node("Gym", { weekDay: today }), node("Later", { todaySince: "2026-10-21" })];
+
+  it("are pushed only if the user chose so: this morning's, and tomorrow's as today will leave them", () => {
+    expect(plan(trees, settings([])).some((item) => item.kind === "undone")).toBe(false);
+    const items = plan(trees, settings([], { undone: { push: true, time: "09:15" } })).filter((item) => item.kind === "undone");
+    expect(items.map((item) => [item.key, item.title, item.body])).toEqual([
+      [`undone:${today}`, "Left undone: 1 task", "Old\nTap to pick when to do them."],
+      ["undone:2026-10-21", "Left undone: 3 tasks", "Essay, Gym, Old\nTap to pick when to do them."],
+    ]);
+    expect(items[0].sendAt).toEqual(momentOf(today, "09:15"));
+    expect(items[0].url).toBe("/?bell=1");
   });
 });
 
@@ -187,6 +214,8 @@ describe("the settings", () => {
     expect(saved.deadline.time).toBe("08:00");
     expect(saved.reminders).toEqual([{ id: "a", on: true, kind: "today", days: [2], times: ["21:00"] }]);
     expect(normalizeNotifications({ reminders: [] }).reminders).toEqual([]);
+    expect(normalizeNotifications({ bell: "actions" }).bell).toBe("actions");
+    expect(normalizeNotifications({ bell: "nope" }).bell).toBe("all");
   });
 
   it("spread times evenly, and say when a reminder comes", () => {
@@ -197,10 +226,10 @@ describe("the settings", () => {
   });
 });
 
-describe("the bell", () => {
-  it("shows today's messages once their time has come, the latest first", () => {
-    const trees = [node("Essay", { todaySince: today }), node("Due", { id: "d", deadlineDate: "2026-10-21", deadlineType: "hard" })];
-    const set = settings([reminder("today"), reminder("open", { times: ["20:00"] })], { deadline: { ...NOTIFY_DEFAULTS.deadline, time: "08:30" } });
+describe("the bell showing everything", () => {
+  it("lists today's messages once their time has come, the latest first; not what it lists one by one", () => {
+    const trees = [node("Essay", { todaySince: today }), node("Old", { todaySince: "2026-10-19" }), node("Due", { id: "d", deadlineDate: "2026-10-21", deadlineType: "hard" }), node("Gone", { id: "g", deadlineDate: "2026-10-19", deadlineType: "hard" })];
+    const set = settings([reminder("today"), reminder("open", { times: ["20:00"] })], { deadline: { ...NOTIFY_DEFAULTS.deadline, time: "08:30" }, passed: { on: true }, undone: { push: true, time: "08:00" } });
     expect(dueToday(trees, today, momentOf(today, "09:00"), set, "bottom", "never").map((item) => item.key)).toEqual(["deadline:2026-10-21:d:1", `r:today:${today}:0800`]);
     expect(dueToday(trees, today, momentOf(today, "21:00"), set, "bottom", "never")[0].key).toBe(`r:open:${today}:2000`);
   });

@@ -56,10 +56,13 @@ export function taskPatchData(task: Current, input: TaskPatch, today: string): P
   if (input.week === false && inNoList && !task.todaySince) {
     throw new HttpError(400, "This task only lives in Week. Move it to a list first, or delete it.");
   }
-  if (input.today !== undefined) data.todaySince = input.today ? (task.todaySince ?? today) : null;
+  // Marked for one day: today, or a day to come. A mark left from a day gone by is asked about in the bell, not kept.
+  const markedFor = input.today === undefined || input.today === false ? null : input.today === true || input.today < today ? today : input.today;
+  if (input.today !== undefined) data.todaySince = markedFor;
   if (input.week === false) data.weekDay = null;
-  // Put in Today, a task put off to next week is taken out of it again: it is for today after all.
-  if (input.today && task.weekDay && task.weekDay >= addDays(mondayOf(today), 7)) data.weekDay = null;
+  // Put in Today this week, a task put off to next week is taken out of it again: it is for this week after all.
+  const nextMonday = addDays(mondayOf(today), 7);
+  if (markedFor && markedFor < nextMonday && task.weekDay && task.weekDay >= nextMonday) data.weekDay = null;
 
   // A schedule only makes sense on a task that is done again and again, so setting one makes the task persistent.
   const isPersistent = input.isPersistent ?? (input.repeatEvery ? true : task.isPersistent);

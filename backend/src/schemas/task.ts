@@ -50,8 +50,8 @@ export const taskPatch = z.object({
   points: points.nullable().optional(),
   /** Main tasks only: subtasks without their own amount are worth what this task is. */
   pointsToSubtasks: z.boolean().optional(),
-  /** In or out of the Today box. */
-  today: z.boolean().optional(),
+  /** In or out of the Today box; a day = in it on that day (today if it has gone by). */
+  today: z.union([z.boolean(), localDate]).optional(),
   /** In or out of the Week box; one coming in goes last on today. */
   week: z.boolean().optional(),
   /** Done again and again instead of once. */

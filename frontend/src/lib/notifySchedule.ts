@@ -4,8 +4,9 @@ import { formatDay } from "./dates";
 import { plainFirstLine } from "./markup";
 import { KIND_NAMES, type NotifySettings, type Reminder } from "./notifySettings";
 import { isDue } from "./repeat";
+import { leftUndone } from "./notifications";
 import { hasTaskPage } from "./taskPage";
-import { livesInToday, todayItems, weekDays } from "./week";
+import { isMarkedFor, livesInToday, todayItems, weekDays } from "./week";
 
 /**
  * The notifications the app plans and the server sends at their moment (PUT /notifications/schedule). Worked out
@@ -15,7 +16,7 @@ import { livesInToday, todayItems, weekDays } from "./week";
 export interface Planned {
   /** Names it once: a key that was sent is never sent again, however often the plan is sent. */
   key: string;
-  kind: "reminder" | "deadline" | "passed" | "recap";
+  kind: "reminder" | "deadline" | "passed" | "recap" | "undone";
   /** The instant, on this device's clock and time zone. */
   sendAt: Date;
   title: string;
@@ -71,7 +72,7 @@ const byId = (nodes: TaskTreeNode[]) => [...new Map(nodes.map((node) => [node.id
  */
 export function tasksOn(trees: TaskTreeNode[], day: string, ticked: TickedTasks, deadlines: DeadlineToday): TaskTreeNode[] {
   const today = todayItems(trees, day, ticked, deadlines).map((item) => item.node);
-  const own = trees.filter(livesInToday);
+  const own = trees.filter((node) => livesInToday(node) && isMarkedFor(node, day));
   const planned = weekDays(trees, day, ticked, deadlines).find((week) => week.day === day && !week.nextWeek)?.items.map((item) => item.node) ?? [];
   return byId([...today, ...own, ...planned]).filter((node) => !node.isComplete);
 }
@@ -228,6 +229,15 @@ export function buildSchedule(trees: TaskTreeNode[], today: string, now: Date, s
     }
   }
 
+  // What was left undone, if the user wants it pushed: this morning's (still to send), and tomorrow's as it will be if
+  // nothing more is done today. A tap opens the bell, where each is answered.
+  if (settings.undone.push) {
+    for (const day of [today, addDays(today, 1)]) {
+      const left = byId(leftUndone(trees, day).map((item) => item.node));
+      if (left.length) add({ key: `undone:${day}`, kind: "undone", sendAt: momentOf(day, settings.undone.time), title: `Left undone: ${plural(left.length, "task")}`, body: clip(`${named(left)}\nTap to pick when to do them.`), url: "/?bell=1" });
+    }
+  }
+
   planned.sort((a, b) => a.sendAt.getTime() - b.sendAt.getTime() || a.key.localeCompare(b.key));
   // The last day planned says so: nothing more comes until the app is opened again. On its first message that has
   // words of its own, or, with nothing that day, in a message of its own at the first reminder's time.
@@ -244,13 +254,13 @@ export function buildSchedule(trees: TaskTreeNode[], today: string, now: Date, s
 }
 
 /**
- * Today's messages whose time has come, for the bell: the reminders and the deadline notices (a deadline gone by is in
- * the bell already, from passedDeadlines; the recap's numbers are the server's). Worked out from the trees as they are
- * now, latest first.
+ * Today's messages whose time has come, for the bell when it shows everything: the reminders and the deadline notices
+ * (a deadline gone by and the tasks left undone are in the bell already, one by one; the recap's numbers are the
+ * server's). Worked out from the trees as they are now, latest first.
  */
 export function dueToday(trees: TaskTreeNode[], today: string, now: Date, settings: NotifySettings, ticked: TickedTasks, deadlines: DeadlineToday): Planned[] {
   const end = momentOf(addDays(today, 1), 0).getTime();
   return buildSchedule(trees, today, momentOf(today, 0), settings, ticked, deadlines)
-    .filter((item) => item.kind !== "recap" && item.kind !== "passed" && !item.key.startsWith("last:") && item.sendAt.getTime() <= now.getTime() && item.sendAt.getTime() < end)
+    .filter((item) => (item.kind === "reminder" || item.kind === "deadline") && !item.key.startsWith("last:") && item.sendAt.getTime() <= now.getTime() && item.sendAt.getTime() < end)
     .reverse();
 }

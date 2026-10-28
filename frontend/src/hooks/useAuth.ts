@@ -83,6 +83,11 @@ export function useNotesTab(): boolean {
   return useMe().user?.notesTab ?? false;
 }
 
+/** Whether the points system is switched off on the user's page: no points shown, earned or spent. */
+export function usePointsOff(): boolean {
+  return useMe().user?.pointsOff ?? false;
+}
+
 /**
  * The colour the user picked for a built-in box (Today, Done, the character, a stats box…), by the box's key: its
  * folder view where it has one ("box:today", "stat:points", "cal:month"), else its tile key ("done", "character"). So a

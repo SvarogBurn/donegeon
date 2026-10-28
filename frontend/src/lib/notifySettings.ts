@@ -1,8 +1,8 @@
 import { MAX_REMINDER_TIMES, MAX_REMINDERS, NOTIFY_FROM, NOTIFY_TO } from "../../../shared/constants";
-import { REMINDER_KINDS, type ReminderKind } from "../../../shared/enums";
+import { BELL_SHOWS, REMINDER_KINDS, type BellShows, type ReminderKind } from "../../../shared/enums";
 
 export { NOTIFY_FROM, NOTIFY_TO, MAX_REMINDERS, MAX_REMINDER_TIMES };
-export type { ReminderKind };
+export type { BellShows, ReminderKind };
 
 /**
  * One of the user's reminders: what it says, on which days, at what times. A reminder on a task (`taskId`, made from
@@ -34,8 +34,15 @@ export interface NotifySettings {
   deadline: { on: boolean; dayBefore: boolean; days: { on: boolean; amount: number }; weeks: { on: boolean; amount: number }; time: string };
   /** A hard deadline gone by with work left, the morning after, at the deadline notices' time. */
   passed: { on: boolean };
+  /**
+   * Tasks left undone in Today or Week the day before: always in the bell; pushed too (`push`) at `time`, if the
+   * user chose so.
+   */
+  undone: { push: boolean; time: string };
   /** How long Snooze puts a notification off. */
   snoozeMinutes: number;
+  /** The bell: everything, today's reminders and deadline notices too once their time has come; or only what needs an answer (left undone, deadlines passed). */
+  bell: BellShows;
   reminders: Reminder[];
 }
 
@@ -64,6 +71,9 @@ export const KIND_NOTES: Record<ReminderKind, string> = {
   text: "Your own words.",
 };
 
+/** The recap's note while the points system is off: it tells no points. */
+export const RECAP_NOTE_NO_POINTS = "The tasks done since Monday.";
+
 export const WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /** A new reminder's id: made on the device, unique enough among one account's few. */
@@ -74,7 +84,9 @@ const reminder = (id: string, kind: ReminderKind, days: Reminder["days"], time: 
 export const NOTIFY_DEFAULTS: NotifySettings = {
   deadline: { on: true, dayBefore: true, days: { on: true, amount: 3 }, weeks: { on: false, amount: 2 }, time: "08:00" },
   passed: { on: true },
+  undone: { push: false, time: "08:00" },
   snoozeMinutes: 15,
+  bell: "all",
   reminders: [
     reminder("morning", "today", "all", "08:00"),
     reminder("evening", "open", "all", "20:00"),
@@ -125,6 +137,7 @@ function normalizeReminder(saved: unknown): Reminder | null {
 export function normalizeNotifications(saved: unknown): NotifySettings {
   const s = isRecord(saved) ? saved : {};
   const deadline = isRecord(s.deadline) ? s.deadline : {};
+  const undone = isRecord(s.undone) ? s.undone : {};
   const d = NOTIFY_DEFAULTS;
   return {
     deadline: {
@@ -135,7 +148,9 @@ export function normalizeNotifications(saved: unknown): NotifySettings {
       time: isNotifyTime(deadline.time) ? deadline.time : d.deadline.time,
     },
     passed: { on: flag(isRecord(s.passed) ? s.passed.on : undefined, d.passed.on) },
+    undone: { push: flag(undone.push, d.undone.push), time: isNotifyTime(undone.time) ? undone.time : d.undone.time },
     snoozeMinutes: whole(s.snoozeMinutes, SNOOZE.min, SNOOZE.max) ?? d.snoozeMinutes,
+    bell: (BELL_SHOWS as readonly unknown[]).includes(s.bell) ? (s.bell as BellShows) : d.bell,
     // Never saved: the reminders a new account starts with. Saved, even empty: the user's.
     reminders: Array.isArray(s.reminders) ? s.reminders.map(normalizeReminder).filter((r): r is Reminder => r !== null).slice(0, MAX_REMINDERS) : d.reminders,
   };

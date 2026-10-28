@@ -15,7 +15,7 @@ import { TileGrid, type Tile } from "../components/Tiles/TileGrid";
 import { TreeProvider } from "../components/TaskTree/TreeContext";
 import { TreeError, UndoBar } from "../components/TaskTree/TreeStatus";
 import { TodayBox } from "../components/Today/TodayBox";
-import { useTickedTasks } from "../hooks/useAuth";
+import { usePointsOff, useTickedTasks } from "../hooks/useAuth";
 import { useDropOnTab, useFolders, useUpdateFolder } from "../hooks/folders";
 import { useCreateGoal, useCreateTag, useDeleteGoal, useDeleteTag, useGoals, useTags } from "../hooks/labels";
 import { useLayout, useSaveLayout } from "../hooks/layout";
@@ -62,6 +62,7 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   const layout = useLayout();
   const saveLayout = useSaveLayout();
   const ticked = useTickedTasks();
+  const pointsOff = usePointsOff();
   // Only a folder's page shows notes: those dropped on its tab.
   const notes = useNotes();
   const [picked, setPicked] = useState<LabelFilter>(NO_FILTER);
@@ -169,7 +170,8 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
       return note ? [{ key: view, view, name: `note "${note.title || "Note"}"`, label: note.title || "Note", half: true, node: <NoteCard note={note} inBox /> }] : [];
     }
     if (stat === null) return listTiles.filter((tile) => tile.key === view);
-    if (!(stat in STAT_BOXES)) return [];
+    // The Points box isn't shown while the points system is off; the folder keeps it for when they are back.
+    if (!(stat in STAT_BOXES) || (pointsOff && stat === "points")) return [];
     return [{ key: view, view, name: STAT_BOXES[stat], label: STAT_BOXES[stat], node: <StatBoxView name={stat} /> }];
   });
   const showsStats = viewTiles.some((tile) => statOfView(tile.key) !== null);

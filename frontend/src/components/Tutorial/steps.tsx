@@ -26,6 +26,8 @@ export interface TutorialContext {
   isTouch: boolean;
   /** A phone's width: the steps that only show something more are left out, and the words are kept small. */
   isNarrow: boolean;
+  /** The points system switched off: the menu has no points to show. */
+  pointsOff: boolean;
 }
 
 export interface Step {
@@ -262,6 +264,8 @@ export const STEPS: Step[] = [
     needsTask: true,
     text: () => <>Here are the points you earn or lose. Every task can have its own amount, subtasks too. Leave it empty and it'll have the points from the list by default.</>,
     target: (ctx) => [part("points"), MENU, dots(ctx)],
+    // The points system is off: the menu has no points field.
+    skip: (ctx) => ctx.pointsOff,
     button: "Next",
   },
   {

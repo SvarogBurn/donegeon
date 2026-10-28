@@ -17,6 +17,8 @@ export interface User {
   tutorialSeen: boolean;
   /** The most points the balance can hold; null (the default) = no cap. */
   pointsCap: number | null;
+  /** The points system switched off: nothing earned or spent, and no points shown. Missing in an account kept on the device from before (= on). */
+  pointsOff?: boolean;
   /** A reminder to take a break after every so many tasks done in a day; null (the default) = none. */
   breakEvery: number | null;
   /** Theme: the font of the text inside the boxes (task notes too); "pixel" (the default) = the pixel font. Missing in an account kept on the device from before. */

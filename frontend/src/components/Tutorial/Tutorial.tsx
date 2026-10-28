@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { useUpdateMe } from "../../hooks/useAuth";
+import { usePointsOff, useUpdateMe } from "../../hooks/useAuth";
 import { useFolders } from "../../hooks/folders";
 import { useLayout, useSaveLayout } from "../../hooks/layout";
 import { useLists } from "../../hooks/lists";
@@ -162,6 +162,7 @@ export function Tutorial({ user }: { user: User }) {
 
 function Running({ user }: { user: User }) {
   const tasks = useTaskTrees();
+  const pointsOff = usePointsOff();
   const lists = useLists();
   const folders = useFolders();
   const layout = useLayout();
@@ -196,6 +197,7 @@ function Running({ user }: { user: User }) {
     known: progress.known,
     isTouch: stored(() => matchMedia("(pointer: coarse)").matches, false),
     isNarrow: window.innerWidth < NARROW,
+    pointsOff,
   };
   const isEntered = progress.entered === progress.step;
   const isShown = !step.dark && isEntered;

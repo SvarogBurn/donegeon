@@ -129,8 +129,8 @@ export function AppBars({ user }: { user: User }) {
           )}
           {/* Notifications open below it: passed deadlines, each asking for a new date. */}
           <Bell inStrip onOpenChange={setIsBellOpen} />
-          {/* The balance at the far right: the number, with "pts" underneath. */}
-          {points && (
+          {/* The balance at the far right: the number, with "pts" underneath. None while the points system is off. */}
+          {!user.pointsOff && points && (
             <NavLink
               to="/points"
               className={({ isActive }) =>
