@@ -7,6 +7,5 @@ e2e/
 *.log
 PLAN.md
 STYLE.md
-news/hidden.txt
 news/README.md
 frontend/tsconfig.tsbuildinfo

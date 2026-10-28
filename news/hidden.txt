@@ -1,0 +1,8 @@
+# Commits left out of the News page's changelog: one short hash a line, anything after it is a note to yourself.
+# Lines starting with # are skipped.
+ca71f29 edit README.md
+c631199 stop tracking e2e folder
+d0392ee refactor code, add shared folder
+bce7f85 refactor code
+d71049a change server adress to frankfurt on yaml
+b3450e4 the same CodeMirror commit twice (631b139 stays)
