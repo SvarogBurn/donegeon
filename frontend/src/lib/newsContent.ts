@@ -12,7 +12,6 @@ const projectFiles = import.meta.glob<string>("../../../news/projects/*.md", { q
 const projectImages = import.meta.glob<string>("../../../news/projects/*.{png,jpg,jpeg,gif,webp,svg}", { query: "?url", import: "default", eager: true });
 const eventFiles = import.meta.glob<string>("../../../news/events/*.md", { query: "?raw", import: "default", eager: true });
 
-export const COMMITS = commits;
 export const FEATURES = featuresFrom(featureFiles, commits);
 export const CHANGELOG = changelog(commits, FEATURES, hiddenHashes(hidden));
 export const PROJECTS = projectsFrom(projectFiles, projectImages);

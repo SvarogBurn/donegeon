@@ -251,6 +251,15 @@ export function NotificationSettings() {
       <p className="text-xs text-stone-500">
         Tasks left open in Today or the Week aren't carried on to the next day: the bell asks when you'll do them. With this ticked, they are pushed at that time too, to every device with push turned on.
       </p>
+      <label className="flex items-center gap-2 text-xs">
+        <PixelCheckbox small checked={settings.news.on} onChange={(e) => set("news", { on: e.target.checked })} data-notify-news />
+        New in the News
+      </label>
+      <p className="text-xs text-stone-500">
+        {settings.news.on
+          ? "A new article in The Donegeon Post comes into the bell until you read it. The paper on your page has a NEW stamp on it either way."
+          : "No news in the bell. The paper on your page still gets a NEW stamp."}
+      </p>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         Snooze for
         <AmountField value={settings.snoozeMinutes} bounds={SNOOZE} onSave={(snoozeMinutes) => set("snoozeMinutes", snoozeMinutes)} label="Snooze for how many minutes" name="snooze" width="w-12" />

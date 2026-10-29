@@ -1,12 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, Navigate, useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { addDays } from "../../../shared/dates";
 import { countWords, eventState, STORY_TEXT_MAX, STORY_TITLE_MAX, storyWordCap, type StoryEvent } from "../../../shared/events";
 import { eventDays, Masthead, Paper, paperDate } from "../components/News/Paper";
 import { NeedsConnection } from "../components/NeedsConnection";
 import { NoteText } from "../components/TaskTree/NoteText";
 import { useEventStories, useStoryChanges } from "../hooks/stories";
-import { useMe, useNewsTab } from "../hooks/useAuth";
+import { useMe } from "../hooks/useAuth";
 import { localDate } from "../lib/clock";
 import { localDay } from "../lib/dates";
 import { EVENTS } from "../lib/newsContent";
@@ -116,12 +116,10 @@ function StoryList({ eventId, stories }: { eventId: string; stories: (Story & { 
 /** A story event's page (/news/events/:eventId): its prompt, then the user's story while it is open, and everyone's once it is closed. */
 export function NewsEventPage() {
   const { eventId = "" } = useParams();
-  const newsTab = useNewsTab();
   const event = EVENTS.find((found) => found.id === eventId);
   const state = event && eventState(event, localDate());
   // Nothing to ask for before it opens, or for an event there is no file for.
   const stories = useEventStories(eventId, state !== undefined && state !== "upcoming");
-  if (!newsTab) return <Navigate to="/" replace />;
 
   return (
     <Paper label={event?.title ?? "Story event"}>

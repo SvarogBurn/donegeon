@@ -15,6 +15,8 @@ export interface Commit {
 
 export interface Feature {
   slug: string;
+  /** Its issue of the paper, "No. 1" the oldest feature: one more with each feature written. */
+  issue: number;
   title: string;
   /** Its own date, else the newest of its commits'; "" when it has neither. */
   date: string;
@@ -77,17 +79,22 @@ export const hiddenHashes = (raw: string) =>
     .map((line) => line.trim().split(/\s+/)[0])
     .filter((word) => word && !word.startsWith("#"));
 
-/** The features, newest first, from their files ({path: text}); a hash in none of the commits is left out of it. */
+/**
+ * The features, newest first, from their files ({path: text}), each its issue's number (the oldest 1); a hash in none
+ * of the commits is left out of it.
+ */
 export function featuresFrom(files: Record<string, string>, log: Commit[]): Feature[] {
-  return Object.entries(files)
+  const features = Object.entries(files)
     .map(([path, raw]) => {
       const { data, body } = parseFrontMatter(raw);
       const written = (data.commits ?? "").split(/[\s,]+/).filter(Boolean);
       const commits = log.filter((commit) => written.some((hash) => names(hash, commit.hash)));
       const date = isLocalDate(data.date) ? data.date : commits.reduce((newest, commit) => (commit.date > newest ? commit.date : newest), "");
-      return { slug: fileSlug(path), title: data.title || fileSlug(path), date, commits, body };
+      return { slug: fileSlug(path), issue: 0, title: data.title || fileSlug(path), date, commits, body };
     })
     .sort((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title));
+  features.forEach((feature, i) => (feature.issue = features.length - i));
+  return features;
 }
 
 /** The commits no feature is about and none hidden, by day, newest first (the log's own order within a day). */

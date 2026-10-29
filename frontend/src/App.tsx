@@ -94,6 +94,7 @@ export function App() {
         <Route path="notes/:noteId" element={later(<NoteScreen />)} />
         <Route path="points" element={later(<PointsPage />)} />
         <Route path="news" element={later(<NewsPage />)} />
+        <Route path="news/:issue" element={later(<NewsPage />)} />
         <Route path="news/events/:eventId" element={later(<NewsEventPage />)} />
         <Route path="user" element={later(<UserPage />)} />
         <Route path="tasks/:taskId" element={later(<TaskPage />)} />

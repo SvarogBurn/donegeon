@@ -28,7 +28,7 @@ describe("hiddenHashes", () => {
 });
 
 describe("featuresFrom", () => {
-  it("gathers the commits it names, dated by the newest of them unless it has a date, newest first", () => {
+  it("gathers the commits it names, dated by the newest of them unless it has a date, newest first, numbered from the oldest", () => {
     const features = featuresFrom(
       {
         "news/features/notifications.md": "---\ntitle: Notifications\ncommits: 99484ee fcba90\n---\nRemind me.",
@@ -37,10 +37,10 @@ describe("featuresFrom", () => {
       },
       LOG,
     );
-    expect(features.map((feature) => [feature.slug, feature.date, feature.commits.map((commit) => commit.hash)])).toEqual([
-      ["notifications", "2026-10-28", ["fcba909", "99484ee"]],
-      ["old", "2026-10-10", ["d7b2f50"]],
-      ["nothing", "", []],
+    expect(features.map((feature) => [feature.slug, feature.issue, feature.date, feature.commits.map((commit) => commit.hash)])).toEqual([
+      ["notifications", 3, "2026-10-28", ["fcba909", "99484ee"]],
+      ["old", 2, "2026-10-10", ["d7b2f50"]],
+      ["nothing", 1, "", []],
     ]);
     expect(features[0]).toMatchObject({ title: "Notifications", body: "Remind me." });
     expect(features[2].title).toBe("nothing");

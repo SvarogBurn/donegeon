@@ -114,6 +114,7 @@ const notifications = z
     undone: z.object({ push: z.boolean(), time: time.optional() }).optional(),
     snoozeMinutes: z.number().int().min(5).max(120).optional(),
     bell: z.enum(BELL_SHOWS).optional(),
+    news: z.object({ on: z.boolean() }).optional(),
     reminders: z.array(reminder).max(MAX_REMINDERS, `At most ${MAX_REMINDERS} reminders`).optional(),
   })
   .nullable();

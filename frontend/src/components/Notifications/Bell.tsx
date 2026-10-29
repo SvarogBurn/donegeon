@@ -7,6 +7,7 @@ import { useDeadlineToday, useNotifySettings, useTickedTasks } from "../../hooks
 import { formatDay } from "../../lib/dates";
 import { leftUndone, passedDeadlines, readDismissed, saveDismissed, type LeftUndone, type PassedDeadline } from "../../lib/notifications";
 import { dueToday, findTask, type Planned } from "../../lib/notifySchedule";
+import { markNewsSeen, useUnseenNews } from "../../lib/newsSeen";
 import { newId } from "../../lib/offline/changes";
 import { PretendNotice } from "../layout/Clock";
 import { RichText } from "../RichText";
@@ -38,7 +39,8 @@ function useMinute() {
  * ones pushed if push is on), a tap opening their page. Then tasks left undone in Today or Week on a day gone by
  * (nothing is carried on to the next day by itself), a tap asking when to do them, × dropping them (they stay in their
  * list); and deadlines whose day is over with the task still open, a tap asking for a new deadline. Dismissed
- * messages and deadlines stay away on this device (a deadline until it is moved and passes again). `inStrip` = the installed app's top strip (the list opens below);
+ * messages and deadlines stay away on this device (a deadline until it is moved and passes again). First, while the
+ * setting is on, the News articles not yet read on this device (lib/newsSeen), a tap opening the paper. `inStrip` = the installed app's top strip (the list opens below);
  * otherwise the browser's task bar along the bottom (it opens above), where the bell is teeny and `children` places it
  * (the clock puts it beside the time), and a click anywhere on them opens the list.
  */
@@ -77,7 +79,10 @@ export function Bell({
   const panel = useRef<HTMLDivElement>(null);
   const shown = passed.filter((item) => !dismissed.has(item.key));
   const shownMessages = showsAll ? messages.filter((item) => !dismissed.has(item.key)) : [];
-  const count = shownMessages.length + shown.length + undone.length;
+  // New articles in the News, while the setting is on (whatever the bell shows otherwise): read or dismissed, they are gone.
+  const unseenNews = useUnseenNews();
+  const news = settings.news.on ? unseenNews : [];
+  const count = news.length + shownMessages.length + shown.length + undone.length;
 
   useEffect(() => onOpenChange?.(isOpen || asking !== null || askingUndone !== null), [isOpen, asking, askingUndone, onOpenChange]);
   // Only once the tasks are in: before that every dismissal would look out of date.
@@ -162,6 +167,7 @@ export function Bell({
                 onClick={() => {
                   dismiss([...shownMessages, ...shown].map((item) => item.key));
                   undone.filter(hasHome).forEach(drop);
+                  if (news.length) markNewsSeen(news.map((feature) => feature.slug));
                 }}
               >
                 Dismiss all
@@ -172,6 +178,29 @@ export function Bell({
             <p className="px-3 py-6 text-center text-xs text-stone-500">Nothing new. {showsAll && "Today's reminders, "}Tasks left undone and deadlines whose day has passed show up here.</p>
           ) : (
             <ul className="max-h-[60svh] divide-y divide-stone-200 overflow-y-auto dark:divide-stone-700">
+              {news.map((feature) => (
+                <li key={feature.slug} className="flex items-start gap-1 hover:bg-stone-100 dark:hover:bg-stone-800">
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 px-3 py-2 text-left"
+                    data-notification-news={feature.slug}
+                    onClick={() => {
+                      setIsOpen(false);
+                      void navigate(`/news/${feature.issue}`);
+                    }}
+                  >
+                    <span className="flex items-center gap-1.5 font-pixel text-[8px] text-red-700 dark:text-red-400">
+                      <span className="size-1.5 flex-none bg-current" aria-hidden />
+                      News · The Donegeon Post
+                    </span>
+                    <span className="mt-1 block truncate text-sm">{feature.title}</span>
+                    <span className="mt-0.5 block text-xs text-stone-500">Tap to read it</span>
+                  </button>
+                  <button type="button" className="btn-quiet px-2 py-2 text-base leading-none" aria-label="Dismiss" title="Dismiss" onClick={() => markNewsSeen([feature.slug])}>
+                    ×
+                  </button>
+                </li>
+              ))}
               {shownMessages.map((item) => {
                 const color = KIND_COLORS[item.kind] ?? KIND_COLORS.reminder;
                 // A reminder on a task can be done from here, as from the notification (it works offline too).

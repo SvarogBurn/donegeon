@@ -52,6 +52,8 @@ export interface Body {
    * lifted off it. Its stage is as big as every other body's, and it is zoomed in to fill it (CharacterSprite's `cover`).
    */
   toEdge?: boolean;
+  /** Canvas pixels to move it by from where it is centred, right and down: a drawing whose feet aren't at its canvas's bottom middle (the duck). */
+  nudge?: [x: number, y: number];
   options?: BodyOption[];
   materials: Material[];
   face?: Face;
@@ -645,6 +647,9 @@ export const BODIES: Body[] = ([
     // 30x38 canvas (what reached past it in Aseprite is cut off, as there), one eye ("eyes 2", the brow on the body),
     // and of the shared wardrobe only what they kept: no trousers, plain socks, flats, choker, fedora or top hat.
     file: "48x32_duck_v10",
+    // Its canvas has two empty rows under the sneakers' soles and its webbed feet point right: down onto the floor and
+    // left, so the feet are over the shadow.
+    nudge: [-2, 2],
     // Its face (v11) is the head and cap of the user's poses/48x32_duck_wave_v2, front on (the cap only while it wears it).
     face: {
       file: "21x21_duck_face_v11",

@@ -44,9 +44,10 @@ export function compose(look: Look, data: PartsData): Pixel[] {
     const body = bodyOf(look);
     const drawing = data[body.file];
     if (!drawing) return [];
-    const dx = Math.floor((WIDTH - drawing.width) / 2);
+    const [nx, ny] = body.nudge ?? [0, 0];
+    const dx = Math.floor((WIDTH - drawing.width) / 2) + nx;
     // Lifted, so the feet and the shadow under them aren't cut off by the stage's bottom; a drawing out to its edges stays down.
-    const dy = HEIGHT - (body.toEdge ? 0 : LIFT) - drawing.height;
+    const dy = HEIGHT - (body.toEdge ? 0 : LIFT) - drawing.height + ny;
     return paint(look, body, drawing, body.materials, dx, dy);
   });
 }

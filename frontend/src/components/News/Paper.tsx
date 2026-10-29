@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { StoryEvent } from "../../../../shared/events";
 import { Link } from "react-router";
 import { localDate } from "../../lib/clock";
-import { COMMITS } from "../../lib/newsContent";
+import { FEATURES } from "../../lib/newsContent";
 // The masthead's pixel blackletter, only its Latin letters: loaded with the News pages, not the app.
 import "@fontsource/jacquard-24/latin-400.css";
 
@@ -26,11 +26,15 @@ export function Paper({ children, label }: { children: ReactNode; label: string 
   );
 }
 
+/** The latest issue's number (one more with each feature written), 0 before the first. */
+export const LATEST_ISSUE = FEATURES[0]?.issue ?? 0;
+
 /**
- * The paper's name across the top, in its blackletter, and the strip under it: the day, the issue (one number a commit)
- * and `links`. `small` is the event pages' masthead: the name smaller, back to the front page.
+ * The paper's name across the top, in its blackletter, and the strip under it: the day, the issue (the latest, today,
+ * unless a back issue's `issue` and `day` are given) and `links`. `small` is the event pages' masthead: the name
+ * smaller, back to the front page.
  */
-export function Masthead({ small = false, links }: { small?: boolean; links?: ReactNode }) {
+export function Masthead({ small = false, issue = LATEST_ISSUE, day = localDate(), links }: { small?: boolean; issue?: number; day?: string; links?: ReactNode }) {
   return (
     <header className="space-y-3">
       {small ? (
@@ -41,8 +45,8 @@ export function Masthead({ small = false, links }: { small?: boolean; links?: Re
         <h1 className="news-masthead pt-1 text-center">The Donegeon Post</h1>
       )}
       <div className="news-strip">
-        <span>{paperDate(localDate())}</span>
-        <span>Vol. 1, No. {COMMITS.length}</span>
+        {day && <span>{paperDate(day)}</span>}
+        {issue > 0 && <span>Vol. 1, No. {issue}</span>}
         {links && <span className="ml-auto flex flex-wrap gap-x-4">{links}</span>}
       </div>
     </header>

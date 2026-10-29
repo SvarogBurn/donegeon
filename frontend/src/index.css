@@ -1053,11 +1053,11 @@
    * not by rules; the text is warm greys. On the dark theme the whole sheet is printed a little dimmer.
    */
   .news-paper {
-    --paper: #d9cabb;
-    --paper-light: #e4d8cb;
-    --tint: #c8b5a1;
-    --back: #cca681;
-    --dot: #c2ad97;
+    --paper: #f2eadf;
+    --paper-light: #faf5ee;
+    --tint: #e6d9c8;
+    --back: #e3c7a6;
+    --dot: #dccbb6;
     --text: #4a4541;
     --text-strong: #393532;
     --text-soft: #766c62;
@@ -1122,6 +1122,45 @@
     max-width: 100%;
     image-rendering: pixelated;
   }
+  /*
+   * The News box on the user's page (components/News/NewsStand.tsx): the paper as a link, lifting a pixel under the
+   * pointer. Its photo and NEW stamp are drawn two --u a pixel (assets/news/48x32castle_photo_v1.svg, 24x11new_stamp_v1.svg),
+   * the stamp over the photo's top left corner; the print is columns of one tile of four lines (48x8print_v1.svg) repeated down.
+   */
+  .news-stand-paper {
+    transition: translate 150ms ease-out;
+  }
+  .news-stand-paper:hover {
+    translate: 0 calc(-1 * var(--u));
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .news-stand-paper {
+      transition: none;
+    }
+  }
+  .news-stand-photo {
+    width: calc(96 * var(--u));
+    max-width: 100%;
+    image-rendering: pixelated;
+  }
+  .news-stand-stamp {
+    position: absolute;
+    top: calc(-4 * var(--u));
+    left: calc(-4 * var(--u));
+    width: calc(48 * var(--u));
+    image-rendering: pixelated;
+  }
+  .news-stand-print {
+    @apply flex flex-wrap overflow-hidden;
+    column-gap: calc(6 * var(--u));
+    height: calc(48 * var(--u));
+  }
+  .news-stand-print > span {
+    width: calc(96 * var(--u));
+    height: 100%;
+    background: url("../../assets/news/48x8print_v1.svg") 0 0 / calc(96 * var(--u)) calc(16 * var(--u)) repeat-y;
+    image-rendering: pixelated;
+  }
   /* A part of the sheet on paper of its own tint, its corners notched a pixel. */
   .news-section {
     background: var(--tint);
@@ -1169,7 +1208,7 @@
    * edge, with the paper's shadow under its top and left, is repeated along its sides.
    */
   .news-hole {
-    --dot: #bd9670;
+    --dot: #d6b48d;
     padding: calc(5 * var(--u)) calc(5 * var(--u)) calc(4 * var(--u));
     background: var(--back) border-box;
     border-style: solid;

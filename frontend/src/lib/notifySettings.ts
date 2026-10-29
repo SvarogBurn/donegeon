@@ -43,6 +43,8 @@ export interface NotifySettings {
   snoozeMinutes: number;
   /** The bell: everything, today's reminders and deadline notices too once their time has come; or only what needs an answer (left undone, deadlines passed). */
   bell: BellShows;
+  /** A new article in the News (news/features) comes into the bell, whatever `bell` says, until it is read or dismissed. */
+  news: { on: boolean };
   reminders: Reminder[];
 }
 
@@ -87,6 +89,7 @@ export const NOTIFY_DEFAULTS: NotifySettings = {
   undone: { push: false, time: "08:00" },
   snoozeMinutes: 15,
   bell: "all",
+  news: { on: true },
   reminders: [
     reminder("morning", "today", "all", "08:00"),
     reminder("evening", "open", "all", "20:00"),
@@ -151,6 +154,7 @@ export function normalizeNotifications(saved: unknown): NotifySettings {
     undone: { push: flag(undone.push, d.undone.push), time: isNotifyTime(undone.time) ? undone.time : d.undone.time },
     snoozeMinutes: whole(s.snoozeMinutes, SNOOZE.min, SNOOZE.max) ?? d.snoozeMinutes,
     bell: (BELL_SHOWS as readonly unknown[]).includes(s.bell) ? (s.bell as BellShows) : d.bell,
+    news: { on: flag(isRecord(s.news) ? s.news.on : undefined, d.news.on) },
     // Never saved: the reminders a new account starts with. Saved, even empty: the user's.
     reminders: Array.isArray(s.reminders) ? s.reminders.map(normalizeReminder).filter((r): r is Reminder => r !== null).slice(0, MAX_REMINDERS) : d.reminders,
   };

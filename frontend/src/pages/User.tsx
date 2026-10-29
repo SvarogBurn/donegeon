@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router";
 import { FeedbackBox } from "../components/Feedback/FeedbackBox";
 import { FeedbackInbox } from "../components/Feedback/FeedbackInbox";
+import { NewsStand } from "../components/News/NewsStand";
 import { CharacterSheet } from "../components/Character/CharacterSheet";
 import { useProfile } from "../components/Character/useProfile";
 import { DeadlineSettings } from "../components/Countdown/DeadlineSettings";
@@ -204,7 +205,7 @@ function DeleteAccount({ username, onCancel }: { username: string; onCancel: () 
 
 /**
  * The user's own page, opened from their icon in the task bar: their character, their settings (logging out and
- * deleting the account at the bottom of them), mail to the devs and the cheat sheet.
+ * deleting the account at the bottom of them), the way to the News page, mail to the devs and the cheat sheet.
  * Its boxes are one column; each is dragged by its tab button onto another, to take its place, and can be minimized
  * into the Hidden row at the bottom (both kept with the account).
  */
@@ -341,7 +342,7 @@ export function UserPage() {
       <p className="text-xs text-stone-500">
         {(user.newsTab ?? true)
           ? "A News tab: what's new in Donegeon, the devs' other projects and the story events."
-          : "No News tab."}
+          : "No News tab. The paper is still in the News box on this page."}
       </p>
       <FontChoice
         label="Font in boxes"
@@ -409,10 +410,11 @@ export function UserPage() {
   // Their names are the buttons' labels and the Hidden row's.
   const defaults: { key: string; name: string; node: ReactNode }[] = [
     { key: "character", name: "Character", node: <CharacterSheet /> },
+    { key: "news", name: "News", node: <NewsStand /> },
     { key: "settings", name: "Settings", node: settings },
+    { key: "cheatsheet", name: "Cheat sheet", node: <Cheatsheet /> },
     { key: "feedback", name: "Send mail to devs", node: <FeedbackBox username={user.username} /> },
     ...(user.isDev ? [{ key: "inbox", name: "Inbox", node: <FeedbackInbox /> }] : []),
-    { key: "cheatsheet", name: "Cheat sheet", node: <Cheatsheet /> },
   ];
   // The saved order first; a box it doesn't know yet (new to the page) keeps its default place after the one before it.
   const keys = defaults.map((box) => box.key);

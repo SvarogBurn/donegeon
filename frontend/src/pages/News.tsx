@@ -1,10 +1,10 @@
-import type { CSSProperties } from "react";
-import { Navigate } from "react-router";
-import { Masthead, Paper, paperDate } from "../components/News/Paper";
+import { useEffect, useRef, type CSSProperties } from "react";
+import { Link, useParams } from "react-router";
+import { LATEST_ISSUE, Masthead, Paper, paperDate } from "../components/News/Paper";
 import { NoteText } from "../components/TaskTree/NoteText";
-import { useNewsTab } from "../hooks/useAuth";
 import { commitPoints, type Feature, type Project } from "../lib/news";
 import { CHANGELOG, FEATURES, PROJECTS } from "../lib/newsContent";
+import { markNewsSeen } from "../lib/newsSeen";
 
 const SECTIONS = [
   ["whats-new", "What's new"],
@@ -12,23 +12,24 @@ const SECTIONS = [
   ["stories", "Stories"],
 ] as const;
 
-/** A feature as an article: the lead one bigger, every one with the commits' points it gathers under it. */
-function Article({ feature, lead = false }: { feature: Feature; lead?: boolean }) {
+/** A feature as the issue's lead article, with the commits' points it gathers under it. */
+function Article({ feature }: { feature: Feature }) {
   // Two commits with the same message are one point.
   const points = [...new Set(feature.commits.flatMap((commit) => commitPoints(commit.subject)))];
   return (
     <section className="space-y-2 after:block after:clear-both" data-news-feature={feature.slug}>
-      <h2 className={`news-heading ${lead ? "text-xl sm:text-2xl" : "text-sm sm:text-base"}`}>{feature.title}</h2>
-      {feature.date && <p className="news-dateline">{paperDate(feature.date)}</p>}
-      {/* The lead's "photo": the paper itself, drawn big. */}
-      {lead && (
-        <figure className="mb-2 space-y-1 sm:float-right sm:ml-4 sm:w-56" aria-hidden>
-          <div className="flex h-36 items-center justify-center">
-            <span className="tab-icon tab-icon-news !size-[calc(42*var(--u))] !bg-size-[calc(38*var(--u))] max-w-full" />
-          </div>
-          <figcaption className="news-dateline text-center">Fresh off the press</figcaption>
-        </figure>
-      )}
+      <h2 className="news-heading text-xl sm:text-2xl">{feature.title}</h2>
+      <p className="news-dateline">
+        No. {feature.issue}
+        {feature.date && ` · ${paperDate(feature.date)}`}
+      </p>
+      {/* Its "photo": the paper itself, drawn big. */}
+      <figure className="mb-2 space-y-1 sm:float-right sm:ml-4 sm:w-56" aria-hidden>
+        <div className="flex h-36 items-center justify-center">
+          <span className="tab-icon tab-icon-news !size-[calc(42*var(--u))] !bg-size-[calc(38*var(--u))] max-w-full" />
+        </div>
+        <figcaption className="news-dateline text-center">Fresh off the press</figcaption>
+      </figure>
       {feature.body && <NoteText text={feature.body} className="text-sm" />}
       {points.length > 0 && (
         <div className="news-section clear-both space-y-1 p-3 text-xs">
@@ -44,6 +45,50 @@ function Article({ feature, lead = false }: { feature: Feature; lead?: boolean }
         </div>
       )}
     </section>
+  );
+}
+
+/** The issue before and after this one, if there are, and every issue, newest first, each a link to it. */
+function BackIssues({ issue }: { issue: number }) {
+  const older = FEATURES.find((feature) => feature.issue === issue - 1);
+  const newer = FEATURES.find((feature) => feature.issue === issue + 1);
+  return (
+    <div className="space-y-4">
+      {(older || newer) && (
+        <nav className="flex flex-wrap gap-2" aria-label="Issues">
+          {older && (
+            <Link to={`/news/${older.issue}`} className="news-button" title={older.title}>
+              ‹ No. {older.issue}
+            </Link>
+          )}
+          {newer && (
+            <Link to={`/news/${newer.issue}`} className="news-button ml-auto" title={newer.title}>
+              No. {newer.issue} ›
+            </Link>
+          )}
+        </nav>
+      )}
+      {FEATURES.length > 1 && (
+        <section id="issues" className="news-section scroll-mt-20 space-y-2 p-3 text-sm" data-news-issues>
+          <h3 className="news-dateline">Back issues</h3>
+          <ol className="space-y-1">
+            {FEATURES.map((feature) => (
+              <li key={feature.slug}>
+                <Link
+                  to={`/news/${feature.issue}`}
+                  className={`flex gap-3 !no-underline hover:!underline ${feature.issue === issue ? "font-bold" : ""}`}
+                  aria-current={feature.issue === issue ? "page" : undefined}
+                >
+                  <span className="news-dateline w-16 flex-none pt-0.5 whitespace-nowrap">No. {feature.issue}</span>
+                  <span className="min-w-0 flex-1">{feature.title}</span>
+                  {feature.date && <span className="news-dateline hidden flex-none pt-0.5 sm:inline">{paperDate(feature.date)}</span>}
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+    </div>
   );
 }
 
@@ -130,19 +175,31 @@ function ProjectSection({ project }: { project: Project }) {
 }
 
 /**
- * The News tab: a newspaper of what's new in Donegeon (the features written up in news/features, the rest of the git
- * log as a changelog), the devs' other projects, and the story events. Not there while the tab is off.
+ * The News page (opened from the News box on the user's page): a newspaper of what's new in Donegeon (the features
+ * written up in news/features, one an issue, the rest of the git log as a changelog), the devs' other projects, and
+ * the story events. `/news` is the latest issue, `/news/<number>` a back issue.
  */
 export function NewsPage() {
-  const newsTab = useNewsTab();
-  if (!newsTab) return <Navigate to="/" replace />;
-  const [lead, ...rest] = FEATURES;
+  // Opened, every article is read: no more NEW stamp, nothing in the bell.
+  useEffect(() => markNewsSeen(), []);
+  const { issue: asked } = useParams();
+  const lead = asked === undefined ? FEATURES[0] : FEATURES.find((feature) => String(feature.issue) === asked);
   const go = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  // Another issue picked: its article from the top.
+  const shown = useRef(lead?.issue);
+  useEffect(() => {
+    if (shown.current !== lead?.issue) go("whats-new");
+    shown.current = lead?.issue;
+  }, [lead?.issue]);
+  const sections = FEATURES.length > 1 ? [...SECTIONS.slice(0, 1), ["issues", "Back issues"] as const, ...SECTIONS.slice(1)] : SECTIONS;
 
   return (
     <Paper label="News">
       <Masthead
-        links={SECTIONS.map(([id, label]) => (
+        issue={lead?.issue}
+        // A back issue is dated its own day.
+        day={lead && lead.issue !== LATEST_ISSUE ? lead.date : undefined}
+        links={sections.map(([id, label]) => (
           <button key={id} type="button" className="uppercase hover:underline" onClick={() => go(id)}>
             {label}
           </button>
@@ -151,15 +208,15 @@ export function NewsPage() {
       <div id="whats-new" className="scroll-mt-20 gap-6 space-y-6 lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,1fr)] lg:space-y-0" data-text="box">
         <div className="space-y-10">
           {lead ? (
-            <>
-              <Article feature={lead} lead />
-              {rest.map((feature) => (
-                <Article key={feature.slug} feature={feature} />
-              ))}
-            </>
+            <Article feature={lead} />
+          ) : asked !== undefined ? (
+            <p className="news-soft text-sm">
+              There is no issue No. {asked}. <Link to="/news">The latest one</Link>
+            </p>
           ) : (
             <p className="news-soft text-sm">No articles yet: what's new is in the changelog.</p>
           )}
+          {FEATURES.length > 1 && <BackIssues issue={lead?.issue ?? 0} />}
         </div>
         <Changelog />
       </div>
