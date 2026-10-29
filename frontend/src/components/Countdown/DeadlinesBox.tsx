@@ -1,16 +1,19 @@
 import { Fragment, useState, type CSSProperties, type MouseEvent } from "react";
 import { useNavigate } from "react-router";
 import { mondayOf } from "../../../../shared/dates";
+import { useDismissed } from "../../hooks/notifications";
 import { useCombinedCountdown, useTaskTrees } from "../../hooks/tasks";
 import { useDeadlineTable } from "../../hooks/useAuth";
 import { formatPace } from "../../lib/dates";
 import { deadlineColor, perDayOf, rangeEnd, rangeLabel, type PerDayMode } from "../../lib/deadlineTable";
 import { firstLine } from "../../lib/markup";
+import { passedDeadlines, type PassedDeadline } from "../../lib/notifications";
 import { findNode } from "../../lib/optimisticToggle";
 import { pathIdsTo } from "../../lib/showOnPage";
 import { readStored, writeStored } from "../../lib/storage";
 import { isBigTask } from "../../lib/taskPage";
 import type { CombinedCountdown, CombinedItem, TaskTreeNode } from "../../types";
+import { PostponeDeadline } from "../Notifications/PostponeDeadline";
 import { RichText } from "../RichText";
 import { DeadlineBadge } from "../TaskTree/DeadlineBadge";
 import { TaskTree } from "../TaskTree/TaskNode";
@@ -31,7 +34,7 @@ function savedTab(): Tab {
 /** The range set on the user's page ("2 weeks"), All and List on the box's band. */
 function Tabs({ tab, onPick, range }: { tab: Tab; onPick: (tab: Tab) => void; range: string }) {
   const tabs: [Tab, string, string][] = [
-    ["range", range, `The next ${range}, today first (set on your page)`],
+    ["range", range, `The next ${range}, today first (set on your page); from a passed deadline's day while it is still open`],
     ["all", "All", "Every deadline, day by day"],
     ["list", "List", "The tasks with a deadline, soonest first"],
   ];
@@ -57,6 +60,8 @@ const markerStyle = (color: string): CSSProperties => ({
  * next days or weeks set on the user's page, all of them, and a list of their tasks. A merged row in the tables marks
  * where each deadline falls (just under its day), in its colour; a click on it opens the task's page, to be edited
  * there. Hidden until there is a deadline.
+ * A deadline gone by with its task still open shows the table back to its day, until the task is done, the deadline
+ * moved, or it is dismissed (with the bell: one dismissal for both). Its marker asks for a new day, as the bell does.
  */
 export function DeadlinesBox() {
   const navigate = useNavigate();
@@ -64,6 +69,8 @@ export function DeadlinesBox() {
   const { data: trees = [] } = useTaskTrees();
   const [table] = useDeadlineTable();
   const [tab, setTab] = useState<Tab>(savedTab);
+  const [dismissed, dismiss] = useDismissed();
+  const [asking, setAsking] = useState<PassedDeadline | null>(null);
   if (!countdown || countdown.items.length === 0) return null;
 
   function pick(next: Tab) {
@@ -76,6 +83,17 @@ export function DeadlinesBox() {
     return deadlineColor(item, node ? isBigTask(node) : false, table);
   };
   const open = (taskId: string) => navigate(`/tasks/${taskId}`);
+  const passed = passedDeadlines(trees, countdown.today).filter((late) => countdown.items.some((item) => item.taskId === late.node.id));
+  // The oldest passed deadline not dismissed: the table starts on its day.
+  const lookBack = passed
+    .filter((late) => !dismissed.has(late.key))
+    .map((late) => late.node.deadlineDate!)
+    .sort()[0];
+  const openMarker = (item: CombinedItem) => {
+    const late = passed.find((p) => p.node.id === item.taskId);
+    if (late) setAsking(late);
+    else open(item.taskId);
+  };
 
   const today = countdown.rows.find((row) => row.date === countdown.today);
   const left = today?.remaining ?? countdown.totalTasks;
@@ -93,7 +111,25 @@ export function DeadlinesBox() {
       {tab === "list" ? (
         <DeadlineList items={countdown.items} trees={trees} colorOf={colorOf} onOpen={open} />
       ) : (
-        <DeadlineSheet countdown={countdown} mode={table.perDay} colorOf={colorOf} onOpen={open} to={tab === "range" ? rangeEnd(countdown.today, table.range) : undefined} />
+        <DeadlineSheet
+          countdown={countdown}
+          mode={table.perDay}
+          colorOf={colorOf}
+          onOpen={openMarker}
+          to={tab === "range" ? rangeEnd(countdown.today, table.range) : undefined}
+          lookBack={lookBack}
+        />
+      )}
+      {asking && (
+        <PostponeDeadline
+          item={asking}
+          onDismiss={() => dismiss([asking.key])}
+          onClose={() => setAsking(null)}
+          onOpenTask={() => {
+            setAsking(null);
+            open(asking.node.id);
+          }}
+        />
       )}
     </TileFrame>
   );
@@ -103,19 +139,23 @@ interface SheetProps {
   countdown: CombinedCountdown;
   mode: PerDayMode;
   colorOf: (item: CombinedItem) => string;
-  onOpen: (taskId: string) => void;
+  /** A marker's click: the task's page, or for a deadline gone by, the popup asking for a new day. */
+  onOpen: (item: CombinedItem) => void;
   /** The range tab: today to this day, deadlines already past above today. Left out: every day, weeks over hidden. */
   to?: string;
+  /** The day of the oldest passed deadline still open and not dismissed: both tabs show the days from it. */
+  lookBack?: string;
 }
 
 /**
  * The day-by-day table. Per day adds every deadline up, takes only the soonest one with work left, or (columns) gives
  * each deadline a column of its own, headed in its colour.
  */
-function DeadlineSheet({ countdown, mode, colorOf, onOpen, to }: SheetProps) {
+function DeadlineSheet({ countdown, mode, colorOf, onOpen, to, lookBack }: SheetProps) {
   const { today, items } = countdown;
-  const weekStart = mondayOf(today);
   const isRange = to !== undefined;
+  // The first day shown: today (range) or this Monday (All), or a passed deadline's day before it.
+  const from = [isRange ? today : mondayOf(today), lookBack ?? today].sort()[0];
   const columns = mode === "columns";
   const headers = [
     "Day",
@@ -137,8 +177,8 @@ function DeadlineSheet({ countdown, mode, colorOf, onOpen, to }: SheetProps) {
         <button
           type="button"
           className="block w-full cursor-pointer px-1 py-0.5 hover:bg-black/10 focus-visible:bg-black/10 sm:px-2 dark:hover:bg-white/10 dark:focus-visible:bg-white/10"
-          title={`${item.deadlineType === "soft" ? "Soft" : "Hard"} deadline${item.deadlineDate < today ? ", already past" : ""}. Click to go to the task`}
-          onClick={() => onOpen(item.taskId)}
+          title={`${item.deadlineType === "soft" ? "Soft" : "Hard"} deadline${item.deadlineDate < today ? ", already past. Click to pick a new day for it, or dismiss it" : ". Click to go to the task"}`}
+          onClick={() => onOpen(item)}
         >
           <RichText text={item.title.split("\n")[0]} /> deadline
         </button>
@@ -146,18 +186,18 @@ function DeadlineSheet({ countdown, mode, colorOf, onOpen, to }: SheetProps) {
     </tr>
   );
 
-  const rows = isRange ? countdown.rows.filter((row) => row.date >= today && row.date <= to) : countdown.rows;
+  const rows = isRange ? countdown.rows.filter((row) => row.date >= from && row.date <= to) : countdown.rows;
   return (
     <SheetTable headers={headers} wide={columns}>
-      {/* In the range, deadlines already past (still open, so overdue) come first. */}
-      {isRange && items.filter((item) => item.deadlineDate < today).map(marker)}
+      {/* In the range, deadlines already past (still open, so overdue) and dismissed come first. */}
+      {isRange && items.filter((item) => item.deadlineDate < from).map(marker)}
       {rows.map((row) => {
         const style = dayRow(row.date, today);
         const deadlines = items.filter((item) => item.deadlineDate === row.date);
-        // A day with nothing to do and nothing done is left out, and so is every day of a week already over
-        // (their deadline markers stay: those deadlines are still open); today always shows.
+        // A day with nothing to do and nothing done is left out, and so is every day of a week already over unless a
+        // passed deadline looks back to it (their deadline markers stay: those deadlines are still open); today always shows.
         // A deadline's marker comes under its day: that day is the last one to do the work in.
-        const isHidden = row.date < weekStart || (row.perDay === 0 && row.doneThatDay === 0 && !style.isToday);
+        const isHidden = row.date < from || (row.perDay === 0 && row.doneThatDay === 0 && !style.isToday);
         const pace = perDayOf(row, mode);
         return (
           <Fragment key={row.date}>
@@ -189,7 +229,7 @@ function DeadlineSheet({ countdown, mode, colorOf, onOpen, to }: SheetProps) {
                 )}
               </tr>
             )}
-            {(!isRange || row.date >= today) && deadlines.map(marker)}
+            {(!isRange || row.date >= from) && deadlines.map(marker)}
           </Fragment>
         );
       })}

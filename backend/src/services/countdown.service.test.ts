@@ -155,8 +155,9 @@ describe("combinedCountdown", () => {
     // On the deadline day itself it is all due that day, but not overdue.
     expect(rows[3]).toMatchObject({ date: "2026-10-06", remaining: 13, perDay: 7 / 5 + 6, overdue: false });
     expect(rows[4]).toMatchObject({ date: "2026-10-07", remaining: 13, perDay: 7 / 4 + 6, overdue: true });
-    // …and stays overdue on the days after, since it can no longer be done on time, while the exam's pace climbs.
-    expect(rows[5]).toMatchObject({ date: "2026-10-08", remaining: 13, perDay: 7 / 3 + 6, overdue: true });
+    // Days to come leave its pace out (it is red up to today only) but keep it in Left, while the exam's pace climbs.
+    expect(rows[5]).toMatchObject({ date: "2026-10-08", remaining: 13, perDay: 7 / 3, overdue: false });
+    expect(rows[5].paces).toEqual([null, { remaining: 7, perDay: 7 / 3 }]);
   });
 
   it("starts each deadline on the day its task was written down, and past days use what was done", () => {

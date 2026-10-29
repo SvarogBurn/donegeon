@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import * as notificationsApi from "../api/notifications";
 import { clockNow, localDate } from "../lib/clock";
+import { readDismissed, saveDismissed } from "../lib/notifications";
 import { buildSchedule } from "../lib/notifySchedule";
 import { changesWaiting } from "../lib/offline/changes";
 import { useOnline } from "../lib/offline/online";
@@ -51,6 +52,27 @@ export function usePushDevice() {
 
   /** null: push isn't set up on the server; undefined: not known yet. */
   return { state, serverKey: key.data, busy, turnOn, turnOff };
+}
+
+// The dismissed notifications, one set for the page: both bells and the deadlines box read it, so a passed deadline
+// dismissed in one is gone from the others at once.
+let dismissedNow: Set<string> | null = null;
+const dismissListeners = new Set<() => void>();
+const dismissedSnapshot = () => (dismissedNow ??= readDismissed());
+function onDismissed(listener: () => void) {
+  dismissListeners.add(listener);
+  return () => void dismissListeners.delete(listener);
+}
+
+function dismissKeys(keys: string[]) {
+  dismissedNow = new Set([...dismissedSnapshot(), ...keys]);
+  saveDismissed(dismissedNow, [...dismissedNow]);
+  for (const listener of dismissListeners) listener();
+}
+
+/** This device's dismissed notifications (keys as in lib/notifications), and dismissing more. */
+export function useDismissed(): [Set<string>, (keys: string[]) => void] {
+  return [useSyncExternalStore(onDismissed, dismissedSnapshot), dismissKeys];
 }
 
 // The plan last sent from this device, as a hash: the same plan isn't sent again.

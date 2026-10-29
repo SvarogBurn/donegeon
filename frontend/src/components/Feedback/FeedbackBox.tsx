@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useSendFeedback } from "../../hooks/feedback";
 import { useOnline } from "../../lib/offline/online";
 import type { FeedbackKind } from "../../types";
+import { USER_BOX_COLORS } from "../../lib/frameTones";
 import { TileFrame } from "../Tiles/TileFrame";
 
 /** The kinds of mail, by their names; feedback is anything else: what someone thinks, or something nice. */
@@ -41,7 +42,7 @@ export function FeedbackBox({ username }: { username: string }) {
   const edit = () => send.isSuccess && send.reset();
 
   return (
-    <TileFrame title="Send mail to devs" aria-label="Send mail to devs">
+    <TileFrame title="Send mail to devs" aria-label="Send mail to devs" color={USER_BOX_COLORS.feedback}>
       <form onSubmit={submit} className="space-y-3" data-feedback>
         <div>
           <p className={ROW}>

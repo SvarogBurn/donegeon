@@ -8,6 +8,7 @@ import { builtInStats, customStatValue, skillExp } from "../../lib/character/pro
 import { levelOf } from "../../lib/character/levels";
 import { shownTitle } from "../../lib/character/titles";
 import { tryOn } from "../../lib/character/unlocks";
+import { USER_BOX_COLORS } from "../../lib/frameTones";
 import { TileFrame } from "../Tiles/TileFrame";
 import { CellBar, ExpBar } from "./Bars";
 import { CharacterEditor } from "./CharacterEditor";
@@ -53,6 +54,7 @@ export function CharacterSheet() {
     <TileFrame
       title={<span data-character-name>{name}</span>}
       aria-label="Character"
+      color={USER_BOX_COLORS.character}
       data-character
     >
       {progress && !profile.hideNews && <Unlocked progress={progress} profile={profile} onTry={(reward) => setEditing({ trying: tryOn(look, reward) })} onSeen={(seen) => save({ ...profile, seen })} />}

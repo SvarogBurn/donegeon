@@ -13,8 +13,9 @@ const days = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
 /**
  * What a passed deadline in the bell opens: when should it be instead? A day picked saves at once (offline too) and
  * the notification is gone, the task being on time again. The deadline can also be taken off, or the reminder dismissed.
+ * Opened from the deadlines box too, which passes `onOpenTask`: its marker no longer goes straight to the task's page.
  */
-export function PostponeDeadline({ item, onDismiss, onClose }: { item: PassedDeadline; onDismiss: () => void; onClose: () => void }) {
+export function PostponeDeadline({ item, onDismiss, onClose, onOpenTask }: { item: PassedDeadline; onDismiss: () => void; onClose: () => void; onOpenTask?: () => void }) {
   const update = useUpdateTask();
   const [isPast, setIsPast] = useState(false);
   const today = localDate();
@@ -62,6 +63,11 @@ export function PostponeDeadline({ item, onDismiss, onClose }: { item: PassedDea
           {isPast && <p className="mt-1 text-xs text-red-600">Pick today or a later day.</p>}
         </div>
         <div className="flex flex-wrap justify-end gap-2">
+          {onOpenTask && (
+            <button type="button" className="btn-quiet" onClick={onOpenTask}>
+              Go to the task
+            </button>
+          )}
           <button type="button" className="btn-quiet" onClick={() => save(null)}>
             Remove the deadline
           </button>

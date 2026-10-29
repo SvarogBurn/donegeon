@@ -14,11 +14,15 @@ import { HiddenRow } from "../components/Tiles/HiddenRow";
 import { TileControlsContext, TileFrame } from "../components/Tiles/TileFrame";
 import { useTabDrag } from "../components/Tiles/useTabDrag";
 import { useDeleteAccount, useLogout, useMe, useUpdateMe } from "../hooks/useAuth";
+import { useDropOnTab, useFolders } from "../hooks/folders";
 import { useLayout, useSaveLayout } from "../hooks/layout";
 import { useOnline } from "../lib/offline/online";
+import { readStored, writeStored } from "../lib/storage";
 import { NeedsConnection } from "../components/NeedsConnection";
 import { FONT_CHOICES, FONT_STACKS, textFont } from "../lib/fonts";
 import { typedPoints } from "../lib/points";
+import { USER_BOX_COLORS } from "../lib/frameTones";
+import { USER_BOXES, userView } from "../lib/folders";
 import { normalizeLayout, withCollapsed, withHidden } from "../lib/tileLayout";
 import type { DeadlineToday, TextFont, TickedTasks } from "../types";
 
@@ -151,6 +155,49 @@ const breakNote = (every: number | null) =>
     ? "No reminders to take a break."
     : `After every ${every === 1 ? "task" : `${every} tasks`} you do in a day, a popup reminds you to take a break to eat and drink.`;
 
+/** The Settings sections open, kept on this device (a JSON list of their names); all are closed to start with. */
+const OPEN_KEY = "donegeon.settingsOpen";
+
+function openSections(): string[] {
+  try {
+    const names: unknown = JSON.parse(readStored(OPEN_KEY) ?? "[]");
+    return Array.isArray(names) ? names.filter((name) => typeof name === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** One part of the Settings box: its title a bar that drops its settings down, or folds them away. */
+function SettingsSection({ name, title, forceOpen = false, children }: { name: string; title: string; forceOpen?: boolean; children: ReactNode }) {
+  const [isOpen, setIsOpen] = useState(() => openSections().includes(name));
+  const shown = isOpen || forceOpen;
+  function toggle() {
+    const others = openSections().filter((other) => other !== name);
+    writeStored(OPEN_KEY, JSON.stringify(isOpen ? others : [...others, name]));
+    setIsOpen(!isOpen);
+  }
+  return (
+    // The first one has no line above it: the box's band is there.
+    <div className="space-y-3 border-t-2 border-stone-300 pt-3 first:border-t-0 first:pt-0 dark:border-stone-700" data-settings-section={name}>
+      <h3>
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 text-left font-pixel text-sm text-stone-800 hover:text-stone-950 dark:text-stone-100 dark:hover:text-white"
+          aria-expanded={shown}
+          disabled={forceOpen}
+          onClick={toggle}
+          data-settings-heading={name}
+        >
+          {/* The subtasks' arrow: down while open, turned to point right while closed. */}
+          <span className="task-arrow" style={shown ? undefined : { transform: "rotate(-90deg)" }} aria-hidden />
+          {title}
+        </button>
+      </h3>
+      {shown && children}
+    </div>
+  );
+}
+
 /**
  * Asks before the account is deleted: the Delete button stays off until the user has typed "donegeon/<username>".
  * Esc or Cancel closes it; a click beside it does not, so a slip can't lose what was typed.
@@ -203,40 +250,21 @@ function DeleteAccount({ username, onCancel }: { username: string; onCancel: () 
   );
 }
 
-/**
- * The user's own page, opened from their icon in the task bar: their character, their settings (logging out and
- * deleting the account at the bottom of them), the way to the News page, mail to the devs and the cheat sheet.
- * Its boxes are one column; each is dragged by its tab button onto another, to take its place, and can be minimized
- * into the Hidden row at the bottom (both kept with the account).
- */
-export function UserPage() {
+/** Every setting of the account's: on the user page, and wherever it was copied (the Tasks page, a folder). */
+export function SettingsBox() {
   const { user } = useMe();
   const logout = useLogout();
   const update = useUpdateMe();
   const { profile, save: saveProfile } = useProfile();
   const navigate = useNavigate();
   const online = useOnline();
-  const { hash } = useLocation();
-  const layout = useLayout("user");
-  const saveLayout = useSaveLayout("user");
   const [deleting, setDeleting] = useState(false);
-  // One column whatever the screen, so its arrangement is only an order: kept as the layout's one column, as the Calendar page's.
-  const startDrag = useTabDrag(null, (key, onto, after) => {
-    const next = order.filter((other) => other !== key);
-    next.splice(next.indexOf(onto) + (after ? 1 : 0), 0, key);
-    if (next.join() !== order.join()) saveLayout.mutate({ ...saved, byColumns: { wide: [next] } });
-  });
-  // The layout is waited for, so a minimized box doesn't show for a moment.
-  if (!user || layout.isLoading) return null;
+  if (!user) return null;
 
-  const saved = normalizeLayout(layout.data);
-  // The tutorial points at these boxes, and the "All shortcuts" link at the cheat sheet: those show even when minimized.
-  const isHidden = (key: string) => user.tutorialSeen && !(key === "cheatsheet" && hash === "#shortcuts") && (saved.hidden ?? []).includes(key);
-
-  // Every setting of the account's goes in this box.
-  const settings = (
-    <TileFrame title="Settings" aria-label="Settings">
+  return (
+    <TileFrame title="Settings" aria-label="Settings" color={USER_BOX_COLORS.settings}>
       <NeedsConnection>
+      <SettingsSection name="tasks" title="Tasks">
       <label className="flex flex-wrap items-center gap-2 text-xs">
         Ticked tasks
         <select
@@ -288,12 +316,17 @@ export function UserPage() {
         name="break-every"
         note={breakNote}
       />
+      </SettingsSection>
       {/* The dashboard's deadlines box: its tabs, its Per day, its colours. */}
-      <DeadlineSettings />
+      <SettingsSection name="deadlines" title="Deadlines box">
+        <DeadlineSettings />
+      </SettingsSection>
       {/* Which notifications come, and when; and this device's switch. */}
-      <NotificationSettings />
+      <SettingsSection name="notifications" title="Notifications">
+        <NotificationSettings />
+      </SettingsSection>
       {/* The game around the tasks: the points, and the character's news. */}
-      <h3 className="border-t-2 border-stone-300 pt-3 font-pixel text-xs text-stone-500 dark:border-stone-700">Gamification</h3>
+      <SettingsSection name="gamification" title="Gamification">
       <label className="flex items-center gap-2 text-xs">
         <PixelCheckbox small checked={!user.pointsOff} onChange={(e) => update.mutate({ pointsOff: !e.target.checked })} data-points-system />
         Points
@@ -324,8 +357,9 @@ export function UserPage() {
         Unlocks and news on the character
       </label>
       <p className="text-xs text-stone-500">The LEVEL UP box with what was unlocked, and the editor's Next up box with what's next. Off also hides the red dot.</p>
-      {/* How the app looks, and which tabs it has. */}
-      <h3 className="border-t-2 border-stone-300 pt-3 font-pixel text-xs text-stone-500 dark:border-stone-700">Theme and design</h3>
+      </SettingsSection>
+      {/* How the app looks, and which tabs it has. Open while the tutorial runs: it points at the Notes tab's switch. */}
+      <SettingsSection name="design" title="Theme and design" forceOpen={!user.tutorialSeen}>
       <label className="flex items-center gap-2 text-xs">
         <PixelCheckbox small checked={user.notesTab} onChange={(e) => update.mutate({ notesTab: e.target.checked })} data-notes-tab />
         Notes tab
@@ -392,9 +426,9 @@ export function UserPage() {
       >
         Repeat the tutorial
       </button>
-      {update.error && <p className="text-xs text-red-600">{update.error.message}</p>}
+      </SettingsSection>
       {/* Leaving the account, last. */}
-      <h3 className="border-t-2 border-stone-300 pt-3 font-pixel text-xs text-stone-500 dark:border-stone-700">Account</h3>
+      <SettingsSection name="account" title="Account">
       <button type="button" className="nes-btn btn" disabled={logout.isPending || !online} title={online ? undefined : "Needs a connection"} onClick={() => logout.mutate()}>
         Log out
       </button>
@@ -403,19 +437,69 @@ export function UserPage() {
         Delete account
       </button>
       {deleting && <DeleteAccount username={user.username} onCancel={() => setDeleting(false)} />}
+      </SettingsSection>
+      {/* Under every section, so it shows whichever is open. */}
+      {update.error && <p className="text-xs text-red-600">{update.error.message}</p>}
       </NeedsConnection>
     </TileFrame>
   );
+}
+
+/** A box of the user page, by its name in USER_BOXES: there, and wherever it was copied (the Tasks page, a folder). */
+export function UserBox({ name }: { name: string }) {
+  const { user } = useMe();
+  if (!user) return null;
+  if (name === "character") return <CharacterSheet />;
+  if (name === "news") return <NewsStand />;
+  if (name === "settings") return <SettingsBox />;
+  if (name === "cheatsheet") return <Cheatsheet />;
+  if (name === "feedback") return <FeedbackBox username={user.username} />;
+  // The devs' only: anyone else's copy shows nothing.
+  if (name === "inbox" && user.isDev) return <FeedbackInbox />;
+  return null;
+}
+
+/**
+ * The user's own page, opened from their icon in the task bar: their character, their settings (logging out and
+ * deleting the account at the bottom of them), the way to the News page, mail to the devs and the cheat sheet.
+ * Its boxes are one column; each is dragged by its tab button onto another, to take its place, or onto a tab of the
+ * task bar (Tasks, a folder) to be shown there too, and can be minimized into the Hidden row at the bottom (kept with the account).
+ */
+export function UserPage() {
+  const { user } = useMe();
+  const { hash } = useLocation();
+  const layout = useLayout("user");
+  const saveLayout = useSaveLayout("user");
+  const { data: folders = [] } = useFolders();
+  const drop = useDropOnTab();
+  const [note, setNote] = useState<string | null>(null);
+  // One column whatever the screen, so its arrangement is only an order: kept as the layout's one column, as the Calendar page's.
+  // Dropped on the Tasks tab or a folder's, a box is shown there too (a copy), as the Calendar page's boxes are.
+  const startDrag = useTabDrag(
+    (key, tab) => {
+      drop.dropOnTab(userView(key), tab);
+      const folder = folders.find((other) => other.id === tab);
+      setNote(tab === "main" ? `“${USER_BOXES[key]}” is now shown on the Tasks page too.` : folder ? `“${USER_BOXES[key]}” is now shown in “${folder.name}” too.` : null);
+    },
+    (key, onto, after) => {
+      const next = order.filter((other) => other !== key);
+      next.splice(next.indexOf(onto) + (after ? 1 : 0), 0, key);
+      if (next.join() !== order.join()) saveLayout.mutate({ ...saved, byColumns: { wide: [next] } });
+      setNote(null);
+    },
+  );
+  // The layout is waited for, so a minimized box doesn't show for a moment.
+  if (!user || layout.isLoading) return null;
+
+  const saved = normalizeLayout(layout.data);
+  // The tutorial points at these boxes, and the "All shortcuts" link at the cheat sheet: those show even when minimized.
+  const isHidden = (key: string) => user.tutorialSeen && !(key === "cheatsheet" && hash === "#shortcuts") && (saved.hidden ?? []).includes(key);
 
   // Their names are the buttons' labels and the Hidden row's.
-  const defaults: { key: string; name: string; node: ReactNode }[] = [
-    { key: "character", name: "Character", node: <CharacterSheet /> },
-    { key: "news", name: "News", node: <NewsStand /> },
-    { key: "settings", name: "Settings", node: settings },
-    { key: "cheatsheet", name: "Cheat sheet", node: <Cheatsheet /> },
-    { key: "feedback", name: "Send mail to devs", node: <FeedbackBox username={user.username} /> },
-    ...(user.isDev ? [{ key: "inbox", name: "Inbox", node: <FeedbackInbox /> }] : []),
-  ];
+  // The Inbox is the devs' only.
+  const defaults = Object.entries(USER_BOXES)
+    .filter(([key]) => key !== "inbox" || user.isDev)
+    .map(([key, name]) => ({ key, name, node: <UserBox name={key} /> }));
   // The saved order first; a box it doesn't know yet (new to the page) keeps its default place after the one before it.
   const keys = defaults.map((box) => box.key);
   const savedOrder = (saved.byColumns.wide?.[0] ?? []).filter((key) => keys.includes(key));
@@ -443,7 +527,7 @@ export function UserPage() {
                 name: box.name,
                 isPinned: false,
                 onDragStart: (e) => startDrag(e, box.key),
-                dragTitle: "Drag onto another box to put this one in its place",
+                dragTitle: "Drag onto another box to change places; or onto a tab of the task bar: Tasks, or a folder, shows this box too",
                 onHide: () => saveLayout.mutate(withHidden(saved, box.key, true)),
                 isCollapsed: saved.collapsed?.includes(box.key),
                 onToggleCollapse: () => saveLayout.mutate(withCollapsed(saved, box.key, !saved.collapsed?.includes(box.key))),
@@ -458,7 +542,13 @@ export function UserPage() {
         tiles={boxes.filter((box) => isHidden(box.key)).map((box) => ({ key: box.key, label: box.name }))}
         onShow={(key) => saveLayout.mutate(withHidden(saved, key, false))}
       />
+      {note && !drop.error && (
+        <p className="text-center text-sm" role="status" data-user-note>
+          {note}
+        </p>
+      )}
       {saveLayout.error && <p className="text-center text-sm text-red-600">Couldn't save the layout: {saveLayout.error.message}</p>}
+      {drop.error && <p className="text-center text-sm text-red-600">Couldn't copy the box: {drop.error.message}</p>}
     </div>
   );
 }

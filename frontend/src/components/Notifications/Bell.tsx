@@ -3,9 +3,10 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { appNow, localDate } from "../../lib/clock";
 import { usePressTask, useTaskTrees, useToggleTask } from "../../hooks/tasks";
+import { useDismissed } from "../../hooks/notifications";
 import { useDeadlineToday, useNotifySettings, useTickedTasks } from "../../hooks/useAuth";
 import { formatDay } from "../../lib/dates";
-import { leftUndone, passedDeadlines, readDismissed, saveDismissed, type LeftUndone, type PassedDeadline } from "../../lib/notifications";
+import { leftUndone, passedDeadlines, saveDismissed, type LeftUndone, type PassedDeadline } from "../../lib/notifications";
 import { dueToday, findTask, type Planned } from "../../lib/notifySchedule";
 import { markNewsSeen, useUnseenNews } from "../../lib/newsSeen";
 import { newId } from "../../lib/offline/changes";
@@ -72,7 +73,8 @@ export function Bell({
   const { mutate: press } = usePressTask();
   const drop = useDropLeftUndone();
   const [params, setParams] = useSearchParams();
-  const [dismissed, setDismissed] = useState(readDismissed);
+  // Shared with the deadlines box, which shows a passed deadline back to its day until it is dismissed.
+  const [dismissed, dismiss] = useDismissed();
   const [isOpen, setIsOpen] = useState(false);
   const [asking, setAsking] = useState<PassedDeadline | null>(null);
   const [askingUndone, setAskingUndone] = useState<LeftUndone | null>(null);
@@ -115,7 +117,6 @@ export function Bell({
     };
   }, [isOpen]);
 
-  const dismiss = (keys: string[]) => setDismissed((old) => new Set([...old, ...keys]));
   const label = count ? `Notifications: ${count} new` : "Notifications";
   // The strip's bell is small: the count sits off its corner rather than over it.
   const badge = count > 0 && (

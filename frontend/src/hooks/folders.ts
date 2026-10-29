@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as foldersApi from "../api/folders";
-import { NAME_FOLDER_EVENT } from "../lib/folders";
+import { isTasksExtra, NAME_FOLDER_EVENT } from "../lib/folders";
+import { normalizeLayout } from "../lib/tileLayout";
 import type { Folder } from "../types";
+import { useLayout, useSaveLayout } from "./layout";
 import { useInvalidating } from "./mutations";
 import { FOLDERS } from "./queryKeys";
 
@@ -37,13 +39,23 @@ export const useDeleteFolder = () => useInvalidating(foldersApi.deleteFolder, [F
 /**
  * What a box dropped on a tab of the task bar does (TileGrid's onDropOnTab). On a folder's tab: the folder shows
  * it too, a copy, the box stays where it is. On "New": a folder is made that shows it, and asks for its name.
- * On "Tasks", from a folder's own page (`openFolderId`): that folder stops showing it.
+ * On "Tasks", from a folder's own page (`openFolderId`): that folder stops showing it; from another page, a box of
+ * that page (the stats', the user page's) is shown on the Tasks page too, kept with its arrangement.
  */
 export function useDropOnTab(openFolderId: string | null = null) {
   const { data: folders = [] } = useFolders();
   const createFolder = useCreateFolder();
   const updateFolder = useUpdateFolder();
+  const tasksLayout = useLayout();
+  const saveTasksLayout = useSaveLayout();
   function dropOnTab(view: string, tab: string) {
+    if (tab === "main" && !openFolderId) {
+      if (!isTasksExtra(view)) return;
+      // One that was hidden there is shown again.
+      const saved = normalizeLayout(tasksLayout.data);
+      saveTasksLayout.mutate({ ...saved, extras: [...new Set([...(saved.extras ?? []), view])], hidden: (saved.hidden ?? []).filter((key) => key !== view) });
+      return;
+    }
     if (tab === "new") {
       createFolder.mutate({ views: [view] }, { onSuccess: (made) => window.dispatchEvent(new CustomEvent(NAME_FOLDER_EVENT, { detail: made.id })) });
       return;
@@ -54,5 +66,5 @@ export function useDropOnTab(openFolderId: string | null = null) {
     if (tab === "main") updateFolder.mutate({ id: folder.id, changes: { views: folder.views.filter((other) => other !== view) } });
     else if (!shows) updateFolder.mutate({ id: folder.id, changes: { views: [...folder.views, view] } });
   }
-  return { dropOnTab, error: createFolder.error ?? updateFolder.error };
+  return { dropOnTab, error: createFolder.error ?? updateFolder.error ?? saveTasksLayout.error };
 }

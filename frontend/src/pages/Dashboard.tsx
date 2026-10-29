@@ -15,7 +15,7 @@ import { TileGrid, type Tile } from "../components/Tiles/TileGrid";
 import { TreeProvider } from "../components/TaskTree/TreeContext";
 import { TreeError, UndoBar } from "../components/TaskTree/TreeStatus";
 import { TodayBox } from "../components/Today/TodayBox";
-import { usePointsOff, useTickedTasks } from "../hooks/useAuth";
+import { useMe, usePointsOff, useTickedTasks } from "../hooks/useAuth";
 import { useDropOnTab, useFolders, useUpdateFolder } from "../hooks/folders";
 import { useCreateGoal, useCreateTag, useDeleteGoal, useDeleteTag, useGoals, useTags } from "../hooks/labels";
 import { useLayout, useSaveLayout } from "../hooks/layout";
@@ -23,11 +23,12 @@ import { useLists } from "../hooks/lists";
 import { useNotes } from "../hooks/notes";
 import { useCombinedCountdown, usePressure, useTaskTrees } from "../hooks/tasks";
 import { countLabels, isFiltering, NO_FILTER, toggleId, type LabelFilter } from "../lib/labels";
-import { calOfView, GOALS_VIEW, listView, noteOfView, statOfView, TAGS_VIEW, TODAY_VIEW } from "../lib/folders";
+import { calOfView, DEADLINES_VIEW, DONE_VIEW, GOALS_VIEW, listOfView, listView, noteOfView, PRESSURE_VIEW, statOfView, TAGS_VIEW, TODAY_VIEW, USER_BOXES, userOfView } from "../lib/folders";
 import { useOnline } from "../lib/offline/online";
 import { useStandalone } from "../lib/standalone";
 import { STAT_BOXES, StatBoxView, StatBoxesProvider } from "../components/Stats/statBoxes";
 import { NEW_LIST_TILE, normalizeLayout, withHidden, type DashboardLayout } from "../lib/tileLayout";
+import { UserBox } from "./User";
 
 /** What a hidden box is called on its button in the "Hidden" row. */
 const LABELS: Record<string, string> = {
@@ -39,9 +40,9 @@ const LABELS: Record<string, string> = {
 const SEARCH = "search";
 
 /**
- * The Tasks page: every box and every list, and the boxes of the calendar that were dragged onto its tab. With `folderId`
- * it is that folder's page instead: the boxes the folder shows (copies of lists, and of boxes of the stats and the calendar)
- * and the new-list field, arranged on their own. A list's tile dragged onto a folder's tab is shown there too;
+ * The Tasks page: every box and every list, and the boxes of other pages (the calendar's, the stats', the user page's) that
+ * were dragged onto its tab. With `folderId` it is that folder's page instead: the boxes the folder shows (copies of lists,
+ * of the Tasks page's boxes, and of boxes of the stats, the calendar and the user page) and the new-list field, arranged on their own. A list's tile dragged onto a folder's tab is shown there too;
  * dragged from a folder's page onto the Tasks tab, it is no longer shown in that folder.
  */
 export function Dashboard({ folderId = null }: { folderId?: string | null }) {
@@ -63,6 +64,7 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   const saveLayout = useSaveLayout();
   const ticked = useTickedTasks();
   const pointsOff = usePointsOff();
+  const isDev = useMe().user?.isDev;
   // Only a folder's page shows notes: those dropped on its tab.
   const notes = useNotes();
   const [picked, setPicked] = useState<LabelFilter>(NO_FILTER);
@@ -95,10 +97,19 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   // Every box, the lists too, can be minimized away; the hidden ones are offered again in a row under the grid.
   // A folder's page has an arrangement of its own, kept with the folder.
   const saved = normalizeLayout(folder ? folder.layout : layout.data);
-  /** A box of the calendar, as a tile: a copy, the Calendar page keeps its own. */
-  const calTile = (view: string): (Tile & { label?: string })[] => {
-    const name = calOfView(view);
-    return name !== null && name in CAL_BOXES ? [{ key: view, view, name: CAL_BOXES[name], label: CAL_BOXES[name], node: <CalBoxView name={name} /> }] : [];
+  /**
+   * A box of another page (the calendar's, the stats', the user page's), as a tile: a copy, that page keeps its own.
+   * The Points box isn't shown while the points system is off, the Inbox but to the devs; the page or folder keeps them.
+   */
+  const otherPageTile = (view: string): (Tile & { label?: string })[] => {
+    const cal = calOfView(view);
+    if (cal !== null) return cal in CAL_BOXES ? [{ key: view, view, name: CAL_BOXES[cal], label: CAL_BOXES[cal], node: <CalBoxView name={cal} /> }] : [];
+    const stat = statOfView(view);
+    if (stat !== null) return stat in STAT_BOXES && !(pointsOff && stat === "points") ? [{ key: view, view, name: STAT_BOXES[stat], label: STAT_BOXES[stat], node: <StatBoxView name={stat} /> }] : [];
+    const user = userOfView(view);
+    if (user === null || !(user in USER_BOXES) || (user === "inbox" && !isDev)) return [];
+    // Its picked colour is the user page's box's, kept under its name there.
+    return [{ key: view, view, colorKey: user, name: USER_BOXES[user], label: USER_BOXES[user], node: <UserBox name={user} /> }];
   };
 
   const filtering = isFiltering(filter);
@@ -143,39 +154,40 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   );
   // In their order where nothing was arranged. The two deadline boxes only exist once there is a deadline.
   const mainTiles: ((Tile & { label?: string }) | false)[] = [
-    Boolean(combined.data?.items.length) && { key: "deadlines", name: "All deadlines", node: <DeadlinesBox /> },
-    // The calendar's boxes that were dropped on the Tasks tab (and its Calendar, from the start).
-    ...(saved.extras ?? []).flatMap(calTile),
+    // Done, All deadlines and Deadline pressure can be dropped on a folder's tab too; their colours stay kept under their old keys.
+    Boolean(combined.data?.items.length) && { key: "deadlines", view: DEADLINES_VIEW, colorKey: "deadlines", name: "All deadlines", node: <DeadlinesBox /> },
+    // The other pages' boxes that were dropped on the Tasks tab (and the calendar's Calendar, from the start).
+    ...(saved.extras ?? []).flatMap(otherPageTile),
     ...listTiles,
     newListTile,
     // Today, Goals and Tags can be dropped on a folder's tab too: a copy, shown there as well.
     { key: "today", view: TODAY_VIEW, name: "Today", node: <TodayBox tasks={tasks.data} /> },
-    Boolean(pressure.data?.items.length) && { key: "pressure", name: "deadline pressure", node: <PressureSummary /> },
+    Boolean(pressure.data?.items.length) && { key: "pressure", view: PRESSURE_VIEW, colorKey: "pressure", name: "deadline pressure", node: <PressureSummary /> },
     { key: "goals", view: GOALS_VIEW, name: "Goals", node: goalsBox },
     { key: "tags", view: TAGS_VIEW, name: "Tags", node: tagsBox },
-    { key: "done", name: "Done", node: <DoneLog tasks={tasks.data} /> },
+    { key: "done", view: DONE_VIEW, colorKey: "done", name: "Done", node: <DoneLog tasks={tasks.data} /> },
   ];
   // A folder's page: its views, in the order they were added. Each is a copy: the list is on the Tasks page too,
   // the stats box on the Stats page, the note on the Notes page. A view whose list or note is gone (or filtered out) shows nothing.
   const viewTiles = (folder?.views ?? []).flatMap((view): (Tile & { label?: string })[] => {
-    const stat = statOfView(view);
     if (view === TODAY_VIEW) return [{ key: view, view, name: "Today", label: "Today", node: <TodayBox tasks={tasks.data} /> }];
     if (view === GOALS_VIEW) return [{ key: view, view, name: "Goals", label: "Goals", node: goalsBox }];
     if (view === TAGS_VIEW) return [{ key: view, view, name: "Tags", label: "Tags", node: tagsBox }];
-    if (calOfView(view) !== null) return calTile(view);
+    if (view === DONE_VIEW) return [{ key: view, view, colorKey: "done", name: "Done", label: "Done", node: <DoneLog tasks={tasks.data} /> }];
+    // The deadline boxes only while there is a deadline, as on the Tasks page.
+    if (view === DEADLINES_VIEW) return combined.data?.items.length ? [{ key: view, view, colorKey: "deadlines", name: "All deadlines", label: "All deadlines", node: <DeadlinesBox /> }] : [];
+    if (view === PRESSURE_VIEW) return pressure.data?.items.length ? [{ key: view, view, colorKey: "pressure", name: "deadline pressure", label: "Deadline pressure", node: <PressureSummary /> }] : [];
     const noteId = noteOfView(view);
     if (noteId !== null) {
       const note = notes.data?.notes.find((n) => n.id === noteId);
       // A small card, two side by side where the column has room for them.
       return note ? [{ key: view, view, name: `note "${note.title || "Note"}"`, label: note.title || "Note", half: true, node: <NoteCard note={note} inBox /> }] : [];
     }
-    if (stat === null) return listTiles.filter((tile) => tile.key === view);
-    // The Points box isn't shown while the points system is off; the folder keeps it for when they are back.
-    if (!(stat in STAT_BOXES) || (pointsOff && stat === "points")) return [];
-    return [{ key: view, view, name: STAT_BOXES[stat], label: STAT_BOXES[stat], node: <StatBoxView name={stat} /> }];
+    if (listOfView(view) !== null) return listTiles.filter((tile) => tile.key === view);
+    return otherPageTile(view);
   });
-  const showsStats = viewTiles.some((tile) => statOfView(tile.key) !== null);
   const tiles: ((Tile & { label?: string }) | false)[] = folder ? [...viewTiles, newListTile] : mainTiles;
+  const showsStats = tiles.some((tile) => tile && statOfView(tile.key) !== null);
 
   const save = (next: DashboardLayout) => (folder ? updateFolder.mutate({ id: folder.id, changes: { layout: next } }) : saveLayout.mutate(next));
   const layoutError = saveLayout.error ?? updateFolder.error;

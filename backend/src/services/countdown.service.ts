@@ -154,9 +154,9 @@ export interface CombinedRow {
   remaining: number;
   /** Sum of each deadline's own per-day pace; overdue work counts in full (it is all due now). */
   perDay: number;
-  /** Some deadline had work left and no days left that day. */
+  /** Some deadline had work left and no days left that day (today at the latest: later days leave an overdue deadline's pace out). */
   overdue: boolean;
-  /** Each deadline's own pace that day, in the order of `items`; null while it isn't running (before its task was written down, after its deadline day once done with). */
+  /** Each deadline's own pace that day, in the order of `items`; null while it isn't running (before its task was written down, after its deadline day once done with, any day to come after its deadline day). */
   paces: (DeadlinePace | null)[];
 }
 
@@ -176,12 +176,14 @@ interface CombinedSource {
 /**
  * A future day on the dashboard's table, as in the spreadsheet: what is open now over the days left
  * from that day, so each day without work shows the pace climbing (6 tasks over 4 days, then 3, 2, 1).
- * After its deadline day the deadline leaves the later rows; one already overdue today stays overdue.
+ * After its deadline day the deadline leaves the later rows' pace: one already overdue today is red up to today only,
+ * its work still in Left (it is still open), not in Per day, so it doesn't turn every day to come red.
  */
 function futurePace(item: CombinedSource, date: string, today: string): Pace {
   const pace = paceOn(date, item.total, item.done, item.deadlineDate);
-  if (pace.daysLeft > 0 || paceOn(today, item.total, item.done, item.deadlineDate).perDay === null) return pace;
-  return { daysLeft: pace.daysLeft, remaining: 0, perDay: 0 };
+  if (pace.daysLeft > 0) return pace;
+  const isOverdue = paceOn(today, item.total, item.done, item.deadlineDate).perDay === null;
+  return { daysLeft: pace.daysLeft, remaining: isOverdue ? pace.remaining : 0, perDay: 0 };
 }
 
 /**
@@ -232,7 +234,7 @@ export function combinedCountdown(tasks: PressureTask[], today: string, { soft =
         row.remaining += pace.remaining;
         row.perDay += pace.perDay ?? pace.remaining;
         row.overdue ||= pace.perDay === null;
-        row.paces.push(pace.daysLeft <= 0 && pace.remaining === 0 ? null : { remaining: pace.remaining, perDay: pace.perDay });
+        row.paces.push(pace.daysLeft <= 0 && (pace.remaining === 0 || date > today) ? null : { remaining: pace.remaining, perDay: pace.perDay });
       }
       rows.push(row);
     }

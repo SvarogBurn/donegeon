@@ -192,7 +192,6 @@ export function NotificationSettings() {
 
   return (
     <>
-      <h3 className="border-t-2 border-stone-300 pt-3 font-pixel text-xs text-stone-500 dark:border-stone-700">Notifications</h3>
       <DeviceSwitch />
       <label className="flex flex-wrap items-center gap-2 text-xs">
         The bell shows

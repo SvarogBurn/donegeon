@@ -3,6 +3,7 @@ import { useLocation } from "react-router";
 import { usePointsOff } from "../../hooks/useAuth";
 import { DATE_HELP, SYNTAX_HELP } from "../../lib/shortSyntax";
 import { RichText } from "../RichText";
+import { USER_BOX_COLORS } from "../../lib/frameTones";
 import { TileFrame } from "../Tiles/TileFrame";
 
 /** The keys that do something in a task: [key, what it does]. */
@@ -56,7 +57,7 @@ export function Cheatsheet() {
   }, [hash]);
 
   return (
-    <TileFrame id="shortcuts" title="Cheat sheet" aria-label="Cheat sheet" data-cheatsheet>
+    <TileFrame id="shortcuts" title="Cheat sheet" aria-label="Cheat sheet" color={USER_BOX_COLORS.cheatsheet} data-cheatsheet>
       <h3 className={HEADING}>While typing a task</h3>
       <p className="text-xs text-stone-500">
         Type these anywhere in the title of a task, new or old. They are taken out of the title and set on the task; the chips under the

@@ -29,6 +29,8 @@ export interface Tile {
   half?: boolean;
   /** A box with a colour of its own (a list's), so the frame offers no pick of the user's box colours. */
   ownColor?: boolean;
+  /** The key its picked colour is kept under, where that isn't its view: the one it had before it could be copied ("done"), the user page's ("character"). */
+  colorKey?: string;
 }
 
 interface Props {
@@ -203,7 +205,7 @@ export function TileGrid({ tiles, order, layout, onChange, onDropOnTab }: Props)
             isCollapsed: layout.collapsed?.includes(tile.key),
             onToggleCollapse: () => onChange(withCollapsed(layout, tile.key, !layout.collapsed?.includes(tile.key))),
             // By its view where it has one, so the box and its copies in folders share a colour.
-            colorKey: tile.ownColor ? undefined : (tile.view ?? tile.key),
+            colorKey: tile.ownColor ? undefined : (tile.colorKey ?? tile.view ?? tile.key),
           }}
         >
           {tile.node}

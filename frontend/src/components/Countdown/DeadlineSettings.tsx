@@ -26,7 +26,6 @@ export function DeadlineSettings() {
 
   return (
     <>
-      <h3 className="border-t-2 border-stone-300 pt-3 font-pixel text-xs text-stone-500 dark:border-stone-700">Deadlines box</h3>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         First tab: the next
         <input
