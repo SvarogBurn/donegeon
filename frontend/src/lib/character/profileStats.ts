@@ -22,11 +22,13 @@ export interface SheetInput {
   today: string;
   /** The points balance; null while it loads. */
   balance: number | null;
+  /** The days the streak freeze kept the streak across (shared/health.ts). */
+  frozen?: string[];
 }
 
-export function builtInStats({ tasks, completions, today, balance }: SheetInput): Record<StatKey, StatValue> {
+export function builtInStats({ tasks, completions, today, balance, frozen }: SheetInput): Record<StatKey, StatValue> {
   const byDay = countByDay(completions);
-  const { current, longest } = streaks(byDay, today);
+  const { current, longest } = streaks(byDay, today, frozen);
   const counts = periodCounts(byDay, today);
   const outcomes = deadlineOutcomes(tasks, today);
   return {
@@ -83,11 +85,11 @@ export function characterLevel(completions: Completion[], mailSent = 0, lost = 0
 }
 
 /** What the unlocks and titles go by (unlocks.ts): the level, the streaks, deadlines met, mail sent, the deeds (deeds.ts), and each skill's level. */
-export function characterProgress({ rows, tasks, completions, today, mailSent, lost = 0, skills }: { rows: StatRow[]; tasks: StatTask[]; completions: Completion[]; today: string; mailSent: number; lost?: number; skills: { key: string; name: string; exp: number }[] }): Progress {
+export function characterProgress({ rows, tasks, completions, today, mailSent, lost = 0, frozen, skills }: { rows: StatRow[]; tasks: StatTask[]; completions: Completion[]; today: string; mailSent: number; lost?: number; frozen?: string[]; skills: { key: string; name: string; exp: number }[] }): Progress {
   return {
     ...deedsOf({ rows, tasks, completions, today }),
     level: characterLevel(completions, mailSent, lost).level,
-    ...daysProgress([...countByDay(completions).keys()], today),
+    ...daysProgress([...countByDay(completions).keys()], today, frozen),
     onTime: deadlineOutcomes(tasks, today).filter(isOnTime).length,
     mail: mailSent,
     skills: skills.map(({ key, name, exp }) => ({ key, name, level: levelOf(exp).level })),

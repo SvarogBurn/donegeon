@@ -1,5 +1,6 @@
 import { daysBetween } from "../../../../shared/dates";
 import { BODIES, BODY_BY_ID, bodyOf, choiceOf, DEFAULT_LOOK, type Look } from "./bodies";
+import { bridged } from "../stats";
 import type { Deeds } from "./deeds";
 
 // What the character earns. Hair, fringe, eyes, nose, beard, every colour, the human and each animal's own outfit
@@ -179,20 +180,21 @@ export function ruleText(rule: Rule) {
 
 export const requirementOf = (reward: { rules: Rule[] }) => reward.rules.map(ruleText).join(" or ");
 
-/** The days from the progress the task bar's face gets from the server: the longest and the current streak, and whether there was a comeback. */
-export function daysProgress(days: string[], today: string) {
+/** The days from the progress the task bar's face gets from the server: the longest and the current streak (across the days the streak freeze kept), and whether there was a comeback. */
+export function daysProgress(days: string[], today: string, frozen: string[] = []) {
   const sorted = [...days].sort();
+  const kept = new Set(frozen);
   let longest = 0;
   let run = 0;
   let returned = false;
   for (let i = 0; i < sorted.length; i++) {
     const gap = i === 0 ? null : daysBetween(sorted[i - 1], sorted[i]);
-    run = gap === 1 ? run + 1 : 1;
+    run = i > 0 && bridged(sorted[i - 1], sorted[i], kept) ? run + 1 : 1;
     longest = Math.max(longest, run);
     if (gap !== null && gap > 7) returned = true;
   }
   const last = sorted.at(-1);
-  const current = last && daysBetween(last, today) <= 1 ? run : 0;
+  const current = last && bridged(last, today, kept) ? run : 0;
   return { longest, current, returned };
 }
 

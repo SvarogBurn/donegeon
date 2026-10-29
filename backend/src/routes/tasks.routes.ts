@@ -46,10 +46,10 @@ tasksRouter.get("/progress", async (req, res) => {
   res.json({ days: await progressDays(userId(req)) });
 });
 
-// The character's health (see healthFor): the hits written when the trees were read, against the exp of each day.
+// The character's health (see healthFor): the hits written when the trees were read, against the exp of each day, and the streak's frozen days.
 tasksRouter.get("/hp", async (req, res) => {
   const owner = userId(req);
-  res.json(await healthFor(owner, progressDays(owner)));
+  res.json(await healthFor(owner, progressDays(owner), req.localDate));
 });
 
 // The search at the top of the Tasks page (see searchTasks).

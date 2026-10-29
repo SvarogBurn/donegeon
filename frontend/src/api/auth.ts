@@ -9,4 +9,4 @@ export const login = (body: Credentials) => api<{ user: User }>("/auth/login", {
 export const logout = () => api("/auth/logout", { method: "POST" });
 /** `confirm` is "donegeon/<username>", typed by the user. */
 export const deleteMe = (confirm: string) => api("/auth/me", { method: "DELETE", body: { confirm } });
-export const updateMe =(body: Partial<Pick<User, "tickedTasks" | "sortByDeadline" | "deadlineToday" | "tutorialSeen" | "pointsCap" | "pointsOff" | "healthOff" | "breakEvery" | "boxFont" | "notesFont" | "notesTab" | "newsTab" | "profile" | "taskBar" | "boxColors" | "boxColorEdit" | "deadlineTable" | "notifications">>) => api<{ user: User }>("/auth/me", { method: "PATCH", body }).then((r) => r.user);
+export const updateMe =(body: Partial<Pick<User, "tickedTasks" | "sortByDeadline" | "deadlineToday" | "tutorialSeen" | "pointsCap" | "pointsOff" | "healthOff" | "freezeOff" | "breakEvery" | "boxFont" | "notesFont" | "notesTab" | "newsTab" | "profile" | "taskBar" | "boxColors" | "boxColorEdit" | "deadlineTable" | "notifications">>) => api<{ user: User }>("/auth/me", { method: "PATCH", body }).then((r) => r.user);

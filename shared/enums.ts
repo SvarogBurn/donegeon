@@ -47,6 +47,9 @@ export type ReminderKind = (typeof REMINDER_KINDS)[number];
 export const BELL_SHOWS = ["all", "actions"] as const;
 export type BellShows = (typeof BELL_SHOWS)[number];
 
-/** What cost the character health: a deadline gone by with the task still open, or a round of a schedule not done. */
-export const HIT_KINDS = ["deadline", "round"] as const;
+/**
+ * What cost the character: a deadline gone by with the task still open, or a round of a schedule not done (health), or
+ * a day with nothing done while the streak freeze is on (a level, to keep the streak).
+ */
+export const HIT_KINDS = ["deadline", "round", "day"] as const;
 export type HitKind = (typeof HIT_KINDS)[number];

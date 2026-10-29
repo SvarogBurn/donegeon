@@ -1,6 +1,6 @@
 import { useState, useSyncExternalStore } from "react";
 import { usePoints } from "../../hooks/points";
-import { useHealthOff, usePointsOff } from "../../hooks/useAuth";
+import { useFreezeOff, useHealthOff, usePointsOff } from "../../hooks/useAuth";
 import { addDays, daysBetween } from "../../../../shared/dates";
 import { formatDay } from "../../lib/dates";
 import { useOnline } from "../../lib/offline/online";
@@ -36,8 +36,10 @@ const useIsPhone = () => useSyncExternalStore(subscribePhone, () => matchMedia(P
 const hitsText = (health: Health) =>
   health.recent.length === 0 ? "Nothing missed yet" : health.recent.map((hit) => `−${hit.damage} ${hit.title} (${hit.kind} ${formatDay(addDays(hit.day, -1))})`).join("\n");
 
-/** How long the sheet says the character was knocked out. */
+/** How long the sheet says the character was knocked out, or a day missed cost a level. */
 const KNOCKOUT_SHOWN_DAYS = 7;
+
+const levelsText = (drop: { from: number; to: number }) => (drop.from > drop.to ? `: lost ${drop.from - drop.to} ${drop.from - drop.to === 1 ? "level" : "levels"}` : "");
 
 /**
  * The top of the user's page, as a game's character sheet, the character's name on its band: the character, its
@@ -51,17 +53,20 @@ export function CharacterSheet() {
   const points = usePoints();
   const pointsOff = usePointsOff();
   const healthOff = useHealthOff();
+  const freezeOff = useFreezeOff();
   // A knockout takes back what the lost levels earned, worn or not, until they are earned again.
   const shown = unlocks.knockedOut ? shownLook(look, unlocks) : look;
   const knockout = health?.knockouts.at(-1);
   const knockedOutLately = knockout && daysBetween(knockout.day, today) < KNOCKOUT_SHOWN_DAYS;
+  // Each day missed that kept the streak cost a level.
+  const freezes = health?.freezes.filter((f) => daysBetween(f.day, today) < KNOCKOUT_SHOWN_DAYS) ?? [];
   const online = useOnline();
   const skillName = useSkillNames();
   // Open, maybe with something new tried on.
   const [editing, setEditing] = useState<{ trying?: Look } | null>(null);
   const isPhone = useIsPhone();
 
-  const values = collected && builtInStats({ ...collected, today, balance: points.data?.balance ?? null });
+  const values = collected && builtInStats({ ...collected, today, balance: points.data?.balance ?? null, frozen: health?.frozen });
   // No points stat while the points system is off; it stays picked for when they are back.
   const stats = profile.stats.filter((key) => !(pointsOff && key === "points"));
 
@@ -87,7 +92,13 @@ export function CharacterSheet() {
               {knockedOutLately && (
                 <p className="text-center text-xs text-red-700 dark:text-red-400" data-knockout>
                   Knocked out on {formatDay(knockout.day)}
-                  {knockout.from > knockout.to && `: lost ${knockout.from - knockout.to} ${knockout.from - knockout.to === 1 ? "level" : "levels"}`}
+                  {levelsText(knockout)}
+                </p>
+              )}
+              {freezes.length > 0 && (
+                <p className="text-center text-xs text-sky-700 dark:text-sky-400" data-freeze={freezes.length}>
+                  {freezes.length === 1 ? `Streak kept on ${formatDay(freezes[0].day)}` : `Streak kept over ${freezes.length} days missed`}
+                  {levelsText({ from: freezes.length, to: 0 })}
                 </p>
               )}
             </div>
@@ -164,7 +175,7 @@ export function CharacterSheet() {
         </div>
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <p className="flex-1 text-xs text-stone-500">Every task done is 1 exp, and so is every mail to the devs. Do at least one task a day to keep the streak going.{!healthOff && " A deadline or round missed costs health, as much as it was worth; only a new level heals it, and running out costs levels."}</p>
+        <p className="flex-1 text-xs text-stone-500">Every task done is 1 exp, and so is every mail to the devs. Do at least one task a day to keep the streak going.{!healthOff && " A deadline or round missed costs health, as much as it was worth; only a new level heals it, and running out costs levels."}{!freezeOff && " A day with nothing done costs a level instead of the streak."}</p>
         <button type="button" className="band-button justify-center max-sm:h-8 max-sm:w-full" disabled={!online} title={online ? "The character's look, name, stats and skills" : "Needs a connection"} onClick={() => setEditing({})} data-character-edit>
           Edit
         </button>

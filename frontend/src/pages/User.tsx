@@ -356,6 +356,19 @@ export function SettingsBox() {
           ? "No health: deadlines and rounds missed cost nothing, and the character shows no hearts."
           : "Hearts on the character. A deadline or round missed costs health, as much as it was worth; a new level heals it all. Run out and the character loses levels, and what they unlocked, until it earns them back."}
       </p>
+      {!user.healthOff && (
+        <>
+          <label className="flex items-center gap-2 text-xs">
+            <PixelCheckbox small checked={!user.freezeOff} onChange={(e) => update.mutate({ freezeOff: !e.target.checked })} data-streak-freeze />
+            Streak freeze
+          </label>
+          <p className="text-xs text-stone-500">
+            {user.freezeOff
+              ? "A day with nothing done breaks the streak."
+              : "A day with nothing done costs the character a level (it keeps how far into it it was) instead of breaking the streak. At Lv 1 the streak breaks."}
+          </p>
+        </>
+      )}
       <label className="flex items-center gap-2 text-xs">
         <PixelCheckbox small checked={!profile.hideDot} onChange={(e) => saveProfile({ ...profile, hideDot: !e.target.checked || undefined })} data-character-dot />
         New things dot

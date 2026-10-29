@@ -61,10 +61,12 @@ enum TextFont {
   large
 }
 
-// What cost the character health: a deadline gone by with its task open, or a round of a schedule not done.
+// What cost the character: a deadline gone by with its task open, or a round of a schedule not done (health), or a day
+// with nothing done while the streak freeze is on (a level, to keep the streak).
 enum HitKind {
   deadline
   round
+  day
 }
 
 // What a message from the suggestion box is about.
@@ -105,6 +107,10 @@ model User {
   healthOff       Boolean  @default(false)
   // The day health was last switched back on: what was missed before it costs nothing. null = never switched off.
   healthSince     String?
+  // The streak freeze switched off: a day with nothing done breaks the streak instead of costing a level (no "day" Hit is written).
+  freezeOff       Boolean  @default(false)
+  // The day the streak freeze was last switched back on: days missed before it aren't frozen. null = never switched off.
+  freezeSince     String?
   // A reminder to take a break after every so many tasks done in a day; null = no reminder.
   breakEvery      Int?
   // Whether the tutorial was finished or skipped; it shows until then, and again when asked for in the settings.
@@ -334,17 +340,18 @@ model TaskCompletion {
 
 // A deadline or a round of a schedule missed, and the health it cost the character (see shared/health.ts). Written
 // once, when the trees are read the day after (services/health.service.ts), and kept: moving the deadline afterwards
-// takes nothing back. Only a level reached heals.
+// takes nothing back. Only a level reached heals. Kind "day": a day with nothing done, written while the streak freeze
+// is on, which may cost a level to keep the streak (damage 0, no task, day = the day missed).
 model Hit {
   id        String   @id @default(uuid())
   userId    String
-  // What was missed, once per user: "deadline:<task>:<deadline day>" or "round:<task>:<planned day>".
+  // What was missed, once per user: "deadline:<task>:<deadline day>", "round:<task>:<planned day>" or "day:<day>".
   key       String
   kind      HitKind
   taskId    String?
   // The task's title then, so the hit still says what it was once the task is gone.
   title     String
-  // The day it hit: the day after the one missed.
+  // The day it hit: the day after the one missed (a "day" Hit: the day missed).
   day       String
   damage    Int
   createdAt DateTime @default(now())

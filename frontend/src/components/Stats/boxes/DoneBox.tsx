@@ -1,4 +1,5 @@
 import { addDays } from "../../../../../shared/dates";
+import { useHealth } from "../../../hooks/tasks";
 import { activeDays, calendarWeeks, countByDay, firstDay, periodCounts, streaks, typicalWeek } from "../../../lib/stats";
 import { doneKinds } from "../../../lib/statsView";
 import { SummaryCells } from "../../Countdown/sheet";
@@ -14,9 +15,10 @@ const CALENDAR_WEEKS = 53;
 /** What got done, and when: today, the last week and month, all time, the streak, and a year of days as dots. */
 export const DoneBox: StatBox = ({ stats: { view } }) => {
   const { done, today } = view;
+  const health = useHealth();
   const byDay = countByDay(done);
   const counts = periodCounts(byDay, today);
-  const streak = streaks(byDay, today);
+  const streak = streaks(byDay, today, health.data?.frozen);
   const typical = typicalWeek(byDay, today);
   const since = firstDay(byDay);
   // The 30 days before the last 30 are only something to go by once the history reaches back over them.

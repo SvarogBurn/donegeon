@@ -33,6 +33,12 @@ describe("streaks", () => {
     const byDay = countByDay(["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-17", TODAY].map((day) => done(day)));
     expect(streaks(byDay, TODAY)).toEqual({ current: 1, longest: 3 });
   });
+
+  it("goes on across days the streak freeze kept, without counting them; a gap only partly frozen still breaks it", () => {
+    const byDay = countByDay(["2026-10-14", "2026-10-15", "2026-10-18"].map((day) => done(day)));
+    expect(streaks(byDay, TODAY, ["2026-10-16", "2026-10-17", "2026-10-19"])).toEqual({ current: 3, longest: 3 });
+    expect(streaks(byDay, TODAY, ["2026-10-16"])).toEqual({ current: 0, longest: 2 });
+  });
 });
 
 describe("periodCounts", () => {

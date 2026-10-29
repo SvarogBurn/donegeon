@@ -184,21 +184,33 @@ export function activeDays(byDay: Map<string, number>, today: string, span: numb
 }
 
 /**
+ * Whether a run of days done goes on from `from` to `to`: every day between them (neither counted) was frozen by the
+ * streak freeze (shared/health.ts), or there is none.
+ */
+export function bridged(from: string, to: string, frozen: ReadonlySet<string>) {
+  if (daysBetween(from, to) - 1 > frozen.size) return false;
+  for (let day = addDays(from, 1); day < to; day = addDays(day, 1)) if (!frozen.has(day)) return false;
+  return true;
+}
+
+/**
  * Runs of days in a row with at least one thing done. The current run ends
  * today, or yesterday while today is still empty: the day isn't over yet.
+ * A day `frozen` by the streak freeze carries a run across it without adding to it.
  */
-export function streaks(byDay: Map<string, number>, today: string) {
+export function streaks(byDay: Map<string, number>, today: string, frozen: string[] = []) {
   const days = [...byDay.keys()].sort();
+  const kept = new Set(frozen);
   let longest = 0;
   let run = 0;
   let previous: string | null = null;
   for (const day of days) {
-    run = previous !== null && addDays(previous, 1) === day ? run + 1 : 1;
+    run = previous !== null && bridged(previous, day, kept) ? run + 1 : 1;
     longest = Math.max(longest, run);
     previous = day;
   }
   let current = 0;
-  for (let day = byDay.has(today) ? today : addDays(today, -1); byDay.has(day); day = addDays(day, -1)) current++;
+  for (let day = byDay.has(today) ? today : addDays(today, -1); byDay.has(day) || kept.has(day); day = addDays(day, -1)) if (byDay.has(day)) current++;
   return { current, longest };
 }
 

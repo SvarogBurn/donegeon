@@ -32,6 +32,7 @@ const publicUser = (user: User) => ({
   pointsCap: user.pointsCap,
   pointsOff: user.pointsOff,
   healthOff: user.healthOff,
+  freezeOff: user.freezeOff,
   breakEvery: user.breakEvery,
   boxFont: user.boxFont,
   notesFont: user.notesFont,
@@ -112,6 +113,8 @@ authRouter.patch("/me", requireAuth, async (req, res) => {
     ...(notifications !== undefined && { notifications: notifications ?? Prisma.DbNull }),
     // Health switched (back) on: what was missed while it was off costs nothing (the settings send it only when switched).
     ...(rest.healthOff === false && { healthSince: req.localDate }),
+    // The same for the streak freeze: days missed while it was off stay as they were (the streak broken).
+    ...(rest.freezeOff === false && { freezeSince: req.localDate }),
   };
   res.json({ user: publicUser(await prisma.user.update({ where: { id: userId(req) }, data })) });
 });

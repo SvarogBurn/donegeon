@@ -23,6 +23,8 @@ export interface User {
   pointsOff?: boolean;
   /** The character's health switched off: no hearts, and nothing missed costs any. Missing in an account kept on the device from before (= on). */
   healthOff?: boolean;
+  /** The streak freeze switched off: a day with nothing done breaks the streak instead of costing a level. Missing in an account kept on the device from before (= on). */
+  freezeOff?: boolean;
   /** A reminder to take a break after every so many tasks done in a day; null (the default) = none. */
   breakEvery: number | null;
   /** Theme: the font of the text inside the boxes (task notes too); "pixel" (the default) = the pixel font. Missing in an account kept on the device from before. */
@@ -52,6 +54,7 @@ export interface User {
 /** The character's health (shared/health.ts) as GET /tasks/hp works it out, with the last few hits, newest first. */
 export interface Health extends HealthRules {
   off: boolean;
+  freezeOff: boolean;
   recent: { day: string; damage: number; title: string; kind: HitKind }[];
 }
 

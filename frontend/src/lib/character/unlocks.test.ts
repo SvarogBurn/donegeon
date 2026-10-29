@@ -136,6 +136,12 @@ describe("locks", () => {
 });
 
 describe("daysProgress", () => {
+  it("goes on across days the streak freeze kept, without counting them", () => {
+    const days = ["2026-10-14", "2026-10-15", "2026-10-18"];
+    expect(daysProgress(days, "2026-10-20", ["2026-10-16", "2026-10-17", "2026-10-19"])).toMatchObject({ longest: 3, current: 3 });
+    expect(daysProgress(days, "2026-10-20", ["2026-10-16"])).toMatchObject({ longest: 2, current: 0 });
+  });
+
   it("finds the longest and the current streak, and a comeback after a week away", () => {
     expect(daysProgress([], "2026-10-22")).toEqual({ longest: 0, current: 0, returned: false });
     expect(daysProgress(["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-21"], "2026-10-22")).toEqual({ longest: 3, current: 1, returned: true });

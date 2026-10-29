@@ -51,7 +51,7 @@ export function useCharacterProgress() {
   const mail = mailSent.data ?? 0;
   const lost = health.data?.lost ?? 0;
   const skills = profile.skills.map((skill) => ({ key: `${skill.kind}:${skill.id}`, name: skillName(skill).name, exp: skillExp(skill, collected?.completions ?? []) }));
-  const progress = collected && rows.data ? characterProgress({ ...collected, rows: rows.data, today, mailSent: mail, lost, skills }) : null;
+  const progress = collected && rows.data ? characterProgress({ ...collected, rows: rows.data, today, mailSent: mail, lost, frozen: health.data?.frozen, skills }) : null;
   const unlocks: Unlocks = { progress: progress ?? NOTHING_YET, devMode: readDevMode(), saved: look, seen: profile.seen ?? [], knockedOut: Boolean(progress && lost > 0) };
   return { collected, level: characterLevel(collected?.completions ?? [], mail, lost), progress, unlocks, today, health: health.data };
 }
@@ -68,7 +68,7 @@ function useBarProgress(): { progress: Progress; lost: number } | null {
   const mail = mailSent.data;
   const lost = health.data?.lost ?? 0;
   const exp = days.data.reduce((sum, { count }) => sum + count, 0) + mail - lost;
-  const { longest, current } = daysProgress(days.data.map(({ day }) => day), localDate());
+  const { longest, current } = daysProgress(days.data.map(({ day }) => day), localDate(), health.data?.frozen);
   return { progress: { ...NOTHING_YET, level: levelOf(exp).level, longest, current, mail }, lost };
 }
 

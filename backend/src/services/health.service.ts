@@ -6,7 +6,7 @@ import { addInterval, movedDay } from "../../../shared/repeat.js";
 import { prisma } from "../lib/prisma.js";
 import { countedIds } from "./taskTree.service.js";
 
-/** How far back the missed rounds of a schedule are looked for: older ones were written when they were missed, or never will be. */
+/** How far back missed rounds of a schedule, and days with nothing done, are looked for: older ones were written when they were missed, or never will be. */
 const ROUNDS_BACK_DAYS = 60;
 /** The most rounds of one task stepped through, from its oldest still open. */
 const MAX_ROUND_STEPS = 1000;
@@ -78,17 +78,43 @@ export async function recordHits(owner: string, rows: ValuedRow[], today: string
 }
 
 /**
- * The character's health (shared/health.ts) from every hit and the exp of each day: the tasks done (`doneDays`, as
- * progressDays counts them) and the mails sent to the devs (on the day they were sent, UTC). With it the last few
- * hits, to say what cost the health.
+ * The days with nothing done from `since` (and the first day anything was done) to yesterday, 60 days back at most,
+ * not yet written down: the streak freeze's (shared/health.ts decides which of them keep a streak, for a level).
  */
-export async function healthFor(owner: string, doneDays: Promise<{ day: string; count: number }[]>) {
-  const [hits, mails, done, user] = await Promise.all([
+export function missedDays(done: { day: string; count: number }[], written: Set<string>, today: string, since: string): string[] {
+  const doneOn = new Set(done.filter(({ count }) => count > 0).map(({ day }) => day));
+  const first = [...doneOn].sort()[0];
+  if (!first) return [];
+  const missed: string[] = [];
+  for (let day = [since, addDays(first, 1), addDays(today, -ROUNDS_BACK_DAYS)].sort()[2]; day < today; day = addDays(day, 1)) {
+    if (!doneOn.has(day) && !written.has(day)) missed.push(day);
+  }
+  return missed;
+}
+
+/**
+ * The character's health (shared/health.ts) from every hit and the exp of each day: the tasks done (`doneDays`, as
+ * progressDays counts them) and the mails sent to the devs (on the day they were sent, UTC). While health and the
+ * streak freeze are both on, the days with nothing done are written down first (missedDays), so the freeze can keep
+ * the streak across them. With it the last few hits, to say what cost the health.
+ */
+export async function healthFor(owner: string, doneDays: Promise<{ day: string; count: number }[]>, today: string) {
+  const [stored, mails, done, user] = await Promise.all([
     prisma.hit.findMany({ where: { userId: owner }, select: { day: true, damage: true, title: true, kind: true }, orderBy: [{ day: "asc" }, { createdAt: "asc" }] }),
     prisma.feedback.findMany({ where: { userId: owner }, select: { createdAt: true } }),
     doneDays,
-    prisma.user.findUniqueOrThrow({ where: { id: owner }, select: { healthOff: true } }),
+    prisma.user.findUniqueOrThrow({ where: { id: owner }, select: { healthOff: true, healthSince: true, freezeOff: true, freezeSince: true } }),
   ]);
-  const mailDays = mails.map(({ createdAt }) => ({ day: createdAt.toISOString().slice(0, 10), count: 1 }));
-  return { off: user.healthOff, ...healthOf(hits, [...done, ...mailDays]), recent: hits.slice(-5).reverse() };
+  const hits = stored.filter(({ kind }) => kind !== "day");
+  const missed = stored.filter(({ kind }) => kind === "day").map(({ day }) => day);
+  if (!user.healthOff && !user.freezeOff) {
+    const since = [HEALTH_SINCE, user.healthSince ?? "", user.freezeSince ?? ""].sort()[2];
+    const fresh = missedDays(done, new Set(missed), today, since);
+    if (fresh.length > 0) {
+      await prisma.hit.createMany({ data: fresh.map((day) => ({ userId: owner, key: `day:${day}`, kind: "day" as const, title: "", day, damage: 0 })), skipDuplicates: true });
+      missed.push(...fresh);
+    }
+  }
+  const mail = mails.map(({ createdAt }) => ({ day: createdAt.toISOString().slice(0, 10), count: 1 }));
+  return { off: user.healthOff, freezeOff: user.freezeOff, ...healthOf({ hits, done, mail, missed, today }), recent: hits.slice(-5).reverse() };
 }

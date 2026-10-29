@@ -98,6 +98,12 @@ export function useHealthOff(): boolean {
   return useMe().user?.healthOff ?? false;
 }
 
+/** Whether the streak freeze is off (Settings › Gamification, under Health; off with it too): a day missed breaks the streak. */
+export function useFreezeOff(): boolean {
+  const { user } = useMe();
+  return Boolean(user?.healthOff || user?.freezeOff);
+}
+
 /**
  * The colour the user picked for a built-in box (Today, Done, the character, a stats box…), by the box's key: its
  * folder view where it has one ("box:today", "stat:points", "cal:month"), else its tile key ("done", "character"). So a
