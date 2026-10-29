@@ -4,7 +4,8 @@ import { Navigate, useLocation, useNavigate, useParams } from "react-router";
 import { useDeleteNote, useEditNote, useNotes } from "../../hooks/notes";
 import { useOnline } from "../../lib/offline/online";
 import { lineAlign, type Align } from "../../lib/noteText";
-import type { Note } from "../../types";
+import { FOLDER_COLOR, folderIn } from "../../lib/frameTones";
+import type { Note, NoteFolder } from "../../types";
 import { NoteEditor } from "../TaskTree/NoteEditor";
 import { DeleteOrKeep } from "../DeleteOrKeep";
 
@@ -41,10 +42,26 @@ export function NoteScreen() {
   const note = data?.notes.find((n) => n.id === noteId);
   if (isLoading) return null;
   if (!note) return <Navigate to="/notes" replace />;
-  return <Screen key={note.id} note={note} />;
+  const folder = data?.noteFolders.find((f) => f.id === note.noteFolderId);
+  return <Screen key={note.id} note={note} folder={folder} />;
 }
 
-function Screen({ note }: { note: Note }) {
+/** The folder the note is in, as a tag in its colour beside the title. */
+function FolderTag({ folder }: { folder: NoteFolder }) {
+  const color = folder.color ?? FOLDER_COLOR;
+  return (
+    <span
+      className="flex max-w-36 flex-none items-center gap-1.5 border-l-4 py-1 pr-2 pl-1.5 font-pixel text-[8px] text-stone-700 dark:text-stone-300"
+      style={{ borderColor: color, backgroundColor: `${color}33` }}
+      title={`In the folder "${folder.name}"`}
+    >
+      <span className="tab-icon tab-icon-folder !size-[21px] flex-none" style={folder.color ? { backgroundImage: folderIn(folder.color) } : undefined} aria-hidden />
+      <span className="truncate">{folder.name}</span>
+    </span>
+  );
+}
+
+function Screen({ note, folder }: { note: Note; folder?: NoteFolder }) {
   const navigate = useNavigate();
   const location = useLocation();
   const edit = useEditNote();
@@ -132,16 +149,19 @@ function Screen({ note }: { note: Note }) {
         </div>
         {/* The title and the text: in the font picked for notes. */}
         <div className="space-y-3" data-text="notes">
-          <input
-            className="note-title w-full bg-transparent text-base outline-none placeholder:text-stone-400"
-            value={title}
-            placeholder="Title"
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={save}
-            onKeyDown={(e) => e.key === "Enter" && (field.current?.focus(), e.preventDefault())}
-            aria-label="Note title"
-            maxLength={100}
-          />
+          <div className="flex items-center gap-3">
+            <input
+              className="note-title min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-stone-400"
+              value={title}
+              placeholder="Title"
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={save}
+              onKeyDown={(e) => e.key === "Enter" && (field.current?.focus(), e.preventDefault())}
+              aria-label="Note title"
+              maxLength={100}
+            />
+            {folder && <FolderTag folder={folder} />}
+          </div>
           {/* Always the editor: it reads as written, and a tap anywhere in it (or the empty page under it) writes there. */}
           <NoteEditor
             ref={field}

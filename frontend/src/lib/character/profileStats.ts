@@ -76,17 +76,17 @@ export function skillExp(skill: Skill, completions: Completion[]) {
   return completions.filter(({ task }) => matches(task, sources.lists, sources.goals, sources.tags)).length;
 }
 
-/** The character's own level: every task done counts, and every mail sent to the devs. */
-export function characterLevel(completions: Completion[], mailSent = 0) {
-  const exp = completions.length + mailSent;
+/** The character's own level: every task done counts, and every mail sent to the devs, less the exp knockouts took (`lost`, shared/health.ts). */
+export function characterLevel(completions: Completion[], mailSent = 0, lost = 0) {
+  const exp = Math.max(0, completions.length + mailSent - lost);
   return { exp, ...levelOf(exp) };
 }
 
 /** What the unlocks and titles go by (unlocks.ts): the level, the streaks, deadlines met, mail sent, the deeds (deeds.ts), and each skill's level. */
-export function characterProgress({ rows, tasks, completions, today, mailSent, skills }: { rows: StatRow[]; tasks: StatTask[]; completions: Completion[]; today: string; mailSent: number; skills: { key: string; name: string; exp: number }[] }): Progress {
+export function characterProgress({ rows, tasks, completions, today, mailSent, lost = 0, skills }: { rows: StatRow[]; tasks: StatTask[]; completions: Completion[]; today: string; mailSent: number; lost?: number; skills: { key: string; name: string; exp: number }[] }): Progress {
   return {
     ...deedsOf({ rows, tasks, completions, today }),
-    level: characterLevel(completions, mailSent).level,
+    level: characterLevel(completions, mailSent, lost).level,
     ...daysProgress([...countByDay(completions).keys()], today),
     onTime: deadlineOutcomes(tasks, today).filter(isOnTime).length,
     mail: mailSent,

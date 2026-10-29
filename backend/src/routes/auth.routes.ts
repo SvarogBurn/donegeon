@@ -31,6 +31,7 @@ const publicUser = (user: User) => ({
   tutorialSeen: user.tutorialSeen,
   pointsCap: user.pointsCap,
   pointsOff: user.pointsOff,
+  healthOff: user.healthOff,
   breakEvery: user.breakEvery,
   boxFont: user.boxFont,
   notesFont: user.notesFont,
@@ -109,6 +110,8 @@ authRouter.patch("/me", requireAuth, async (req, res) => {
     ...(boxColors !== undefined && { boxColors: boxColors ?? Prisma.DbNull }),
     ...(deadlineTable !== undefined && { deadlineTable: deadlineTable ?? Prisma.DbNull }),
     ...(notifications !== undefined && { notifications: notifications ?? Prisma.DbNull }),
+    // Health switched (back) on: what was missed while it was off costs nothing (the settings send it only when switched).
+    ...(rest.healthOff === false && { healthSince: req.localDate }),
   };
   res.json({ user: publicUser(await prisma.user.update({ where: { id: userId(req) }, data })) });
 });

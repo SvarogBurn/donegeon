@@ -132,6 +132,7 @@ export const settings = z
     newsTab: z.boolean(),
     boxColorEdit: z.boolean(),
     pointsOff: z.boolean(),
+    healthOff: z.boolean(),
     /** null = no cap. */
     pointsCap: z.number().int().min(1, "A cap is at least 1 point").max(MAX_POINTS).nullable(),
     /** null = no reminder. */

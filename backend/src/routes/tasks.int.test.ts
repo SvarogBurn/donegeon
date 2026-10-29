@@ -28,13 +28,13 @@ afterAll(async () => {
   await new Promise((resolve) => server.close(resolve));
 });
 
-/** A signed-up user with a session of its own, who sends requests as the app does (on `TODAY`). */
+/** A signed-up user with a session of its own, who sends requests as the app does (on `TODAY`, or on `day`). */
 async function user() {
   let cookie = "";
-  const call = async (method: string, path: string, body?: unknown) => {
+  const call = async (method: string, path: string, body?: unknown, day = TODAY) => {
     const res = await fetch(base + path, {
       method,
-      headers: { "X-Local-Date": TODAY, Cookie: cookie, ...(body !== undefined && { "Content-Type": "application/json" }) },
+      headers: { "X-Local-Date": day, Cookie: cookie, ...(body !== undefined && { "Content-Type": "application/json" }) },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const set = res.headers.get("set-cookie");
@@ -187,4 +187,25 @@ describe("logging in", () => {
     expect((await blocked.json()).error).toMatch(/Try again in 15 minutes/);
     // Each wrong password costs a full bcrypt check.
   }, 30_000);
+});
+
+describe("health", () => {
+  it("a deadline gone by costs what it was worth when the trees are next read, and moving it after takes nothing back", async () => {
+    const { call, listId } = await user();
+    const essay = (await call("POST", "/tasks", { title: "Essay", listId, points: 3, deadlineDate: "2026-11-02", deadlineType: "soft" })).body.task;
+    await call("POST", "/tasks", { title: "Draft", parentId: essay.id, points: 2 });
+    const later = "2026-11-04";
+
+    expect((await call("GET", "/tasks/hp", undefined, later)).body).toMatchObject({ hp: 10, max: 10, recent: [] });
+    await Promise.all([1, 2].map(() => call("GET", "/tasks", undefined, later)));
+    const hit = (await call("GET", "/tasks/hp", undefined, later)).body;
+    expect(hit).toMatchObject({ off: false, hp: 5, lost: 0, recent: [{ title: "Essay", kind: "deadline", day: "2026-11-03", damage: 5 }] });
+
+    await call("PATCH", `/tasks/${essay.id}`, { deadlineDate: "2026-11-20" }, later);
+    await call("GET", "/tasks", undefined, later);
+    expect((await call("GET", "/tasks/hp", undefined, later)).body.hp).toBe(5);
+
+    await call("PATCH", "/auth/me", { healthOff: true }, later);
+    expect((await call("GET", "/tasks/hp", undefined, later)).body.off).toBe(true);
+  });
 });

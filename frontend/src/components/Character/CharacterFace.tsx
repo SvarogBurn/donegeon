@@ -3,7 +3,7 @@ import { DEFAULT_LOOK } from "../../lib/character/bodies";
 import { composeFace, FACE, type PartsData } from "../../lib/character/compose";
 import { normalizeProfile } from "../../lib/character/profile";
 import type { User } from "../../types";
-import { useSomethingNew } from "./useUnlocks";
+import { useFaceLook, useSomethingNew } from "./useUnlocks";
 
 // The faces are loaded with the bar that shows one, apart from the bodies' parts (only loaded where a character is shown).
 let loaded: PartsData | null = null;
@@ -31,7 +31,8 @@ function useFacesData() {
  */
 export function CharacterFace({ user, className, iconClass }: { user: User; className: string; iconClass: string }) {
   const data = useFacesData();
-  const look = useMemo(() => normalizeProfile(user.profile).look ?? DEFAULT_LOOK, [user.profile]);
+  const saved = useMemo(() => normalizeProfile(user.profile).look ?? DEFAULT_LOOK, [user.profile]);
+  const look = useFaceLook(user, saved);
   const isNew = useSomethingNew(user);
   const pixels = data && composeFace(look, data);
   const face = !data ? (

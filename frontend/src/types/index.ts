@@ -1,8 +1,9 @@
-import type { DeadlineToday, FeedbackKind, ListKind, RepeatUnit, TextFont, TickedTasks } from "../../../shared/enums";
+import type { DeadlineToday, FeedbackKind, HitKind, ListKind, RepeatUnit, TextFont, TickedTasks } from "../../../shared/enums";
 import type { EventState } from "../../../shared/events";
+import type { Health as HealthRules } from "../../../shared/health";
 
 // The fixed choices are shared with the server (shared/enums.ts).
-export type { DeadlineToday, FeedbackKind, ListKind, RepeatUnit, TextFont, TickedTasks };
+export type { DeadlineToday, FeedbackKind, HitKind, ListKind, RepeatUnit, TextFont, TickedTasks };
 
 // The rest is mirrored by hand from what the server sends (its Prisma models); the rules both sides follow are in shared/.
 import type { DashboardLayout } from "../lib/tileLayout";
@@ -20,6 +21,8 @@ export interface User {
   pointsCap: number | null;
   /** The points system switched off: nothing earned or spent, and no points shown. Missing in an account kept on the device from before (= on). */
   pointsOff?: boolean;
+  /** The character's health switched off: no hearts, and nothing missed costs any. Missing in an account kept on the device from before (= on). */
+  healthOff?: boolean;
   /** A reminder to take a break after every so many tasks done in a day; null (the default) = none. */
   breakEvery: number | null;
   /** Theme: the font of the text inside the boxes (task notes too); "pixel" (the default) = the pixel font. Missing in an account kept on the device from before. */
@@ -44,6 +47,12 @@ export interface User {
   notifications?: unknown;
   /** One of the developers' accounts: its page has the inbox of the suggestion box. */
   isDev: boolean;
+}
+
+/** The character's health (shared/health.ts) as GET /tasks/hp works it out, with the last few hits, newest first. */
+export interface Health extends HealthRules {
+  off: boolean;
+  recent: { day: string; damage: number; title: string; kind: HitKind }[];
 }
 
 /** A message from the suggestion box, as a developer's inbox shows it. */

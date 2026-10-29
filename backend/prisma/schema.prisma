@@ -61,6 +61,12 @@ enum TextFont {
   large
 }
 
+// What cost the character health: a deadline gone by with its task open, or a round of a schedule not done.
+enum HitKind {
+  deadline
+  round
+}
+
 // What a message from the suggestion box is about.
 enum FeedbackKind {
   bug
@@ -95,6 +101,10 @@ model User {
   pointsCap       Int?
   // The points system switched off: nothing is booked, refused or taken back, and the app shows no points. The balance waits as it was.
   pointsOff       Boolean  @default(false)
+  // The character's health switched off: nothing missed costs any (no Hit is written), and the app shows no hearts.
+  healthOff       Boolean  @default(false)
+  // The day health was last switched back on: what was missed before it costs nothing. null = never switched off.
+  healthSince     String?
   // A reminder to take a break after every so many tasks done in a day; null = no reminder.
   breakEvery      Int?
   // Whether the tutorial was finished or skipped; it shows until then, and again when asked for in the settings.
@@ -137,6 +147,7 @@ model User {
   noteFolders       NoteFolder[]
   pushSubscriptions PushSubscription[]
   scheduledNotifications ScheduledNotification[]
+  hits              Hit[]
 }
 
 model Goal {
@@ -228,6 +239,7 @@ model Task {
   list              List?              @relation(fields: [listId], references: [id], onDelete: Cascade)
   completions       TaskCompletion[]
   pointTransactions PointTransaction[]
+  hits              Hit[]
 
   @@index([userId])
   @@index([parentId])
@@ -317,6 +329,31 @@ model TaskCompletion {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
+  @@index([taskId])
+}
+
+// A deadline or a round of a schedule missed, and the health it cost the character (see shared/health.ts). Written
+// once, when the trees are read the day after (services/health.service.ts), and kept: moving the deadline afterwards
+// takes nothing back. Only a level reached heals.
+model Hit {
+  id        String   @id @default(uuid())
+  userId    String
+  // What was missed, once per user: "deadline:<task>:<deadline day>" or "round:<task>:<planned day>".
+  key       String
+  kind      HitKind
+  taskId    String?
+  // The task's title then, so the hit still says what it was once the task is gone.
+  title     String
+  // The day it hit: the day after the one missed.
+  day       String
+  damage    Int
+  createdAt DateTime @default(now())
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, key])
+  @@index([userId, day])
   @@index([taskId])
 }
 

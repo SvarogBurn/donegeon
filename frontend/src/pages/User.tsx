@@ -325,7 +325,7 @@ export function SettingsBox() {
       <SettingsSection name="notifications" title="Notifications">
         <NotificationSettings />
       </SettingsSection>
-      {/* The game around the tasks: the points, and the character's news. */}
+      {/* The game around the tasks: the points, the character's health, and its news. */}
       <SettingsSection name="gamification" title="Gamification">
       <label className="flex items-center gap-2 text-xs">
         <PixelCheckbox small checked={!user.pointsOff} onChange={(e) => update.mutate({ pointsOff: !e.target.checked })} data-points-system />
@@ -347,6 +347,15 @@ export function SettingsBox() {
           note={capNote}
         />
       )}
+      <label className="flex items-center gap-2 text-xs">
+        <PixelCheckbox small checked={!user.healthOff} onChange={(e) => update.mutate({ healthOff: !e.target.checked })} data-health-system />
+        Health
+      </label>
+      <p className="text-xs text-stone-500">
+        {user.healthOff
+          ? "No health: deadlines and rounds missed cost nothing, and the character shows no hearts."
+          : "Hearts on the character. A deadline or round missed costs health, as much as it was worth; a new level heals it all. Run out and the character loses levels, and what they unlocked, until it earns them back."}
+      </p>
       <label className="flex items-center gap-2 text-xs">
         <PixelCheckbox small checked={!profile.hideDot} onChange={(e) => saveProfile({ ...profile, hideDot: !e.target.checked || undefined })} data-character-dot />
         New things dot

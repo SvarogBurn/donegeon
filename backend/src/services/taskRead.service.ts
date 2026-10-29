@@ -3,6 +3,7 @@ import { KEPT_WHEN_DONE_MS } from "../../../shared/constants.js";
 import { addDays, mondayOf } from "../../../shared/dates.js";
 import { prisma } from "../lib/prisma.js";
 import { countdownForTask, todayPace } from "./countdown.service.js";
+import { recordHits } from "./health.service.js";
 import { subtaskValue, taskValue } from "./points.service.js";
 import { staleRoundTicks } from "./repeat.service.js";
 import { ancestorsOf, buildTree, wholeTreeIds, withFinishedRoots } from "./taskTree.service.js";
@@ -36,15 +37,17 @@ async function wholeTrees(owner: string, where: Prisma.TaskWhereInput, presses: 
 }
 
 /**
- * Whole trees (see wholeTrees) nested under their main tasks. Tasks with a
+ * Whole trees (see wholeTrees), each task with what the app shows on it. Tasks with a
  * deadline (hard or soft) carry today's pace, which colours their deadline pill;
  * every task carries what it is worth (and whether that is earned or spent), persistent ones their presses.
+ * With them the user's health settings, for recordHits.
  */
-async function asTrees(owner: string, tasks: TreeRow[], today: string) {
-  const [lists, { todayPoints }] = await Promise.all([
+async function valuedRows(owner: string, tasks: TreeRow[], today: string) {
+  const [lists, user] = await Promise.all([
     prisma.list.findMany({ where: { userId: owner } }),
-    prisma.user.findUniqueOrThrow({ where: { id: owner }, select: { todayPoints: true } }),
+    prisma.user.findUniqueOrThrow({ where: { id: owner }, select: { todayPoints: true, healthOff: true, healthSince: true } }),
   ]);
+  const { todayPoints } = user;
   const listById = new Map(lists.map((list) => [list.id, list]));
   const taskById = new Map(tasks.map((task) => [task.id, task]));
   const forPace = withFinishedRoots(tasks).tasks;
@@ -61,7 +64,12 @@ async function asTrees(owner: string, tasks: TreeRow[], today: string) {
       pace: task.deadlineDate ? todayPace(forPace, task, today) : null,
     };
   });
-  return buildTree(flat);
+  return { rows: flat, user };
+}
+
+/** Whole trees (see wholeTrees) nested under their main tasks, valued (see valuedRows). */
+async function asTrees(owner: string, tasks: TreeRow[], today: string) {
+  return buildTree((await valuedRows(owner, tasks, today)).rows);
 }
 
 /**
@@ -97,7 +105,10 @@ export async function openTrees(owner: string, today: string) {
     },
     { day: { gte: since } },
   );
-  return asTrees(owner, await clearStaleRoundTicks(owner, tasks, today), today);
+  const { rows, user } = await valuedRows(owner, await clearStaleRoundTicks(owner, tasks, today), today);
+  // What was missed costs the character health: a read that writes, as above, since only the user's day says what went by.
+  await recordHits(owner, rows, today, user);
+  return buildTree(rows);
 }
 
 /**

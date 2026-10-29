@@ -5,6 +5,7 @@ import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
 import { localDate } from "../schemas/common.js";
 import { moveInput, roundInput, taskInput, taskPatch, weekInput } from "../schemas/task.js";
+import { healthFor } from "../services/health.service.js";
 import { placeInWeek } from "../services/ordering.service.js";
 import { ownTask } from "../services/ownership.js";
 import { countdownOf, donePage, doneOn, openTrees, progressDays, searchTasks, statRows } from "../services/taskRead.service.js";
@@ -43,6 +44,12 @@ tasksRouter.get("/stats", async (req, res) => {
 // Tasks done per day, for the level and streak on the task bar's face.
 tasksRouter.get("/progress", async (req, res) => {
   res.json({ days: await progressDays(userId(req)) });
+});
+
+// The character's health (see healthFor): the hits written when the trees were read, against the exp of each day.
+tasksRouter.get("/hp", async (req, res) => {
+  const owner = userId(req);
+  res.json(await healthFor(owner, progressDays(owner)));
 });
 
 // The search at the top of the Tasks page (see searchTasks).

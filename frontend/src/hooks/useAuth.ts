@@ -93,6 +93,11 @@ export function usePointsOff(): boolean {
   return useMe().user?.pointsOff ?? false;
 }
 
+/** Whether the character's health is switched off (Settings › Gamification): no hearts shown. */
+export function useHealthOff(): boolean {
+  return useMe().user?.healthOff ?? false;
+}
+
 /**
  * The colour the user picked for a built-in box (Today, Done, the character, a stats box…), by the box's key: its
  * folder view where it has one ("box:today", "stat:points", "cal:month"), else its tile key ("done", "character"). So a

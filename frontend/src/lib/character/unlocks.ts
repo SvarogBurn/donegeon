@@ -1,5 +1,5 @@
 import { daysBetween } from "../../../../shared/dates";
-import { BODIES, BODY_BY_ID, bodyOf, choiceOf, type Look } from "./bodies";
+import { BODIES, BODY_BY_ID, bodyOf, choiceOf, DEFAULT_LOOK, type Look } from "./bodies";
 import type { Deeds } from "./deeds";
 
 // What the character earns. Hair, fringe, eyes, nose, beard, every colour, the human and each animal's own outfit
@@ -205,19 +205,27 @@ export interface Unlocks {
   saved: Look;
   /** What the sheet has announced (Profile.seen): it stays unlocked, whatever happens to the tasks and skills since. */
   seen: string[];
+  /**
+   * Levels were lost to a knockout (shared/health.ts): what a level earns then goes with the level, announced or worn,
+   * until the level is earned again. Without one, a level gone down (tasks unticked or deleted) takes nothing back.
+   */
+  knockedOut?: boolean;
 }
+
+/** Whether a reward stays though no longer earned: it was announced or is worn, and isn't one a knockout takes back. */
+const kept = (u: Unlocks, reward: Reward, worn: boolean) => (worn || u.seen.includes(reward.id)) && !(u.knockedOut && reward.rules.some((rule) => "level" in rule));
 
 /** The reward a body still waits for; null when it may be worn. */
 export function bodyLock(u: Unlocks, body: string): Reward | null {
   const reward = BODY_REWARDS.get(body);
-  if (!reward || u.devMode || u.saved.body === body || u.seen.includes(reward.id) || isEarned(reward, u.progress)) return null;
+  if (!reward || u.devMode || isEarned(reward, u.progress) || kept(u, reward, u.saved.body === body)) return null;
   return reward;
 }
 
 /** The reward a choice still waits for; null when it may be worn. The first choice of a row is always free. */
 export function choiceLock(u: Unlocks, body: string, option: string, choice: string): Reward | null {
   const reward = PIECE_REWARDS.get(`${body}:${option}:${choice}`) ?? PIECE_REWARDS.get(`*:${option}:${choice}`);
-  if (!reward || u.devMode || u.saved.options[option] === choice || u.seen.includes(reward.id) || isEarned(reward, u.progress)) return null;
+  if (!reward || u.devMode || isEarned(reward, u.progress) || kept(u, reward, u.saved.options[option] === choice)) return null;
   const first = BODY_BY_ID.get(body)?.options?.find((o) => o.id === option)?.choices[0];
   return first?.id === choice ? null : reward;
 }
@@ -237,19 +245,24 @@ export function lockedIn(look: Look, u: Unlocks): Reward[] {
 
 /**
  * The look as it may be saved: a locked body goes back to the saved one, and a locked choice to the saved one (or the
- * row's first), so whatever was tried on is kept only where it was earned.
+ * row's first), so whatever was tried on is kept only where it was earned. Where a knockout locked the saved one too,
+ * the default body and the row's first.
  */
 export function withoutLocked(look: Look, u: Unlocks): Look {
-  const body = bodyLock(u, look.body) ? u.saved.body : look.body;
+  const body = !bodyLock(u, look.body) ? look.body : !bodyLock(u, u.saved.body) ? u.saved.body : DEFAULT_LOOK.body;
   const options = { ...look.options };
   for (const option of BODY_BY_ID.get(body)?.options ?? []) {
     const choice = choiceOf({ ...look, body, options }, option).id;
     if (!choiceLock(u, body, option.id, choice)) continue;
-    if (u.saved.options[option.id] !== undefined) options[option.id] = u.saved.options[option.id];
+    const saved = u.saved.options[option.id];
+    if (saved !== undefined && !choiceLock(u, body, option.id, saved)) options[option.id] = saved;
     else delete options[option.id];
   }
   return { ...look, body, options };
 }
+
+/** The look as it is shown: all it wears, but what a knockout took back (see Unlocks.knockedOut). */
+export const shownLook = (look: Look, u: Omit<Unlocks, "saved">) => withoutLocked(look, { ...u, saved: look });
 
 /** Every reward earned. */
 export const earnedRewards = (p: Progress) => REWARDS.filter((r) => isEarned(r, p));

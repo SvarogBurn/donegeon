@@ -46,3 +46,7 @@ export type ReminderKind = (typeof REMINDER_KINDS)[number];
 /** What the bell lists: everything (the reminders and deadline notices too, once their time has come today), or only what needs an answer. */
 export const BELL_SHOWS = ["all", "actions"] as const;
 export type BellShows = (typeof BELL_SHOWS)[number];
+
+/** What cost the character health: a deadline gone by with the task still open, or a round of a schedule not done. */
+export const HIT_KINDS = ["deadline", "round"] as const;
+export type HitKind = (typeof HIT_KINDS)[number];

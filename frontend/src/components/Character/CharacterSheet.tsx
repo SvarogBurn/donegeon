@@ -1,16 +1,19 @@
 import { useState, useSyncExternalStore } from "react";
 import { usePoints } from "../../hooks/points";
-import { usePointsOff } from "../../hooks/useAuth";
+import { useHealthOff, usePointsOff } from "../../hooks/useAuth";
+import { addDays, daysBetween } from "../../../../shared/dates";
+import { formatDay } from "../../lib/dates";
 import { useOnline } from "../../lib/offline/online";
 import { bodyOf, type Look } from "../../lib/character/bodies";
 import { RANGES } from "../../lib/character/profile";
 import { builtInStats, customStatValue, skillExp } from "../../lib/character/profileStats";
 import { levelOf } from "../../lib/character/levels";
 import { shownTitle } from "../../lib/character/titles";
-import { tryOn } from "../../lib/character/unlocks";
+import { shownLook, tryOn } from "../../lib/character/unlocks";
 import { USER_BOX_COLORS } from "../../lib/frameTones";
+import type { Health } from "../../types";
 import { TileFrame } from "../Tiles/TileFrame";
-import { CellBar, ExpBar } from "./Bars";
+import { CellBar, ExpBar, Hearts } from "./Bars";
 import { CharacterEditor } from "./CharacterEditor";
 import { CharacterSprite } from "./CharacterSprite";
 import { Unlocked } from "./Unlocked";
@@ -29,6 +32,13 @@ const subscribePhone = (onChange: () => void) => {
 /** One column: the stats go under the character, and the character is as wide as the box. */
 const useIsPhone = () => useSyncExternalStore(subscribePhone, () => matchMedia(PHONE).matches);
 
+/** What cost the health lately, a line each, for the hearts' tooltip: "−2 Essay (deadline 27/10)". */
+const hitsText = (health: Health) =>
+  health.recent.length === 0 ? "Nothing missed yet" : health.recent.map((hit) => `−${hit.damage} ${hit.title} (${hit.kind} ${formatDay(addDays(hit.day, -1))})`).join("\n");
+
+/** How long the sheet says the character was knocked out. */
+const KNOCKOUT_SHOWN_DAYS = 7;
+
 /**
  * The top of the user's page, as a game's character sheet, the character's name on its band: the character, its
  * title, level and exp, and beside it (under it on a phone, the character as wide as the box) the stats and skills the
@@ -37,9 +47,14 @@ const useIsPhone = () => useSyncExternalStore(subscribePhone, () => matchMedia(P
  */
 export function CharacterSheet() {
   const { profile, look, name, save } = useProfile();
-  const { collected, level, progress, unlocks, today } = useCharacterProgress();
+  const { collected, level, progress, unlocks, today, health } = useCharacterProgress();
   const points = usePoints();
   const pointsOff = usePointsOff();
+  const healthOff = useHealthOff();
+  // A knockout takes back what the lost levels earned, worn or not, until they are earned again.
+  const shown = unlocks.knockedOut ? shownLook(look, unlocks) : look;
+  const knockout = health?.knockouts.at(-1);
+  const knockedOutLately = knockout && daysBetween(knockout.day, today) < KNOCKOUT_SHOWN_DAYS;
   const online = useOnline();
   const skillName = useSkillNames();
   // Open, maybe with something new tried on.
@@ -61,11 +76,22 @@ export function CharacterSheet() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="flex flex-none flex-col items-center gap-2 sm:w-[calc(var(--u)*76)]">
           <div className="character-stage max-sm:w-full max-sm:!px-0">
-            <CharacterSprite look={look} scale={2} fit={isPhone} cover={bodyOf(look).toEdge} label={`${name}, the character`} />
+            <CharacterSprite look={shown} scale={2} fit={isPhone} cover={bodyOf(shown).toEdge} label={`${name}, the character`} />
           </div>
           <p className="text-xs text-stone-500" data-character-title>
             {shownTitle(profile.title, unlocks.progress).name}
           </p>
+          {health && !healthOff && (
+            <div className="w-full" data-character-health>
+              <Hearts hp={health.hp} max={health.max} title={hitsText(health)} />
+              {knockedOutLately && (
+                <p className="text-center text-xs text-red-700 dark:text-red-400" data-knockout>
+                  Knocked out on {formatDay(knockout.day)}
+                  {knockout.from > knockout.to && `: lost ${knockout.from - knockout.to} ${knockout.from - knockout.to === 1 ? "level" : "levels"}`}
+                </p>
+              )}
+            </div>
+          )}
           <div className="flex w-full flex-col items-center gap-1">
             <p className="font-pixel text-xs" data-character-level={level.level}>
               Lv. {level.level}
@@ -138,7 +164,7 @@ export function CharacterSheet() {
         </div>
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <p className="flex-1 text-xs text-stone-500">Every task done is 1 exp, and so is every mail to the devs. Do at least one task a day to keep the streak going.</p>
+        <p className="flex-1 text-xs text-stone-500">Every task done is 1 exp, and so is every mail to the devs. Do at least one task a day to keep the streak going.{!healthOff && " A deadline or round missed costs health, as much as it was worth; only a new level heals it, and running out costs levels."}</p>
         <button type="button" className="band-button justify-center max-sm:h-8 max-sm:w-full" disabled={!online} title={online ? "The character's look, name, stats and skills" : "Needs a connection"} onClick={() => setEditing({})} data-character-edit>
           Edit
         </button>

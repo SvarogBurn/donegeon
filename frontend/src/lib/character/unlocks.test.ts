@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BODIES, BODY_BY_ID, DEFAULT_LOOK, type Look } from "./bodies";
 import { defaultTitle, earnedTitles, shownTitle, TITLES, unseenOf } from "./titles";
-import { bodyLock, choiceLock, daysProgress, earnedRewards, lockedIn, nextGoals, REWARDS, tryOn, withoutLocked, type Progress, type Unlocks } from "./unlocks";
+import { bodyLock, choiceLock, daysProgress, earnedRewards, lockedIn, nextGoals, REWARDS, shownLook, tryOn, withoutLocked, type Progress, type Unlocks } from "./unlocks";
 
 const start: Progress = { level: 1, longest: 0, current: 0, onTime: 0, mail: 0, returned: false, skills: [], presses: 0, frogs: 0, earlyDays: 0, onTimeRun: 0, busiestDay: 0, steady: false };
 const at = (p: Partial<Progress>): Progress => ({ ...start, ...p });
@@ -194,5 +194,29 @@ describe("unseenOf", () => {
     const streak = unseenOf(at({ level: 3, longest: 3 }), seen);
     expect(streak.rewards.map((r) => r.id)).toEqual(["human:ears:cat"]);
     expect(streak.levelUp).toBe(false);
+  });
+});
+
+describe("a knockout", () => {
+  const wearing: Look = { ...DEFAULT_LOOK, body: "sheep", options: { top: "shirt" } };
+  const seen = ["top:shirt", "body:sheep", "body:wolf"];
+  const knocked = (level: number): Unlocks => ({ ...unlocks({ level }, wearing, false, seen), knockedOut: true });
+
+  it("takes back what levels earned, announced or worn, until the level is earned again", () => {
+    expect(choiceLock(unlocks({ level: 2 }, wearing, false, seen), "human", "top", "shirt")).toBeNull();
+    expect(choiceLock(knocked(2), "human", "top", "shirt")?.id).toBe("top:shirt");
+    expect(bodyLock(knocked(4), "sheep")?.id).toBe("body:sheep");
+    expect(choiceLock(knocked(3), "human", "top", "shirt")).toBeNull();
+    expect(bodyLock(knocked(5), "sheep")).toBeNull();
+  });
+
+  it("leaves what a deed earned", () => {
+    expect(bodyLock(knocked(1), "wolf")).toBeNull();
+  });
+
+  it("shows the look without it: the default body and each row's first where the saved one is gone too", () => {
+    const { saved: _, ...u } = knocked(2);
+    expect(shownLook(wearing, u)).toMatchObject({ body: "human", options: {} });
+    expect(shownLook(wearing, { ...u, progress: at({ level: 5 }) })).toMatchObject({ body: "sheep", options: { top: "shirt" } });
   });
 });

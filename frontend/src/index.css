@@ -1036,6 +1036,14 @@
     background: var(--bar, #fbf236);
     box-shadow: inset 0 calc(-0.5 * var(--u)) var(--bar-edge, #df7126);
   }
+  /* The character's hearts (Character/Bars Hearts): 7x6 art pixels each, one --u a pixel, side by side. */
+  .hearts {
+    @apply flex w-full justify-center;
+  }
+  .heart {
+    width: calc(7 * var(--u));
+    height: calc(6 * var(--u));
+  }
   .stepper-arrow {
     @apply flex size-7 flex-none cursor-pointer items-center justify-center text-[10px] text-stone-500 hover:bg-stone-200 hover:text-stone-900 dark:hover:bg-stone-800 dark:hover:text-stone-100;
     font-family: ui-sans-serif, system-ui, sans-serif;

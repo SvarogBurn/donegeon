@@ -32,6 +32,14 @@ export const useStatRows = () => useQuery({ queryKey: STATS, queryFn: tasksApi.l
 export const usePastDone = () => useQuery({ queryKey: PAST_DONE, queryFn: tasksApi.listStatRows });
 /** Tasks done per day: the level and streak the task bar's face goes by. Under the tasks' key, so a tick asks again. */
 export const useProgressDays = () => useQuery({ queryKey: [...TASKS, "progress"], queryFn: tasksApi.getProgressDays });
+/**
+ * The character's health. Read once the trees are in fresh from the server, as reading them is what writes down the
+ * deadlines and rounds missed; under TASKS, so every task change brings it again (a level reached heals).
+ */
+export function useHealth() {
+  const trees = useTaskTrees();
+  return useQuery({ queryKey: [...TASKS, "hp"], queryFn: tasksApi.getHealth, enabled: trees.isSuccess && !trees.isFetching });
+}
 /** The tasks of the site's search. Under the tasks' key, so a change to any task asks again; nothing is asked for an empty `q`. */
 export const useTaskSearch = (q: string) =>
   useQuery({ queryKey: [...TASKS, "search", q], queryFn: () => tasksApi.searchTasks(q), enabled: q !== "", placeholderData: keepPreviousData });

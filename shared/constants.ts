@@ -28,3 +28,9 @@ export const NOTIFY_TO = "22:00";
 /** The most reminders an account can have, and times a reminder can come in a day. */
 export const MAX_REMINDERS = 50;
 export const MAX_REMINDER_TIMES = 12;
+
+/**
+ * The first day the character can lose health (shared/health.ts): deadlines and rounds missed before it cost nothing,
+ * so what was already overdue when health came in doesn't knock anyone out.
+ */
+export const HEALTH_SINCE = "2026-10-30";
