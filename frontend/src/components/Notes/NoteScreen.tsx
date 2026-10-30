@@ -42,26 +42,81 @@ export function NoteScreen() {
   const note = data?.notes.find((n) => n.id === noteId);
   if (isLoading) return null;
   if (!note) return <Navigate to="/notes" replace />;
-  const folder = data?.noteFolders.find((f) => f.id === note.noteFolderId);
-  return <Screen key={note.id} note={note} folder={folder} />;
+  return <Screen key={note.id} note={note} folders={data?.noteFolders ?? []} />;
 }
 
-/** The folder the note is in, as a tag in its colour beside the title. */
-function FolderTag({ folder }: { folder: NoteFolder }) {
-  const color = folder.color ?? FOLDER_COLOR;
+/** A folder's icon, in its colour; without a folder, dimmed. */
+function FolderIcon({ folder }: { folder?: NoteFolder }) {
+  return <span className={`tab-icon tab-icon-folder !size-[21px] flex-none ${folder ? "" : "opacity-50"}`} style={folder?.color ? { backgroundImage: folderIn(folder.color) } : undefined} aria-hidden />;
+}
+
+/**
+ * The folder the note is in, as a tag in its colour beside the title (without one, a quiet "No folder"). A click opens
+ * the folders under it, to move the note to another; a click outside or Escape closes them.
+ */
+function FolderTag({ noteFolderId, folders, onMove }: { noteFolderId: string | null; folders: NoteFolder[]; onMove: (id: string | null) => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  const folder = folders.find((f) => f.id === noteFolderId);
+  const color = folder ? (folder.color ?? FOLDER_COLOR) : undefined;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setIsOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && setIsOpen(false);
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isOpen]);
+
+  const row = (to: NoteFolder | undefined) => {
+    const isCurrent = (to?.id ?? null) === (folder?.id ?? null);
+    return (
+      <button
+        key={to?.id ?? "none"}
+        type="button"
+        className={`flex w-full items-center gap-1.5 px-1.5 py-1 text-left font-pixel text-[8px] ${isCurrent ? "bg-stone-200 text-stone-950 dark:bg-stone-800 dark:text-white" : "text-stone-700 hover:bg-stone-200/60 dark:text-stone-300 dark:hover:bg-stone-800/60"}`}
+        aria-pressed={isCurrent}
+        onClick={() => {
+          setIsOpen(false);
+          onMove(to?.id ?? null);
+        }}
+      >
+        <FolderIcon folder={to} />
+        <span className="truncate">{to?.name ?? "No folder"}</span>
+      </button>
+    );
+  };
+
   return (
-    <span
-      className="flex max-w-36 flex-none items-center gap-1.5 border-l-4 py-1 pr-2 pl-1.5 font-pixel text-[8px] text-stone-700 dark:text-stone-300"
-      style={{ borderColor: color, backgroundColor: `${color}33` }}
-      title={`In the folder "${folder.name}"`}
-    >
-      <span className="tab-icon tab-icon-folder !size-[21px] flex-none" style={folder.color ? { backgroundImage: folderIn(folder.color) } : undefined} aria-hidden />
-      <span className="truncate">{folder.name}</span>
+    <span ref={ref} className="relative flex flex-none">
+      <button
+        type="button"
+        className={`flex max-w-36 items-center gap-1.5 border-l-4 py-1 pr-2 pl-1.5 font-pixel text-[8px] ${folder ? "text-stone-700 dark:text-stone-300" : "border-stone-300 text-stone-500 dark:border-stone-700"}`}
+        style={color ? { borderColor: color, backgroundColor: `${color}33` } : undefined}
+        aria-expanded={isOpen}
+        title={folder ? `In the folder "${folder.name}". Click to move the note to another folder` : "In no folder. Click to put the note in one"}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <FolderIcon folder={folder} />
+        <span className="truncate">{folder?.name ?? "No folder"}</span>
+      </button>
+      {isOpen && (
+        <div className="card absolute top-full right-0 z-20 mt-1 max-h-[50dvh] w-48 overflow-y-auto !p-1 shadow-lg" role="dialog" aria-label="Move the note to a folder">
+          {row(undefined)}
+          {folders.map(row)}
+        </div>
+      )}
     </span>
   );
 }
 
-function Screen({ note, folder }: { note: Note; folder?: NoteFolder }) {
+function Screen({ note, folders }: { note: Note; folders: NoteFolder[] }) {
   const navigate = useNavigate();
   const location = useLocation();
   const edit = useEditNote();
@@ -97,6 +152,10 @@ function Screen({ note, folder }: { note: Note; folder?: NoteFolder }) {
   latestSave.current = save;
   // Gone back with the phone's own button, with the field still open: saved all the same.
   useEffect(() => () => latestSave.current(), []);
+
+  const moveTo = (noteFolderId: string | null) => {
+    if (noteFolderId !== note.noteFolderId) edit.mutate({ id: note.id, changes: { noteFolderId } });
+  };
 
   // Back where it was opened from: the Notes page, a folder, the search.
   const back = () => (location.key === "default" ? navigate("/notes", { replace: true }) : navigate(-1));
@@ -160,7 +219,7 @@ function Screen({ note, folder }: { note: Note; folder?: NoteFolder }) {
               aria-label="Note title"
               maxLength={100}
             />
-            {folder && <FolderTag folder={folder} />}
+            {folders.length > 0 && <FolderTag noteFolderId={note.noteFolderId} folders={folders} onMove={moveTo} />}
           </div>
           {/* Always the editor: it reads as written, and a tap anywhere in it (or the empty page under it) writes there. */}
           <NoteEditor
