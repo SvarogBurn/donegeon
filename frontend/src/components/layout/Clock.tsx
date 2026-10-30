@@ -1,9 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { clockNow, getDevDate, getTimeOffset, localDate, setDevDate, setTimeOffset } from "../../lib/clock";
+import { backToRealTime, clockNow, getDevDate, getTimeOffset, localDate } from "../../lib/clock";
 import { formatFullDay, pad2 } from "../../lib/dates";
 
-const timeOf = (date: Date) => `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+export const timeOf = (date: Date) => `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 
 /**
  * The task bar's clock: the time with the date underneath, amber when the app is set to another day or time (see
@@ -50,8 +50,8 @@ export function Clock({ beforeTime }: { beforeTime?: ReactNode }) {
 }
 
 /**
- * The app can no longer be set to another day or time from the clock, but one set before (or by a browser check,
- * through localStorage) still holds: this says so and puts the real time back.
+ * The app is set to another day or time (the dev clock, seven quick taps on the bell, or a browser check through
+ * localStorage): this says so and puts the real time back.
  */
 export function PretendNotice() {
   const queryClient = useQueryClient();
@@ -59,8 +59,7 @@ export function PretendNotice() {
   if (getDevDate() === null && getTimeOffset() === 0) return null;
 
   function reset() {
-    setDevDate(null);
-    setTimeOffset(0);
+    backToRealTime();
     setTick((n) => n + 1);
     queryClient.invalidateQueries();
   }

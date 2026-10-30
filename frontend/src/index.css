@@ -428,6 +428,162 @@
       animation: none;
     }
   }
+  /*
+   * A big moment (components/BigMoment), rare enough to be a show. Lightning: the sky darkens, the big bolt strikes from
+   * the top and shakes as it lands, the small ones strike down each side after it, two dim flashes at most. Confetti: a
+   * canvas (components/Confetti). The words pop in over either.
+   */
+  .big-moment {
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    position: fixed;
+    inset: 0;
+    z-index: 65;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .big-moment-storm {
+    animation: big-moment-sky 1.7s var(--ease-out) both;
+  }
+  .big-moment-flash {
+    position: absolute;
+    inset: 0;
+    background-color: #fff;
+    opacity: 0;
+    animation: big-moment-flash 0.5s step-end 0.12s both;
+  }
+  .big-moment-sky {
+    position: absolute;
+    inset: 0;
+    animation: big-moment-shake 0.32s step-end 0.2s;
+  }
+  .big-moment-bolt,
+  .big-moment-side {
+    position: absolute;
+    top: 0;
+    width: auto;
+    filter: drop-shadow(0 0 12px #ffd23f);
+    animation: big-moment-strike 1.2s linear 0.12s both;
+  }
+  .big-moment-bolt {
+    left: 50%;
+    height: min(72svh, 110vw);
+    translate: -50%;
+  }
+  .big-moment-side {
+    animation-duration: 0.8s;
+  }
+  .big-moment-side.is-flipped {
+    scale: -1 1;
+  }
+  .big-moment-confetti {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+  }
+  .big-moment-words {
+    position: relative;
+    padding: 0 1rem;
+    color: #fff;
+    font-size: clamp(1rem, 5vw, 2rem);
+    text-align: center;
+    /* A hard edge, like the art, so it reads over anything. */
+    text-shadow: 3px 0 #1c2340, -3px 0 #1c2340, 0 3px #1c2340, 0 -3px #1c2340, 3px 3px #1c2340, -3px -3px #1c2340, 3px -3px #1c2340, -3px 3px #1c2340;
+    animation: big-moment-words 1.2s var(--ease-out) 0.42s both;
+  }
+  @keyframes big-moment-sky {
+    0% {
+      background-color: rgb(12 14 40 / 0);
+    }
+    8%,
+    70% {
+      background-color: rgb(12 14 40 / 0.6);
+    }
+    100% {
+      background-color: rgb(12 14 40 / 0);
+    }
+  }
+  @keyframes big-moment-flash {
+    0% {
+      opacity: 0.4;
+    }
+    20% {
+      opacity: 0;
+    }
+    50% {
+      opacity: 0.25;
+    }
+    70%,
+    100% {
+      opacity: 0;
+    }
+  }
+  /* A strike is all but instant: seven rows at a time, top down. */
+  @keyframes big-moment-strike {
+    0% {
+      clip-path: inset(0 -30px 100% -30px);
+      opacity: 1;
+    }
+    9% {
+      clip-path: inset(0 -30px 0 -30px);
+      opacity: 1;
+      animation-timing-function: step-end;
+    }
+    25% {
+      opacity: 0.6;
+      animation-timing-function: step-end;
+    }
+    35% {
+      opacity: 1;
+      animation-timing-function: linear;
+    }
+    100% {
+      clip-path: inset(0 -30px 0 -30px);
+      opacity: 0;
+    }
+  }
+  @keyframes big-moment-shake {
+    0% {
+      transform: translate(-6px, 3px);
+    }
+    25% {
+      transform: translate(5px, -3px);
+    }
+    50% {
+      transform: translate(-3px, 2px);
+    }
+    75% {
+      transform: translate(2px, -1px);
+    }
+    100% {
+      transform: none;
+    }
+  }
+  @keyframes big-moment-words {
+    0% {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    15% {
+      opacity: 1;
+      transform: scale(1.08);
+    }
+    25% {
+      transform: scale(1);
+    }
+    80% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1);
+    }
+  }
   .tab-icon-stats {
     background-image: url("../../assets/icons/21x21stats_icon_v1.svg");
   }

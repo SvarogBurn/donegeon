@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TaskTreeNode } from "../types";
-import { isPutOff, todayItems, weekDays } from "./week";
+import { tasksOn } from "./notifySchedule";
+import { isOwnToday, isPutOff, todayItems, weekDays } from "./week";
 
 // Tuesday; its week's Sunday is 2026-10-25, the next Monday 2026-10-26.
 const today = "2026-10-20";
@@ -18,6 +19,28 @@ describe("isPutOff", () => {
 
 const task = (id: string, extra: Partial<TaskTreeNode> = {}) =>
   ({ id, title: id, parentId: null, listId: "l", isComplete: false, completedOn: null, todaySince: null, weekDay: null, weekPosition: 0, deadlineDate: null, nextDue: null, repeatEvery: null, children: [], ...extra }) as TaskTreeNode;
+
+describe("a task written straight into Today, on a schedule", () => {
+  const daily = (nextDue: string, extra: Partial<TaskTreeNode> = {}) => task("sketch", { listId: null, isPersistent: true, repeatEvery: 1, repeatUnit: "day", repeatAfterDone: false, repeatMakeUp: false, nextDue, completions: [], ...extra });
+
+  it("comes back on the day its round is due, marked for an earlier day or not", () => {
+    expect(isOwnToday(daily(today, { todaySince: "2026-10-19" }), today)).toBe(true);
+    expect(isOwnToday(daily("2026-10-19"), today)).toBe(true);
+  });
+
+  it("is not there before its round, and is the same to the push as to the box", () => {
+    const sketch = daily("2026-10-21", { todaySince: "2026-10-19" });
+    expect(isOwnToday(sketch, today)).toBe(false);
+    expect(isOwnToday(sketch, "2026-10-21")).toBe(true);
+    expect(tasksOn([sketch], today, "bottom", "never")).toEqual([]);
+    expect(tasksOn([sketch], "2026-10-21", "bottom", "never").map((node) => node.id)).toEqual(["sketch"]);
+  });
+
+  it("is not a task from a list, which Today shows by itself, nor one with no schedule left from a day gone by", () => {
+    expect(isOwnToday(task("listed", { isPersistent: true, repeatEvery: 1, nextDue: today }), today)).toBe(false);
+    expect(isOwnToday(task("once", { listId: null, todaySince: "2026-10-19" }), today)).toBe(false);
+  });
+});
 
 describe("nothing is carried on", () => {
   it("Today shows what is marked for today, not a mark left from a day gone by nor one for a day to come", () => {

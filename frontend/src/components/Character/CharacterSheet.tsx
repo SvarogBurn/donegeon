@@ -104,7 +104,7 @@ export function CharacterSheet() {
             </div>
           )}
           <div className="flex w-full flex-col items-center gap-1">
-            <p className="font-pixel text-xs" data-character-level={level.level}>
+            <p className="font-pixel text-xs" data-character-level={level.level} data-character-exp={level.exp}>
               Lv. {level.level}
             </p>
             <ExpBar into={level.into} span={level.span} label="Exp to the next level" />
@@ -119,7 +119,7 @@ export function CharacterSheet() {
                 return (
                   <li key={key} data-stat={key}>
                     <span className="text-xl font-bold tabular-nums" {...(STAT_DATA[key] && { [STAT_DATA[key]]: stat.value })}>
-                      {stat.value}
+                      {stat.text ?? stat.value}
                     </span>
                     {stat.of !== undefined && <span className="text-xs text-stone-500 tabular-nums"> / {stat.of}</span>}{" "}
                     <span className="text-xs text-stone-500">{stat.label}</span>
@@ -131,7 +131,7 @@ export function CharacterSheet() {
           {collected && profile.custom.length > 0 && (
             <ul className="space-y-1.5" data-character-custom>
               {profile.custom.map((stat) => {
-                const value = customStatValue(stat, collected.completions, today);
+                const value = customStatValue(stat, collected.completions, today, collected.rewards);
                 const range = RANGES.find(([key]) => key === stat.range)?.[1];
                 return (
                   <li key={stat.id} className="flex flex-wrap items-center gap-x-2 gap-y-1" data-custom-stat={stat.name} data-value={value}>
@@ -156,7 +156,7 @@ export function CharacterSheet() {
             ) : (
               <ul className="space-y-2" data-character-skills>
                 {profile.skills.map((skill) => {
-                  const exp = skillExp(skill, collected?.completions ?? []);
+                  const exp = skillExp(skill, collected?.completions ?? [], collected?.rewards);
                   const { level: lv, into, span } = levelOf(exp);
                   const { name: shown, color } = skillName(skill);
                   return (

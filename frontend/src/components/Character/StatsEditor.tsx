@@ -40,6 +40,8 @@ function MoveButtons({ i, count, name, onMove }: { i: number; count: number; nam
 
 type SourceKind = "lists" | "goals" | "tags";
 
+const REWARD_NOTE = "A reward list counts what was bought from it, and earns no unlocks or titles.";
+
 /** What a stat of the user's own counts: hidden behind "Change" once it counts something, open while it counts nothing. */
 function Sources({ stat, onChange }: { stat: CustomStat; onChange: (changes: Partial<CustomStat>) => void }) {
   const { data: allLists = [] } = useLists();
@@ -47,8 +49,10 @@ function Sources({ stat, onChange }: { stat: CustomStat; onChange: (changes: Par
   const { data: tags = [] } = useTags();
   const count = stat.lists.length + stat.goals.length + stat.tags.length;
   const [open, setOpen] = useState(count === 0);
+  const rewardLists = allLists.filter((list) => list.kind === "reward");
   const sources: [SourceKind, string, { id: string; name: string }[]][] = [
     ["lists", "Lists", allLists.filter((list) => list.kind === "task")],
+    ...(rewardLists.length > 0 ? [["lists", "Reward lists", rewardLists] satisfies [SourceKind, string, { id: string; name: string }[]]] : []),
     ["goals", "Goals", goals],
     ["tags", "Tags", tags],
   ];
@@ -65,7 +69,7 @@ function Sources({ stat, onChange }: { stat: CustomStat; onChange: (changes: Par
       {open && (
         <div className="grid gap-2 sm:grid-cols-3">
           {sources.map(([kind, label, items]) => (
-            <div key={kind} className="space-y-1">
+            <div key={label} className="space-y-1">
               <p className="text-stone-500">{label}</p>
               {items.length === 0 && <p className="text-stone-400">None</p>}
               {items.map((item) => (
@@ -83,6 +87,7 @@ function Sources({ stat, onChange }: { stat: CustomStat; onChange: (changes: Par
           ))}
         </div>
       )}
+      {open && rewardLists.length > 0 && <p className="text-stone-500">{REWARD_NOTE}</p>}
     </div>
   );
 }
@@ -229,8 +234,10 @@ export function SkillsSection({ draft, set }: SectionProps) {
   const { data: goals = [] } = useGoals();
   const { data: tags = [] } = useTags();
   const lists = allLists.filter((list) => list.kind === "task");
+  const rewardLists = allLists.filter((list) => list.kind === "reward");
   const skillSources: [Skill["kind"], string, { id: string; name: string }[]][] = [
     ["list", "Lists", lists],
+    ...(rewardLists.length > 0 ? [["list", "Reward lists", rewardLists] satisfies [Skill["kind"], string, { id: string; name: string }[]]] : []),
     ["goal", "Goals", goals],
     ["tag", "Tags", tags],
   ];
@@ -258,7 +265,7 @@ export function SkillsSection({ draft, set }: SectionProps) {
             data-skill-source
           >
             {skillSources.map(([kind, label, items]) => (
-              <optgroup key={kind} label={label}>
+              <optgroup key={label} label={label}>
                 {items.map((item) => (
                   <option key={item.id} value={`${kind}:${item.id}`} disabled={draft.skills.some((s, j) => j !== i && s.kind === kind && s.id === item.id)}>
                     {item.name}
@@ -288,6 +295,7 @@ export function SkillsSection({ draft, set }: SectionProps) {
       <button type="button" className="nes-btn btn-small" disabled={!unusedSkill || draft.skills.length >= 30} onClick={() => unusedSkill && set({ skills: [...draft.skills, unusedSkill] })} data-add-skill>
         + Skill
       </button>
+      {rewardLists.length > 0 && <p className="text-xs text-stone-500">{REWARD_NOTE}</p>}
     </div>
   );
 }

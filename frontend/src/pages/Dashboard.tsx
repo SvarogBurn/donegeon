@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router";
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router";
 import { CalBoxView } from "../components/Calendar/CalBoxView";
 import { CAL_BOXES } from "../components/Calendar/calendarData";
 import { DeadlinesBox } from "../components/Countdown/DeadlinesBox";
@@ -25,6 +25,7 @@ import { useCombinedCountdown, usePressure, useTaskTrees } from "../hooks/tasks"
 import { countLabels, isFiltering, NO_FILTER, toggleId, type LabelFilter } from "../lib/labels";
 import { calOfView, DEADLINES_VIEW, DONE_VIEW, GOALS_VIEW, listOfView, listView, noteOfView, PRESSURE_VIEW, statOfView, TAGS_VIEW, TODAY_VIEW, USER_BOXES, userOfView } from "../lib/folders";
 import { useOnline } from "../lib/offline/online";
+import { findTaskRow, pathIdsTo, showOnPage } from "../lib/showOnPage";
 import { useStandalone } from "../lib/standalone";
 import { STAT_BOXES, StatBoxView, StatBoxesProvider } from "../components/Stats/statBoxes";
 import { NEW_LIST_TILE, normalizeLayout, withHidden, type DashboardLayout } from "../lib/tileLayout";
@@ -79,6 +80,22 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
     setPicked((now) => (now[key].includes(id) ? now : { ...now, [key]: [...now[key], id] }));
     navigate(location.pathname, { replace: true, state: null });
   }, [pickLabel, location.pathname, navigate]);
+
+  // A tap on a pushed reminder of a task with no page of its own opens the app on /?task=<id>: its row, in its list
+  // (unfolded down to it), or in Today if its list is hidden. Once the page can be drawn.
+  const [params, setParams] = useSearchParams();
+  const openTask = params.get("task");
+  const trees = tasks.data;
+  const ready = Boolean(goals.data && tags.data && lists.data && trees && folders.data) && !layout.isLoading;
+  useEffect(() => {
+    if (!openTask || !ready) return;
+    setParams((old) => {
+      old.delete("task");
+      return old;
+    }, { replace: true });
+    const pathIds = pathIdsTo(trees!, openTask);
+    if (pathIds) showOnPage((isLast) => findTaskRow(openTask, pathIds, isLast) ?? (isLast ? document.querySelector<HTMLElement>(`[data-today-item="${openTask}"]`) : null));
+  }, [openTask, ready, trees, setParams]);
 
   const error = goals.error ?? tags.error ?? lists.error ?? tasks.error ?? folders.error;
   if (error) return <p className="text-sm text-red-600">Couldn't load your tasks: {error.message}</p>;

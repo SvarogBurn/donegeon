@@ -57,6 +57,9 @@ const profile = z
     /** The user page's settings for the dot on the task bar's face and the sheet's Unlocked box and the editor's Next up box. */
     hideDot: z.boolean().optional(),
     hideNews: z.boolean().optional(),
+    /** The tick sounds off, and how many tasks a day a big moment comes after (null = none, left out = the default). */
+    soundOff: z.boolean().optional(),
+    bigEvery: z.number().int().min(1).max(999).nullable().optional(),
   })
   .nullable();
 

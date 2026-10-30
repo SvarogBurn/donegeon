@@ -6,7 +6,7 @@ import { BODY_BY_ID, DEFAULT_LOOK, type Look } from "./bodies";
 // working as stats, parts, lists, goals and tags come and go.
 
 /** The built-in stats, in the order the editor first lists them. */
-export const STAT_KEYS = ["streak", "longest", "today", "week", "month", "year", "ever", "active30", "points", "onTime", "open"] as const;
+export const STAT_KEYS = ["streak", "longest", "today", "week", "month", "year", "ever", "active30", "consistency", "points", "onTime", "open"] as const;
 export type StatKey = (typeof STAT_KEYS)[number];
 
 /** What the sheet shows until the user picks: what the Account box showed before there was a character. */
@@ -56,6 +56,10 @@ export interface Profile {
   hideDot?: boolean;
   /** No Unlocked box (LEVEL UP!) on the sheet and no Next up box in the editor; the dot goes with them, as nothing would clear it. */
   hideNews?: boolean;
+  /** Settings › Gamification: no tick sounds. */
+  soundOff?: boolean;
+  /** Settings › Gamification: a big moment after every so many tasks of a day (null = none, left out = BIG_EVERY, lib/bigMoment.ts). */
+  bigEvery?: number | null;
 }
 
 export const STAT_NAME_MAX = 12;
@@ -117,7 +121,7 @@ export function normalizeProfile(raw: unknown, known?: Known): Profile {
   });
   const title = text(p.title, 80);
   const seenIds = Array.isArray(p.seen) ? [...new Set(p.seen.filter((id): id is string => typeof id === "string"))] : null;
-  return { ...(title && { title }), stats, custom, skills, ...(p.look !== undefined && { look: normalizeLook(p.look) }), ...(seenIds && { seen: seenIds }), ...(p.hideDot === true && { hideDot: true }), ...(p.hideNews === true && { hideNews: true }) };
+  return { ...(title && { title }), stats, custom, skills, ...(p.look !== undefined && { look: normalizeLook(p.look) }), ...(seenIds && { seen: seenIds }), ...(p.hideDot === true && { hideDot: true }), ...(p.hideNews === true && { hideNews: true }), ...(p.soundOff === true && { soundOff: true }), ...(p.bigEvery === null && { bigEvery: null }), ...(typeof p.bigEvery === "number" && p.bigEvery >= 1 && { bigEvery: Math.floor(p.bigEvery) }) };
 }
 
 /** A fresh id for a custom stat. */

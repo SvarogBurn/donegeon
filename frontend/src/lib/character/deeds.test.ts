@@ -17,6 +17,8 @@ const row = (id: string, extra: Partial<StatRow> = {}): StatRow => ({
   isComplete: Boolean(extra.completedOn),
   completedOn: null,
   isPersistent: false,
+  repeatEvery: null,
+  repeatUnit: "day",
   createdAt: "2026-09-01T12:00:00",
   goalIds: [],
   tagIds: [],

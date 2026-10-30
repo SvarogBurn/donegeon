@@ -6,7 +6,7 @@ import { KIND_NAMES, type NotifySettings, type Reminder } from "./notifySettings
 import { isDue } from "./repeat";
 import { leftUndone } from "./notifications";
 import { hasTaskPage } from "./taskPage";
-import { isMarkedFor, livesInToday, todayItems, weekDays } from "./week";
+import { isOwnToday, todayItems, weekDays } from "./week";
 
 /**
  * The notifications the app plans and the server sends at their moment (PUT /notifications/schedule). Worked out
@@ -27,9 +27,10 @@ export interface Planned {
   label?: string;
   /**
    * The recap's week, which the server counts when it sends it; a task reminder's task, whose Done ticks it (or
-   * presses it: `press`); the buttons under it.
+   * presses it: `press`); the day of a reminder that comes on days the task is due, which a Done on an earlier
+   * notification calls off (`dueDay`: the plan isn't made again until the app is open); the buttons under it.
    */
-  params?: { from?: string; to?: string; since?: string; taskId?: string; press?: boolean; actions?: ("done" | "snooze")[] };
+  params?: { from?: string; to?: string; since?: string; taskId?: string; press?: boolean; dueDay?: string; actions?: ("done" | "snooze")[] };
 }
 
 /** How many days ahead the reminders are planned: opening the app once a fortnight keeps them coming. */
@@ -72,7 +73,7 @@ const byId = (nodes: TaskTreeNode[]) => [...new Map(nodes.map((node) => [node.id
  */
 export function tasksOn(trees: TaskTreeNode[], day: string, ticked: TickedTasks, deadlines: DeadlineToday): TaskTreeNode[] {
   const today = todayItems(trees, day, ticked, deadlines).map((item) => item.node);
-  const own = trees.filter((node) => livesInToday(node) && isMarkedFor(node, day));
+  const own = trees.filter((node) => isOwnToday(node, day));
   const planned = weekDays(trees, day, ticked, deadlines).find((week) => week.day === day && !week.nextWeek)?.items.map((item) => item.node) ?? [];
   return byId([...today, ...own, ...planned]).filter((node) => !node.isComplete);
 }
@@ -172,8 +173,8 @@ function reminderMessage(reminder: Reminder, day: string, { trees, ticked, deadl
           label: "Reminder",
           title: reminder.text ?? title,
           body: [...(reminder.text ? [title] : []), ...(path.length ? [`in ${path.join(" › ")}`] : [])].join("\n"),
-          url: hasTaskPage(node) ? `/tasks/${node.id}` : "/",
-          params: { taskId: node.id, press: node.isPersistent, actions: ["done", "snooze"] },
+          url: hasTaskPage(node) ? `/tasks/${node.id}` : `/?task=${node.id}`,
+          params: { taskId: node.id, press: node.isPersistent, ...(reminder.days === "due" && { dueDay: day }), actions: ["done", "snooze"] },
         };
       }
       if (reminder.noteId) {

@@ -5,6 +5,7 @@ import { useMe } from "../../hooks/useAuth";
 import { FONT_STACKS, textFont } from "../../lib/fonts";
 import { useOnline } from "../../lib/offline/online";
 import { useStandalone } from "../../lib/standalone";
+import { BigMoment } from "../BigMoment";
 import { BreakReminder } from "../BreakReminder";
 import { NotificationPlanner } from "../Notifications/NotificationPlanner";
 import { RefusalPopup } from "../RefusalPopup";
@@ -53,6 +54,7 @@ export function AppShell() {
       <NavBar user={user} />
       <Tutorial user={user} />
       <RefusalPopup />
+      <BigMoment />
       <BreakReminder />
       <NotificationPlanner />
     </>

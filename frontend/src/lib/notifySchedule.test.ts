@@ -152,6 +152,17 @@ describe("a reminder of the user's own", () => {
     expect(item.params).toEqual({ taskId: "w", press: true, actions: ["done", "snooze"] });
   });
 
+  it("on a task opens the task: its row, by its id, when it has no page of its own", () => {
+    const item = plan([node("Brush teeth", { id: "b", isPersistent: true })], settings([reminder("text", { taskId: "b" })]))[0];
+    expect(item.url).toBe("/?task=b");
+  });
+
+  it("coming on days it's due says which day, for a Done from a notification to call it off", () => {
+    const daily = node("Brush teeth", { id: "b", isPersistent: true, repeatEvery: 1, repeatUnit: "day", nextDue: today });
+    const item = keyed(plan([daily], settings([reminder("text", { taskId: "b", days: "due" })])), `r:text:${today}:0800`);
+    expect(item.params?.dueDay).toBe(today);
+  });
+
   it("on a task stops once it is ticked or gone", () => {
     const set = settings([reminder("text", { taskId: "t" })]);
     expect(plan([node("Call", { id: "t", isComplete: true, completedOn: today })], set).filter((item) => item.key.startsWith("r:"))).toEqual([]);

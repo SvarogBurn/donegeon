@@ -12,6 +12,7 @@ export function statTask(over: Partial<StatTask> = {}): StatTask {
     deadlineDate: null,
     deadlineKind: null,
     isPersistent: false,
+    habit: null,
     createdAt: new Date("2026-10-01T10:00:00"),
     createdOn: "2026-10-01",
     completedOn: null,

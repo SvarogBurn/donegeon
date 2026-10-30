@@ -7,7 +7,7 @@ import { localDate } from "../../lib/clock";
 import { readDevMode } from "../../lib/devMode";
 import { listColor } from "../../lib/frameTones";
 import { levelOf } from "../../lib/character/levels";
-import { characterLevel, characterProgress, skillExp } from "../../lib/character/profileStats";
+import { characterLevel, characterProgress, earningSkills, skillExp } from "../../lib/character/profileStats";
 import type { Look } from "../../lib/character/bodies";
 import { normalizeProfile, type Skill } from "../../lib/character/profile";
 import { unseenOf } from "../../lib/character/titles";
@@ -50,7 +50,7 @@ export function useCharacterProgress() {
   const collected = useMemo(() => (rows.data && lists.data ? collectStats(rows.data, lists.data) : null), [rows.data, lists.data]);
   const mail = mailSent.data ?? 0;
   const lost = health.data?.lost ?? 0;
-  const skills = profile.skills.map((skill) => ({ key: `${skill.kind}:${skill.id}`, name: skillName(skill).name, exp: skillExp(skill, collected?.completions ?? []) }));
+  const skills = earningSkills(profile.skills, lists.data ?? []).map((skill) => ({ key: `${skill.kind}:${skill.id}`, name: skillName(skill).name, exp: skillExp(skill, collected?.completions ?? []) }));
   const progress = collected && rows.data ? characterProgress({ ...collected, rows: rows.data, today, mailSent: mail, lost, frozen: health.data?.frozen, skills }) : null;
   const unlocks: Unlocks = { progress: progress ?? NOTHING_YET, devMode: readDevMode(), saved: look, seen: profile.seen ?? [], knockedOut: Boolean(progress && lost > 0) };
   return { collected, level: characterLevel(collected?.completions ?? [], mail, lost), progress, unlocks, today, health: health.data };

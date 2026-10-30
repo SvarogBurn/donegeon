@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { REMINDER_KINDS } from "../../../../shared/enums";
 import { listNotes } from "../../api/notes";
+import { usePushDevice } from "../../hooks/notifications";
 import { NOTES } from "../../hooks/queryKeys";
 import { usePointsOff } from "../../hooks/useAuth";
 import {
@@ -19,6 +20,7 @@ import {
   type Reminder,
   type ReminderKind,
 } from "../../lib/notifySettings";
+import { PUSH_NOTES } from "../../lib/pushDevice";
 
 export const FIELD = "border-2 border-stone-300 bg-white px-1 py-1 text-xs text-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100";
 
@@ -37,6 +39,22 @@ export function TimeField({ value, onChange, label, name }: { value: string; onC
       aria-invalid={value !== "" && !isNotifyTime(value)}
       {...(name && { [`data-${name}`]: true })}
     />
+  );
+}
+
+/** Under a task's reminder: says so while it can't reach this device, with the switch where one helps. Nothing once push is on. */
+export function PushNotice() {
+  const { state, serverKey, busy, turnOn } = usePushDevice();
+  if (state === null || state === "on" || !serverKey) return null;
+  return (
+    <div className="space-y-1 text-xs" data-push-notice={state}>
+      <p className="text-stone-500">{PUSH_NOTES[state]}</p>
+      {state === "off" && (
+        <button type="button" className="nes-btn btn-small is-primary" disabled={busy} onClick={() => void turnOn()}>
+          Turn on for this device
+        </button>
+      )}
+    </div>
   );
 }
 

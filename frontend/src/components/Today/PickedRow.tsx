@@ -1,13 +1,16 @@
 import { useState, type MouseEvent } from "react";
 import { useNavigate } from "react-router";
+import { useDismissed } from "../../hooks/notifications";
 import { useSetToday, useSetWeek, useTaskTrees } from "../../hooks/tasks";
 import { formatDay } from "../../lib/dates";
 import { firstLine, plainFirstLine } from "../../lib/markup";
+import { isOverdue, passedItem, passedKey } from "../../lib/notifications";
 import { repeatLabel } from "../../lib/repeat";
 import { findTaskRow, pathIdsTo, showOnPage, taskRow } from "../../lib/showOnPage";
 import { hasTaskPage } from "../../lib/taskPage";
 import type { WeekAuto } from "../../lib/week";
 import type { TaskTreeNode } from "../../types";
+import { PostponeDeadline } from "../Notifications/PostponeDeadline";
 import { ValueChip } from "../Points/ValueChip";
 import { RichText } from "../RichText";
 import { DeadlineBadge } from "../TaskTree/DeadlineBadge";
@@ -56,6 +59,10 @@ export function PickedRow({ node, path, today, box, dueSince, auto, onNotToday, 
   const isDragged = useDrag((state) => state.draggingId === node.id);
   // Subtasks start hidden behind the row's arrow, as in a list.
   const [isOpen, setIsOpen] = useState(false);
+  const [isAsking, setIsAsking] = useState(false);
+  const [, dismiss] = useDismissed();
+  const overdue = !inWeek && isOverdue(node, today);
+  const takeOut = () => (auto ? onNotToday?.() : setToday.mutate({ id: node.id, today: false }));
 
   const { data: trees = [] } = useTaskTrees();
   // A click on the row (not on one of its buttons) goes to the task itself, to be edited there: its own page if it has
@@ -183,9 +190,9 @@ export function PickedRow({ node, path, today, box, dueSince, auto, onNotToday, 
               <button
                 type="button"
                 className="btn-quiet glyph"
-                aria-label={auto ? `Not "${name}" today` : `Take "${name}" out of Today`}
-                title={auto ? "Not today: it is back tomorrow, as long as it is still due (on this device)" : "Take out of Today (the task itself stays where it is)"}
-                onClick={() => (auto ? onNotToday?.() : setToday.mutate({ id: node.id, today: false }))}
+                aria-label={overdue ? `"${name}" is overdue: what now?` : auto ? `Not "${name}" today` : `Take "${name}" out of Today`}
+                title={overdue ? "It's overdue: what now?" : auto ? "Not today: it is back tomorrow, as long as it is still due (on this device)" : "Take out of Today (the task itself stays where it is)"}
+                onClick={() => (overdue ? setIsAsking(true) : takeOut())}
               >
                 ×
               </button>
@@ -215,6 +222,19 @@ export function PickedRow({ node, path, today, box, dueSince, auto, onNotToday, 
         <div className="ml-3 border-l border-stone-200 pl-3 dark:border-stone-800" data-today-subtasks>
           <TaskTree nodes={node.children} parentId={node.id} listId={null} depth={path.length + 1} />
         </div>
+      )}
+      {/* Beside the row, not in it: a click in the popup mustn't reach the row's own. */}
+      {isAsking && (
+        <PostponeDeadline
+          item={passedItem(node, path, today)}
+          onDismiss={() => {
+            dismiss([passedKey(node)]);
+            // Marked by hand, its deadline would bring it straight back by itself: out for the day either way.
+            onNotToday?.();
+            if (!auto) setToday.mutate({ id: node.id, today: false });
+          }}
+          onClose={() => setIsAsking(false)}
+        />
       )}
     </li>
   );

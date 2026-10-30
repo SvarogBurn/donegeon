@@ -1,5 +1,5 @@
 import { Prisma, type Task } from "@prisma/client";
-import { dueAfter, movesFrom } from "../../../shared/repeat.js";
+import { currentRound, dueAfter, movesFrom } from "../../../shared/repeat.js";
 import { alreadyMade } from "../lib/clientId.js";
 import { HttpError } from "../lib/httpError.js";
 import { prisma } from "../lib/prisma.js";
@@ -20,18 +20,18 @@ interface Moment {
  */
 export async function pressTask(task: Task, id: string | undefined, { today, at }: Moment) {
   const made = id && alreadyMade(await prisma.taskCompletion.findUnique({ where: { id } }), task.userId);
-  if (made) return { completion: made, isNew: false };
+  if (made) return { completion: made, isNew: false, nextDue: task.nextDue };
   if (!task.isPersistent) throw new HttpError(400, "Only persistent tasks can be done again and again");
   // A persistent task under it keeps its own rounds, and their ticks.
   const ticked = (await countedBelow(task.id)).flatMap((t) =>
     t.completedAt && t.completedOn ? [{ id: t.id, completedAt: t.completedAt, completedOn: t.completedOn }] : [],
   );
   const { repeatEvery, nextDue } = task;
+  const next = repeatEvery && nextDue ? dueAfter({ ...task, repeatEvery, nextDue }, today) : null;
 
   const completion = await prisma.$transaction(async (tx) => {
     const booked = await bookTask(tx, task);
-    if (repeatEvery && nextDue) {
-      const next = dueAfter({ ...task, repeatEvery, nextDue }, today);
+    if (next) {
       await tx.task.update({
         where: { id: task.id },
         data: { nextDue: next, roundMoves: movesFrom(task.roundMoves, next) ?? Prisma.DbNull },
@@ -54,8 +54,11 @@ export async function pressTask(task: Task, id: string | undefined, { today, at 
       },
     });
   });
-  return { completion, isNew: true };
+  return { completion, isNew: true, nextDue: next };
 }
+
+/** Its round is still to come: done for now, so a press from a notification left lying has nothing to do. */
+export const isDoneForNow = (task: Task, today: string) => (currentRound(task, today)?.day ?? "") > today;
 
 /**
  * Undo of a press: the log entry goes, its points are reversed, the subtasks it unticked get their ticks back (those

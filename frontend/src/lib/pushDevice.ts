@@ -8,6 +8,16 @@ import { isStandalone } from "./standalone";
  */
 export type PushState = "unsupported" | "install" | "noWorker" | "denied" | "off" | "on";
 
+/** What each state means to the user: under the switch in Settings, and under a task's reminder while push isn't on. */
+export const PUSH_NOTES: Record<PushState, string> = {
+  unsupported: "This browser can't show notifications from Donegeon. They still show in the bell.",
+  install: "On an iPhone or iPad, notifications only come to Donegeon added to the home screen: Share › Add to Home Screen, then turn them on there.",
+  noWorker: "Only the built app can show notifications (the dev server has no service worker). They still show in the bell.",
+  denied: "Notifications are blocked for Donegeon in this browser. Allow them in the browser's site settings, then come back here.",
+  off: "Off on this device: they only show in the bell. Turn them on here on each phone or computer that should get them.",
+  on: "On for this device. Turn them on on your other devices too, if you like.",
+};
+
 const isApple = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
 /** The service worker's registration, if the app has one (not in dev). */

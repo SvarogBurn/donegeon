@@ -21,6 +21,12 @@ export const livesInToday = (node: TaskTreeNode) => !node.parentId && !node.list
  */
 export const isMarkedFor = (node: TaskTreeNode, day: string) => node.todaySince === day;
 
+/**
+ * Written straight into Today and to do on `day`: marked for it, or on a schedule with its round due. It has no list
+ * to wait in, so a task done every day comes back here by itself, as one from a list comes into Today.
+ */
+export const isOwnToday = (node: TaskTreeNode, day: string) => livesInToday(node) && (isMarkedFor(node, day) || isDue(node, day));
+
 /** Put off to next week (or later) in the Week box: it is not for today, whatever else would bring it into Today. */
 export const isPutOff = (node: TaskTreeNode, today: string) => node.weekDay !== null && node.weekDay >= addDays(mondayOf(today), 7);
 

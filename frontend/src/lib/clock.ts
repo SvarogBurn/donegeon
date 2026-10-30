@@ -4,7 +4,7 @@ import { readStored, writeStored } from "./storage";
 const DEV_DATE_KEY = "donegeon.devDate";
 const TIME_OFFSET_KEY = "donegeon.devTimeOffset";
 
-/** "Pretend it's this day": set by the browser checks. Stays put until reset; it does not roll over at midnight. */
+/** "Pretend it's this day": set with the dev clock (components/layout/DevClock) or by the browser checks. Stays put until reset; it does not roll over at midnight. */
 export function getDevDate(): string | null {
   return readStored(DEV_DATE_KEY);
 }
@@ -13,13 +13,19 @@ export function setDevDate(date: string | null) {
   writeStored(DEV_DATE_KEY, date || null);
 }
 
-/** Minutes the app's clock runs ahead of (or behind) the device's; 0 unless a browser check changed the time. */
+/** Minutes the app's clock runs ahead of (or behind) the device's; 0 unless the dev clock or a browser check changed the time. */
 export function getTimeOffset(): number {
   return Number(readStored(TIME_OFFSET_KEY)) || 0;
 }
 
 export function setTimeOffset(minutes: number) {
   writeStored(TIME_OFFSET_KEY, minutes ? String(minutes) : null);
+}
+
+/** The device's own day and time again. */
+export function backToRealTime() {
+  setDevDate(null);
+  setTimeOffset(0);
 }
 
 /** The moment the app treats as "now": the device's clock plus the chosen offset. */

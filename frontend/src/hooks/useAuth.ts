@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import * as authApi from "../api/auth";
 import { ApiError } from "../api/client";
 import type { DeadlineToday, TickedTasks, User } from "../types";
+import { soundOffIn } from "../lib/bigMoment";
 import { readStored, writeStored } from "../lib/storage";
 import { normalizeDeadlineTable, type DeadlineTable } from "../lib/deadlineTable";
 import { normalizeNotifications, type NotifySettings, type Reminder } from "../lib/notifySettings";
@@ -96,6 +97,11 @@ export function usePointsOff(): boolean {
 /** Whether the character's health is switched off (Settings › Gamification): no hearts shown. */
 export function useHealthOff(): boolean {
   return useMe().user?.healthOff ?? false;
+}
+
+/** Whether the tick sounds are off (Settings › Gamification). */
+export function useSoundOff(): boolean {
+  return soundOffIn(useMe().user?.profile);
 }
 
 /** Whether the streak freeze is off (Settings › Gamification, under Health; off with it too): a day missed breaks the streak. */

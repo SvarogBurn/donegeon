@@ -10,7 +10,9 @@ import { leftUndone, passedDeadlines, saveDismissed, type LeftUndone, type Passe
 import { dueToday, findTask, type Planned } from "../../lib/notifySchedule";
 import { markNewsSeen, useUnseenNews } from "../../lib/newsSeen";
 import { newId } from "../../lib/offline/changes";
+import { useSevenTaps } from "../../hooks/useSevenTaps";
 import { PretendNotice } from "../layout/Clock";
+import { DevClock } from "../layout/DevClock";
 import { RichText } from "../RichText";
 import { hasHome, LeftUndoneTask, useDropLeftUndone } from "./LeftUndoneTask";
 import { PostponeDeadline } from "./PostponeDeadline";
@@ -78,6 +80,16 @@ export function Bell({
   const [isOpen, setIsOpen] = useState(false);
   const [asking, setAsking] = useState<PassedDeadline | null>(null);
   const [askingUndone, setAskingUndone] = useState<LeftUndone | null>(null);
+  const [isDevClock, setIsDevClock] = useState(false);
+  // The hidden dev clock: the taps toggle the list on the way, so it is closed for the popup.
+  const countTap = useSevenTaps(() => {
+    setIsOpen(false);
+    setIsDevClock(true);
+  });
+  const tap = () => {
+    setIsOpen(!isOpen);
+    countTap();
+  };
   const panel = useRef<HTMLDivElement>(null);
   const shown = passed.filter((item) => !dismissed.has(item.key));
   const shownMessages = showsAll ? messages.filter((item) => !dismissed.has(item.key)) : [];
@@ -86,7 +98,7 @@ export function Bell({
   const news = settings.news.on ? unseenNews : [];
   const count = news.length + shownMessages.length + shown.length + undone.length;
 
-  useEffect(() => onOpenChange?.(isOpen || asking !== null || askingUndone !== null), [isOpen, asking, askingUndone, onOpenChange]);
+  useEffect(() => onOpenChange?.(isOpen || asking !== null || askingUndone !== null || isDevClock), [isOpen, asking, askingUndone, isDevClock, onOpenChange]);
   // Only once the tasks are in: before that every dismissal would look out of date.
   useEffect(() => {
     if (trees.length) saveDismissed(dismissed, [...passed, ...messages].map((item) => item.key));
@@ -128,7 +140,7 @@ export function Bell({
   return (
     <>
       {inStrip ? (
-        <button type="button" className="relative mr-1.5 flex-none p-0.5" data-bell aria-label={label} aria-expanded={isOpen} title="Notifications" onClick={() => setIsOpen(!isOpen)}>
+        <button type="button" className="relative mr-1.5 flex-none p-0.5" data-bell aria-label={label} aria-expanded={isOpen} title="Notifications" onClick={tap}>
           <span className="bar-glyph bar-glyph-bell" aria-hidden />
           {badge}
         </button>
@@ -140,7 +152,7 @@ export function Bell({
           aria-label={label}
           aria-expanded={isOpen}
           title={label}
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={tap}
         >
           {children?.(
             // The teeny bell has no room for a number: a red dot says there is something new.
@@ -316,6 +328,7 @@ export function Bell({
       )}
       {asking && <PostponeDeadline item={asking} onDismiss={() => dismiss([asking.key])} onClose={() => setAsking(null)} />}
       {askingUndone && <LeftUndoneTask item={askingUndone} onClose={() => setAskingUndone(null)} />}
+      {isDevClock && <DevClock onClose={() => setIsDevClock(false)} />}
     </>
   );
 }

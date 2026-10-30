@@ -17,7 +17,8 @@ import { useDeleteAccount, useLogout, useMe, useUpdateMe } from "../hooks/useAut
 import { useDropOnTab, useFolders } from "../hooks/folders";
 import { useLayout, useSaveLayout } from "../hooks/layout";
 import { useOnline } from "../lib/offline/online";
-import { readStored, writeStored } from "../lib/storage";
+import { BIG_EVERY } from "../lib/bigMoment";
+import { readStored } from "../lib/storage";
 import { NeedsConnection } from "../components/NeedsConnection";
 import { FONT_CHOICES, FONT_STACKS, textFont } from "../lib/fonts";
 import { typedPoints } from "../lib/points";
@@ -156,7 +157,8 @@ const breakNote = (every: number | null) =>
     : `After every ${every === 1 ? "task" : `${every} tasks`} you do in a day, a popup reminds you to take a break to eat and drink.`;
 
 /** The Settings sections open, kept on this device (a JSON list of their names); all are closed to start with. */
-const OPEN_KEY = "donegeon.settingsOpen";
+// The sections start closed each time the page opens. Only the browser checks open some to start with.
+const OPEN_KEY = "donegeon.settingsOpenForChecks";
 
 function openSections(): string[] {
   try {
@@ -171,11 +173,6 @@ function openSections(): string[] {
 function SettingsSection({ name, title, forceOpen = false, children }: { name: string; title: string; forceOpen?: boolean; children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(() => openSections().includes(name));
   const shown = isOpen || forceOpen;
-  function toggle() {
-    const others = openSections().filter((other) => other !== name);
-    writeStored(OPEN_KEY, JSON.stringify(isOpen ? others : [...others, name]));
-    setIsOpen(!isOpen);
-  }
   return (
     // The first one has no line above it: the box's band is there.
     <div className="space-y-3 border-t-2 border-stone-300 pt-3 first:border-t-0 first:pt-0 dark:border-stone-700" data-settings-section={name}>
@@ -185,7 +182,7 @@ function SettingsSection({ name, title, forceOpen = false, children }: { name: s
           className="flex w-full items-center gap-2 text-left font-pixel text-sm text-stone-800 hover:text-stone-950 dark:text-stone-100 dark:hover:text-white"
           aria-expanded={shown}
           disabled={forceOpen}
-          onClick={toggle}
+          onClick={() => setIsOpen(!isOpen)}
           data-settings-heading={name}
         >
           {/* The subtasks' arrow: down while open, turned to point right while closed. */}
@@ -379,6 +376,20 @@ export function SettingsBox() {
         Unlocks and news on the character
       </label>
       <p className="text-xs text-stone-500">The LEVEL UP box with what was unlocked, and the editor's Next up box with what's next. Off also hides the red dot.</p>
+      <label className="flex items-center gap-2 text-xs">
+        <PixelCheckbox small checked={!profile.soundOff} onChange={(e) => saveProfile({ ...profile, soundOff: !e.target.checked || undefined })} data-sounds />
+        Sounds
+      </label>
+      <p className="text-xs text-stone-500">A small sound when you tick a task or press one you do again and again, and a bigger one with a big moment.</p>
+      <SwitchedAmount
+        label="Big moments"
+        value={profile.bigEvery === undefined ? BIG_EVERY : profile.bigEvery}
+        first={BIG_EVERY}
+        onSave={(bigEvery) => saveProfile({ ...profile, bigEvery })}
+        amountLabel="A big moment after every so many tasks of a day"
+        name="big-every"
+        note={(every) => (every ? `Lightning or confetti across the screen, in turn, after every ${every} tasks of a day.` : "None, however much you get done.")}
+      />
       </SettingsSection>
       {/* How the app looks, and which tabs it has. Open while the tutorial runs: it points at the Notes tab's switch. */}
       <SettingsSection name="design" title="Theme and design" forceOpen={!user.tutorialSeen}>

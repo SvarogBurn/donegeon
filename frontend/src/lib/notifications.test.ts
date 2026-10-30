@@ -1,10 +1,26 @@
 import { describe, expect, it } from "vitest";
 import type { TaskTreeNode } from "../types";
-import { leftUndone, passedDeadlines } from "./notifications";
+import { isOverdue, leftUndone, passedDeadlines, passedItem } from "./notifications";
 
 function node(id: string, extra: Partial<TaskTreeNode> = {}): TaskTreeNode {
   return { id, title: id, isComplete: false, deadlineDate: null, todaySince: null, weekDay: null, isPersistent: false, completions: [], children: [], ...extra } as TaskTreeNode;
 }
+
+describe("isOverdue and passedItem", () => {
+  const today = "2026-10-29";
+
+  it("are overdue the day after the deadline, not on it, and not once done", () => {
+    expect(isOverdue(node("a", { deadlineDate: "2026-10-28" }), today)).toBe(true);
+    expect(isOverdue(node("a", { deadlineDate: today }), today)).toBe(false);
+    expect(isOverdue(node("a", { deadlineDate: "2026-10-28", isComplete: true }), today)).toBe(false);
+    expect(isOverdue(node("a"), today)).toBe(false);
+  });
+
+  it("gives the popup what the bell gives it", () => {
+    const task = node("a", { deadlineDate: "2026-10-27" });
+    expect(passedItem(task, ["Main"], today)).toEqual({ node: task, path: ["Main"], daysLate: 2, key: "a:2026-10-27" });
+  });
+});
 
 describe("passedDeadlines", () => {
   const today = "2026-10-19";
@@ -57,6 +73,11 @@ describe("leftUndone", () => {
       node("pressed", { todaySince: "2026-10-20", isPersistent: true, completions: [{ id: "c", day: "2026-10-20" }] as TaskTreeNode["completions"] }),
       node("finished", { isComplete: true, children: [node("inside", { todaySince: "2026-10-19" })] }),
     ];
+    expect(leftUndone(trees, today)).toEqual([]);
+  });
+
+  it("leaves out a task on a schedule: a round not done stays due in Today, and an old press isn't in the trees to ask", () => {
+    const trees = [node("daily", { todaySince: "2026-10-18", isPersistent: true, repeatEvery: 1, nextDue: "2026-10-18", completions: [] })];
     expect(leftUndone(trees, today)).toEqual([]);
   });
 

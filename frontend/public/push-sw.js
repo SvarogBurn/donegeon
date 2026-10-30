@@ -60,7 +60,7 @@ self.addEventListener("notificationclick", (event) => {
   if (event.action === "done" && taskId) {
     // Ticks the task, or presses it if it is done again and again. Refused (subtasks still open, logged out, no
     // connection): a notification says why, and a tap on it opens the task.
-    const done = press ? call("POST", `/tasks/${taskId}/completions`, {}) : call("PATCH", `/tasks/${taskId}/toggle`, { done: true });
+    const done = press ? call("POST", `/tasks/${taskId}/completions`, { fromNotification: true }) : call("PATCH", `/tasks/${taskId}/toggle`, { done: true, fromNotification: true });
     event.waitUntil(done.catch((err) => self.registration.showNotification("Not done", { body: err.message, icon: "/favicon.svg", tag: `${key}:failed`, data: { url } })));
   } else if (event.action === "snooze" && key) {
     event.waitUntil(call("POST", "/notifications/snooze", { key }).catch((err) => self.registration.showNotification("Not snoozed", { body: err.message, icon: "/favicon.svg", tag: `${key}:failed`, data: { url } })));

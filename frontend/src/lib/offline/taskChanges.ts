@@ -6,6 +6,7 @@ import * as tasksApi from "../../api/tasks";
 import { COUNTDOWN, DONE, GOALS, LISTS, POINTS, PRESSURE, TAGS, TASK_DATA, TASKS } from "../../hooks/queryKeys";
 import { ME } from "../../hooks/useAuth";
 import type { Countdown, DonePage, Goal, List, PointsSummary, Tag, TaskPress, TaskTreeNode, User } from "../../types";
+import { bigEveryIn, celebrate } from "../bigMoment";
 import { taskDone } from "../breakReminder";
 import {
   draftNode,
@@ -101,6 +102,12 @@ const beforePress = new Map<string, TaskTreeNode>();
 
 /** After how many tasks done in a day the user wants to be reminded to take a break; null = never. */
 const breakEvery = (queryClient: QueryClient) => queryClient.getQueryData<User | null>(ME)?.breakEvery ?? null;
+
+/** After every tick and press: the day's count so far, for the break reminder and the big moments. */
+function counted(queryClient: QueryClient, doneToday: number) {
+  taskDone(doneToday, breakEvery(queryClient));
+  celebrate(doneToday, bigEveryIn(queryClient.getQueryData<User | null>(ME)?.profile));
+}
 
 /** A task's title for the notice, from the trees as they are, or as they were before the change. */
 export function taskTitle(queryClient: QueryClient, id: string, saved: Saved | undefined) {
@@ -200,7 +207,7 @@ export const taskSpecs: Specs<TaskChangeVars> = {
     // An untick is not a task done.
     onSaved: (queryClient, task) => {
       const { isComplete, doneToday } = task as { isComplete: boolean; doneToday: number };
-      if (isComplete) taskDone(doneToday, breakEvery(queryClient));
+      if (isComplete) counted(queryClient, doneToday);
     },
   },
   press: {
@@ -215,7 +222,7 @@ export const taskSpecs: Specs<TaskChangeVars> = {
     refresh: TASK_DATA,
     name: (_change, title) => `“done it” on ${quoted(title)}`,
     popup: true,
-    onSaved: (queryClient, press) => taskDone((press as { doneToday: number }).doneToday, breakEvery(queryClient)),
+    onSaved: (queryClient, press) => counted(queryClient, (press as { doneToday: number }).doneToday),
   },
   undoPress: {
     send: ({ id, completionId, when }) => tasksApi.undoPress(id, completionId, when),

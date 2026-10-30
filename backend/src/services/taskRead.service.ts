@@ -153,6 +153,8 @@ export async function statRows(owner: string) {
       completedOn: true,
       completedAt: true,
       isPersistent: true,
+      repeatEvery: true,
+      repeatUnit: true,
       createdAt: true,
       goals: { select: { id: true } },
       tags: { select: { id: true } },
@@ -171,9 +173,9 @@ export async function statRows(owner: string) {
 /**
  * How many tasks were done on each day, counted as the stats count them (the app's collectStats): every tick at any
  * depth and every press, of the tasks under main tasks that are not in a reward list. The task bar's face works out
- * the level and the streak from it, without loading every task there is.
+ * the level and the streak from it, without loading every task there is. `only` = that day alone.
  */
-export function progressDays(owner: string): Promise<{ day: string; count: number }[]> {
+export function progressDays(owner: string, only: string | null = null): Promise<{ day: string; count: number }[]> {
   return prisma.$queryRaw`
     WITH RECURSIVE counted AS (
       SELECT t.id, 0 AS depth FROM "Task" t LEFT JOIN "List" l ON l.id = t."listId"
@@ -182,9 +184,10 @@ export function progressDays(owner: string): Promise<{ day: string; count: numbe
       SELECT t.id, c.depth + 1 FROM "Task" t JOIN counted c ON t."parentId" = c.id WHERE t."deletedAt" IS NULL AND c.depth < 100
     ),
     done AS (
-      SELECT t."completedOn" AS day FROM "Task" t JOIN counted c ON c.id = t.id WHERE t."completedOn" IS NOT NULL
+      SELECT t."completedOn" AS day FROM "Task" t JOIN counted c ON c.id = t.id
+      WHERE t."completedOn" IS NOT NULL AND (${only}::text IS NULL OR t."completedOn" = ${only})
       UNION ALL
-      SELECT p.day FROM "TaskCompletion" p JOIN counted c ON c.id = p."taskId"
+      SELECT p.day FROM "TaskCompletion" p JOIN counted c ON c.id = p."taskId" WHERE ${only}::text IS NULL OR p.day = ${only}
     )
     SELECT day, count(*)::int AS count FROM done GROUP BY day ORDER BY day`;
 }

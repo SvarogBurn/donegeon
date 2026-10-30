@@ -120,6 +120,59 @@ describe("snooze", () => {
   });
 });
 
+describe("Done on a notification", () => {
+  const later = () => new Date(Date.now() + HOUR);
+  const onTask = (key: string, taskId: string, params: object) => ({ ...item(key, later()), params: { taskId, press: true, actions: ["done", "snooze"], ...params } });
+  const keysOf = async (id: string) => (await planned(id)).map((row) => row.key);
+
+  async function scheduled(call: Awaited<ReturnType<typeof user>>["call"], listId: string, repeatEvery: number) {
+    const task = (await call("POST", "/tasks", { title: "Brush teeth", listId })).body.task.id as string;
+    await call("PATCH", `/tasks/${task}`, { repeatEvery, repeatUnit: "day", nextDue: TODAY });
+    return task;
+  }
+
+  it("calls off the rest of the day and a snoozed copy, keeps tomorrow and what comes every day, and a second Done does nothing", async () => {
+    const { call, id, listId } = await user();
+    const task = await scheduled(call, listId, 1);
+    await call("PUT", "/notifications/schedule", {
+      items: [
+        onTask(`r:a:${TODAY}:0900`, task, { dueDay: TODAY }),
+        onTask(`r:a:${TODAY}:2100`, task, { dueDay: TODAY }),
+        onTask("r:a:2026-10-21:0900", task, { dueDay: "2026-10-21" }),
+        onTask(`r:all:${TODAY}:2200`, task, {}),
+      ],
+    });
+    await call("POST", "/notifications/snooze", { key: `r:a:${TODAY}:0900` });
+
+    expect((await call("POST", `/tasks/${task}/completions`, { fromNotification: true })).status).toBe(201);
+    expect(await keysOf(id)).toEqual(["r:a:2026-10-21:0900", `r:all:${TODAY}:2200`]);
+
+    // The same notification left lying, tapped again: the round is done, so nothing is pressed or booked.
+    const again = await call("POST", `/tasks/${task}/completions`, { fromNotification: true });
+    expect([again.status, again.body.completion]).toEqual([200, null]);
+    expect(await prisma.taskCompletion.count({ where: { taskId: task } })).toBe(1);
+    expect((await prisma.task.findUniqueOrThrow({ where: { id: task } })).nextDue).toBe("2026-10-21");
+  });
+
+  it("on a task every 2 days calls off the day between, not its next round", async () => {
+    const { call, id, listId } = await user();
+    const task = await scheduled(call, listId, 2);
+    await call("PUT", "/notifications/schedule", { items: [onTask("r:a:2026-10-21:0900", task, { dueDay: "2026-10-21" }), onTask("r:a:2026-10-22:0900", task, { dueDay: "2026-10-22" })] });
+    await call("POST", `/tasks/${task}/completions`, { fromNotification: true });
+    expect(await keysOf(id)).toEqual(["r:a:2026-10-22:0900"]);
+  });
+
+  it("ticking a task stops its reminders; a press in the app leaves them to the app's next plan", async () => {
+    const { call, id, listId } = await user();
+    const once = (await call("POST", "/tasks", { title: "Call", listId })).body.task.id as string;
+    const daily = await scheduled(call, listId, 1);
+    await call("PUT", "/notifications/schedule", { items: [onTask("r:once:2026-10-21:0900", once, {}), onTask(`r:daily:${TODAY}:2100`, daily, { dueDay: TODAY })] });
+    await call("POST", `/tasks/${daily}/completions`, {});
+    await call("PATCH", `/tasks/${once}/toggle`, { done: true, fromNotification: true });
+    expect(await keysOf(id)).toEqual([`r:daily:${TODAY}:2100`]);
+  });
+});
+
 describe("the settings", () => {
   it("refuse a reminder at night, when the server is asleep", async () => {
     const { call } = await user();

@@ -16,6 +16,10 @@ export interface PassedDeadline {
 
 export const passedKey = (node: Pick<TaskTreeNode, "id" | "deadlineDate">) => `${node.id}:${node.deadlineDate}`;
 
+export const isOverdue = (node: TaskTreeNode, today: string) => !node.isComplete && node.deadlineDate !== null && node.deadlineDate < today;
+
+export const passedItem = (node: TaskTreeNode, path: string[], today: string): PassedDeadline => ({ node, path, daysLate: daysBetween(node.deadlineDate!, today), key: passedKey(node) });
+
 /**
  * Open tasks whose deadline day is over, the latest first. The deadline day itself is still the last day to do
  * the work in, so a task shows up here only the day after. Deadlines sit on main tasks and their direct subtasks;
@@ -24,8 +28,8 @@ export const passedKey = (node: Pick<TaskTreeNode, "id" | "deadlineDate">) => `$
 export function passedDeadlines(trees: TaskTreeNode[], today: string): PassedDeadline[] {
   const passed: PassedDeadline[] = [];
   const check = (node: TaskTreeNode, path: string[]) => {
-    if (node.isComplete || !node.deadlineDate || node.deadlineDate >= today) return;
-    passed.push({ node, path, daysLate: daysBetween(node.deadlineDate, today), key: passedKey(node) });
+    if (!isOverdue(node, today)) return;
+    passed.push(passedItem(node, path, today));
   };
   for (const main of trees) {
     if (main.isComplete) continue;
@@ -52,7 +56,8 @@ export interface LeftUndone {
  * What was left undone: open tasks (any depth) marked for Today on a day gone by, or planned in Week for one,
  * and not since marked or planned for today or a day to come. Nothing is carried on to the next day by itself;
  * these wait in the bell until the user does them, picks a new day, or drops them. A persistent task pressed
- * since that day was done; a finished main task took its subtasks to the Done page. Latest first.
+ * since that day was done, and one on a schedule looks after itself: a round not done stays due in Today. A
+ * finished main task took its subtasks to the Done page. Latest first.
  */
 export function leftUndone(trees: TaskTreeNode[], today: string): LeftUndone[] {
   const found: LeftUndone[] = [];
@@ -62,7 +67,7 @@ export function leftUndone(trees: TaskTreeNode[], today: string): LeftUndone[] {
       const inToday = node.todaySince !== null && node.todaySince < today;
       const inWeek = node.weekDay !== null && node.weekDay < today;
       const planned = (node.todaySince ?? "") >= today || (node.weekDay ?? "") >= today;
-      if ((inToday || inWeek) && !planned) {
+      if ((inToday || inWeek) && !planned && !node.repeatEvery) {
         const day = [inToday ? node.todaySince! : "", inWeek ? node.weekDay! : ""].sort()[1];
         if (!(node.isPersistent && node.completions.some((press) => press.day >= day))) found.push({ node, path, day, inToday, inWeek, key: `undone:${node.id}:${day}` });
       }

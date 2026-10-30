@@ -13,6 +13,7 @@ import { DoneBox } from "./boxes/DoneBox";
 import { FilterBox } from "./boxes/FilterBox";
 import { FlowBox } from "./boxes/FlowBox";
 import { GroupsBox } from "./boxes/GroupsBox";
+import { HabitsBox } from "./boxes/HabitsBox";
 import { OpenBox } from "./boxes/OpenBox";
 import { PointsBox } from "./boxes/PointsBox";
 import { TimeBox } from "./boxes/TimeBox";
@@ -26,6 +27,7 @@ export const FILTER_BOX = "filter";
 export const STAT_BOX_LIST: { key: string; label: string; Box: StatBox }[] = [
   { key: FILTER_BOX, label: "Stats filter", Box: FilterBox },
   { key: "done", label: "Done", Box: DoneBox },
+  { key: "habits", label: "Habits", Box: HabitsBox },
   { key: "flow", label: "Keeping up", Box: FlowBox },
   { key: "open", label: "Open work", Box: OpenBox },
   { key: "deadlines", label: "Deadlines", Box: DeadlinesBox },

@@ -1,5 +1,5 @@
 import { addDays, daysBetween } from "../../../shared/dates";
-import type { List, PointsSummary, StatRow } from "../types";
+import type { List, PointsSummary, RepeatUnit, StatRow } from "../types";
 import { formatDay, localDay } from "./dates";
 
 // The numbers behind the stats on the Stats page. Everything is worked out
@@ -23,6 +23,8 @@ export interface StatTask {
   deadlineKind: "hard" | "soft" | null;
   /** It, or a task above it, is persistent (done again and again). */
   isPersistent: boolean;
+  /** Persistent itself, not only under a persistent task: a habit, with its schedule (`every` null = none). */
+  habit: { every: number | null; unit: RepeatUnit } | null;
   /** The moment it was written down, for the time of day. */
   createdAt: Date;
   /** The day it was written down, in the user's calendar. */
@@ -65,10 +67,12 @@ export const NO_STAT_FILTER: StatFilter = { range: "all", listId: "", folderId: 
 /** 0 = Monday ... 6 = Sunday. */
 export const weekdayIndex = (day: string) => (new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7;
 
-export function collectStats(rows: StatRow[], lists: List[]): { tasks: StatTask[]; completions: Completion[] } {
+/** `rewards`: what was bought from reward lists, which only the character's skills and stats of a reward list count. */
+export function collectStats(rows: StatRow[], lists: List[]): { tasks: StatTask[]; completions: Completion[]; rewards: Completion[] } {
   const rewardLists = new Set(lists.filter((list) => list.kind === "reward").map((list) => list.id));
   const tasks: StatTask[] = [];
   const completions: Completion[] = [];
+  const rewards: Completion[] = [];
   const childrenOf = new Map<string, StatRow[]>();
   for (const row of rows) {
     if (!row.parentId) continue;
@@ -76,7 +80,7 @@ export function collectStats(rows: StatRow[], lists: List[]): { tasks: StatTask[
     childrenOf.get(row.parentId)!.push(row);
   }
 
-  const visit = (node: StatRow, root: StatRow, above: StatTask | null, insideFinished: boolean) => {
+  const visit = (node: StatRow, root: StatRow, above: StatTask | null, insideFinished: boolean, isReward: boolean) => {
     const completedOn = node.completedOn;
     const createdAt = new Date(node.createdAt);
     const ownKind = node.deadlineDate ? (node.deadlineType ?? "hard") : null;
@@ -92,6 +96,7 @@ export function collectStats(rows: StatRow[], lists: List[]): { tasks: StatTask[
       deadlineDate: node.deadlineDate,
       deadlineKind: ownKind ?? above?.deadlineKind ?? null,
       isPersistent,
+      habit: node.isPersistent ? { every: node.repeatEvery ?? null, unit: node.repeatUnit } : null,
       createdAt,
       createdOn: node.startDate ?? localDay(createdAt),
       completedOn,
@@ -99,15 +104,16 @@ export function collectStats(rows: StatRow[], lists: List[]): { tasks: StatTask[
       isOpen: !node.isComplete && !insideFinished && !isPersistent,
       isLoose: !node.deadlineDate && node.goalIds.length === 0 && node.tagIds.length === 0,
     };
-    tasks.push(task);
-    if (completedOn) completions.push({ day: completedOn, task, at: node.completedAt ? new Date(node.completedAt) : null, isPress: false });
-    node.pressDays.forEach((day, i) => completions.push({ day, task, at: node.pressTimes[i] ? new Date(node.pressTimes[i]) : null, isPress: true }));
-    for (const child of childrenOf.get(node.id) ?? []) visit(child, root, task, insideFinished || node.isComplete);
+    if (!isReward) tasks.push(task);
+    const done = isReward ? rewards : completions;
+    if (completedOn) done.push({ day: completedOn, task, at: node.completedAt ? new Date(node.completedAt) : null, isPress: false });
+    node.pressDays.forEach((day, i) => done.push({ day, task, at: node.pressTimes[i] ? new Date(node.pressTimes[i]) : null, isPress: true }));
+    for (const child of childrenOf.get(node.id) ?? []) visit(child, root, task, insideFinished || node.isComplete, isReward);
   };
   for (const root of rows) {
-    if (!root.parentId && !rewardLists.has(root.listId ?? "")) visit(root, root, null, false);
+    if (!root.parentId) visit(root, root, null, false, rewardLists.has(root.listId ?? ""));
   }
-  return { tasks, completions };
+  return { tasks, completions, rewards };
 }
 
 /** Everything in the filter except the date range, which each section applies to its own date. */

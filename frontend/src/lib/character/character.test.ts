@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { List } from "../../types";
 import type { Completion, StatTask } from "../stats";
 import { compose, composeFace, FACE, FLOOR, HEIGHT, LIFT, type PartsData } from "./compose";
 import { expFor, levelOf, spanOf } from "./levels";
@@ -6,7 +7,7 @@ import { BODIES, BODY_BY_ID, DEFAULT_LOOK, materialsWorn, type Body, type Look, 
 import facesData from "./faces.data.json";
 import partsData from "./parts.data.json";
 import { normalizeLook, normalizeProfile } from "./profile";
-import { customStatValue, skillExp } from "./profileStats";
+import { builtInStats, customStatValue, earningSkills, skillExp } from "./profileStats";
 import { recolorRamp } from "./ramps";
 
 describe("levelOf", () => {
@@ -54,10 +55,49 @@ describe("custom stats and skills", () => {
     expect(skillExp({ kind: "goal", id: "exam" }, completions)).toBe(2);
     expect(skillExp({ kind: "tag", id: "none" }, completions)).toBe(0);
   });
+
+  it("counts what was bought by its reward list alone", () => {
+    const coffee = task("coffee", { listId: "shop", goalIds: ["exam"] });
+    const rewards = [done(coffee, today), done(coffee, "2026-01-01")];
+    const stat = { id: "s", name: "Treats", lists: ["shop"], goals: [], tags: [], range: "7" as const };
+    expect(customStatValue(stat, completions, today, rewards)).toBe(1);
+    expect(customStatValue({ ...stat, range: "all" }, completions, today, rewards)).toBe(2);
+    expect(customStatValue({ ...stat, lists: [], goals: ["exam"], range: "all" }, completions, today, rewards)).toBe(2);
+    expect(skillExp({ kind: "list", id: "shop" }, completions, rewards)).toBe(2);
+    expect(skillExp({ kind: "goal", id: "exam" }, completions, rewards)).toBe(2);
+  });
+});
+
+describe("earningSkills", () => {
+  it("leaves out a reward list's skill, and only that", () => {
+    const lists = [{ id: "shop", kind: "reward" }, { id: "work", kind: "task" }] as List[];
+    const skills = [{ kind: "list", id: "shop" }, { kind: "list", id: "work" }, { kind: "goal", id: "shop" }] as const;
+    expect(earningSkills([...skills], lists)).toEqual([skills[1], skills[2]]);
+  });
+});
+
+describe("the consistency stat", () => {
+  const input = { completions: [], today: "2026-10-19", balance: 0 };
+
+  it("says so with no habits on a schedule", () => {
+    expect(builtInStats({ ...input, tasks: [] }).consistency).toEqual({ value: 0, text: "-", label: "no habits on a schedule" });
+  });
+
+  it("is a share, with the days it looks back over", () => {
+    const habit = task("run", { habit: { every: 1, unit: "day" }, createdOn: "2026-10-16" });
+    const press = { day: "2026-10-18", task: habit, at: null, isPress: true };
+    expect(builtInStats({ ...input, tasks: [habit], completions: [press] }).consistency).toEqual({ value: 33, text: "33%", label: "consistency, 30 days" });
+  });
 });
 
 describe("normalizeProfile", () => {
   const known = { lists: new Set(["l1"]), goals: new Set(["g1"]), tags: new Set<string>() };
+
+  it("keeps the sound and big-moment settings", () => {
+    expect(normalizeProfile({ soundOff: true, bigEvery: 5 })).toMatchObject({ soundOff: true, bigEvery: 5 });
+    expect(normalizeProfile({ bigEvery: null }).bigEvery).toBeNull();
+    expect(normalizeProfile({ soundOff: "yes", bigEvery: -1 })).toEqual({ stats: ["streak", "longest", "year"], custom: [], skills: [] });
+  });
 
   it("fills in the defaults for nothing saved", () => {
     expect(normalizeProfile(null)).toEqual({ stats: ["streak", "longest", "year"], custom: [], skills: [] });

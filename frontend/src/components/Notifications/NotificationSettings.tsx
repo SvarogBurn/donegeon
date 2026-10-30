@@ -7,19 +7,10 @@ import { useNotifySettings, useReminders } from "../../hooks/useAuth";
 import { findTask } from "../../lib/notifySchedule";
 import { DAYS_BEFORE, isNotifyTime, KIND_NAMES, NOTIFY_FROM, NOTIFY_TO, reminderSummary, SNOOZE, WEEKS_BEFORE, type BellShows, type NotifySettings, type Reminder } from "../../lib/notifySettings";
 import { plainFirstLine } from "../../lib/markup";
-import type { PushState } from "../../lib/pushDevice";
+import { PUSH_NOTES } from "../../lib/pushDevice";
 import type { TaskTreeNode } from "../../types";
 import { PixelCheckbox } from "../PixelCheckbox";
 import { FIELD, ReminderEditor, TimeField } from "./ReminderEditor";
-
-const STATE_NOTES: Record<PushState, string> = {
-  unsupported: "This browser can't show notifications from Donegeon. They still show in the bell.",
-  install: "On an iPhone or iPad, notifications only come to Donegeon added to the home screen: Share › Add to Home Screen, then turn them on there.",
-  noWorker: "Only the built app can show notifications (the dev server has no service worker). They still show in the bell.",
-  denied: "Notifications are blocked for Donegeon in this browser. Allow them in the browser's site settings, then come back here.",
-  off: "Off on this device: they only show in the bell. Turn them on here on each phone or computer that should get them.",
-  on: "On for this device. Turn them on on your other devices too, if you like.",
-};
 
 const BELL_CHOICES: [BellShows, string][] = [
   ["all", "All notifications"],
@@ -69,7 +60,7 @@ function DeviceSwitch() {
         )}
       </div>
       <p className="text-xs text-stone-500" data-push-state={state}>
-        {STATE_NOTES[state]}
+        {PUSH_NOTES[state]}
       </p>
       {test && <p className="text-xs text-stone-500">{test}</p>}
     </>

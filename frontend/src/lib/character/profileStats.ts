@@ -1,7 +1,8 @@
 import { activeDays, countByDay, deadlineOutcomes, isOnTime, periodCounts, rangeStart, streaks, type Completion, type StatTask } from "../stats";
+import { consistency } from "../habits";
 import { levelOf } from "./levels";
 import type { CustomStat, Skill, StatKey } from "./profile";
-import type { StatRow } from "../../types";
+import type { List, StatRow } from "../../types";
 import { deedsOf } from "./deeds";
 import { daysProgress, type Progress } from "./unlocks";
 
@@ -11,6 +12,8 @@ import { daysProgress, type Progress } from "./unlocks";
 
 export interface StatValue {
   value: number;
+  /** Shown in place of the number: "87%". */
+  text?: string;
   /** "of 30" beside the number, where it is out of something. */
   of?: number;
   label: string;
@@ -31,6 +34,7 @@ export function builtInStats({ tasks, completions, today, balance, frozen }: She
   const { current, longest } = streaks(byDay, today, frozen);
   const counts = periodCounts(byDay, today);
   const outcomes = deadlineOutcomes(tasks, today);
+  const kept = consistency(tasks, completions, today);
   return {
     streak: { value: current, label: "day streak" },
     longest: { value: longest, label: "longest streak" },
@@ -40,6 +44,7 @@ export function builtInStats({ tasks, completions, today, balance, frozen }: She
     year: { value: counts.year, label: `done in ${today.slice(0, 4)}` },
     ever: { value: counts.all, label: "done ever" },
     active30: { value: activeDays(byDay, today, 30), of: 30, label: "active days" },
+    consistency: kept ? { value: Math.round(kept.share * 100), text: `${Math.round(kept.share * 100)}%`, label: `consistency, ${kept.span} days` } : { value: 0, text: "-", label: "no habits on a schedule" },
     points: { value: balance ?? 0, label: "points" },
     onTime: { value: outcomes.filter(isOnTime).length, of: outcomes.length, label: "deadlines met" },
     open: { value: tasks.filter((task) => task.isOpen).length, label: "open tasks" },
@@ -56,6 +61,7 @@ export const STAT_NAMES: Record<StatKey, string> = {
   year: "Done this year",
   ever: "Done ever",
   active30: "Active days of 30",
+  consistency: "Consistency",
   points: "Points",
   onTime: "Deadlines met",
   open: "Open tasks",
@@ -65,18 +71,24 @@ export const STAT_NAMES: Record<StatKey, string> = {
 const matches = (task: StatTask, lists: string[], goals: string[], tags: string[]) =>
   (task.listId !== null && lists.includes(task.listId)) || task.goalIds.some((id) => goals.includes(id)) || task.tagIds.some((id) => tags.includes(id));
 
-/** Tasks done for a stat of the user's own within its period; a task in two of its sources counts once. */
-export function customStatValue(stat: CustomStat, completions: Completion[], today: string) {
+/** Tasks done for a stat of the user's own within its period; a task in two of its sources counts once. `rewards` count by their reward list alone, as what was bought. */
+export function customStatValue(stat: CustomStat, completions: Completion[], today: string, rewards: Completion[] = []) {
   const from = rangeStart(today, stat.range);
-  return completions.filter(({ day, task }) => day <= today && (!from || day >= from) && matches(task, stat.lists, stat.goals, stat.tags)).length;
+  const inPeriod = (day: string) => day <= today && (!from || day >= from);
+  const bought = rewards.filter(({ day, task }) => inPeriod(day) && task.listId !== null && stat.lists.includes(task.listId));
+  return completions.filter(({ day, task }) => inPeriod(day) && matches(task, stat.lists, stat.goals, stat.tags)).length + bought.length;
 }
 
-/** A skill's exp: everything ever done in it. */
-export function skillExp(skill: Skill, completions: Completion[]) {
+/** A skill's exp: everything ever done in it, and of a reward list everything bought from it. */
+export function skillExp(skill: Skill, completions: Completion[], rewards: Completion[] = []) {
   const sources = { lists: [] as string[], goals: [] as string[], tags: [] as string[] };
   sources[`${skill.kind}s`].push(skill.id);
-  return completions.filter(({ task }) => matches(task, sources.lists, sources.goals, sources.tags)).length;
+  const bought = skill.kind === "list" ? rewards.filter(({ task }) => task.listId === skill.id) : [];
+  return completions.filter(({ task }) => matches(task, sources.lists, sources.goals, sources.tags)).length + bought.length;
 }
+
+/** The skills that count for unlocks and titles: a reward list's is only shown, as buying things earns nothing. */
+export const earningSkills = (skills: Skill[], lists: List[]) => skills.filter((skill) => !(skill.kind === "list" && lists.some((list) => list.id === skill.id && list.kind === "reward")));
 
 /** The character's own level: every task done counts, and every mail sent to the devs, less the exp knockouts took (`lost`, shared/health.ts). */
 export function characterLevel(completions: Completion[], mailSent = 0, lost = 0) {

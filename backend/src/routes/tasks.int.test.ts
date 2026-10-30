@@ -108,7 +108,10 @@ describe("progress", () => {
     await call("POST", `/tasks/${daily.id}/completions`, { id: crypto.randomUUID() });
     const rewards = (await call("POST", "/lists", { name: "Treats", kind: "reward", defaultPoints: 0 })).body.list;
     const treat = (await call("POST", "/tasks", { title: "Treat", listId: rewards.id })).body.task;
-    expect((await call("PATCH", `/tasks/${treat.id}/toggle`, { done: true })).status).toBe(200);
+    const bought = await call("PATCH", `/tasks/${treat.id}/toggle`, { done: true });
+    expect(bought.status).toBe(200);
+    // The day's count, for the break reminder and the big moments, leaves it out too.
+    expect(bought.body.doneToday).toBe(4);
     const gone = (await call("POST", "/tasks", { title: "Gone", listId })).body.task;
     await call("PATCH", `/tasks/${gone.id}/toggle`, { done: true });
     await call("DELETE", `/tasks/${gone.id}`);

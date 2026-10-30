@@ -33,6 +33,8 @@ const scheduled = z.object({
       /** The task a reminder is on: its Done button ticks it, or presses it (`press`, a persistent task). */
       taskId: z.string().min(1).max(64).optional(),
       press: z.boolean().optional(),
+      /** The day of a reminder that comes on days its task is due: a Done from a notification calls it off if that day is passed by the next round. */
+      dueDay: localDate.optional(),
       /** The buttons under the notification, where the device shows them. */
       actions: z.array(z.enum(["done", "snooze"])).max(2).optional(),
     })

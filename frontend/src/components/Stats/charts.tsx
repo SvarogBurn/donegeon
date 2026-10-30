@@ -54,29 +54,33 @@ function HeatLegend() {
 /**
  * A dot per day, a column per week, the newest week at the right: the more
  * done that day, the stronger the dot. When the box is too narrow for every
- * week, the oldest ones are cut off at the left.
+ * week, the oldest ones are cut off at the left. `bare`: only the dots, for a small copy.
  */
-export function CalendarDots({ weeks }: { weeks: { day: string; count: number | null }[][] }) {
+export function CalendarDots({ weeks, bare = false, label = "Tasks done per day over the last year" }: { weeks: { day: string; count: number | null }[][]; bare?: boolean; label?: string }) {
   const cap = heatCap(weeks.flat().map((cell) => cell.count ?? 0));
   return (
     <div className="space-y-1">
       <div className="flex gap-1">
-        <div className="flex flex-none flex-col gap-[2px] pt-[14px] text-[8px] leading-[10px] text-stone-500" aria-hidden>
-          {["M", "", "W", "", "F", "", "S"].map((name, i) => (
-            <span key={i} className="h-[10px]">
-              {name}
-            </span>
-          ))}
-        </div>
-        <div className="flex min-w-0 flex-1 justify-end gap-[2px] overflow-hidden" role="img" aria-label="Tasks done per day over the last year">
+        {!bare && (
+          <div className="flex flex-none flex-col gap-[2px] pt-[14px] text-[8px] leading-[10px] text-stone-500" aria-hidden>
+            {["M", "", "W", "", "F", "", "S"].map((name, i) => (
+              <span key={i} className="h-[10px]">
+                {name}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="flex min-w-0 flex-1 justify-end gap-[2px] overflow-hidden" role="img" aria-label={label}>
           {weeks.map((week, w) => {
             const month = week[0].day.slice(5, 7);
             const startsMonth = w > 0 && weeks[w - 1][0].day.slice(5, 7) !== month;
             return (
               <div key={week[0].day} className="flex flex-none flex-col gap-[2px]">
-                <span className="h-[12px] w-[10px] text-[8px] leading-[12px] whitespace-nowrap text-stone-500">
-                  {startsMonth ? MONTHS[Number(month) - 1] : ""}
-                </span>
+                {!bare && (
+                  <span className="h-[12px] w-[10px] text-[8px] leading-[12px] whitespace-nowrap text-stone-500">
+                    {startsMonth ? MONTHS[Number(month) - 1] : ""}
+                  </span>
+                )}
                 {week.map(({ day, count }) =>
                   count === null ? (
                     <span key={day} className="size-[10px]" />
@@ -96,7 +100,7 @@ export function CalendarDots({ weeks }: { weeks: { day: string; count: number | 
           })}
         </div>
       </div>
-      <HeatLegend />
+      {!bare && <HeatLegend />}
     </div>
   );
 }

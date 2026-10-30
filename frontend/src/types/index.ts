@@ -268,6 +268,8 @@ export type StatRow = Pick<
   | "isComplete"
   | "completedOn"
   | "isPersistent"
+  | "repeatEvery"
+  | "repeatUnit"
   | "createdAt"
   | "goalIds"
   | "tagIds"

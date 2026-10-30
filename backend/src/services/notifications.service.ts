@@ -60,6 +60,7 @@ interface RecapParams {
 interface RowParams extends Partial<RecapParams> {
   taskId?: string;
   press?: boolean;
+  dueDay?: string;
   actions?: ("done" | "snooze")[];
 }
 
@@ -118,6 +119,18 @@ export async function sendDue(now = new Date()): Promise<number> {
     if (await pushToUser(mine, message)) pushed++;
   }
   return pushed;
+}
+
+/**
+ * A task done from its notification: the app isn't open to plan again, so what that answers is called off here, snoozed
+ * copies too. Ticked (no `nextDue`): all its reminders. Pressed: those coming on days it is due, for the days before its
+ * next round; one coming every day keeps coming, as the user asked it to.
+ */
+export async function clearAnswered(userId: string, taskId: string, nextDue?: string) {
+  await prisma.$executeRaw`
+    DELETE FROM "ScheduledNotification"
+    WHERE "userId" = ${userId} AND "sentAt" IS NULL AND "params"->>'taskId' = ${taskId}
+      AND (${nextDue ?? null}::text IS NULL OR ("params"->>'dueDay')::date < ${nextDue ?? null}::date)`;
 }
 
 /** How long a Snooze puts a notification off, unless the user set their own (Settings › Notifications). */

@@ -127,4 +127,14 @@ describe("dueAfter", () => {
     expect(dueAfter(weekly, "2026-10-14")).toBe("2026-10-19");
     expect(dueAfter({ ...weekly, repeatMakeUp: true, nextDue: "2026-09-28" }, "2026-10-14")).toBe("2026-10-05");
   });
+
+  it("keeps a daily task due tomorrow however often it is pressed today", () => {
+    const daily = { ...weekly, repeatUnit: "day" as const, nextDue: "2026-10-14" };
+    const once = dueAfter(daily, "2026-10-14");
+    expect(once).toBe("2026-10-15");
+    expect(dueAfter({ ...daily, nextDue: once }, "2026-10-14")).toBe("2026-10-15");
+    // Not every 2 days, nor weekly: done early, those still count the round after.
+    expect(dueAfter({ ...daily, repeatEvery: 2, nextDue: "2026-10-16" }, "2026-10-14")).toBe("2026-10-18");
+    expect(dueAfter({ ...weekly, nextDue: "2026-10-19" }, "2026-10-14")).toBe("2026-10-26");
+  });
 });

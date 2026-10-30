@@ -8,6 +8,7 @@ import type { MoveInput, TaskInput, TaskPatch } from "../schemas/task.js";
 import { placeAmongSiblings, placeInWeek } from "./ordering.service.js";
 import { assertOwnLabels, ownList, ownTask } from "./ownership.js";
 import { bookTick, reverseTaskBooking } from "./points.service.js";
+import { progressDays } from "./taskRead.service.js";
 import { assertDeadlineDepth, assertNoDeadlineIfPersistent, MAX_DEADLINE_DEPTH, taskPatchData } from "./taskRules.js";
 import { completionPatch, countedIds, findDepth, findSubtree } from "./taskTree.service.js";
 
@@ -141,11 +142,8 @@ export async function toggleTask(task: Task, done: boolean | undefined, { today,
 
 /** How many tasks the user has done on this day: every ticked one (subtasks too) and every "done it" press. */
 export async function doneToday(owner: string, day: string) {
-  const [ticked, pressed] = await Promise.all([
-    prisma.task.count({ where: { userId: owner, deletedAt: null, isComplete: true, completedOn: day } }),
-    prisma.taskCompletion.count({ where: { userId: owner, day } }),
-  ]);
-  return ticked + pressed;
+  const [counted] = await progressDays(owner, day);
+  return counted?.count ?? 0;
 }
 
 /**

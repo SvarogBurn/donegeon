@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useDeadlineToday } from "../../hooks/useAuth";
 import { localDate } from "../../lib/clock";
 import { readNotToday, saveNotToday } from "../../lib/notifications";
-import { isMarkedFor, livesInToday, todayItems, weekDays } from "../../lib/week";
+import { isOwnToday, livesInToday, todayItems, weekDays } from "../../lib/week";
 import type { TaskTreeNode } from "../../types";
 import { TaskForm } from "../TaskTree/TaskForm";
 import { TaskTree } from "../TaskTree/TaskNode";
@@ -24,8 +24,10 @@ export function TodayTab({ tasks }: { tasks: TaskTreeNode[] }) {
     setNotToday(next);
     saveNotToday(today, next);
   };
-  // Written straight into Today: there on the day it is marked for; left open, the bell asks about it after.
-  const own = tasks.filter((task) => livesInToday(task) && (task.isComplete ? ticked !== "hide" && task.completedOn === today : isMarkedFor(task, today)));
+  // Written straight into Today: there on the day it is marked for, or its round is due, and for the rest of a day it
+  // was done on; left open, the bell asks about it after (not a round: that stays here until it is done).
+  const doneToday = (task: TaskTreeNode) => ticked !== "hide" && (task.isComplete ? task.completedOn === today : task.completions.some((press) => press.day === today));
+  const own = tasks.filter((task) => livesInToday(task) && (doneToday(task) || (!task.isComplete && isOwnToday(task, today))));
   const left = [...items.map((item) => item.node), ...own].filter((node) => !node.isComplete && !node.isPersistent).length;
   // Under the day's tasks, the bin of what was put off to next week, as at the bottom of the Week tab.
   const putOff = weekDays(tasks, today, ticked, deadlines).find((day) => day.nextWeek)!;

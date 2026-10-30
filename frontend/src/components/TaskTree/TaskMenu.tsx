@@ -1,16 +1,16 @@
 import { addDays, mondayOf } from "../../../../shared/dates";
-import { currentRound } from "../../../../shared/repeat";
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { addInterval, currentRound } from "../../../../shared/repeat";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FocusEvent } from "react";
 import { createPortal } from "react-dom";
 import { PixelCheckbox } from "../PixelCheckbox";
-import { ReminderEditor } from "../Notifications/ReminderEditor";
+import { PushNotice, ReminderEditor, TimeField } from "../Notifications/ReminderEditor";
 import { useGoals, useTags } from "../../hooks/labels";
 import { useLists } from "../../hooks/lists";
 import { useMoveRound, usePlaceInWeek, useSetToday, useSetWeek, useUpdateTask } from "../../hooks/tasks";
 import { usePointsOff, useReminders } from "../../hooks/useAuth";
 import { localDate } from "../../lib/clock";
 import { plainFirstLine } from "../../lib/markup";
-import { reminderSummary } from "../../lib/notifySettings";
+import { isNotifyTime, newReminderId, NOTIFY_FROM, NOTIFY_TO, reminderSummary } from "../../lib/notifySettings";
 import { useOnline } from "../../lib/offline/online";
 import { toggleId } from "../../lib/labels";
 import { pointsFieldWidth, typedPoints } from "../../lib/points";
@@ -230,22 +230,68 @@ const MISSED = [
 ];
 
 /**
+ * A task on a schedule: the one time it pushes on the days it is due, written right beside how often it comes. It is
+ * the task's first reminder with one set time on those days (more than that is made under Reminders). Empty = none,
+ * so nothing is pushed until a time is set. Saved when the field is left; the settings need a connection.
+ */
+function RemindAt({ node }: { node: TaskTreeNode }) {
+  const { reminders, put, remove } = useReminders(node.id);
+  const online = useOnline();
+  const saved = reminders.find((reminder) => reminder.days === "due" && reminder.times.length === 1 && !reminder.spread);
+  const savedTime = saved?.times[0] ?? "";
+  const [time, setTime] = useState(savedTime);
+  useEffect(() => setTime(savedTime), [savedTime]);
+
+  function saveTime(e: FocusEvent<HTMLSpanElement>) {
+    // A time half typed is no time yet: the field reads as empty, and leaving it mustn't remove the reminder.
+    if ((e.target as HTMLInputElement).validity.badInput || time === savedTime) return;
+    if (!time) return saved && remove(saved.id);
+    if (isNotifyTime(time)) put(saved ? { ...saved, on: true, times: [time] } : { id: newReminderId(), on: true, kind: "text", days: "due", times: [time], taskId: node.id });
+  }
+
+  return (
+    <div className="space-y-1 px-1" data-menu-part="remind-at">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="shrink-0">Remind me at</span>
+        <span onBlur={saveTime} className={online ? "" : "pointer-events-none opacity-50"} title={online ? undefined : "Needs a connection"}>
+          <TimeField value={time} onChange={setTime} label="Remind me at this time on the days it's due" name="remind-at" />
+        </span>
+      </div>
+      {time !== "" && !isNotifyTime(time) && <p className="text-red-600">Times are between {NOTIFY_FROM} and {NOTIFY_TO}.</p>}
+      {savedTime && <PushNotice />}
+    </div>
+  );
+}
+
+/**
  * Persistent tasks: a schedule. With a number in "Every" the task is due again
  * every so many days, weeks or months; empty = no schedule, done whenever.
  */
 function Repeat({ node }: { node: TaskTreeNode }) {
   const update = useUpdateTask();
   const [every, setEvery] = useState(node.repeatEvery === null ? "" : String(node.repeatEvery));
-  const [unit, setUnit] = useState(node.repeatUnit);
+  // Until a schedule is set the stored unit means nothing: most things repeat by the day.
+  const [unit, setUnit] = useState(node.repeatEvery === null ? "day" : node.repeatUnit);
   useEffect(() => setEvery(node.repeatEvery === null ? "" : String(node.repeatEvery)), [node.repeatEvery]);
-  useEffect(() => setUnit(node.repeatUnit), [node.repeatUnit]);
+  useEffect(() => {
+    if (node.repeatEvery !== null) setUnit(node.repeatUnit);
+  }, [node.repeatEvery, node.repeatUnit]);
   const isOn = node.repeatEvery !== null;
   const save = (changes: { repeatEvery?: number | null; repeatUnit?: RepeatUnit; repeatAfterDone?: boolean; repeatMakeUp?: boolean; nextDue?: string }) =>
     update.mutate({ id: node.id, changes });
 
+  /** A schedule starts today, unless it was done today already: that press was today's round. */
+  function start(repeatEvery: number, repeatUnit: RepeatUnit) {
+    const today = localDate();
+    const pressed = node.completions.some((press) => press.day === today);
+    save({ repeatEvery, repeatUnit, ...(pressed && { nextDue: addInterval(today, repeatEvery, repeatUnit) }) });
+  }
+
   function saveEvery() {
     const next = every.trim() === "" ? null : Math.max(1, Number(every));
-    if (next !== node.repeatEvery) save({ repeatEvery: next, repeatUnit: unit });
+    if (next === node.repeatEvery) return;
+    if (next !== null && !isOn) start(next, unit);
+    else save({ repeatEvery: next, repeatUnit: unit });
   }
 
   return (
@@ -276,7 +322,7 @@ function Repeat({ node }: { node: TaskTreeNode }) {
         >
           {REPEAT_UNIT_NAMES.map(([value, label]) => (
             <option key={value} value={value}>
-              {label}
+              {every === "1" ? value : label}
             </option>
           ))}
         </select>
@@ -287,6 +333,7 @@ function Repeat({ node }: { node: TaskTreeNode }) {
             <span className="shrink-0">Next</span>
             <DateField value={node.nextDue} label="Next due date" onChange={(nextDue) => nextDue && save({ nextDue })} />
           </div>
+          <RemindAt node={node} />
           <div className="flex gap-1" role="group" aria-label="What the next round is counted from">
             {REPEAT_FROM.map((option) => (
               <button
@@ -324,7 +371,12 @@ function Repeat({ node }: { node: TaskTreeNode }) {
           )}
         </>
       ) : (
-        <p className="px-1 text-stone-500">Fill in a number to make it come back on a schedule.</p>
+        <div className="space-y-1 px-1">
+          <button type="button" className="nes-btn btn-small" onClick={() => start(1, "day")} data-repeat-daily>
+            Every day
+          </button>
+          <p className="text-stone-500">Or fill in a number to make it come back on a schedule.</p>
+        </div>
       )}
       {update.error && <p className="text-red-600">{update.error.message}</p>}
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useSevenTaps } from "../../hooks/useSevenTaps";
 import { BODIES, bodyOf, choiceOf, materialsOf, materialsWorn, type Look } from "../../lib/character/bodies";
 import { CLOTH_COLORS, FUR_COLORS } from "../../lib/character/ramps";
 import { earnedTitles, shownTitle } from "../../lib/character/titles";
@@ -141,14 +142,7 @@ export function LookSection({ look, setLook, draft, set, username, unlocks, togg
   const locked = lockedIn(look, unlocks);
   const lockText = (reward: Reward | null) => (reward ? requirementOf(reward) : undefined);
   const undiscovered = Boolean(bodyLock(unlocks, body.id));
-  const taps = useRef<number[]>([]);
-  const tap = () => {
-    const now = Date.now();
-    taps.current = [...taps.current.filter((t) => now - t < 2000), now];
-    if (taps.current.length < 7) return;
-    taps.current = [];
-    toggleDevMode();
-  };
+  const tap = useSevenTaps(toggleDevMode);
 
   // A colour picked on one body stays for the next where it has the same material ("fur", "eyes"), and choices stay
   // for going back; what the body doesn't have is dropped when saved.

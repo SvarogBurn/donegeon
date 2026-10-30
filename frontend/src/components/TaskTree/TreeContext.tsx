@@ -1,10 +1,11 @@
 import { createContext, useCallback, useContext, useMemo, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { TaskPlacement } from "../../api/tasks";
-import { useSortByDeadline, useTickedTasks } from "../../hooks/useAuth";
+import { useSortByDeadline, useSoundOff, useTickedTasks } from "../../hooks/useAuth";
 import { useDeleteList } from "../../hooks/lists";
 import { useDeleteTask, usePressTask, useToggleTask, useUndoPress } from "../../hooks/tasks";
 import { NO_FILTER, type LabelFilter } from "../../lib/labels";
 import { newId } from "../../lib/offline/changes";
+import { playSound } from "../../lib/sounds";
 import type { List, TaskTreeNode, TickedTasks } from "../../types";
 import { DragStore, type DragState } from "./dragState";
 import { NotePanel } from "./NoteView";
@@ -140,6 +141,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
   const [drag] = useState(() => new DragStore());
   const { undoable, offer, forgetPress, undo, error: undoError } = useUndoStack(byId);
   const { once, isBusy } = useBusyGuard();
+  const soundOff = useSoundOff();
   const { startDrag, moveBy, error: moveError } = useTaskMoves({ tasks, byId, drag, rootId, ticked, byDeadline });
 
   const deleteTask = useCallback(
@@ -167,23 +169,25 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       const leavesSight = done && (!node.parentId || ticked === "hide");
       // Shown at once, and it may wait to be sent while offline: the undo is offered now.
       once(node.id, () => {
+        if (!soundOff) playSound(done ? "tick" : "untick");
         toggle({ id: node.id, done });
         if (leavesSight) offer({ kind: "finished", id: node.id, title: node.title });
       });
     },
-    [toggle, ticked, once, offer],
+    [toggle, ticked, once, offer, soundOff],
   );
 
   const pressTask = useCallback(
     (node: TaskTreeNode) => {
       // The press gets its id here, so its undo can be offered (and sent) before the server has it.
       once(node.id, () => {
+        if (!soundOff) playSound("press");
         const completionId = newId();
         press({ id: node.id, completionId });
         offer({ kind: "press", id: node.id, title: node.title, completionId });
       });
     },
-    [press, once, offer],
+    [press, once, offer, soundOff],
   );
 
   const takeBackPress = useCallback(

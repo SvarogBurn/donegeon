@@ -76,13 +76,16 @@ export function currentRound(task: Rounds, today: string): { day: string; planne
  * planned days: then it is the first planned day after the round pressed, so rounds missed altogether don't pile up,
  * and one done early doesn't come back before its own day has passed. With `repeatMakeUp` they do pile up: the press
  * does the oldest round still open, and the next one is due one interval after it. Without, the press is for the
- * current round (currentRound): one left open from a week before `doneOn`'s was dropped.
+ * current round (currentRound): one left open from a week before `doneOn`'s was dropped. A task done every day and
+ * done again before its round has come keeps that round: pressed twice today, it is still due tomorrow.
  */
 export function dueAfter(task: Rounds & { repeatEvery: number; nextDue: string }, doneOn: string): string {
   const { repeatEvery, repeatUnit } = task;
   if (task.repeatAfterDone) return addInterval(doneOn, repeatEvery, repeatUnit);
   if (task.repeatMakeUp) return addInterval(task.nextDue, repeatEvery, repeatUnit);
-  let next = addInterval(currentRound(task, doneOn)!.planned, repeatEvery, repeatUnit);
+  const round = currentRound(task, doneOn)!;
+  if (repeatEvery === 1 && repeatUnit === "day" && round.day > doneOn) return round.planned;
+  let next = addInterval(round.planned, repeatEvery, repeatUnit);
   while (next <= doneOn) next = addInterval(next, repeatEvery, repeatUnit);
   return next;
 }
