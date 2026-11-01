@@ -6,7 +6,7 @@ import type { List, StatRow } from "../types";
 
 const TODAY = "2026-10-20";
 
-const habit = (over: Partial<StatTask> = {}) => statTask({ isPersistent: true, habit: { every: 1, unit: "day" }, createdOn: "2026-10-11", ...over });
+const habit = (over: Partial<StatTask> = {}) => statTask({ isPersistent: true, habit: { every: 1, unit: "day", hidden: false }, createdOn: "2026-10-11", ...over });
 const press = (day: string, task: StatTask): Completion => ({ day, task, at: null, isPress: true });
 
 describe("windowFor", () => {
@@ -31,20 +31,20 @@ describe("habitRate", () => {
     expect(habitRate(habit({ createdOn: "2026-10-19" }), ["2026-10-19", "2026-10-19", "2026-10-19"], TODAY, 30)).toEqual({ done: 1, expected: 1 });
   });
   it("goes by the schedule's length", () => {
-    const weekly = habit({ createdOn: "2026-09-29", habit: { every: 1, unit: "week" } });
+    const weekly = habit({ createdOn: "2026-09-29", habit: { every: 1, unit: "week", hidden: false } });
     expect(habitRate(weekly, ["2026-10-06"], TODAY, 30)).toEqual({ done: 1, expected: 3 });
-    const everyTwoWeeks = habit({ createdOn: "2026-09-29", habit: { every: 2, unit: "week" } });
+    const everyTwoWeeks = habit({ createdOn: "2026-09-29", habit: { every: 2, unit: "week", hidden: false } });
     expect(habitRate(everyTwoWeeks, [], TODAY, 30)?.expected).toBe(1.5);
-    const monthly = habit({ createdOn: "2026-07-22", habit: { every: 1, unit: "month" } });
+    const monthly = habit({ createdOn: "2026-07-22", habit: { every: 1, unit: "month", hidden: false } });
     expect(habitRate(monthly, [], TODAY, 90)?.expected).toBeCloseTo(90 / 30.44);
   });
   it("gives a habit younger than a round time", () => {
-    const weekly = habit({ createdOn: "2026-10-18", habit: { every: 1, unit: "week" } });
+    const weekly = habit({ createdOn: "2026-10-18", habit: { every: 1, unit: "week", hidden: false } });
     expect(habitRate(weekly, [], TODAY, 30)).toBeNull();
     expect(habitRate(weekly, ["2026-10-19"], TODAY, 30)).toEqual({ done: 1, expected: 1 });
   });
   it("has nothing to say about a habit without a schedule, or one made today", () => {
-    expect(habitRate(habit({ habit: { every: null, unit: "day" } }), [TODAY], TODAY, 30)).toBeNull();
+    expect(habitRate(habit({ habit: { every: null, unit: "day", hidden: false } }), [TODAY], TODAY, 30)).toBeNull();
     expect(habitRate(habit({ createdOn: TODAY }), [], TODAY, 30)).toBeNull();
   });
 });
@@ -53,13 +53,20 @@ describe("consistency", () => {
   it("adds up the habits on a schedule", () => {
     const a = habit({ id: "a" });
     const b = habit({ id: "b" });
-    const none = habit({ id: "c", habit: { every: null, unit: "day" } });
+    const none = habit({ id: "c", habit: { every: null, unit: "day", hidden: false } });
     const done = [press("2026-10-18", a), press("2026-10-19", a), press("2026-10-19", b), press("2026-10-19", none)];
     expect(consistency([a, b, none], done, TODAY)).toEqual({ share: 3 / 18, span: 30 });
   });
   it("looks as far back as the oldest habit allows", () => {
     expect(consistency([habit({ createdOn: "2026-05-01" })], [], TODAY)?.span).toBe(90);
     expect(consistency([habit({ createdOn: "2025-01-01" })], [], TODAY)?.span).toBe(365);
+  });
+  it("leaves out a habit switched off for the Stats page", () => {
+    const kept = habit({ id: "kept" });
+    const off = habit({ id: "off", habit: { every: 1, unit: "day", hidden: true } });
+    const done = [press("2026-10-19", kept), press("2026-10-19", off)];
+    expect(consistency([kept, off], done, TODAY)?.share).toBeCloseTo(1 / 9);
+    expect(consistency([off], done, TODAY)).toBeNull();
   });
   it("is null with nothing to score", () => {
     expect(consistency([statTask()], [], TODAY)).toBeNull();
@@ -75,8 +82,8 @@ describe("habitRows", () => {
   it("puts the best kept first, then those with nothing to score, the most pressed first", () => {
     const good = habit({ id: "good" });
     const poor = habit({ id: "poor" });
-    const free = habit({ id: "free", habit: { every: null, unit: "day" } });
-    const busy = habit({ id: "busy", habit: { every: null, unit: "day" } });
+    const free = habit({ id: "free", habit: { every: null, unit: "day", hidden: false } });
+    const busy = habit({ id: "busy", habit: { every: null, unit: "day", hidden: false } });
     const days = ["2026-10-17", "2026-10-18", "2026-10-19"];
     const done = [...days.map((day) => press(day, good)), press("2026-10-19", poor), press("2026-10-19", free), press("2026-10-18", busy), press("2026-10-19", busy)];
     const rows = habitRows([statTask({ id: "one-off" }), free, poor, busy, good], done, TODAY);
@@ -84,11 +91,25 @@ describe("habitRows", () => {
     expect(rows[0].share).toBeCloseTo(3 / 9);
     expect(rows[2].share).toBeNull();
   });
+  it("keeps a habit switched off for the Stats page, for the box to offer", () => {
+    const off = habit({ habit: { every: 1, unit: "day", hidden: true } });
+    expect(habitRows([off], [], TODAY).map((row) => row.task.habit?.hidden)).toEqual([true]);
+  });
+  it("goes over all the days since the habit was made, however long ago", () => {
+    const old = habit({ createdOn: "2025-10-20" });
+    const [row] = habitRows([old], [press("2025-11-01", old), press("2026-10-19", old)], TODAY);
+    expect(row.share).toBeCloseTo(2 / 365);
+  });
 });
 
 describe("collectStats", () => {
-  const row = (over: Partial<StatRow>): StatRow => ({ id: "t", parentId: null, listId: null, title: "T", startDate: "2026-10-01", deadlineDate: null, deadlineType: null, isComplete: false, completedOn: null, completedAt: null, isPersistent: false, repeatEvery: null, repeatUnit: "day", createdAt: "2026-10-01T10:00:00Z", goalIds: [], tagIds: [], pressDays: [], pressTimes: [], ...over });
+  const row = (over: Partial<StatRow>): StatRow => ({ id: "t", parentId: null, listId: null, title: "T", startDate: "2026-10-01", deadlineDate: null, deadlineType: null, isComplete: false, completedOn: null, completedAt: null, isPersistent: false, repeatEvery: null, repeatUnit: "day", hideInStats: false, createdAt: "2026-10-01T10:00:00Z", goalIds: [], tagIds: [], pressDays: [], pressTimes: [], ...over });
   const lists = [{ id: "shop", kind: "reward" }, { id: "work", kind: "task" }] as List[];
+
+  it("counts the ticks a round took off a subtask again as done on their days", () => {
+    const rows = [row({ id: "habit", listId: "work", isPersistent: true }), row({ id: "step", parentId: "habit", roundTicks: [{ day: "2026-10-05", at: "2026-10-05T10:00:00Z" }] })];
+    expect(collectStats(rows, lists).completions).toMatchObject([{ day: "2026-10-05", task: { id: "step" }, isPress: false }]);
+  });
 
   it("keeps what was bought apart from what was done", () => {
     const rows = [row({ id: "coffee", listId: "shop", isComplete: true, completedOn: "2026-10-10" }), row({ id: "gym", listId: "work", isComplete: true, completedOn: "2026-10-10" })];
@@ -100,7 +121,11 @@ describe("collectStats", () => {
   it("marks a task persistent itself as a habit, not what is under it", () => {
     const rows = [row({ id: "run", listId: "work", isPersistent: true, repeatEvery: 2, repeatUnit: "week" }), row({ id: "shoes", parentId: "run" })];
     const { tasks } = collectStats(rows, lists);
-    expect(tasks.find((task) => task.id === "run")?.habit).toEqual({ every: 2, unit: "week" });
+    expect(tasks.find((task) => task.id === "run")?.habit).toEqual({ every: 2, unit: "week", hidden: false });
     expect(tasks.find((task) => task.id === "shoes")).toMatchObject({ isPersistent: true, habit: null });
+  });
+  it("says when a habit is switched off for the Stats page", () => {
+    const { tasks } = collectStats([row({ id: "run", listId: "work", isPersistent: true, hideInStats: true })], lists);
+    expect(tasks[0].habit?.hidden).toBe(true);
   });
 });

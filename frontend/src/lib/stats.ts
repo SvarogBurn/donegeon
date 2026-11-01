@@ -1,10 +1,10 @@
 import { addDays, daysBetween } from "../../../shared/dates";
-import type { List, PointsSummary, RepeatUnit, StatRow } from "../types";
-import { formatDay, localDay } from "./dates";
+import type { List, RepeatUnit, StatRow } from "../types";
+import { localDay } from "./dates";
 
 // The numbers behind the stats on the Stats page. Everything is worked out
 // in the browser from every task there is (cut down to a small row each, see
-// StatRow) and the points history it already has.
+// StatRow).
 // Reward lists are left out: these are stats about tasks.
 
 /** A task as the stats see it, at any depth. */
@@ -23,8 +23,8 @@ export interface StatTask {
   deadlineKind: "hard" | "soft" | null;
   /** It, or a task above it, is persistent (done again and again). */
   isPersistent: boolean;
-  /** Persistent itself, not only under a persistent task: a habit, with its schedule (`every` null = none). */
-  habit: { every: number | null; unit: RepeatUnit } | null;
+  /** Persistent itself, not only under a persistent task: a habit, with its schedule (`every` null = none), and whether it is switched off for the Stats page. */
+  habit: { every: number | null; unit: RepeatUnit; hidden: boolean } | null;
   /** The moment it was written down, for the time of day. */
   createdAt: Date;
   /** The day it was written down, in the user's calendar. */
@@ -96,7 +96,7 @@ export function collectStats(rows: StatRow[], lists: List[]): { tasks: StatTask[
       deadlineDate: node.deadlineDate,
       deadlineKind: ownKind ?? above?.deadlineKind ?? null,
       isPersistent,
-      habit: node.isPersistent ? { every: node.repeatEvery ?? null, unit: node.repeatUnit } : null,
+      habit: node.isPersistent ? { every: node.repeatEvery ?? null, unit: node.repeatUnit, hidden: node.hideInStats ?? false } : null,
       createdAt,
       createdOn: node.startDate ?? localDay(createdAt),
       completedOn,
@@ -107,6 +107,7 @@ export function collectStats(rows: StatRow[], lists: List[]): { tasks: StatTask[
     if (!isReward) tasks.push(task);
     const done = isReward ? rewards : completions;
     if (completedOn) done.push({ day: completedOn, task, at: node.completedAt ? new Date(node.completedAt) : null, isPress: false });
+    node.roundTicks?.forEach(({ day, at }) => done.push({ day, task, at: new Date(at), isPress: false }));
     node.pressDays.forEach((day, i) => done.push({ day, task, at: node.pressTimes[i] ? new Date(node.pressTimes[i]) : null, isPress: true }));
     for (const child of childrenOf.get(node.id) ?? []) visit(child, root, task, insideFinished || node.isComplete, isReward);
   };
@@ -247,30 +248,6 @@ export function heatLevel(count: number, cap: number) {
   return count <= 0 || cap <= 0 ? 0 : Math.min(4, Math.max(1, Math.ceil((count / cap) * 4)));
 }
 
-export const DAY_PARTS = [
-  { name: "Morning", from: 5, to: 12 },
-  { name: "Afternoon", from: 12, to: 17 },
-  { name: "Evening", from: 17, to: 22 },
-  { name: "Night", from: 22, to: 5 },
-] as const;
-
-/** Which of DAY_PARTS a moment falls in, by the device's clock. */
-export const dayPartOf = (at: Date) => {
-  const hour = at.getHours();
-  return DAY_PARTS.findIndex(({ from, to }) => (from < to ? hour >= from && hour < to : hour >= from || hour < to));
-};
-
-/** How many of `moments` fall in each hour of each weekday (rows Monday to Sunday), by the device's clock. */
-export function hourGrid(moments: Date[]) {
-  const grid = Array.from({ length: 7 }, () => Array<number>(24).fill(0));
-  const parts = DAY_PARTS.map(() => 0);
-  for (const at of moments) {
-    grid[(at.getDay() + 6) % 7][at.getHours()]++;
-    parts[dayPartOf(at)]++;
-  }
-  return { grid, parts, cap: heatCap(grid.flat()), total: moments.length };
-}
-
 export function median(values: number[]): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -348,117 +325,6 @@ export function durationBuckets(days: number[]): Bucket[] {
   return [...buckets, { label: `Over ${last} days`, count: days.filter((d) => d > last).length }];
 }
 
-export type GroupKey = "list" | "goal" | "tag";
-/** The group of tasks that carry no goal (or tag, or sit in no list). */
-export const NO_GROUP = "";
-
-const groupsOf = (task: StatTask, key: GroupKey): string[] => {
-  const ids = key === "list" ? (task.listId ? [task.listId] : []) : key === "goal" ? task.goalIds : task.tagIds;
-  return ids.length > 0 ? ids : [NO_GROUP];
-};
-
-export interface GroupRow {
-  id: string;
-  done: number;
-  /** Tasks and subtasks still to do. */
-  open: number;
-  /** Its settled deadlines (see deadlineOutcomes), and how many of them were met. */
-  due: number;
-  onTime: number;
-  /** Median days from written down to done, over its finished tasks; null = none. */
-  median: number | null;
-}
-
-export const NO_GROUP_ROW: Omit<GroupRow, "id"> = { done: 0, open: 0, due: 0, onTime: 0, median: null };
-
-/**
- * Per list, goal or tag: how much was done, how much is open, how often on time, and how long it
- * took. A task with several goals (or tags) counts under each of them.
- */
-export function groupStats(key: GroupKey, completions: Completion[], finished: StatTask[], outcomes: Outcome[], open: StatTask[]): Map<string, GroupRow> {
-  const work = new Map<string, Omit<GroupRow, "id" | "median"> & { days: number[] }>();
-  const at = (id: string) => {
-    if (!work.has(id)) work.set(id, { done: 0, open: 0, due: 0, onTime: 0, days: [] });
-    return work.get(id)!;
-  };
-  for (const { task } of completions) for (const id of groupsOf(task, key)) at(id).done++;
-  for (const task of open) for (const id of groupsOf(task, key)) at(id).open++;
-  for (const task of finished) for (const id of groupsOf(task, key)) at(id).days.push(turnaround(task));
-  for (const outcome of outcomes) {
-    for (const id of groupsOf(outcome.task, key)) {
-      at(id).due++;
-      if (isOnTime(outcome)) at(id).onTime++;
-    }
-  }
-  return new Map([...work].map(([id, { days, ...counts }]) => [id, { id, ...counts, median: median(days) }]));
-}
-
-export interface SharePeriod {
-  key: string;
-  label: string;
-  /** Things done in the period, each counted once. */
-  total: number;
-  /** Done per group id. */
-  parts: Map<string, number>;
-}
-
-// Few enough rows to take in at a glance.
-const MAX_PERIODS = 6;
-
-/**
- * What was done per day, week or month (whichever suits the span), split by
- * list, goal or tag: the newest periods, oldest first, empty ones included.
- */
-export function shareOverTime(key: GroupKey, completions: Completion[], from: string | null, today: string) {
-  const first = from ?? completions.reduce((min, c) => (c.day < min ? c.day : min), today);
-  const span = Math.max(0, daysBetween(first, today)) + 1;
-  // A week of days at most, then weeks, then months: the rows never pile up.
-  const unit = span <= 7 ? "day" : span <= 7 * MAX_PERIODS ? "week" : "month";
-  const periodOf = (day: string) => (unit === "day" ? day : unit === "week" ? addDays(day, -weekdayIndex(day)) : day.slice(0, 7));
-  const labelOf = (period: string) => (unit === "month" ? `${period.slice(5)}/${period.slice(2, 4)}` : formatDay(period));
-
-  const periods = new Map<string, SharePeriod>();
-  for (let day = first; day <= today; day = addDays(day, 1)) {
-    const period = periodOf(day);
-    if (!periods.has(period)) periods.set(period, { key: period, label: labelOf(period), total: 0, parts: new Map() });
-  }
-  for (const { day, task } of completions) {
-    const period = periods.get(periodOf(day));
-    if (!period) continue;
-    period.total++;
-    for (const id of groupsOf(task, key)) period.parts.set(id, (period.parts.get(id) ?? 0) + 1);
-  }
-  return { unit, periods: [...periods.values()].slice(-MAX_PERIODS) };
-}
-
-/**
- * The balance at the end of each day, from the first day in the points history
- * (or `from`, if later) to today. The history holds the newest rows only, so
- * it is counted back from the balance of now.
- */
-export function balanceSeries(points: PointsSummary, from: string | null, today: string): { day: string; balance: number }[] {
-  const rows = [...points.transactions].reverse();
-  if (rows.length === 0) return [];
-  const opening = points.balance - rows.reduce((sum, row) => sum + row.amount, 0);
-  let balance = opening;
-  const firstDay = localDay(new Date(rows[0].createdAt));
-  const lastDay = localDay(new Date(rows.at(-1)!.createdAt));
-  const closing = new Map<string, number>();
-  for (const row of rows) {
-    balance += row.amount;
-    closing.set(localDay(new Date(row.createdAt)), balance);
-  }
-
-  const series: { day: string; balance: number }[] = [];
-  let running = opening;
-  const end = lastDay > today ? lastDay : today;
-  for (let day = firstDay; day <= end; day = addDays(day, 1)) {
-    running = closing.get(day) ?? running;
-    if (!from || day >= from) series.push({ day, balance: running });
-  }
-  return series;
-}
-
 export interface FlowWeek {
   /** The Monday the week starts on. */
   monday: string;
@@ -508,19 +374,4 @@ export function flowOver(tasks: StatTask[], today: string, span: number) {
     open: oneOff.filter((task) => openAt(task, today)),
     openBefore: oneOff.filter((task) => openAt(task, addDays(from, -1))).length,
   };
-}
-
-/**
- * Points earned and spent in the history's rows from `from` on. A reversal takes back what it cancels:
- * a negative one an earning, a positive one a spending.
- */
-export function pointsFlow(points: PointsSummary, from: string | null) {
-  let earned = 0;
-  let spent = 0;
-  for (const row of points.transactions) {
-    if (from && localDay(new Date(row.createdAt)) < from) continue;
-    if (row.type === "earned" || (row.type === "reversal" && row.amount < 0)) earned += row.amount;
-    else spent -= row.amount;
-  }
-  return { earned, spent };
 }

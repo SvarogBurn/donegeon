@@ -9,8 +9,8 @@ import { placeAmongSiblings, placeInWeek } from "./ordering.service.js";
 import { assertOwnLabels, ownList, ownTask } from "./ownership.js";
 import { bookTick, reverseTaskBooking } from "./points.service.js";
 import { progressDays } from "./taskRead.service.js";
-import { assertDeadlineDepth, assertNoDeadlineIfPersistent, MAX_DEADLINE_DEPTH, taskPatchData } from "./taskRules.js";
-import { completionPatch, countedIds, findDepth, findSubtree } from "./taskTree.service.js";
+import { assertDeadlineDepth, assertNoDeadlineIfPersistent, assertNoNewDeadlineInRound, MAX_DEADLINE_DEPTH, taskPatchData } from "./taskRules.js";
+import { completionPatch, countedIds, findDepth, findSubtree, persistentAtOrAbove } from "./taskTree.service.js";
 
 /** When a change was made, as the device saw it, and on which of the user's days. */
 interface Moment {
@@ -31,7 +31,10 @@ export async function createTask(owner: string, input: TaskInput, { today, at }:
 
   if (parentId && listId) throw new HttpError(400, "A task goes either in a list or under a parent task");
   if (parentId) await ownTask(owner, parentId);
-  if (parentId && input.deadlineDate) assertDeadlineDepth((await findDepth(prisma, parentId)) + 1);
+  if (parentId && input.deadlineDate) {
+    assertDeadlineDepth((await findDepth(prisma, parentId)) + 1);
+    assertNoNewDeadlineInRound(await persistentAtOrAbove(prisma, parentId));
+  }
   const isPersistent = Boolean(input.isPersistent || input.repeatEvery);
   assertNoDeadlineIfPersistent(isPersistent, input.deadlineDate);
   if (listId) await ownList(owner, listId);
@@ -75,6 +78,7 @@ export async function createTask(owner: string, input: TaskInput, { today, at }:
 export async function updateTask(task: Task, input: TaskPatch, today: string) {
   await assertOwnLabels(task.userId, input.goalIds, input.tagIds);
   if (input.deadlineDate) assertDeadlineDepth(await findDepth(prisma, task.id));
+  if (input.deadlineDate && !task.deadlineDate && task.parentId) assertNoNewDeadlineInRound(await persistentAtOrAbove(prisma, task.parentId));
   const data = taskPatchData(task, input, today);
   return prisma.$transaction(async (tx) => {
     const changed = await tx.task.update({ where: { id: task.id }, data });

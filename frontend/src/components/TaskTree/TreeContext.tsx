@@ -5,6 +5,7 @@ import { useDeleteList } from "../../hooks/lists";
 import { useDeleteTask, usePressTask, useToggleTask, useUndoPress } from "../../hooks/tasks";
 import { NO_FILTER, type LabelFilter } from "../../lib/labels";
 import { newId } from "../../lib/offline/changes";
+import { isInRound } from "../../lib/recent";
 import { playSound } from "../../lib/sounds";
 import type { List, TaskTreeNode, TickedTasks } from "../../types";
 import { DragStore, type DragState } from "./dragState";
@@ -67,6 +68,8 @@ interface TreeContextValue {
    * page, or any task when ticked ones are hidden) offers the undo, so a slip doesn't mean a trip there.
    */
   tick: (node: TaskTreeNode) => void;
+  /** Whether it sits, at any depth, under a persistent task. */
+  inRound: (node: TaskTreeNode) => boolean;
   /** This task was just ticked or pressed: its checkbox or button waits a moment, so a double click counts once. */
   isBusy: (id: string) => boolean;
   /** One press of a persistent task's "done it" button; undoable. */
@@ -198,6 +201,8 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
     [forgetPress, undoPress],
   );
 
+  const inRound = useCallback((node: TaskTreeNode) => isInRound(node, byId), [byId]);
+
   const draftPlacement = useCallback((): TaskPlacement => {
     if (!draft) return { parentId: null, listId: null, index: 0 };
     const siblings = siblingsIn(tasks, byId, { parentId: draft.parentId, listId: draft.listId, inWeek: Boolean(draft.weekDay) });
@@ -224,6 +229,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       deleteTask,
       deleteList,
       tick,
+      inRound,
       isBusy,
       pressTask,
       takeBackPress,
@@ -234,7 +240,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       closeNote,
       error,
     }),
-    [draft, draftText, draftPlacement, newTaskLabels, rootId, ticked, byDeadline, drag, startDrag, moveBy, deleteTask, deleteList, tick, isBusy, pressTask, takeBackPress, undoable, undo, openNote, showNote, closeNote, error],
+    [draft, draftText, draftPlacement, newTaskLabels, rootId, ticked, byDeadline, drag, startDrag, moveBy, deleteTask, deleteList, tick, inRound, isBusy, pressTask, takeBackPress, undoable, undo, openNote, showNote, closeNote, error],
   );
   // A deleted task takes its note along.
   const noteNode = openNote ? byId.get(openNote.id) : undefined;

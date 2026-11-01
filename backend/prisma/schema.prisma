@@ -147,6 +147,7 @@ model User {
   folders           Folder[]
   pointTransactions PointTransaction[]
   taskCompletions   TaskCompletion[]
+  roundTicks        RoundTick[]
   feedback          Feedback[]
   stories           Story[]
   notes             Note[]
@@ -215,6 +216,8 @@ model Task {
   weekPosition Int           @default(0)
   // Top-level tasks only. Done again and again: never complete, each press is a TaskCompletion.
   isPersistent Boolean       @default(false)
+  /// A persistent task left out of the Stats page's Habits box and the Consistency stat.
+  hideInStats  Boolean       @default(false)
   // A persistent task on a schedule: due again every repeatEvery units. Null = no schedule, done whenever.
   repeatEvery     Int?
   repeatUnit      RepeatUnit    @default(week)
@@ -244,6 +247,7 @@ model Task {
   tags              Tag[]
   list              List?              @relation(fields: [listId], references: [id], onDelete: Cascade)
   completions       TaskCompletion[]
+  roundTicks        RoundTick[]
   pointTransactions PointTransaction[]
   hits              Hit[]
 
@@ -332,10 +336,33 @@ model TaskCompletion {
   dueBefore          String?
   createdAt          DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task       Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  roundTicks RoundTick[]
 
   @@index([taskId])
+}
+
+// A tick of a persistent task's subtask that the next round took off the task. It stays done: it still counts as exp and
+// in the stats, and its points stay paid, so the same subtask pays again next round and an untick there leaves this one
+// alone. Undoing the press removes it (the tick is back on the task). No completionId: a round the Skip rule dropped.
+model RoundTick {
+  id                 String   @id @default(uuid())
+  userId             String
+  taskId             String
+  day                String
+  at                 DateTime
+  // The points the tick booked, if any.
+  pointTransactionId String?
+  completionId       String?
+
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task       Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  completion TaskCompletion? @relation(fields: [completionId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, at])
+  @@index([userId])
+  @@index([completionId])
 }
 
 // A deadline or a round of a schedule missed, and the health it cost the character (see shared/health.ts). Written

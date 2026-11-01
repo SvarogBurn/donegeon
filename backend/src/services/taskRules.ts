@@ -8,6 +8,7 @@ export const MAX_DEADLINE_DEPTH = 1;
 
 const DEADLINE_TOO_DEEP = "Deadlines can only be set on main tasks and their direct subtasks";
 const PERSISTENT_DEADLINE = "A persistent task is never finished, so it can't have a deadline. Remove one or the other.";
+const DEADLINE_IN_ROUND = "A subtask of a persistent task repeats with it, so it can't have a deadline.";
 
 /** A deadline on a task this deep (0 = a main task) is refused. */
 export function assertDeadlineDepth(depth: number) {
@@ -17,6 +18,11 @@ export function assertDeadlineDepth(depth: number) {
 /** A task done again and again is never finished, so a deadline means nothing on it. */
 export function assertNoDeadlineIfPersistent(isPersistent: boolean, deadlineDate: string | null | undefined) {
   if (isPersistent && deadlineDate) throw new HttpError(400, PERSISTENT_DEADLINE);
+}
+
+/** A press unticks what is under a persistent task, so a date on it would pass as missed however it was done. One it has already can stay, or move. */
+export function assertNoNewDeadlineInRound(inRound: boolean) {
+  if (inRound) throw new HttpError(400, DEADLINE_IN_ROUND);
 }
 
 type Current = Pick<
@@ -47,6 +53,7 @@ export function taskPatchData(task: Current, input: TaskPatch, today: string): P
     if (task.parentId) throw new HttpError(400, "Only a main task can hand its points down to its subtasks");
     data.pointsToSubtasks = input.pointsToSubtasks;
   }
+  if (input.hideInStats !== undefined) data.hideInStats = input.hideInStats;
 
   // A task without a list lives in Today or in Week, so it can't leave the last of them.
   const inNoList = !task.parentId && !task.listId;

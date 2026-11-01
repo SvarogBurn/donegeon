@@ -54,12 +54,18 @@ export function useCombinedCountdown() {
 export const useCountdown = (taskId: string, enabled = true) =>
   useQuery({ queryKey: [...COUNTDOWN, taskId], queryFn: () => tasksApi.getCountdown(taskId), retry: false, enabled });
 
-/** How deep a task under `parentId` sits: 0 for a main task. A parent that isn't among the loaded trees counts as a main task. */
+/** The days a persistent task was pressed on; with the trees' key in front, so a press brings them up to date. */
+export const useTaskPresses = (taskId: string) => useQuery({ queryKey: [...TASKS, "presses", taskId], queryFn: () => tasksApi.getPressDays(taskId) });
+
+/**
+ * How deep a task under `parentId` sits: 0 for a main task. A parent that isn't among the loaded trees counts as a main
+ * task. A persistent parent counts a level more: what is under it takes no deadline, as what sits too deep doesn't.
+ */
 function depthUnder(trees: TaskTreeNode[], parentId: string | null | undefined) {
   if (!parentId) return 0;
   const find = (nodes: TaskTreeNode[], depth: number): number | null => {
     for (const node of nodes) {
-      const found = node.id === parentId ? depth : find(node.children, depth + 1);
+      const found = node.id === parentId ? depth + (node.isPersistent ? 1 : 0) : find(node.children, depth + 1);
       if (found !== null) return found;
     }
     return null;

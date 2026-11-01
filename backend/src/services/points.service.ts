@@ -133,15 +133,32 @@ export async function reverseBooking(tx: Prisma.TransactionClient, row: PointTra
 
 /**
  * What ticking the task booked and no untick has taken back yet; null = nothing. Presses of a persistent
- * task are booked separately and don't count here.
+ * task are booked separately and don't count here, nor do the ticks of rounds gone by (keepRoundTicks).
  */
 export async function openTickBooking(tx: Prisma.TransactionClient, taskId: string) {
-  const [rows, presses] = await Promise.all([
+  const [rows, presses, kept] = await Promise.all([
     tx.pointTransaction.findMany({ where: { relatedTaskId: taskId } }),
     tx.taskCompletion.findMany({ where: { taskId }, select: { pointTransactionId: true } }),
+    tx.roundTick.findMany({ where: { taskId }, select: { pointTransactionId: true } }),
   ]);
-  const pressed = new Set(presses.map((press) => press.pointTransactionId));
-  return openBooking(rows.filter((row) => !pressed.has(row.id)));
+  const closed = new Set([...presses, ...kept].map((row) => row.pointTransactionId));
+  return openBooking(rows.filter((row) => !closed.has(row.id)));
+}
+
+/**
+ * Ticks the next round is about to take off a persistent task's subtasks, kept as done: they still count as exp and
+ * in the stats, and their points stay paid, so the subtask pays again next round and an untick there leaves these
+ * alone. `completionId`: the press doing it, whose undo takes them away again; none for a round the Skip rule dropped.
+ * Kept once however many reads see the same tick.
+ */
+export async function keepRoundTicks(tx: Prisma.TransactionClient, userId: string, ticks: { id: string; completedAt: Date; completedOn: string }[], completionId?: string) {
+  if (ticks.length === 0) return;
+  const data: Prisma.RoundTickCreateManyInput[] = [];
+  for (const { id, completedAt, completedOn } of ticks) {
+    const booked = await openTickBooking(tx, id);
+    data.push({ userId, taskId: id, day: completedOn, at: completedAt, completionId, pointTransactionId: booked?.id });
+  }
+  await tx.roundTick.createMany({ data, skipDuplicates: true });
 }
 
 /**

@@ -94,6 +94,80 @@ describe("pressing a persistent task", () => {
     expect((await call("GET", `/tasks/${weekly.id}`)).body.task.nextDue).toBe(TODAY);
     expect((await call("DELETE", `/tasks/${weekly.id}/completions/${press.body.completion.id}`)).status).toBe(204);
   });
+
+  /** A weekly task worth nothing itself, with a subtask worth 5. */
+  async function withStep() {
+    const made = await user();
+    const weekly = (await made.call("POST", "/tasks", { title: "Weekly", listId: made.listId, points: 0, repeatEvery: 1, repeatUnit: "week", nextDue: TODAY })).body.task;
+    const step = (await made.call("POST", "/tasks", { title: "Step", parentId: weekly.id, points: 5 })).body.task;
+    const tick = (done: boolean, day = TODAY) => made.call("PATCH", `/tasks/${step.id}/toggle`, { done }, day);
+    const press = (day = TODAY) => made.call("POST", `/tasks/${weekly.id}/completions`, { id: crypto.randomUUID() }, day);
+    const balance = async () => (await made.call("GET", "/points")).body.balance as number;
+    return { ...made, weekly, step, tick, press, balance };
+  }
+
+  it("a subtask pays every round; an untick takes back that round's points only", async () => {
+    const { tick, press, balance } = await withStep();
+    await tick(true);
+    expect(await balance()).toBe(5);
+    await press();
+
+    await tick(true, "2026-10-27");
+    expect(await balance()).toBe(10);
+    await tick(false, "2026-10-27");
+    expect(await balance()).toBe(5);
+    await tick(true, "2026-10-27");
+    expect(await balance()).toBe(10);
+  });
+
+  it("an undone press gives the tick back whole: an untick then takes its points back", async () => {
+    const { call, weekly, tick, press, balance } = await withStep();
+    await tick(true);
+    const { completion } = (await press()).body;
+    await call("DELETE", `/tasks/${weekly.id}/completions/${completion.id}`);
+    expect(await prisma.roundTick.count({ where: { completionId: completion.id } })).toBe(0);
+    await tick(false);
+    expect(await balance()).toBe(0);
+  });
+
+  it("a tick stays done after the press: in the exp, the stats and the day's count", async () => {
+    const { call, step, tick, press } = await withStep();
+    await tick(true);
+    const { doneToday } = (await press()).body;
+    expect(doneToday).toBe(2);
+    expect((await call("GET", "/tasks/progress")).body.days).toEqual([{ day: TODAY, count: 2 }]);
+    const { tasks } = (await call("GET", "/tasks/stats")).body;
+    expect(tasks.find((task: { id: string }) => task.id === step.id).roundTicks).toMatchObject([{ day: TODAY }]);
+  });
+
+  it("a round the Skip rule dropped keeps its tick as a press does, and the subtask pays again", async () => {
+    const { call, step, tick, balance } = await withStep();
+    await tick(true);
+    const later = "2026-11-03";
+    const tree = (await call("GET", "/tasks", undefined, later)).body.tasks;
+    expect(tree[0].children[0].isComplete).toBe(false);
+    await call("GET", "/tasks", undefined, later);
+    expect(await prisma.roundTick.count({ where: { taskId: step.id } })).toBe(1);
+    await tick(true, later);
+    expect(await balance()).toBe(10);
+  });
+
+  it("gives the days it was pressed on", async () => {
+    const { call, weekly, press } = await withStep();
+    await press();
+    await press("2026-10-27");
+    expect((await call("GET", `/tasks/${weekly.id}/completions`)).body.days).toEqual([TODAY, "2026-10-27"]);
+  });
+
+  it("refuses a new deadline under a persistent task; one it has from before can move, or go", async () => {
+    const { call, weekly, step } = await withStep();
+    expect((await call("POST", "/tasks", { title: "Dated", parentId: weekly.id, deadlineDate: "2026-11-01" })).status).toBe(400);
+    expect((await call("PATCH", `/tasks/${step.id}`, { deadlineDate: "2026-11-01" })).status).toBe(400);
+
+    await prisma.task.update({ where: { id: step.id }, data: { deadlineDate: "2026-11-01", deadlineType: "soft" } });
+    expect((await call("PATCH", `/tasks/${step.id}`, { deadlineDate: "2026-11-02" })).status).toBe(200);
+    expect((await call("PATCH", `/tasks/${step.id}`, { deadlineDate: null })).status).toBe(200);
+  });
 });
 
 describe("progress", () => {
@@ -117,6 +191,17 @@ describe("progress", () => {
     await call("DELETE", `/tasks/${gone.id}`);
 
     expect((await call("GET", "/tasks/progress")).body).toEqual({ days: [{ day: TODAY, count: 4 }] });
+  });
+});
+
+describe("a habit's place on the Stats page", () => {
+  it("is on until it is switched off, and the stats say so", async () => {
+    const { call, listId } = await user();
+    const habit = (await call("POST", "/tasks", { title: "Habit", listId, isPersistent: true })).body.task;
+    const row = async () => (await call("GET", "/tasks/stats")).body.tasks.find((other: { id: string }) => other.id === habit.id);
+    expect((await row()).hideInStats).toBe(false);
+    expect((await call("PATCH", `/tasks/${habit.id}`, { hideInStats: true })).status).toBe(200);
+    expect((await row()).hideInStats).toBe(true);
   });
 });
 

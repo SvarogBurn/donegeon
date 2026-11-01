@@ -173,6 +173,8 @@ export interface Task {
   points: number | null;
   /** Top-level tasks only: subtasks without their own amount are worth what this task is. */
   pointsToSubtasks: boolean;
+  /** A habit left out of the Stats page's Habits box and the Consistency stat. */
+  hideInStats: boolean;
   /** The day it was marked for Today; null = not in Today. */
   todaySince: string | null;
   /** The day of the Week box it is planned for; null = not in it. */
@@ -270,6 +272,7 @@ export type StatRow = Pick<
   | "isPersistent"
   | "repeatEvery"
   | "repeatUnit"
+  | "hideInStats"
   | "createdAt"
   | "goalIds"
   | "tagIds"
@@ -280,6 +283,8 @@ export type StatRow = Pick<
   pressDays: string[];
   /** The moment of each of those presses, in the same order. */
   pressTimes: string[];
+  /** The ticks of rounds gone by, taken off a persistent task's subtask by the next round: still done. */
+  roundTicks?: { day: string; at: string }[];
 };
 
 export interface CountdownRow extends Pace {

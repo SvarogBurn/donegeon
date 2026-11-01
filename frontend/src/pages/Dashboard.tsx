@@ -15,7 +15,7 @@ import { TileGrid, type Tile } from "../components/Tiles/TileGrid";
 import { TreeProvider } from "../components/TaskTree/TreeContext";
 import { TreeError, UndoBar } from "../components/TaskTree/TreeStatus";
 import { TodayBox } from "../components/Today/TodayBox";
-import { useMe, usePointsOff, useTickedTasks } from "../hooks/useAuth";
+import { useMe, useTickedTasks } from "../hooks/useAuth";
 import { useDropOnTab, useFolders, useUpdateFolder } from "../hooks/folders";
 import { useCreateGoal, useCreateTag, useDeleteGoal, useDeleteTag, useGoals, useTags } from "../hooks/labels";
 import { useLayout, useSaveLayout } from "../hooks/layout";
@@ -64,7 +64,6 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   const layout = useLayout();
   const saveLayout = useSaveLayout();
   const ticked = useTickedTasks();
-  const pointsOff = usePointsOff();
   const isDev = useMe().user?.isDev;
   // Only a folder's page shows notes: those dropped on its tab.
   const notes = useNotes();
@@ -122,7 +121,7 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
     const cal = calOfView(view);
     if (cal !== null) return cal in CAL_BOXES ? [{ key: view, view, name: CAL_BOXES[cal], label: CAL_BOXES[cal], node: <CalBoxView name={cal} /> }] : [];
     const stat = statOfView(view);
-    if (stat !== null) return stat in STAT_BOXES && !(pointsOff && stat === "points") ? [{ key: view, view, name: STAT_BOXES[stat], label: STAT_BOXES[stat], node: <StatBoxView name={stat} /> }] : [];
+    if (stat !== null) return stat in STAT_BOXES ? [{ key: view, view, name: STAT_BOXES[stat], label: STAT_BOXES[stat], node: <StatBoxView name={stat} /> }] : [];
     const user = userOfView(view);
     if (user === null || !(user in USER_BOXES) || (user === "inbox" && !isDev)) return [];
     // Its picked colour is the user page's box's, kept under its name there.

@@ -42,6 +42,11 @@ describe("passedDeadlines", () => {
     expect(passed[0].key).toBe("part:2026-10-18");
   });
 
+  it("skips a deadline under a persistent task: a press unticks it, so it would look missed however it was done", () => {
+    const habit = node("habit", { isPersistent: true, children: [node("step", { deadlineDate: "2026-10-01" })] });
+    expect(passedDeadlines([habit], "2026-10-29")).toEqual([]);
+  });
+
   it("skips what a finished main task took to the Done page", () => {
     const trees = [node("m", { isComplete: true, deadlineDate: "2026-10-01", children: [node("s", { deadlineDate: "2026-10-01" })] })];
     expect(passedDeadlines(trees, today)).toEqual([]);

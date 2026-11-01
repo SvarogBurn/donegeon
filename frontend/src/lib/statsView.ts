@@ -1,21 +1,7 @@
 import { addDays, daysBetween } from "../../../shared/dates";
-import type { Folder, Goal, List, Tag } from "../types";
+import type { Folder } from "../types";
 import { listOfView } from "./folders";
-import {
-  NO_GROUP,
-  NO_GROUP_ROW,
-  deadlineOutcomes,
-  groupStats,
-  matchesFilter,
-  rangeStart,
-  shareOverTime,
-  type Completion,
-  type GroupKey,
-  type GroupRow,
-  type Outcome,
-  type StatFilter,
-  type StatTask,
-} from "./stats";
+import { deadlineOutcomes, matchesFilter, rangeStart, type Completion, type Outcome, type StatFilter, type StatTask } from "./stats";
 
 /**
  * What every box of the stats starts from: the tasks and completions the filter lets through, and the few cuts of
@@ -33,13 +19,8 @@ export interface StatsView {
   doneInRange: Completion[];
   /** One-off tasks ticked off in the range: the ones with a time to finish. */
   finished: StatTask[];
-  /** Tasks written down in the range. */
-  written: StatTask[];
-  /** What is still to do, the longest waiting first. */
-  open: StatTask[];
   /** Days since a task was written down. */
   age: (task: StatTask) => number;
-  outcomes: Outcome[];
   /** Deadlines met or missed in the range. */
   settled: Outcome[];
 }
@@ -62,10 +43,7 @@ export function statsView(all: { tasks: StatTask[]; completions: Completion[] },
     done,
     doneInRange: done.filter(({ day }) => inRange(day)),
     finished: tasks.filter((task) => task.completedOn && !task.isPersistent && inRange(task.completedOn)),
-    written: tasks.filter((task) => inRange(task.createdOn)),
-    open: tasks.filter((task) => task.isOpen).sort((a, b) => age(b) - age(a)),
     age,
-    outcomes,
     settled: outcomes.filter(({ day }) => inRange(day)),
   };
 }
@@ -78,59 +56,4 @@ export function doneKinds(done: Completion[], today: string) {
     subtasks: last30.filter((c) => !c.isPress && !c.task.isRoot).length,
     repeats: last30.filter((c) => c.isPress).length,
   };
-}
-
-/** The lists (task lists only), goals or tags the "By …" box has a row for. */
-export const groupItems = (key: GroupKey, lists: List[], goals: Goal[], tags: Tag[]): { id: string; name: string }[] =>
-  key === "list" ? lists.filter((list) => list.kind === "task") : key === "goal" ? goals : tags;
-
-/**
- * The rows of the "By …" box: one per list, goal or tag, plus `noneName` for what has none (when there is any), the
- * most done first.
- */
-export function groupTable(key: GroupKey, view: StatsView, items: { id: string; name: string }[], noneName: string): (GroupRow & { name: string })[] {
-  const groups = groupStats(key, view.doneInRange, view.finished, view.settled, view.open);
-  return [...items, ...(groups.has(NO_GROUP) ? [{ id: NO_GROUP, name: noneName }] : [])]
-    .map((item) => ({ name: item.name, ...(groups.get(item.id) ?? { id: item.id, ...NO_GROUP_ROW }) }))
-    .sort((a, b) => b.done - a.done);
-}
-
-/** One part of a share bar: a list, goal or tag (or "Other", or none), its colour and how much was done in it. */
-export interface ShareSegment {
-  id: string;
-  name: string;
-  color: string;
-  count: number;
-}
-
-/** How many lists, goals or tags get a colour of their own (--series-1 to 7); the rest share one as "Other". */
-const SERIES = 7;
-
-/**
- * The share bars of the "By …" box: per week or month, how what was done splits over the lists, goals or tags. A
- * colour belongs to the list, goal or tag itself (its place among all of them), so filtering never repaints it.
- */
-export function shareBars(key: GroupKey, view: StatsView, items: { id: string; name: string }[], noneName: string) {
-  const segmentOf = (id: string): Omit<ShareSegment, "count"> => {
-    if (id === NO_GROUP) return { id, name: noneName, color: "var(--series-none)" };
-    const index = items.findIndex((item) => item.id === id);
-    if (index === -1 || index >= SERIES) return { id: "other", name: "Other", color: "var(--series-other)" };
-    return { id, name: items[index].name, color: `var(--series-${index + 1})` };
-  };
-  const share = shareOverTime(key, view.doneInRange, view.from, view.today);
-  const order = [...items.map((item) => item.id), NO_GROUP];
-  // "Other" and the group without a label go last.
-  const last = (segment: ShareSegment) => (segment.id === NO_GROUP ? 2 : segment.id === "other" ? 1 : 0);
-  const periods = share.periods.map((period) => {
-    const segments = new Map<string, ShareSegment>();
-    for (const id of order) {
-      const count = period.parts.get(id);
-      if (!count) continue;
-      const segment = segmentOf(id);
-      segments.set(segment.id, { ...segment, count: (segments.get(segment.id)?.count ?? 0) + count });
-    }
-    return { ...period, segments: [...segments.values()].sort((a, b) => last(a) - last(b)) };
-  });
-  const legend = [...new Map(periods.flatMap((period) => period.segments).map((s) => [s.id, s])).values()];
-  return { unit: share.unit, periods, legend };
 }

@@ -103,11 +103,12 @@ describe("openBooking", () => {
 });
 
 describe("bookTick", () => {
-  /** Just enough of a transaction to read a task's ledger rows and presses. Booking anything new would need more, and throw. */
-  const ledger = (rows: object[], presses: object[] = []) =>
+  /** Just enough of a transaction to read a task's ledger rows, presses and kept ticks. Booking anything new would need more, and throw. */
+  const ledger = (rows: object[], presses: object[] = [], kept: object[] = []) =>
     ({
       pointTransaction: { findMany: async () => rows },
       taskCompletion: { findMany: async () => presses },
+      roundTick: { findMany: async () => kept },
     }) as unknown as Prisma.TransactionClient;
   const task = { id: "t", userId: "u", parentId: null } as Task;
   const earned = { id: "e", type: "earned", amount: 5, reversesId: null, createdAt: new Date() };
@@ -123,5 +124,9 @@ describe("bookTick", () => {
 
   it("doesn't count a press of a persistent task as a tick", async () => {
     await expect(bookTick(ledger([earned], [{ pointTransactionId: "e" }]), task)).rejects.toThrow();
+  });
+
+  it("pays again for a tick of a new round: the last round's stays paid", async () => {
+    await expect(bookTick(ledger([earned], [], [{ pointTransactionId: "e" }]), task)).rejects.toThrow();
   });
 });

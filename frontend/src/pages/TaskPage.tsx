@@ -3,6 +3,8 @@ import { Link, Navigate, useParams } from "react-router";
 import { CountdownTable } from "../components/Countdown/CountdownTable";
 import { DeadlineColors } from "../components/Countdown/DeadlineColors";
 import { DeadlineFields } from "../components/TaskTree/DeadlineFields";
+import { Repeat } from "../components/TaskTree/TaskMenu";
+import { RoundsBox } from "../components/TaskTree/RoundsBox";
 import { TaskForm } from "../components/TaskTree/TaskForm";
 import { NoteFrame, NoteView } from "../components/TaskTree/NoteView";
 import { TaskTree } from "../components/TaskTree/TaskNode";
@@ -14,10 +16,11 @@ import { hasDeadlinePage } from "../lib/taskPage";
 import type { TaskTreeNode } from "../types";
 import { RichText } from "../components/RichText";
 
-function findNode(nodes: TaskTreeNode[], id: string, depth = 0): { node: TaskTreeNode; depth: number } | null {
+/** `inRound`: it sits under a persistent task. */
+function findNode(nodes: TaskTreeNode[], id: string, depth = 0, inRound = false): { node: TaskTreeNode; depth: number; inRound: boolean } | null {
   for (const node of nodes) {
-    if (node.id === id) return { node, depth };
-    const found = findNode(node.children, id, depth + 1);
+    if (node.id === id) return { node, depth, inRound };
+    const found = findNode(node.children, id, depth + 1, inRound || node.isPersistent);
     if (found) return found;
   }
   return null;
@@ -29,7 +32,7 @@ export function CountdownRedirect() {
   return <Navigate to={`/tasks/${taskId}`} replace />;
 }
 
-/** A task's own page (see hasTaskPage, and hasDeadlinePage from the deadline boxes): its note and countdown table beside its tree. */
+/** A task's own page (see hasTaskPage, and hasDeadlinePage from the deadline boxes): its note and countdown table, or a persistent task's rounds, beside its tree. */
 export function TaskPage() {
   const { taskId = "" } = useParams();
   const tasks = useTaskTrees();
@@ -37,7 +40,9 @@ export function TaskPage() {
   // A failed refetch leaves the old table cached, so trust the task itself for whether a countdown exists.
   const hasHardDeadline = found?.node.deadlineType === "hard" && Boolean(found.node.deadlineDate);
   const countdown = useCountdown(taskId, hasHardDeadline);
-  const canHaveDeadline = (found?.depth ?? 0) <= 1;
+  const isHabit = found?.node.isPersistent ?? false;
+  // Under a persistent task a deadline it has from before can still be taken off.
+  const canHaveDeadline = (found?.depth ?? 0) <= 1 && !isHabit && (!found?.inRound || Boolean(found.node.deadlineDate));
   const table = hasHardDeadline ? countdown.data : undefined;
   // Decided once, on arrival: switching to soft or deleting a subtask here shouldn't throw you off the page mid-edit.
   const allowed = useRef<{ taskId: string; ok: boolean } | null>(null);
@@ -69,8 +74,15 @@ export function TaskPage() {
 
             {/* On a wide screen the countdown is on the left with the note under it, the tasks on the right; narrow, the note comes last. */}
             <div className="grid items-start gap-4 lg:grid-cols-2 lg:grid-rows-[auto_1fr]">
-              <section aria-label="Countdown" className="min-w-0">
-                {table ? (
+              <section aria-label={isHabit ? "Rounds" : "Countdown"} className="min-w-0 space-y-4">
+                {isHabit ? (
+                  <>
+                    <RoundsBox node={found.node} />
+                    <div className="card" data-task-page-repeat>
+                      <Repeat node={found.node} />
+                    </div>
+                  </>
+                ) : table ? (
                   <CountdownTable countdown={table} />
                 ) : !hasHardDeadline ? (
                   <p className="card text-sm text-stone-500">
@@ -78,6 +90,8 @@ export function TaskPage() {
                       ? "Soft deadlines have no countdown table. Make it hard above to get its day-by-day table."
                       : canHaveDeadline
                       ? "No countdown yet. Give this task a hard deadline above to get its day-by-day table."
+                      : found.inRound
+                      ? "No countdown: a subtask of a persistent task repeats with it, so it has no deadline."
                       : "No countdown: deadlines go on main tasks and their direct subtasks."}
                   </p>
                 ) : countdown.error ? (

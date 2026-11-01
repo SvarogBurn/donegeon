@@ -4,7 +4,7 @@ import { addDays, mondayOf } from "../../../shared/dates.js";
 import { prisma } from "../lib/prisma.js";
 import { countdownForTask, todayPace } from "./countdown.service.js";
 import { recordHits } from "./health.service.js";
-import { subtaskValue, taskValue } from "./points.service.js";
+import { keepRoundTicks, subtaskValue, taskValue } from "./points.service.js";
 import { staleRoundTicks } from "./repeat.service.js";
 import { ancestorsOf, buildTree, wholeTreeIds, withFinishedRoots } from "./taskTree.service.js";
 
@@ -74,14 +74,18 @@ async function asTrees(owner: string, tasks: TreeRow[], today: string) {
 
 /**
  * Subtasks of a persistent task still ticked from a round the Skip rule dropped start this one unticked, as a press
- * would have left them; their points stay, as after a press. Done when the trees are read, because only the user's
- * day says which rounds were dropped: a read that writes, on purpose.
+ * would have left them; they stay done and their points stay, as after a press (keepRoundTicks). Done when the trees
+ * are read, because only the user's day says which rounds were dropped: a read that writes, on purpose.
  */
 async function clearStaleRoundTicks(owner: string, tasks: TreeRow[], today: string): Promise<TreeRow[]> {
   const stale = new Set(staleRoundTicks(tasks, today));
   if (stale.size === 0) return tasks;
   const unticked = { isComplete: false, completedAt: null, completedOn: null };
-  await prisma.task.updateMany({ where: { id: { in: [...stale] }, userId: owner }, data: unticked });
+  const ticks = tasks.flatMap(({ id, completedAt, completedOn }) => (stale.has(id) && completedAt && completedOn ? [{ id, completedAt, completedOn }] : []));
+  await prisma.$transaction(async (tx) => {
+    await keepRoundTicks(tx, owner, ticks);
+    await tx.task.updateMany({ where: { id: { in: [...stale] }, userId: owner }, data: unticked });
+  });
   return tasks.map((task) => (stale.has(task.id) ? { ...task, ...unticked } : task));
 }
 
@@ -155,10 +159,12 @@ export async function statRows(owner: string) {
       isPersistent: true,
       repeatEvery: true,
       repeatUnit: true,
+      hideInStats: true,
       createdAt: true,
       goals: { select: { id: true } },
       tags: { select: { id: true } },
       completions: { select: { day: true, createdAt: true } },
+      roundTicks: { select: { day: true, at: true } },
     },
   });
   return tasks.map(({ goals, tags, completions, ...task }) => ({
@@ -172,7 +178,7 @@ export async function statRows(owner: string) {
 
 /**
  * How many tasks were done on each day, counted as the stats count them (the app's collectStats): every tick at any
- * depth and every press, of the tasks under main tasks that are not in a reward list. The task bar's face works out
+ * depth (those a round took off again too) and every press, of the tasks under main tasks that are not in a reward list. The task bar's face works out
  * the level and the streak from it, without loading every task there is. `only` = that day alone.
  */
 export function progressDays(owner: string, only: string | null = null): Promise<{ day: string; count: number }[]> {
@@ -188,6 +194,8 @@ export function progressDays(owner: string, only: string | null = null): Promise
       WHERE t."completedOn" IS NOT NULL AND (${only}::text IS NULL OR t."completedOn" = ${only})
       UNION ALL
       SELECT p.day FROM "TaskCompletion" p JOIN counted c ON c.id = p."taskId" WHERE ${only}::text IS NULL OR p.day = ${only}
+      UNION ALL
+      SELECT r.day FROM "RoundTick" r JOIN counted c ON c.id = r."taskId" WHERE ${only}::text IS NULL OR r.day = ${only}
     )
     SELECT day, count(*)::int AS count FROM done GROUP BY day ORDER BY day`;
 }

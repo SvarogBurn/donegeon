@@ -4,7 +4,7 @@ import { addDays } from "../../../shared/dates.js";
 import { healthOf } from "../../../shared/health.js";
 import { addInterval, movedDay } from "../../../shared/repeat.js";
 import { prisma } from "../lib/prisma.js";
-import { countedIds } from "./taskTree.service.js";
+import { ancestorsOf, countedIds } from "./taskTree.service.js";
 
 /** How far back missed rounds of a schedule, and days with nothing done, are looked for: older ones were written when they were missed, or never will be. */
 const ROUNDS_BACK_DAYS = 60;
@@ -30,7 +30,8 @@ export interface Miss {
  * What was missed by `today` in these trees, hitting from `since` on: deadlines gone by (hard or soft) with their task
  * still open or ticked after the day, and rounds of a schedule whose day went by without a press. Each costs what was
  * left undone: the task and the tasks beneath it still open that it counts (a persistent task under it, with its own
- * rounds, left out), at least 1. Reward lists cost nothing.
+ * rounds, left out), at least 1. Reward lists cost nothing, nor a deadline under a persistent task: a press unticks it,
+ * so it would look missed however it was done.
  */
 export function missesOf(rows: ValuedRow[], today: string, since: string): Miss[] {
   const byId = new Map(rows.map((row) => [row.id, row]));
@@ -46,7 +47,8 @@ export function missesOf(rows: ValuedRow[], today: string, since: string): Miss[
   for (const task of rows) {
     if (task.valueKind === "reward") continue;
     const deadline = task.deadlineDate;
-    if (deadline && deadline < today && addDays(deadline, 1) >= since && (!task.isComplete || (task.completedOn ?? "") > deadline)) {
+    const inRound = () => ancestorsOf(byId, task).some((above) => above.isPersistent);
+    if (deadline && deadline < today && addDays(deadline, 1) >= since && (!task.isComplete || (task.completedOn ?? "") > deadline) && !inRound()) {
       misses.push({ key: `deadline:${task.id}:${deadline}`, kind: "deadline", taskId: task.id, title: task.title, day: addDays(deadline, 1), damage: undone(task) });
     }
     if (task.isPersistent && task.repeatEvery && task.nextDue) {

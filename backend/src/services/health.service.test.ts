@@ -95,6 +95,18 @@ describe("missesOf", () => {
     expect(missesOf(rows, today, since).map(({ taskId, damage }) => [taskId, damage])).toEqual([["soft", 1], ["late", 2]]);
   });
 
+  it("each deadline that goes by hits anew in full, however often the task was postponed; one moved before its day is free", () => {
+    const missedOn = (deadlineDate: string, day: string) => missesOf([row({ id: "late", deadlineDate, value: 6 })], day, since);
+    expect(missedOn("2026-11-12", today)).toEqual([]);
+    expect(missedOn("2026-11-05", "2026-11-06").map(({ key, damage }) => [key, damage])).toEqual([["deadline:late:2026-11-05", 6]]);
+    expect(missedOn("2026-11-08", "2026-11-09").map(({ key, damage }) => [key, damage])).toEqual([["deadline:late:2026-11-08", 6]]);
+  });
+
+  it("not a deadline under a persistent task: a press unticks it, so it would look missed however it was done", () => {
+    const rows = [row({ id: "habit", isPersistent: true }), row({ id: "step", parentId: "habit", deadlineDate: "2026-11-05" }), row({ id: "deeper", parentId: "step" })];
+    expect(missesOf(rows, today, since)).toEqual([]);
+  });
+
   it("every round of a schedule whose day went by unpressed, a moved one on the day it was moved to", () => {
     const daily = row({ id: "walk", isPersistent: true, repeatEvery: 1, repeatUnit: "day", nextDue: "2026-11-07", roundMoves: { "2026-11-08": "2026-11-12" } });
     const weekly = row({ id: "clean", isPersistent: true, repeatEvery: 1, repeatUnit: "week", nextDue: "2026-11-03", value: 1 });

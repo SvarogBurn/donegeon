@@ -84,7 +84,7 @@ describe("the consistency stat", () => {
   });
 
   it("is a share, with the days it looks back over", () => {
-    const habit = task("run", { habit: { every: 1, unit: "day" }, createdOn: "2026-10-16" });
+    const habit = task("run", { habit: { every: 1, unit: "day", hidden: false }, createdOn: "2026-10-16" });
     const press = { day: "2026-10-18", task: habit, at: null, isPress: true };
     expect(builtInStats({ ...input, tasks: [habit], completions: [press] }).consistency).toEqual({ value: 33, text: "33%", label: "consistency, 30 days" });
   });

@@ -4,7 +4,7 @@ import { alreadyMade } from "../lib/clientId.js";
 import { HttpError } from "../lib/httpError.js";
 import { prisma } from "../lib/prisma.js";
 import { untickedSchema } from "../schemas/task.js";
-import { bookTask, reverseBooking } from "./points.service.js";
+import { bookTask, keepRoundTicks, reverseBooking } from "./points.service.js";
 import { countedBelow } from "./taskWrite.service.js";
 
 /** When the press was made, as the device saw it, and on which of the user's days. */
@@ -41,7 +41,7 @@ export async function pressTask(task: Task, id: string | undefined, { today, at 
       where: { id: { in: ticked.map((t) => t.id) } },
       data: { isComplete: false, completedAt: null, completedOn: null },
     });
-    return tx.taskCompletion.create({
+    const press = await tx.taskCompletion.create({
       data: {
         id,
         createdAt: at,
@@ -53,16 +53,25 @@ export async function pressTask(task: Task, id: string | undefined, { today, at 
         unticked: ticked.map((t) => ({ id: t.id, completedAt: t.completedAt.toISOString(), completedOn: t.completedOn })),
       },
     });
+    await keepRoundTicks(tx, task.userId, ticked, press.id);
+    return press;
   });
   return { completion, isNew: true, nextDue: next };
+}
+
+/** Every day it was pressed on, a day once per press: all of them, unlike the trees, which only carry the last few. */
+export async function pressDaysOf(task: Task) {
+  const presses = await prisma.taskCompletion.findMany({ where: { taskId: task.id }, select: { day: true }, orderBy: { day: "asc" } });
+  return presses.map((press) => press.day);
 }
 
 /** Its round is still to come: done for now, so a press from a notification left lying has nothing to do. */
 export const isDoneForNow = (task: Task, today: string) => (currentRound(task, today)?.day ?? "") > today;
 
 /**
- * Undo of a press: the log entry goes, its points are reversed, the subtasks it unticked get their ticks back (those
- * not ticked again since) and a scheduled task is due when it was before. Undone already (an undo sent twice): nothing.
+ * Undo of a press: the log entry goes (and with it the ticks it kept, see keepRoundTicks), its points are reversed,
+ * the subtasks it unticked get their ticks back (those not ticked again since) and a scheduled task is due when it was
+ * before. Undone already (an undo sent twice): nothing.
  */
 export async function undoPress(task: Task, completionId: string) {
   const completion = await prisma.taskCompletion.findFirst({ where: { id: completionId, taskId: task.id } });

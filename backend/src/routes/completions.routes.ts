@@ -2,13 +2,19 @@ import { Router } from "express";
 import { z } from "zod";
 import { userId } from "../middleware/requireAuth.js";
 import { id } from "../schemas/common.js";
-import { isDoneForNow, pressTask, undoPress } from "../services/completions.service.js";
+import { isDoneForNow, pressDaysOf, pressTask, undoPress } from "../services/completions.service.js";
 import { clearAnswered } from "../services/notifications.service.js";
 import { ownTask } from "../services/ownership.js";
 import { doneToday } from "../services/taskWrite.service.js";
 
 /** The presses of a persistent task's "done it" button, under /tasks/:id/completions. */
 export const completionsRouter = Router({ mergeParams: true });
+
+// The days it was pressed on, one each press, for its page.
+completionsRouter.get("/", async (req, res) => {
+  const task = await ownTask(userId(req), (req.params as { id: string }).id);
+  res.json({ days: await pressDaysOf(task) });
+});
 
 // One press: logs it, books the points and unticks its subtasks for the next round (see pressTask).
 // `id`: made on the device for a press made offline; see lib/clientId. `fromNotification`: the Done on a pushed reminder,

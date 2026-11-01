@@ -1,6 +1,6 @@
 ---
 name: MoveUs
-form: https://forms.gle/o32wt8njsNxoYFQh6
+form: https://forms.gle/C7smHboHpn9JUKrk9
 color: #60CCF2
 accent: #D4651C
 image: moveus-duck.svg

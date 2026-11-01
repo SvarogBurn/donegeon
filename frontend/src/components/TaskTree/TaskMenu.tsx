@@ -113,7 +113,7 @@ function Doing({ node }: { node: TaskTreeNode }) {
   const pointsPlaceholder = String(isSubtask ? (node.points === null ? node.value : "") : (list?.defaultPoints ?? (node.points === null ? node.value : "")));
   const [points, setPoints] = useState(node.points === null ? "" : String(node.points));
   useEffect(() => setPoints(node.points === null ? "" : String(node.points)), [node.points]);
-  const save = (changes: { points?: number | null; isPersistent?: boolean; pointsToSubtasks?: boolean }) =>
+  const save = (changes: { points?: number | null; isPersistent?: boolean; pointsToSubtasks?: boolean; hideInStats?: boolean }) =>
     update.mutate({ id: node.id, changes });
 
   function savePoints() {
@@ -176,6 +176,12 @@ function Doing({ node }: { node: TaskTreeNode }) {
         />
         {isReward ? "Persistent (can be bought again)" : "Persistent (can be done again)"}
       </label>
+      {node.isPersistent && !isReward && (
+        <label className={CHECK_ROW} data-menu-part="in-stats" title="In the Habits box on the Stats page, and in Consistency.">
+          <PixelCheckbox small checked={!node.hideInStats} onChange={(e) => save({ hideInStats: !e.target.checked })} />
+          Show in Stats
+        </label>
+      )}
       {/* What it earns or costs; none of it while the points system is off. */}
       {!pointsOff && (
         <label className="flex items-center gap-2 px-1 text-xs" data-menu-part="points">
@@ -267,7 +273,7 @@ function RemindAt({ node }: { node: TaskTreeNode }) {
  * Persistent tasks: a schedule. With a number in "Every" the task is due again
  * every so many days, weeks or months; empty = no schedule, done whenever.
  */
-function Repeat({ node }: { node: TaskTreeNode }) {
+export function Repeat({ node }: { node: TaskTreeNode }) {
   const update = useUpdateTask();
   const [every, setEvery] = useState(node.repeatEvery === null ? "" : String(node.repeatEvery));
   // Until a schedule is set the stored unit means nothing: most things repeat by the day.
@@ -515,7 +521,8 @@ export function TaskMenu({ node, depth, onAddSubtask, onOpenNote }: Props) {
             )}
             <Labels node={node} />
             <Reminders node={node} />
-            {depth <= 1 && !node.isPersistent && (
+            {/* Under a persistent task there is only one to take off, if it has one from before. */}
+            {depth <= 1 && !node.isPersistent && (node.deadlineDate || !tree.inRound(node)) && (
               <div className="space-y-1 text-xs" data-menu-part="deadline">
                 <span className="font-medium">Deadline</span>
                 <DeadlineFields task={node} />

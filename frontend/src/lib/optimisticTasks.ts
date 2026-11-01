@@ -156,6 +156,7 @@ export function draftNode(task: NewTask & { id: string }, { day, at, lists, toda
     completedOn: null,
     points: task.points ?? null,
     pointsToSubtasks: false,
+    hideInStats: false,
     // Without a list or a parent it was written straight into Today (or Week), as the server makes it.
     todaySince: task.today || (!parentId && !listId && !task.weekDay) ? day : null,
     weekDay: null,

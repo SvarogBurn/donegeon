@@ -4,13 +4,10 @@ import {
   deadlineOutcomes,
   durationBuckets,
   earlyLateBuckets,
-  groupStats,
   isOnTime,
   median,
-  NO_GROUP,
   periodCounts,
   rangeStart,
-  shareOverTime,
   streaks,
   typicalWeek,
   type Completion,
@@ -116,27 +113,5 @@ describe("durationBuckets", () => {
     const buckets = durationBuckets([0, 1, 2, 3, 8, 100]);
     expect(buckets.map((b) => b.label)).toEqual(["Same day", "1 day", "2-3 days", "4-7 days", "8-14 days", "15-30 days", "31-90 days", "Over 90 days"]);
     expect(buckets.map((b) => b.count)).toEqual([1, 1, 2, 0, 1, 0, 0, 1]);
-  });
-});
-
-describe("groupStats", () => {
-  it("counts a task under each of its goals, and one with none under the empty group", () => {
-    const two = statTask({ id: "two", goalIds: ["g1", "g2"] });
-    const none = statTask({ id: "none" });
-    const groups = groupStats("goal", [done(TODAY, two), done(TODAY, none)], [], [], [none]);
-    expect(groups.get("g1")?.done).toBe(1);
-    expect(groups.get("g2")?.done).toBe(1);
-    expect(groups.get(NO_GROUP)).toMatchObject({ done: 1, open: 1 });
-  });
-});
-
-describe("shareOverTime", () => {
-  it("picks days for a week or less, weeks for a few, months beyond, newest six periods", () => {
-    expect(shareOverTime("list", [], "2026-10-15", TODAY).unit).toBe("day");
-    expect(shareOverTime("list", [], "2026-09-20", TODAY).unit).toBe("week");
-    const months = shareOverTime("list", [], "2025-10-01", TODAY);
-    expect(months.unit).toBe("month");
-    expect(months.periods).toHaveLength(6);
-    expect(months.periods.at(-1)?.key).toBe("2026-10");
   });
 });

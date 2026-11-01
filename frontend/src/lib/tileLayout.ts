@@ -29,8 +29,8 @@ export const MAX_COLUMNS = 4;
 export const NEW_LIST_TILE = "newList";
 /** The Tasks page of an account that never arranged it: the Calendar shown too, and Done, Tags, New list and Goals minimized. */
 export const START_LAYOUT: DashboardLayout = { pinned: [], hidden: ["done", "tags", NEW_LIST_TILE, "goals"], extras: [calView("month")], byColumns: {} };
-/** The Stats page of an account that never arranged it: By list, Time of day, Points and Unorganized minimized. */
-export const STATS_START_LAYOUT: DashboardLayout = { pinned: [], hidden: ["groups", "written", "points", "unorganized"], byColumns: {} };
+/** The Stats page of an account that never arranged it: the filter, Deadlines and Time to finish minimized. */
+export const STATS_START_LAYOUT: DashboardLayout = { pinned: [], hidden: ["filter", "deadlines", "time"], byColumns: {} };
 
 export interface Arrangement {
   pinned: string[];

@@ -147,6 +147,18 @@ export async function findRoot(db: Prisma.TransactionClient, id: string): Promis
   return root?.id ?? id;
 }
 
+/** Whether `id`, or a task above it, is persistent, in one query however deep it sits. */
+export async function persistentAtOrAbove(db: Prisma.TransactionClient, id: string): Promise<boolean> {
+  const [{ found }] = await db.$queryRaw<{ found: boolean }[]>`
+    WITH RECURSIVE up AS (
+      SELECT "parentId", "isPersistent", 0 AS steps FROM "Task" WHERE id = ${id}
+      UNION ALL
+      SELECT t."parentId", t."isPersistent", up.steps + 1 FROM "Task" t JOIN up ON t.id = up."parentId" WHERE up.steps < ${MAX_DEPTH}
+    )
+    SELECT COALESCE(bool_or("isPersistent"), false) AS found FROM up`;
+  return found;
+}
+
 /**
  * Ids of the whole trees the user's tasks matching `where` sit in: up to their main tasks, then everything
  * beneath those. The rest of the user's tasks are never read, however many there are. Two queries however deep the

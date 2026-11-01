@@ -2,22 +2,20 @@ import type { ComponentProps, CSSProperties, ReactNode } from "react";
 import { formatDay } from "../../../lib/dates";
 import type { Completion, Outcome, StatFilter, StatTask } from "../../../lib/stats";
 import type { StatsView } from "../../../lib/statsView";
-import type { Folder, Goal, List, PointsSummary, Tag } from "../../../types";
+import type { Folder, Goal, List, Tag } from "../../../types";
 import { TileFrame, usePickedColor } from "../../Tiles/TileFrame";
 import type { ListedTask } from "../TaskListDialog";
 
-/** What a box of the stats is drawn from: the filtered view, what the filter offers, and the point ledger. */
+/** What a box of the stats is drawn from: the filtered view, and what the filter offers. */
 export interface StatsData {
   view: StatsView;
   filter: StatFilter;
   setFilter: (filter: StatFilter) => void;
   /** Task lists only: reward lists are left out of the stats. */
   taskLists: List[];
-  lists: List[];
   goals: Goal[];
   tags: Tag[];
   folders: Folder[];
-  points: PointsSummary;
 }
 
 /** A box of the stats, drawn from the same data as all the others. */
@@ -67,17 +65,4 @@ export function listDone(done: Completion[], isIn: (day: string) => boolean): Li
 export function StatFrame({ color, chart = color, style, ...frame }: ComponentProps<typeof TileFrame> & { chart?: string }) {
   const picked = usePickedColor();
   return <TileFrame {...frame} color={color} data-chart="" style={{ ...style, "--chart": picked ?? chart } as CSSProperties} />;
-}
-
-/** A row of buttons picking one of `choices`, the picked one pressed. */
-export function Choices<K extends string>({ choices, value, onPick }: { choices: [K, string][]; value: K; onPick: (key: K) => void }) {
-  return (
-    <div className="flex flex-wrap gap-1">
-      {choices.map(([key, label]) => (
-        <button key={key} type="button" className={`nes-btn btn-small ${key === value ? "is-primary" : ""}`} aria-pressed={key === value} onClick={() => onPick(key)}>
-          {label}
-        </button>
-      ))}
-    </div>
-  );
 }

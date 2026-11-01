@@ -29,7 +29,7 @@ const ageOf = (task: StatTask, today: string) => daysBetween(task.createdOn, tod
  * isn't over yet), from the day the habit was made at the earliest. Presses above what was asked for don't count, so
  * one good week can't make up for a bad one. Null: it has no schedule, or it is younger than a round and not done yet.
  */
-export function habitRate(task: StatTask, presses: string[], today: string, span: number) {
+export function habitRate(task: Pick<StatTask, "habit" | "createdOn">, presses: string[], today: string, span: number) {
   const every = task.habit?.every;
   if (!task.habit || !every) return null;
   const end = presses.includes(today) ? today : addDays(today, -1);
@@ -44,9 +44,9 @@ export function habitRate(task: StatTask, presses: string[], today: string, span
   return { done: Math.min(done, expected), expected };
 }
 
-/** Every habit on a schedule together, over a window as long as the oldest of them allows; null = there is nothing to score yet. */
+/** Every habit on a schedule and not switched off for the Stats page together, over a window as long as the oldest of them allows; null = there is nothing to score yet. */
 export function consistency(tasks: StatTask[], completions: Completion[], today: string) {
-  const habits = tasks.filter((task) => task.habit?.every);
+  const habits = tasks.filter((task) => task.habit?.every && !task.habit.hidden);
   if (habits.length === 0) return null;
   const span = windowFor(Math.max(...habits.map((task) => ageOf(task, today))));
   const days = pressDays(completions);
@@ -60,22 +60,20 @@ export interface HabitRow {
   task: StatTask;
   /** Its presses, as days. */
   days: string[];
-  /** The share of its rounds done; null = none to go by (see habitRate). */
+  /** The share of its rounds done since it was made; null = none to go by (see habitRate). */
   share: number | null;
-  /** The days `share` looks back over, by the habit's own age. */
-  span: number;
 }
 
-/** The habits among `tasks`, the best kept first; those with nothing to score go last, the most pressed first. */
+/** The habits among `tasks`, those switched off for the Stats page too, the best kept first; those with nothing to score go last, the most pressed first. */
 export function habitRows(tasks: StatTask[], completions: Completion[], today: string): HabitRow[] {
   const days = pressDays(completions);
   const rows = tasks
     .filter((task) => task.habit)
     .map((task): HabitRow => {
       const pressed = days.get(task.id) ?? [];
-      const span = windowFor(ageOf(task, today));
-      const rate = habitRate(task, pressed, today, span);
-      return { task, days: pressed, span, share: rate && rate.done / rate.expected };
+      // Further back than the day it was made, so all of its days count.
+      const rate = habitRate(task, pressed, today, ageOf(task, today) + 2);
+      return { task, days: pressed, share: rate && rate.done / rate.expected };
     });
   return rows.sort((a, b) => (b.share ?? -1) - (a.share ?? -1) || b.days.length - a.days.length);
 }

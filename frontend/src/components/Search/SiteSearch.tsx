@@ -119,7 +119,7 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false, autoFocus = fal
   const places: Hit[] = !typed
     ? []
     : [
-        ...PLACES.filter(([title, path, key, words]) => (notesTab || path !== "/notes") && (newsTab || path !== "/news") && !(pointsOff && (path === "/points" || (path === "/stats" && key === "points"))) && has(title, words)).map(([title, path, key]) => ({
+        ...PLACES.filter(([title, path, , words]) => (notesTab || path !== "/notes") && (newsTab || path !== "/news") && !(pointsOff && path === "/points") && has(title, words)).map(([title, path, key]) => ({
           key: `place:${path}:${key ?? ""}`,
           title,
           kind: key === null ? "Page" : `Box on ${path === "/" ? "Tasks" : "Stats"}`,

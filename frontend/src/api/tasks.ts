@@ -23,6 +23,7 @@ export interface TaskChanges {
   points?: number | null;
   /** Main tasks only. */
   pointsToSubtasks?: boolean;
+  hideInStats?: boolean;
   /** In or out of Today; a day = in it on that day. */
   today?: boolean | string;
   week?: boolean;
@@ -104,6 +105,7 @@ export const placeInWeek = (id: string, day: string, after: string | null | unde
 export const deleteTask = (id: string, when?: When) => api(`/tasks/${id}`, { method: "DELETE", when });
 export const restoreTask = (id: string, when?: When) => api(`/tasks/${id}/restore`, { method: "POST", when });
 
+export const getPressDays = (id: string) => api<{ days: string[] }>(`/tasks/${id}/completions`).then((r) => r.days);
 export const getCountdown = (id: string) => api<{ countdown: Countdown }>(`/tasks/${id}/countdown`).then((r) => r.countdown);
 export const getPressure = () => api<{ pressure: PressureSummary }>("/dashboard").then((r) => r.pressure);
 /** `soft` false leaves soft deadlines out. */

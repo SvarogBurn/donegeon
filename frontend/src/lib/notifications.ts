@@ -23,7 +23,8 @@ export const passedItem = (node: TaskTreeNode, path: string[], today: string): P
 /**
  * Open tasks whose deadline day is over, the latest first. The deadline day itself is still the last day to do
  * the work in, so a task shows up here only the day after. Deadlines sit on main tasks and their direct subtasks;
- * a finished main task took its subtasks to the Done page with it.
+ * a finished main task took its subtasks to the Done page with it. One left on a subtask of a persistent task isn't
+ * asked about: a press unticks it, so it would look missed however it was done.
  */
 export function passedDeadlines(trees: TaskTreeNode[], today: string): PassedDeadline[] {
   const passed: PassedDeadline[] = [];
@@ -32,7 +33,7 @@ export function passedDeadlines(trees: TaskTreeNode[], today: string): PassedDea
     passed.push(passedItem(node, path, today));
   };
   for (const main of trees) {
-    if (main.isComplete) continue;
+    if (main.isComplete || main.isPersistent) continue;
     check(main, []);
     for (const child of main.children) check(child, [plainFirstLine(main.title)]);
   }
