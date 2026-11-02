@@ -9,6 +9,7 @@ import { prisma } from "../lib/prisma.js";
 import { SESSION_COOKIE } from "../lib/sessions.js";
 import { requireAuth, userId } from "../middleware/requireAuth.js";
 import { credentials, settings } from "../schemas/account.js";
+import { afterSettings, type CardSettings } from "../services/peopleRules.js";
 
 // Rotate the session id on login so a pre-login cookie can't be reused.
 function startSession(req: Request, userId: string): Promise<void> {
@@ -33,6 +34,9 @@ const publicUser = (user: User) => ({
   pointsOff: user.pointsOff,
   healthOff: user.healthOff,
   freezeOff: user.freezeOff,
+  peopleOff: user.peopleOff,
+  shares: user.shares,
+  cheersOff: user.cheersOff,
   breakEvery: user.breakEvery,
   boxFont: user.boxFont,
   notesFont: user.notesFont,
@@ -101,11 +105,21 @@ authRouter.get("/me", async (req, res) => {
   res.json({ user: publicUser(user) });
 });
 
+/** What a change of settings does to the shares and the stored card; nothing if it touches neither (see afterSettings). */
+async function cardChange(id: string, change: CardSettings): Promise<Prisma.UserUpdateInput> {
+  if (change.peopleOff !== true && change.shares === undefined && change.healthOff !== true) return {};
+  const before = await prisma.user.findUnique({ where: { id }, select: { shares: true, card: true, healthOff: true } });
+  if (!before) return {};
+  const { shares, card } = afterSettings(before, change);
+  return { shares, card: card === null ? Prisma.DbNull : (card as Prisma.InputJsonObject) };
+}
+
 // The account's own settings, from the user's page.
 authRouter.patch("/me", requireAuth, async (req, res) => {
   const { profile, taskBar, boxColors, deadlineTable, notifications, ...rest } = settings.parse(req.body);
   const data = {
     ...rest,
+    ...(await cardChange(userId(req), rest)),
     ...(profile !== undefined && { profile: profile ?? Prisma.DbNull }),
     ...(taskBar !== undefined && { taskBar: taskBar ?? Prisma.DbNull }),
     ...(boxColors !== undefined && { boxColors: boxColors ?? Prisma.DbNull }),

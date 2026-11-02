@@ -1,9 +1,9 @@
-import type { DeadlineToday, FeedbackKind, HitKind, ListKind, RepeatUnit, TextFont, TickedTasks } from "../../../shared/enums";
+import type { DeadlineToday, FeedbackKind, HitKind, ListKind, RepeatUnit, ShareKey, TextFont, TickedTasks } from "../../../shared/enums";
 import type { EventState } from "../../../shared/events";
 import type { Health as HealthRules } from "../../../shared/health";
 
 // The fixed choices are shared with the server (shared/enums.ts).
-export type { DeadlineToday, FeedbackKind, HitKind, ListKind, RepeatUnit, TextFont, TickedTasks };
+export type { DeadlineToday, FeedbackKind, HitKind, ListKind, RepeatUnit, ShareKey, TextFont, TickedTasks };
 
 // The rest is mirrored by hand from what the server sends (its Prisma models); the rules both sides follow are in shared/.
 import type { DashboardLayout } from "../lib/tileLayout";
@@ -25,6 +25,12 @@ export interface User {
   healthOff?: boolean;
   /** The streak freeze switched off: a day with nothing done breaks the streak instead of costing a level. Missing in an account kept on the device from before (= on). */
   freezeOff?: boolean;
+  /** People switched off: you see nobody and nobody sees you. Missing in an account kept on the device from before (= on). */
+  peopleOff?: boolean;
+  /** What the card shows besides the character, title and level; what is shown is what is seen. Missing in an account kept on the device from before (= nothing). */
+  shares?: ShareKey[];
+  /** Cheers switched off: none sent, none received. Missing in an account kept on the device from before (= on). */
+  cheersOff?: boolean;
   /** A reminder to take a break after every so many tasks done in a day; null (the default) = none. */
   breakEvery: number | null;
   /** Theme: the font of the text inside the boxes (task notes too); "pixel" (the default) = the pixel font. Missing in an account kept on the device from before. */

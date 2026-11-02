@@ -8,10 +8,11 @@ import { readDevMode } from "../../lib/devMode";
 import { listColor } from "../../lib/frameTones";
 import { levelOf } from "../../lib/character/levels";
 import { characterLevel, characterProgress, earningSkills, skillExp } from "../../lib/character/profileStats";
-import type { Look } from "../../lib/character/bodies";
+import { DEFAULT_LOOK, type Look } from "../../lib/character/bodies";
 import { normalizeProfile, type Skill } from "../../lib/character/profile";
 import { unseenOf } from "../../lib/character/titles";
 import { daysProgress, shownLook, type Progress, type Unlocks } from "../../lib/character/unlocks";
+import { cardBasics } from "../../lib/people";
 import { collectStats } from "../../lib/stats";
 import type { User } from "../../types";
 import { useProfile } from "./useProfile";
@@ -60,7 +61,7 @@ export function useCharacterProgress() {
  * The level, streaks and mail for the task bar's face, from the small count of tasks done per day rather than the
  * heavy stat rows (the deeds and the rest are the sheet's), and the exp knockouts took. Null until it is in.
  */
-function useBarProgress(): { progress: Progress; lost: number } | null {
+function useBarProgress(): { progress: Progress; lost: number; exp: number } | null {
   const days = useProgressDays();
   const mailSent = useFeedbackSent();
   const health = useHealth();
@@ -69,7 +70,18 @@ function useBarProgress(): { progress: Progress; lost: number } | null {
   const lost = health.data?.lost ?? 0;
   const exp = days.data.reduce((sum, { count }) => sum + count, 0) + mail - lost;
   const { longest, current } = daysProgress(days.data.map(({ day }) => day), localDate(), health.data?.frozen);
-  return { progress: { ...NOTHING_YET, level: levelOf(exp).level, longest, current, mail }, lost };
+  return { progress: { ...NOTHING_YET, level: levelOf(exp).level, longest, current, mail }, lost, exp };
+}
+
+/** The part of the card that comes from what the task bar's face already reads, so publishing it costs no request of its own. Null until it is in. */
+export function useCardBasics(user: User) {
+  const bar = useBarProgress();
+  const days = useProgressDays();
+  const health = useHealth();
+  const saved = useMemo(() => normalizeProfile(user.profile).look ?? DEFAULT_LOOK, [user.profile]);
+  const look = useFaceLook(user, saved);
+  if (!bar || !days.data) return null;
+  return cardBasics({ exp: bar.exp, look, streak: bar.progress.current, days: days.data, today: localDate(), hearts: user.healthOff ? undefined : health.data, shares: user.shares ?? [] });
 }
 
 /**

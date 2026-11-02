@@ -15,6 +15,9 @@ export const NOTES = ["notes"];
 export const COUNTDOWN = ["countdown"];
 export const PRESSURE = ["pressure"];
 export const POINTS = ["points"];
+// Other people: your friends' cards, what is waiting in the bell, who you blocked. Never kept on the
+// device (main.tsx), so an ex-friend's card isn't either.
+export const PEOPLE = ["people"];
 export const LAYOUT = ["layout"];
 // Any change to a task can change the countdown tables, the dashboard totals, the point balance, and how many tasks a
 // list holds (which decides whether deleting it asks first).

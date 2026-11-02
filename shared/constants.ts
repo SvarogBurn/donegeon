@@ -34,3 +34,7 @@ export const MAX_REMINDER_TIMES = 12;
  * so what was already overdue when health came in doesn't knock anyone out.
  */
 export const HEALTH_SINCE = "2026-10-30";
+
+/** What a cheer can say: picked, not typed, so there is nothing to moderate. */
+export const CHEER_LINES = ["Keep going!", "Well done!", "You've got this!", "Nice streak!"] as const;
+export type CheerLine = (typeof CHEER_LINES)[number];

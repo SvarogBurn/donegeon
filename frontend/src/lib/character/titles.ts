@@ -78,6 +78,18 @@ export const defaultTitle = (p: Progress) => TITLES.filter((t) => t.rank && isEa
 /** The title shown: the one picked, if it is earned, else the highest rank. */
 export const shownTitle = (picked: string | undefined, p: Progress) => earnedTitles(p).find((t) => t.id === picked) ?? defaultTitle(p);
 
+/** Whether a title is a skill's: "Adept of <skill>" carries the skill's name, often that of a private list. */
+const isSkillTitle = (t: Title) => SKILL_TITLES.some(([, word]) => t.id.startsWith(`${word.toLowerCase()}:`));
+
+/** The title others see: without the skills shared, a skill's would give its name away, and the highest rank stands in. */
+export function publicTitle(picked: string | undefined, p: Progress, sharesSkills: boolean) {
+  const title = shownTitle(picked, p);
+  return isSkillTitle(title) && !sharesSkills ? defaultTitle(p) : title;
+}
+
+/** The rank of a level, for a card with no title on it. */
+export const rankOf = (level: number) => TITLES.filter((t) => t.rank && t.rules.some((rule) => "level" in rule && rule.level <= level)).at(-1)!.name;
+
 /** Titles earned from the start, never announced. */
 export const isStarter = (t: Title) => t.rules.length === 1 && "level" in t.rules[0] && t.rules[0].level <= 1;
 

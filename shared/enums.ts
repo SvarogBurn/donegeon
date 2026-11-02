@@ -53,3 +53,7 @@ export type BellShows = (typeof BELL_SHOWS)[number];
  */
 export const HIT_KINDS = ["deadline", "round", "day"] as const;
 export type HitKind = (typeof HIT_KINDS)[number];
+
+/** What a card can show besides the character, title and level, each by the owner's choice: the streak and tasks this week, the stats picked on the sheet, the skills, the hearts. */
+export const SHARE_KEYS = ["activity", "stats", "skills", "hearts"] as const;
+export type ShareKey = (typeof SHARE_KEYS)[number];

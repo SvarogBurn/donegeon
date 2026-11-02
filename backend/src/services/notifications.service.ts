@@ -184,7 +184,22 @@ export async function sendTest(userId: string) {
   return pushToUser(devices, { title: "Donegeon", body, url: "/user", tag: "test" });
 }
 
-/** Removes notifications sent long enough ago that no plan can name them again. */
+/**
+ * A cheer or a friend request, pushed at once, unless the person switched those off (Settings › Notifications).
+ * Not a planned notification: the app's next plan would remove it. Comes after the answer, so a failure is only logged.
+ */
+export async function pushToPerson(userId: string, message: PushMessage) {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { notifications: true, pushSubscriptions: true } });
+    if (!user || (user.notifications as { people?: { on?: boolean } } | null)?.people?.on === false) return;
+    await pushToUser(user.pushSubscriptions, message);
+  } catch (err) {
+    console.error("Pushing to a person failed:", err);
+  }
+}
+
+/** Removes notifications sent long enough ago that no plan can name them again, and cheers read as long ago. */
 export async function purgeSent(now = Date.now()) {
-  await prisma.scheduledNotification.deleteMany({ where: { sentAt: { lt: new Date(now - KEEP_SENT_MS) } } });
+  const before = new Date(now - KEEP_SENT_MS);
+  await Promise.all([prisma.scheduledNotification.deleteMany({ where: { sentAt: { lt: before } } }), prisma.cheer.deleteMany({ where: { seenAt: { lt: before } } })]);
 }

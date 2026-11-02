@@ -4,8 +4,9 @@ import { useNavigate, useSearchParams } from "react-router";
 import { appNow, localDate } from "../../lib/clock";
 import { usePressTask, useTaskTrees, useToggleTask } from "../../hooks/tasks";
 import { useDismissed } from "../../hooks/notifications";
-import { useDeadlineToday, useNotifySettings, useTickedTasks } from "../../hooks/useAuth";
-import { formatDay } from "../../lib/dates";
+import { useAcceptFriend, useIgnoreFriend, useInbox, useMarkCheersSeen } from "../../hooks/people";
+import { useDeadlineToday, useMe, useNotifySettings, useTickedTasks } from "../../hooks/useAuth";
+import { formatDay, localDay } from "../../lib/dates";
 import { leftUndone, passedDeadlines, saveDismissed, type LeftUndone, type PassedDeadline } from "../../lib/notifications";
 import { dueToday, findTask, type Planned } from "../../lib/notifySchedule";
 import { markNewsSeen, useUnseenNews } from "../../lib/newsSeen";
@@ -43,7 +44,8 @@ function useMinute() {
  * (nothing is carried on to the next day by itself), a tap asking when to do them, × dropping them (they stay in their
  * list); and deadlines whose day is over with the task still open, a tap asking for a new deadline. Dismissed
  * messages and deadlines stay away on this device (a deadline until it is moved and passes again). First, while the
- * setting is on, the News articles not yet read on this device (lib/newsSeen), a tap opening the paper. `inStrip` = the installed app's top strip (the list opens below);
+ * setting is on, the News articles not yet read on this device (lib/newsSeen), a tap opening the paper. Before those,
+ * whatever `bell` says, friend requests to answer and cheers not yet read, kept on the server, not on this device. `inStrip` = the installed app's top strip (the list opens below);
  * otherwise the browser's task bar along the bottom (it opens above), where the bell is teeny and `children` places it
  * (the clock puts it beside the time), and a click anywhere on them opens the list.
  */
@@ -96,7 +98,13 @@ export function Bell({
   // New articles in the News, while the setting is on (whatever the bell shows otherwise): read or dismissed, they are gone.
   const unseenNews = useUnseenNews();
   const news = settings.news.on ? unseenNews : [];
-  const count = news.length + shownMessages.length + shown.length + undone.length;
+  const { data: inbox } = useInbox(!useMe().user?.peopleOff);
+  const requests = inbox?.requests ?? [];
+  const cheers = inbox?.cheers ?? [];
+  const accept = useAcceptFriend();
+  const ignore = useIgnoreFriend();
+  const markSeen = useMarkCheersSeen();
+  const count = requests.length + cheers.length + news.length + shownMessages.length + shown.length + undone.length;
 
   useEffect(() => onOpenChange?.(isOpen || asking !== null || askingUndone !== null || isDevClock), [isOpen, asking, askingUndone, isDevClock, onOpenChange]);
   // Only once the tasks are in: before that every dismissal would look out of date.
@@ -181,6 +189,7 @@ export function Bell({
                   dismiss([...shownMessages, ...shown].map((item) => item.key));
                   undone.filter(hasHome).forEach(drop);
                   if (news.length) markNewsSeen(news.map((feature) => feature.slug));
+                  if (cheers.length) markSeen.mutate(cheers.map((cheer) => cheer.id));
                 }}
               >
                 Dismiss all
@@ -191,6 +200,38 @@ export function Bell({
             <p className="px-3 py-6 text-center text-xs text-stone-500">Nothing new. {showsAll && "Today's reminders, "}Tasks left undone and deadlines whose day has passed show up here.</p>
           ) : (
             <ul className="max-h-[60svh] divide-y divide-stone-200 overflow-y-auto dark:divide-stone-700">
+              {requests.map(({ id, username }) => (
+                <li key={id} className="px-3 py-2" data-notification-request={username}>
+                  <span className="flex items-center gap-1.5 font-pixel text-[8px] text-emerald-700 dark:text-emerald-400">
+                    <span className="size-1.5 flex-none bg-current" aria-hidden />
+                    Friend request
+                  </span>
+                  <span className="mt-1 block truncate text-sm">{username} wants to be friends</span>
+                  <span className="mt-0.5 flex gap-3 text-xs">
+                    <button type="button" className="btn-quiet underline" onClick={() => accept.mutate(id)} data-notification-accept>
+                      Accept
+                    </button>
+                    <button type="button" className="btn-quiet underline" onClick={() => ignore.mutate(id)} data-notification-ignore>
+                      Ignore
+                    </button>
+                  </span>
+                </li>
+              ))}
+              {cheers.map((cheer) => (
+                <li key={cheer.id} className="flex items-start gap-1 hover:bg-stone-100 dark:hover:bg-stone-800" data-notification-cheer={cheer.username}>
+                  <div className="min-w-0 flex-1 px-3 py-2">
+                    <span className="flex items-center gap-1.5 font-pixel text-[8px] text-pink-700 dark:text-pink-400">
+                      <span className="size-1.5 flex-none bg-current" aria-hidden />
+                      Cheer · {formatDay(localDay(new Date(cheer.createdAt)))}
+                    </span>
+                    <span className="mt-1 block truncate text-sm">{cheer.username} cheered you on</span>
+                    <span className="mt-0.5 block text-xs text-stone-500">{cheer.line}</span>
+                  </div>
+                  <button type="button" className="btn-quiet px-2 py-2 text-base leading-none" aria-label="Dismiss" title="Dismiss" onClick={() => markSeen.mutate([cheer.id])}>
+                    ×
+                  </button>
+                </li>
+              ))}
               {news.map((feature) => (
                 <li key={feature.slug} className="flex items-start gap-1 hover:bg-stone-100 dark:hover:bg-stone-800">
                   <button

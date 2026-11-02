@@ -8,6 +8,7 @@ import { useStandalone } from "../../lib/standalone";
 import { BigMoment } from "../BigMoment";
 import { BreakReminder } from "../BreakReminder";
 import { NotificationPlanner } from "../Notifications/NotificationPlanner";
+import { CardPublisher } from "../People/CardPublisher";
 import { RefusalPopup } from "../RefusalPopup";
 import { Tutorial } from "../Tutorial/Tutorial";
 import { NavBar } from "./NavBar";
@@ -57,6 +58,7 @@ export function AppShell() {
       <BigMoment />
       <BreakReminder />
       <NotificationPlanner />
+      <CardPublisher user={user} />
     </>
   );
 }

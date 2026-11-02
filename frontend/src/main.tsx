@@ -24,6 +24,7 @@ import "@fontsource/opendyslexic/latin-700.css";
 import "./index.css";
 import "./styles/nes.scss";
 import { registerSW } from "virtual:pwa-register";
+import { PEOPLE } from "./hooks/queryKeys";
 
 installFrameTones();
 installOnlineManager();
@@ -49,8 +50,8 @@ const queryClient = new QueryClient({
   mutationCache: new MutationCache({ onError: (error) => isUnreachable(error) && reportFailure(error.message) }),
   defaultOptions: {
     queries: {
-      // Only this user changes their data, and every change made here asks again for what it touched: coming back to
-      // the page asks for everything again only after a minute (another device's changes show by then).
+      // Every change made here asks again for what it touched: coming back to the page asks for everything again only
+      // after a minute (another device's changes show by then, and what other people did: a cheer, a friend request).
       staleTime: 60_000,
       retry: 1,
       gcTime: KEEP_MS,
@@ -77,9 +78,9 @@ const persistOptions = {
   // Raise when what is kept changes shape: an older copy is thrown away.
   buster: "1",
   dehydrateOptions: {
-    // Search answers aren't worth keeping.
+    // Search answers aren't worth keeping, and other people's cards aren't this device's to keep.
     shouldDehydrateQuery: (query: Parameters<typeof defaultShouldDehydrateQuery>[0]) =>
-      defaultShouldDehydrateQuery(query) && query.queryKey[1] !== "search",
+      defaultShouldDehydrateQuery(query) && query.queryKey[1] !== "search" && query.queryKey[0] !== PEOPLE[0],
     // The changes not saved yet, the one being sent too: if the app closes before the answer, it is sent again.
     shouldDehydrateMutation: (mutation: Mutation<unknown, Error, unknown, unknown>) =>
       mutation.state.status === "pending" && mutation.options.scope?.id === CHANGES_SCOPE,

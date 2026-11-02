@@ -9,6 +9,8 @@ import partsData from "./parts.data.json";
 import { normalizeLook, normalizeProfile } from "./profile";
 import { builtInStats, customStatValue, earningSkills, skillExp } from "./profileStats";
 import { recolorRamp } from "./ramps";
+import { publicTitle, rankOf } from "./titles";
+import type { Progress } from "./unlocks";
 
 describe("levelOf", () => {
   it("starts at level 1 with nothing done", () => {
@@ -332,5 +334,22 @@ describe("faces", () => {
       const look: Look = { v: 2, body, options: {}, colors: {} };
       expect(fills({ ...look, options: { [option]: "none" } }), body).not.toBe(fills(look));
     }
+  });
+});
+
+describe("the title others see", () => {
+  const progress: Progress = { level: 12, longest: 8, current: 8, onTime: 0, mail: 0, returned: false, skills: [{ key: "list:1", name: "Therapy", level: 21 }], presses: 0, frogs: 0, earlyDays: 0, onTimeRun: 0, busiestDay: 0, steady: false };
+
+  it("keeps a skill's title private until the skills are shared", () => {
+    expect(publicTitle("adept:list:1", progress, true).name).toBe("Adept of Therapy");
+    expect(publicTitle("adept:list:1", progress, false).name).toBe("Wanderer");
+  });
+
+  it("leaves every other title as picked", () => {
+    expect(publicTitle("steadfast", progress, false).name).toBe("Steadfast");
+  });
+
+  it("gives the rank of a level, for a card with no title", () => {
+    expect([1, 9, 10, 40, 500].map(rankOf)).toEqual(["Outsider", "Outsider", "Wanderer", "Harbringer", "Harbringer"]);
   });
 });

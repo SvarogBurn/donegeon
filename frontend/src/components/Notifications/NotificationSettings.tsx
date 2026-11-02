@@ -242,6 +242,13 @@ export function NotificationSettings() {
         Tasks left open in Today or the Week aren't carried on to the next day: the bell asks when you'll do them. With this ticked, they are pushed at that time too, to every device with push turned on.
       </p>
       <label className="flex items-center gap-2 text-xs">
+        <PixelCheckbox small checked={settings.people.on} onChange={(e) => set("people", { on: e.target.checked })} data-notify-people />
+        Cheers and friend requests, pushed too
+      </label>
+      <p className="text-xs text-stone-500">
+        {settings.people.on ? "A cheer or a friend request comes as a push the moment it is sent, and into the bell." : "Cheers and friend requests only come into the bell."}
+      </p>
+      <label className="flex items-center gap-2 text-xs">
         <PixelCheckbox small checked={settings.news.on} onChange={(e) => set("news", { on: e.target.checked })} data-notify-news />
         New in the News
       </label>

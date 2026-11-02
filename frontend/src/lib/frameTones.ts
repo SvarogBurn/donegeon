@@ -53,7 +53,7 @@ export const LIST_COLORS: [name: string, hex: string][] = [
 ];
 
 /** The user page's boxes, each in its own colour rather than the art's blue (2026-10-29, the user's ask: more colourful). The Inbox keeps the record tone. */
-export const USER_BOX_COLORS = { character: "#2a9ba8", settings: BAND_BRIGHT.toLowerCase(), cheatsheet: "#37946e", feedback: "#c8423b" };
+export const USER_BOX_COLORS = { character: "#2a9ba8", people: "#d95f8c", settings: BAND_BRIGHT.toLowerCase(), cheatsheet: "#37946e", feedback: "#c8423b" };
 
 export const listColor = (list: Pick<List, "kind" | "color">) => list.color ?? KIND_COLORS[list.kind];
 

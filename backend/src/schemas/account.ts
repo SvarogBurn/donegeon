@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { MAX_POINTS, MAX_REMINDER_TIMES, MAX_REMINDERS, NOTIFY_FROM, NOTIFY_TO } from "../../../shared/constants.js";
-import { BELL_SHOWS, DEADLINE_TODAY, REMINDER_KINDS, TEXT_FONTS, TICKED_TASKS } from "../../../shared/enums.js";
+import { BELL_SHOWS, DEADLINE_TODAY, REMINDER_KINDS, SHARE_KEYS, TEXT_FONTS, TICKED_TASKS } from "../../../shared/enums.js";
 import { hex } from "./common.js";
 
 export const credentials = z.object({
@@ -18,6 +18,9 @@ const ref = z.string().min(1).max(64);
 /** At most `max` keys: a record has no limit of its own. */
 const capped = <T extends z.ZodType>(value: T, max: number) =>
   z.record(z.string().max(40), value).refine((record) => Object.keys(record).length <= max, `At most ${max} entries`);
+
+/** How the character looks (frontend/src/lib/character/bodies.ts): also on the card others see. */
+export const look = z.object({ v: z.literal(2), body: z.string().max(40), options: capped(z.string().max(40), 30), colors: capped(hex, 40) });
 
 /**
  * The character on the user's page, saved as the app sends it; the app fills in what is missing and drops what no
@@ -51,7 +54,7 @@ const profile = z
         }),
       )
       .max(30, "At most 30 skills"),
-    look: z.object({ v: z.literal(2), body: z.string().max(40), options: capped(z.string().max(40), 30), colors: capped(hex, 40) }).optional(),
+    look: look.optional(),
     /** The unlocks and titles already announced on the character sheet. */
     seen: z.array(z.string().max(80)).max(400).optional(),
     /** The user page's settings for the dot on the task bar's face and the sheet's Unlocked box and the editor's Next up box. */
@@ -118,6 +121,7 @@ const notifications = z
     snoozeMinutes: z.number().int().min(5).max(120).optional(),
     bell: z.enum(BELL_SHOWS).optional(),
     news: z.object({ on: z.boolean() }).optional(),
+    people: z.object({ on: z.boolean() }).optional(),
     reminders: z.array(reminder).max(MAX_REMINDERS, `At most ${MAX_REMINDERS} reminders`).optional(),
   })
   .nullable();
@@ -137,6 +141,9 @@ export const settings = z
     pointsOff: z.boolean(),
     healthOff: z.boolean(),
     freezeOff: z.boolean(),
+    peopleOff: z.boolean(),
+    shares: z.array(z.enum(SHARE_KEYS)).max(SHARE_KEYS.length),
+    cheersOff: z.boolean(),
     /** null = no cap. */
     pointsCap: z.number().int().min(1, "A cap is at least 1 point").max(MAX_POINTS).nullable(),
     /** null = no reminder. */

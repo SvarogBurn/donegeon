@@ -16,6 +16,7 @@ import { layoutRouter } from "./routes/layout.routes.js";
 import { listsRouter } from "./routes/lists.routes.js";
 import { notesRouter } from "./routes/notes.routes.js";
 import { notificationsRouter } from "./routes/notifications.routes.js";
+import { peopleRouter } from "./routes/people.routes.js";
 import { pointsRouter } from "./routes/points.routes.js";
 import { storiesRouter } from "./routes/stories.routes.js";
 import { tagsRouter } from "./routes/tags.routes.js";
@@ -75,6 +76,7 @@ export function createApp() {
   api.use("/layout", requireAuth, layoutRouter);
   api.use("/feedback", requireAuth, feedbackRouter);
   api.use("/stories", requireAuth, storiesRouter);
+  api.use("/people", requireAuth, peopleRouter);
   // Its own requireAuth: the hourly call that wakes the server comes with a secret, not a session.
   api.use("/notifications", notificationsRouter);
   api.use((_req, _res) => {

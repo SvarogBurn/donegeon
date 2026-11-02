@@ -45,6 +45,8 @@ export interface NotifySettings {
   bell: BellShows;
   /** A new article in the News (news/features) comes into the bell, whatever `bell` says, until it is read or dismissed. */
   news: { on: boolean };
+  /** Cheers and friend requests come into the bell anyway; this is whether they are pushed too. */
+  people: { on: boolean };
   reminders: Reminder[];
 }
 
@@ -90,6 +92,7 @@ export const NOTIFY_DEFAULTS: NotifySettings = {
   snoozeMinutes: 15,
   bell: "all",
   news: { on: true },
+  people: { on: true },
   reminders: [
     reminder("morning", "today", "all", "08:00"),
     reminder("evening", "open", "all", "20:00"),
@@ -155,6 +158,7 @@ export function normalizeNotifications(saved: unknown): NotifySettings {
     snoozeMinutes: whole(s.snoozeMinutes, SNOOZE.min, SNOOZE.max) ?? d.snoozeMinutes,
     bell: (BELL_SHOWS as readonly unknown[]).includes(s.bell) ? (s.bell as BellShows) : d.bell,
     news: { on: flag(isRecord(s.news) ? s.news.on : undefined, d.news.on) },
+    people: { on: flag(isRecord(s.people) ? s.people.on : undefined, d.people.on) },
     // Never saved: the reminders a new account starts with. Saved, even empty: the user's.
     reminders: Array.isArray(s.reminders) ? s.reminders.map(normalizeReminder).filter((r): r is Reminder => r !== null).slice(0, MAX_REMINDERS) : d.reminders,
   };

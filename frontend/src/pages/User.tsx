@@ -7,6 +7,8 @@ import { NewsStand } from "../components/News/NewsStand";
 import { CharacterSheet } from "../components/Character/CharacterSheet";
 import { useProfile } from "../components/Character/useProfile";
 import { DeadlineSettings } from "../components/Countdown/DeadlineSettings";
+import { PeopleBox } from "../components/People/PeopleBox";
+import { SocialSettings } from "../components/People/SocialSettings";
 import { NotificationSettings } from "../components/Notifications/NotificationSettings";
 import { Cheatsheet } from "../components/Help/Cheatsheet";
 import { PixelCheckbox } from "../components/PixelCheckbox";
@@ -215,7 +217,7 @@ function DeleteAccount({ username, onCancel }: { username: string; onCancel: () 
       <form onSubmit={submit} className="card w-96 max-w-full space-y-3 text-xs" role="alertdialog" aria-modal="true" aria-label="Delete account" data-delete-account>
         <p className="text-sm text-red-600 dark:text-red-400">Delete your account?</p>
         <p>
-          This deletes “{username}” and everything in it: your tasks, lists, folders, goals, tags, points and their history, your stats, the mail you sent and your stories. It can't be undone.
+          This deletes “{username}” and everything in it: your tasks, lists, folders, goals, tags, points and their history, your stats, the mail you sent, your stories, your friends and your cheers. It can't be undone.
         </p>
         <label className="block space-y-1">
           <span>
@@ -391,6 +393,10 @@ export function SettingsBox() {
         note={(every) => (every ? `Lightning or confetti across the screen, in turn, after every ${every} tasks of a day.` : "None, however much you get done.")}
       />
       </SettingsSection>
+      {/* Who sees the character, what of it, and the cheers. */}
+      <SettingsSection name="social" title="Social">
+        <SocialSettings />
+      </SettingsSection>
       {/* How the app looks, and which tabs it has. Open while the tutorial runs: it points at the Notes tab's switch. */}
       <SettingsSection name="design" title="Theme and design" forceOpen={!user.tutorialSeen}>
       <label className="flex items-center gap-2 text-xs">
@@ -483,6 +489,7 @@ export function UserBox({ name }: { name: string }) {
   const { user } = useMe();
   if (!user) return null;
   if (name === "character") return <CharacterSheet />;
+  if (name === "people") return <PeopleBox />;
   if (name === "news") return <NewsStand />;
   if (name === "settings") return <SettingsBox />;
   if (name === "cheatsheet") return <Cheatsheet />;

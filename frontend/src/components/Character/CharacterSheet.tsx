@@ -1,6 +1,7 @@
 import { useState, useSyncExternalStore } from "react";
 import { usePoints } from "../../hooks/points";
-import { useFreezeOff, useHealthOff, usePointsOff } from "../../hooks/useAuth";
+import { usePublishCard } from "../../hooks/people";
+import { useFreezeOff, useHealthOff, useMe, usePointsOff } from "../../hooks/useAuth";
 import { addDays, daysBetween } from "../../../../shared/dates";
 import { formatDay } from "../../lib/dates";
 import { useOnline } from "../../lib/offline/online";
@@ -8,9 +9,10 @@ import { bodyOf, type Look } from "../../lib/character/bodies";
 import { RANGES } from "../../lib/character/profile";
 import { builtInStats, customStatValue, skillExp } from "../../lib/character/profileStats";
 import { levelOf } from "../../lib/character/levels";
-import { shownTitle } from "../../lib/character/titles";
+import { publicTitle, shownTitle } from "../../lib/character/titles";
 import { shownLook, tryOn } from "../../lib/character/unlocks";
 import { USER_BOX_COLORS } from "../../lib/frameTones";
+import { cardSheet } from "../../lib/people";
 import type { Health } from "../../types";
 import { TileFrame } from "../Tiles/TileFrame";
 import { CellBar, ExpBar, Hearts } from "./Bars";
@@ -69,6 +71,21 @@ export function CharacterSheet() {
   const values = collected && builtInStats({ ...collected, today, balance: points.data?.balance ?? null, frozen: health?.frozen });
   // No points stat while the points system is off; it stays picked for when they are back.
   const stats = profile.stats.filter((key) => !(pointsOff && key === "points"));
+
+  // What the app can't work out away from this page goes on the card others see from here (see hooks/people).
+  const shares = useMe().user?.shares ?? [];
+  usePublishCard(
+    "sheet",
+    collected && values && progress
+      ? cardSheet({
+          title: publicTitle(profile.title, unlocks.progress, shares.includes("skills")).name,
+          stats: stats.map((key) => ({ key, stat: values[key] })),
+          skills: profile.skills.map((skill) => ({ ...skillName(skill), exp: skillExp(skill, collected.completions, collected.rewards) })),
+          today,
+          shares,
+        })
+      : null,
+  );
 
   return (
     <TileFrame
