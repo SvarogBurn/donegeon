@@ -6,7 +6,7 @@ import { usePressTask, useTaskTrees, useToggleTask } from "../../hooks/tasks";
 import { useDismissed } from "../../hooks/notifications";
 import { useAcceptFriend, useIgnoreFriend, useInbox, useMarkCheersSeen } from "../../hooks/people";
 import { useDeadlineToday, useMe, useNotifySettings, useTickedTasks } from "../../hooks/useAuth";
-import { formatDay, localDay } from "../../lib/dates";
+import { formatDay } from "../../lib/dates";
 import { leftUndone, passedDeadlines, saveDismissed, type LeftUndone, type PassedDeadline } from "../../lib/notifications";
 import { dueToday, findTask, type Planned } from "../../lib/notifySchedule";
 import { markNewsSeen, useUnseenNews } from "../../lib/newsSeen";
@@ -220,12 +220,8 @@ export function Bell({
               {cheers.map((cheer) => (
                 <li key={cheer.id} className="flex items-start gap-1 hover:bg-stone-100 dark:hover:bg-stone-800" data-notification-cheer={cheer.username}>
                   <div className="min-w-0 flex-1 px-3 py-2">
-                    <span className="flex items-center gap-1.5 font-pixel text-[8px] text-pink-700 dark:text-pink-400">
-                      <span className="size-1.5 flex-none bg-current" aria-hidden />
-                      Cheer · {formatDay(localDay(new Date(cheer.createdAt)))}
-                    </span>
-                    <span className="mt-1 block truncate text-sm">{cheer.username} cheered you on</span>
-                    <span className="mt-0.5 block text-xs text-stone-500">{cheer.line}</span>
+                    <span className="block text-sm">{cheer.line}</span>
+                    <span className="block truncate text-xs text-stone-500">-{cheer.username}</span>
                   </div>
                   <button type="button" className="btn-quiet px-2 py-2 text-base leading-none" aria-label="Dismiss" title="Dismiss" onClick={() => markSeen.mutate([cheer.id])}>
                     ×

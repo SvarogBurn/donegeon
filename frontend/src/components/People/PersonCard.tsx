@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { CHEER_LINES } from "../../../../shared/constants";
 import { useBlock, useRemoveFriend, useSendCheer } from "../../hooks/people";
 import { bodyOf } from "../../lib/character/bodies";
 import { normalizeLook } from "../../lib/character/profile";
@@ -9,65 +8,29 @@ import { formatDay } from "../../lib/dates";
 import { shownActivity, shownStats, type Person } from "../../lib/people";
 import { ExpBar, Hearts } from "../Character/Bars";
 import { CharacterSprite } from "../Character/CharacterSprite";
+import { CheerLines } from "./CheerLines";
+import { Popup } from "./Popup";
 
-/** Cheering, and what can be done to a friend: under the card, on one row at a time. */
-function CardButtons({ person }: { person: Person }) {
-  const [asking, setAsking] = useState<"cheer" | "more" | "unfriend" | "block" | null>(null);
+/** What is in a friend's ⋯: a cheer, its lines in a dropdown, and what can be done to them, each asked first. */
+function FriendMenu({ person, close }: { person: Person; close: () => void }) {
+  const [isCheering, setIsCheering] = useState(false);
+  const [asking, setAsking] = useState<"unfriend" | "block" | null>(null);
   const cheer = useSendCheer();
   const unfriend = useRemoveFriend();
   const block = useBlock();
   const { id, username } = person;
 
-  if (asking === "cheer") {
-    return (
-      <div className="flex flex-col gap-1" data-cheer-lines>
-        {CHEER_LINES.map((line) => (
-          <button
-            key={line}
-            type="button"
-            className="band-button justify-center"
-            disabled={cheer.isPending}
-            onClick={() => {
-              cheer.mutate({ id, line });
-              setAsking(null);
-            }}
-            data-cheer-line={line}
-          >
-            {line}
-          </button>
-        ))}
-        <button type="button" className="btn-quiet text-xs" onClick={() => setAsking(null)}>
-          Back
-        </button>
-      </div>
-    );
-  }
-  if (asking === "more") {
-    return (
-      <div className="flex flex-wrap justify-center gap-2 text-xs">
-        <button type="button" className="btn-quiet underline" onClick={() => setAsking("unfriend")} data-unfriend>
-          Unfriend
-        </button>
-        <button type="button" className="btn-quiet underline" onClick={() => setAsking("block")} data-block>
-          Block
-        </button>
-        <button type="button" className="btn-quiet underline" onClick={() => setAsking(null)}>
-          Back
-        </button>
-      </div>
-    );
-  }
   if (asking) {
     return (
-      <div className="space-y-1 text-center text-xs">
-        <p>{asking === "block" ? `Block ${username}? You won't see each other, and they can't ask to be friends.` : `Unfriend ${username}?`}</p>
-        <div className="flex justify-center gap-2">
+      <div className="space-y-1 text-xs">
+        <p className="px-1.5">{asking === "block" ? `Block ${username}? You won't see each other, and they can't ask to be friends.` : `Unfriend ${username}?`}</p>
+        <div className="flex gap-1">
           <button
             type="button"
             className="btn-quiet underline"
             onClick={() => {
               (asking === "block" ? block : unfriend).mutate(id);
-              setAsking(null);
+              close();
             }}
             data-confirm={asking}
           >
@@ -81,16 +44,38 @@ function CardButtons({ person }: { person: Person }) {
     );
   }
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2">
-      {person.canCheer && (
-        <button type="button" className="band-button" disabled={person.hasCheered} title={person.hasCheered ? "You cheered them on today" : undefined} onClick={() => setAsking("cheer")} data-cheer>
-          {person.hasCheered ? "Cheered" : "Cheer"}
+    <>
+      {person.canCheer &&
+        (person.hasCheered ? (
+          <p className="px-1.5 py-1 text-xs text-stone-500" data-cheered>
+            Cheered today
+          </p>
+        ) : (
+          <>
+            <button type="button" className="btn-quiet flex w-full items-center gap-1 text-left" aria-expanded={isCheering} onClick={() => setIsCheering(!isCheering)} data-cheer>
+              {/* The subtasks' arrow: down while open, turned to point right while closed. */}
+              <span className="task-arrow" style={isCheering ? undefined : { transform: "rotate(-90deg)" }} aria-hidden />
+              Cheer
+            </button>
+            {isCheering && (
+              <CheerLines
+                onPick={(line) => {
+                  cheer.mutate({ id, line });
+                  close();
+                }}
+              />
+            )}
+          </>
+        ))}
+      <div className={person.canCheer ? "border-t-2 border-stone-300 pt-1 dark:border-stone-700" : undefined}>
+        <button type="button" className="btn-quiet w-full text-left" onClick={() => setAsking("unfriend")} data-unfriend>
+          Unfriend
         </button>
-      )}
-      <button type="button" className="btn-quiet px-1 text-xs" aria-label={`More for ${username}`} title="More" onClick={() => setAsking("more")} data-person-more>
-        ⋯
-      </button>
-    </div>
+        <button type="button" className="btn-quiet w-full text-left" onClick={() => setAsking("block")} data-block>
+          Block
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -107,9 +92,17 @@ export function PersonCard({ person, isYou = false }: { person: Person; isYou?: 
   const stats = card.stats ? shownStats(card.stats.rows) : [];
   return (
     <article className="flex w-40 flex-none snap-center flex-col gap-2" data-person={username} aria-label={isYou ? "You" : username}>
-      <h3 className="truncate text-center font-pixel text-xs" title={username}>
-        {isYou ? "You" : username}
-      </h3>
+      {/* The same height with or without the ⋯, so the characters stand in one line. */}
+      <div className="flex h-8 items-center justify-center gap-1">
+        <h3 className="min-w-0 truncate font-pixel text-xs" title={username}>
+          {isYou ? "You" : username}
+        </h3>
+        {!isYou && (
+          <Popup label={`Options for ${username}`} button="⋯" buttonClassName="btn-quiet glyph flex-none" name="person-more">
+            {(close) => <FriendMenu person={person} close={close} />}
+          </Popup>
+        )}
+      </div>
       <div className="character-stage w-full [--u:3px]" data-person-stage>
         <CharacterSprite look={look} scale={1} cover={bodyOf(look).toEdge} label={`${username}, the character`} />
       </div>
@@ -177,7 +170,6 @@ export function PersonCard({ person, isYou = false }: { person: Person; isYou?: 
           ))}
         </ul>
       )}
-      {!isYou && <CardButtons person={person} />}
     </article>
   );
 }

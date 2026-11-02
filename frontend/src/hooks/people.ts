@@ -31,6 +31,7 @@ export const useAcceptFriend = () => usePeopleChange(peopleApi.acceptFriend);
 export const useIgnoreFriend = () => usePeopleChange(peopleApi.ignoreFriend);
 export const useRemoveFriend = () => usePeopleChange(peopleApi.removeFriend);
 export const useSendCheer = () => usePeopleChange(peopleApi.sendCheer);
+export const useCheerEveryone = () => usePeopleChange(peopleApi.cheerEveryone);
 export const useMarkCheersSeen = () => usePeopleChange(peopleApi.markCheersSeen);
 export const useBlock = () => usePeopleChange(peopleApi.block);
 export const useUnblock = () => usePeopleChange(peopleApi.unblock);

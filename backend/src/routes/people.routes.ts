@@ -6,7 +6,7 @@ import { userId } from "../middleware/requireAuth.js";
 import { id as idSchema } from "../schemas/common.js";
 import { askInput, cardPatch, cheerInput, seenInput } from "../schemas/people.js";
 import { pushToPerson } from "../services/notifications.service.js";
-import { canCheer, cardFor, keptOfCard } from "../services/peopleRules.js";
+import { canCheer, cardFor, cheerPush, keptOfCard } from "../services/peopleRules.js";
 
 /** All that is ever read of another account: never publicUser, which has every setting. */
 const PERSON = { id: true, username: true, peopleOff: true, shares: true, cheersOff: true, card: true } as const;
@@ -172,7 +172,7 @@ peopleRouter.get("/inbox", async (req, res) => {
       ? []
       : prisma.cheer.findMany({
           where: { toId: me.id, seenAt: null, from: { peopleOff: false } },
-          select: { id: true, line: true, createdAt: true, from: { select: { username: true } } },
+          select: { id: true, line: true, from: { select: { username: true } } },
           orderBy: { createdAt: "desc" },
           take: 50,
         }),
@@ -188,6 +188,19 @@ peopleRouter.post("/cheers/seen", async (req, res) => {
   res.status(204).end();
 });
 
+// To every friend at once, in one tap: leaves out whoever was cheered today, so nobody gets two in a day from one person.
+peopleRouter.post("/cheers", async (req, res) => {
+  const { line } = cheerInput.parse(req.body);
+  const me = await onReader(req);
+  const links = await linksOf(me.id, req.localDate);
+  const friends = await prisma.user.findMany({ where: { id: { in: [...links.friends] }, peopleOff: false }, select: PERSON });
+  const left = friends.filter((friend) => canCheer(me, friend, { isFriend: true, isBlocked: false }) && !links.cheered.has(friend.id));
+  if (left.length === 0) throw new HttpError(409, "You've already cheered everyone today");
+  await prisma.cheer.createMany({ data: left.map((friend) => ({ fromId: me.id, toId: friend.id, day: req.localDate, line })), skipDuplicates: true });
+  res.status(201).end();
+  for (const friend of left) void pushToPerson(friend.id, cheerPush(me, line));
+});
+
 // One a day from one person to another (the sender's day).
 peopleRouter.post("/cheers/:id", async (req, res) => {
   const { line } = cheerInput.parse(req.body);
@@ -197,7 +210,7 @@ peopleRouter.post("/cheers/:id", async (req, res) => {
   const { count } = await prisma.cheer.createMany({ data: [{ fromId: me.id, toId: target.id, day: req.localDate, line }], skipDuplicates: true });
   if (count === 0) throw new HttpError(409, "You've already cheered them on today");
   res.status(201).end();
-  void pushToPerson(target.id, { title: `${me.username} cheered you on`, body: line, url: "/?bell=1", tag: `cheer:${me.id}` });
+  void pushToPerson(target.id, cheerPush(me, line));
 });
 
 peopleRouter.get("/blocks", async (req, res) => {

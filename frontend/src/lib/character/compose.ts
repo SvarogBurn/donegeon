@@ -1,4 +1,4 @@
-import { bodyOf, choiceOf, type Body, type Look, type Material } from "./bodies";
+import { BEHIND, bodyOf, choiceOf, type Body, type Look, type Material } from "./bodies";
 import { recolorRamp } from "./ramps";
 
 /** A row of pixels of one colour: x, y, width, "#RRGGBB". */
@@ -37,7 +37,8 @@ const cache = new Map<string, Pixel[]>();
 
 /**
  * The look as rows of pixels on the 32x48 canvas: its body's layers bottom to top (those its options leave out
- * skipped), each pixel in the colour picked for the material that claims it (see bodies.ts), or as drawn.
+ * skipped, and pixels `BEHIND` keeps under another layer), each pixel in the colour picked for the material that
+ * claims it (see bodies.ts), or as drawn.
  */
 export function compose(look: Look, data: PartsData): Pixel[] {
   return cached(`body${JSON.stringify(look)}`, () => {
@@ -79,12 +80,18 @@ function paint(look: Look, body: Body, drawing: Drawing, materials: Material[], 
   }
   // Each material's swap, made once: drawn hex → picked shade.
   const swaps = materials.map((m) => (look.colors[m.id] ? recolorRamp(m.hexes, look.colors[m.id]) : null));
+  // The layer on top of each pixel so far, for `BEHIND`.
+  const topLayer = new Map<string, string>();
 
   for (const layer of drawing.layers) {
     if (body.skip?.includes(layer.name)) continue;
     if (optional.has(layer.name) ? !shown.has(layer.name) : !layer.visible) continue;
+    const behind = BEHIND.get(layer.name);
     for (const [x0, y, w, hex] of layer.runs) {
       for (let x = x0; x < x0 + w; x++) {
+        const at = `${x},${y}`;
+        if (behind?.has(topLayer.get(at) ?? "")) continue;
+        topLayer.set(at, layer.name);
         const i = materials.findIndex((m) => claims(m, layer.name, x, y, hex));
         const fill = (i >= 0 && swaps[i]?.get(hex)) || hex;
         const last = pixels[pixels.length - 1];

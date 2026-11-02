@@ -78,9 +78,12 @@ const BUNNY_EARS = ["ears", "back ear", "ears up", "back ear up"];
 const APRON = ["#4A2755", "#140B26", "#80354D", "#5A2238"];
 
 /** Every layer drawn in the human's hair colour: the hairstyles, the fringes and the beards. */
-const HUMAN_HAIR = [
+const HUMAN_HAIRSTYLES = [
   ...["messy", "messy shorter", "short", "short 2", "punk", "bob", "bun", "ponytail", "low pony", "loose", "long loose straight"].map((h) => `hair ${h}`),
   "curly", "afro",
+];
+const HUMAN_HAIR = [
+  ...HUMAN_HAIRSTYLES,
   ...[1, 2, 3, 4, 5, 6].map((n) => `Hair front ${n}`),
   "beard", "beard flatter", "moustache",
 ];
@@ -123,6 +126,23 @@ const GLASSES: Choice[] = [
   { id: "sunglasses", name: "Sunglasses", layers: ["sunglasses"] },
 ];
 const HELD_LAYERS = ["held sword", "held dagger", "held laptop", "held pencil", "held gun", "held staff", "held bow"];
+
+/** The bottoms that go over socks and shoes, the bodies' own too. */
+const PANTS = ["shorts", "trousers", "overalls", "bunny trousers", "boar trousers", "wolf trousers", "deer shorts", "frog tights"];
+const FOOTWEAR = [
+  "socks", "socks stripes horizontal", "deer socks",
+  "shooes normal", "shooes boots", "shoes flats",
+  "bunny boots", "cat boots", "boar shoes", "wolf boots", "deer shoes", "frog shoes", "sheep shoes", "duck shoes",
+];
+
+/**
+ * Layer → the layers it never draws over, wherever the file has it. Not a new order for the file: a beard goes over a
+ * top and under the hair, so no one order fits every piece.
+ */
+export const BEHIND = new Map<string, Set<string>>([
+  ...HUMAN_HAIRSTYLES.map((l): [string, Set<string>] => [l, new Set(["hoodie", "shirt", "dress", "coat", "robe"])]),
+  ...FOOTWEAR.map((l): [string, Set<string>] => [l, new Set(PANTS)]),
+]);
 
 /** What the far hand holds; the dragon's claw too. */
 const HELD: BodyOption = {

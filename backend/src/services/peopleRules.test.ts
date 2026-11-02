@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { afterSettings, canCheer, canSee, cardFor, keptOfCard, type Person, type Relation } from "./peopleRules.js";
+import { afterSettings, canCheer, canSee, cardFor, cheerPush, keptOfCard, type Person, type Relation } from "./peopleRules.js";
 
 const person = (id: string, more: Partial<Person> = {}): Person => ({ id, peopleOff: false, shares: [], cheersOff: false, ...more });
 const strangers: Relation = { isFriend: false, isBlocked: false };
@@ -39,6 +39,12 @@ describe("canCheer", () => {
 
   it("not yourself", () => {
     expect(canCheer(person("a"), person("a"), strangers)).toBe(false);
+  });
+});
+
+describe("cheerPush", () => {
+  it("says the cheer, signed", () => {
+    expect(cheerPush({ id: "a", username: "gabriel" }, "Keep going!")).toMatchObject({ body: "Keep going!\n-gabriel", tag: "cheer:a" });
   });
 });
 

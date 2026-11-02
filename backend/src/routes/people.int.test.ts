@@ -282,6 +282,67 @@ describe("cheers", () => {
   });
 });
 
+describe("cheering everyone", () => {
+  const cheersTo = async (person: Someone) => (await person.call("GET", "/people/inbox")).body.cheers as { username: string; line: string }[];
+
+  it("reaches each friend once, and not strangers or a request left unanswered", async () => {
+    const me = await user();
+    const one = await user();
+    const other = await user();
+    const stranger = await user();
+    const asked = await user();
+    await befriend(me, one);
+    await befriend(me, other);
+    await me.call("POST", "/people/friends", { username: asked.username });
+    const answer = await me.call("POST", "/people/cheers", { line: "Well done!" });
+    expect(answer.status).toBe(201);
+    expect(answer.text).toBe("");
+    expect((await cheersTo(one)).map((cheer) => [cheer.username, cheer.line])).toEqual([[me.username, "Well done!"]]);
+    expect(await cheersTo(other)).toHaveLength(1);
+    expect(await cheersTo(stranger)).toEqual([]);
+    expect(await cheersTo(asked)).toEqual([]);
+  });
+
+  it("leaves out whoever was cheered today, and can't be sent twice in a day", async () => {
+    const me = await user();
+    const one = await user();
+    const other = await user();
+    await befriend(me, one);
+    await befriend(me, other);
+    await me.call("POST", `/people/cheers/${one.id}`, { line: "Keep going!" });
+    expect((await me.call("POST", "/people/cheers", { line: "Well done!" })).status).toBe(201);
+    expect((await cheersTo(one)).map((cheer) => cheer.line)).toEqual(["Keep going!"]);
+    expect((await cheersTo(other)).map((cheer) => cheer.line)).toEqual(["Well done!"]);
+    expect((await me.call("POST", "/people/cheers", { line: "Well done!" })).status).toBe(409);
+    expect((await me.call("POST", "/people/cheers", { line: "Well done!" }, "2026-11-03")).status).toBe(201);
+    expect(await cheersTo(one)).toHaveLength(2);
+  });
+
+  it("leaves out friends who are Off or have cheers off", async () => {
+    const me = await user();
+    const off = await user();
+    const quiet = await user();
+    const on = await user();
+    for (const friend of [off, quiet, on]) await befriend(me, friend);
+    await off.set({ peopleOff: true });
+    await quiet.set({ cheersOff: true });
+    expect((await me.call("POST", "/people/cheers", { line: "Well done!" })).status).toBe(201);
+    expect(await prisma.cheer.count({ where: { fromId: me.id } })).toBe(1);
+    expect(await cheersTo(on)).toHaveLength(1);
+  });
+
+  it("refuses a line of its own, and while Off or with cheers off", async () => {
+    const me = await user();
+    const friend = await user();
+    await befriend(me, friend);
+    expect((await me.call("POST", "/people/cheers", { line: "typed" })).status).toBe(400);
+    await me.set({ cheersOff: true });
+    expect((await me.call("POST", "/people/cheers", { line: "Well done!" })).status).toBe(409);
+    await me.set({ cheersOff: false, peopleOff: true });
+    expect((await me.call("POST", "/people/cheers", { line: "Well done!" })).status).toBe(409);
+  });
+});
+
 describe("blocks", () => {
   it("end everything between the two, both ways", async () => {
     const one = await user();

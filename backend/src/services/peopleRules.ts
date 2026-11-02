@@ -30,6 +30,9 @@ export function canSee(viewer: Person, target: Person, { isFriend, isBlocked }: 
 export const canCheer = (viewer: Person, target: Person, relation: Relation) =>
   viewer.id !== target.id && canSee(viewer, target, relation) && !viewer.cheersOff && !target.cheersOff;
 
+/** A cheer as a push: its own words are what it says, signed by who sent it. A title would cut a long one off. */
+export const cheerPush = (sender: { id: string; username: string }, line: string) => ({ title: "Donegeon", body: `${line}\n-${sender.username}`, url: "/?bell=1", tag: `cheer:${sender.id}` });
+
 /** What is on every card. */
 const BASE = ["level", "into", "span", "title", "look"] as const;
 

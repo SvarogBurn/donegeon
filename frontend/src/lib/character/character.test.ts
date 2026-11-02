@@ -289,6 +289,47 @@ describe("bodies", () => {
     expect(count(furred, "#A63A3A")).toBe(count(plain, "#A63A3A"));
     expect(count(furred, "#C27A47")).toBeGreaterThan(50);
   });
+
+  describe("what goes behind what", () => {
+    const top = (look: Look) => {
+      const seen = new Map<string, string>();
+      for (const p of compose(look, data)) for (let i = 0; i < p.w; i++) seen.set(`${p.x + i},${p.y}`, p.fill);
+      return seen;
+    };
+    const runsOf = (body: Body, layer: string) => data[body.file].layers.find((l) => l.name === layer)!.runs;
+    const below = (body: Body) => HEIGHT - LIFT - data[body.file].height + (body.nudge?.[1] ?? 0);
+    const across = (body: Body) => Math.floor((32 - data[body.file].width) / 2) + (body.nudge?.[0] ?? 0);
+
+    it("keeps long hair under every top", () => {
+      const human = BODY_BY_ID.get("human")!;
+      for (const shirt of ["hoodie", "shirt", "dress", "coat", "robe"]) {
+        const look = (hair: string): Look => ({ v: 2, body: "human", options: { top: shirt, hair }, colors: {} });
+        const [long, bald] = [top(look("long")), top(look("bald"))];
+        for (const [x0, y, w] of runsOf(human, shirt)) for (let x = x0; x < x0 + w; x++) expect(long.get(`${x},${y + below(human)}`), `${shirt} ${x},${y}`).toBe(bald.get(`${x},${y + below(human)}`));
+      }
+    });
+
+    it("keeps pants over every sock and shoe, on every body that has them", () => {
+      const choices = (body: Body, id: string) => body.options?.find((o) => o.id === id)?.choices ?? [];
+      for (const body of BODIES) {
+        for (const pants of choices(body, "bottoms").filter((c) => c.layers.length && !c.layers.includes("skirt"))) {
+          const look = (socks: string, shoes: string): Look => ({ v: 2, body: body.id, options: { bottoms: pants.id, socks, shoes }, colors: {} });
+          const bare = top(look("none", "none"));
+          for (const socks of choices(body, "socks")) {
+            for (const shoes of choices(body, "shoes")) {
+              const dressed = top(look(socks.id, shoes.id));
+              for (const [x0, y, w] of runsOf(body, pants.layers[0])) {
+                for (let x = x0; x < x0 + w; x++) {
+                  const at = `${x + across(body)},${y + below(body)}`;
+                  expect(dressed.get(at), `${body.id} ${pants.id} ${socks.id} ${shoes.id} ${at}`).toBe(bare.get(at));
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+  });
 });
 
 describe("faces", () => {

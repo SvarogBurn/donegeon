@@ -21,7 +21,6 @@ export interface ReceivedCheer {
   id: string;
   username: string;
   line: CheerLine;
-  createdAt: string;
 }
 
 export interface Inbox {
@@ -42,6 +41,8 @@ export const ignoreFriend = (id: string) => api(`/people/friends/${id}/ignore`, 
 export const removeFriend = (id: string) => api(`/people/friends/${id}`, { method: "DELETE" });
 
 export const sendCheer = ({ id, line }: { id: string; line: CheerLine }) => api(`/people/cheers/${id}`, { body: { line } });
+/** To every friend not cheered today. */
+export const cheerEveryone = (line: CheerLine) => api("/people/cheers", { body: { line } });
 export const markCheersSeen = (ids: string[]) => api("/people/cheers/seen", { body: { ids } });
 
 export const block = (id: string) => api(`/people/blocks/${id}`, { method: "POST" });

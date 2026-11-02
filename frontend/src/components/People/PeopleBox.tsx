@@ -1,12 +1,15 @@
 import { useState, type FormEvent } from "react";
 import type { Named } from "../../api/people";
-import { useAcceptFriend, useAskFriend, useFriends, useIgnoreFriend, useInbox, useRemoveFriend } from "../../hooks/people";
+import { useAcceptFriend, useAskFriend, useCheerEveryone, useFriends, useIgnoreFriend, useInbox, useRemoveFriend } from "../../hooks/people";
 import { useMe } from "../../hooks/useAuth";
 import { USER_BOX_COLORS } from "../../lib/frameTones";
 import { NeedsConnection } from "../NeedsConnection";
 import { TileFrame } from "../Tiles/TileFrame";
+import type { Person } from "../../lib/people";
 import { Carousel } from "./Carousel";
+import { CheerLines } from "./CheerLines";
 import { PersonCard } from "./PersonCard";
+import { Popup } from "./Popup";
 
 /** Asks someone to be friends by their username, typed exactly: there is no search, so you can only add who you know. */
 function AddFriend({ waiting }: { waiting: Named[] }) {
@@ -84,6 +87,36 @@ function Requests({ asking, waiting }: { asking: Named[]; waiting: Named[] }) {
 }
 
 /**
+ * One cheer to every friend, under the carousel, leaving out whoever you cheered today. Only with two friends or more
+ * to cheer: with one it would be their ⋯ again.
+ */
+function CheerEveryone({ friends }: { friends: Person[] }) {
+  const cheer = useCheerEveryone();
+  const cheerable = friends.filter((friend) => friend.canCheer);
+  if (cheerable.length < 2) return null;
+  return (
+    <div className="flex justify-center">
+      {cheerable.every((friend) => friend.hasCheered) ? (
+        <p className="text-xs text-stone-500" data-cheered-everyone>
+          Everyone cheered today
+        </p>
+      ) : (
+        <Popup label="Cheer everyone" button="Cheer everyone" buttonClassName="btn-quiet flex items-center gap-1" arrow name="cheer-everyone">
+          {(close) => (
+            <CheerLines
+              onPick={(line) => {
+                cheer.mutate(line);
+                close();
+              }}
+            />
+          )}
+        </Popup>
+      )}
+    </div>
+  );
+}
+
+/**
  * Your friends' characters, side by side, your own first so you see what they see. Empty until you have a friend: only
  * the way to add one. Friends are people you added by their exact username and who said yes. Nothing here counts
  * anyone. Set to Off, you see nobody.
@@ -117,6 +150,7 @@ export function PeopleBox() {
                 No friends here yet.
               </p>
             )}
+            <CheerEveryone friends={data.friends} />
             <Requests asking={inbox.data?.requests ?? []} waiting={data.sent} />
             <AddFriend waiting={data.sent} />
           </div>
