@@ -70,7 +70,9 @@ export function hitTest(x: number, y: number, own: Element | null): DropTarget |
   if (row) {
     const rect = row.getBoundingClientRect();
     const fraction = (y - rect.top) / rect.height;
-    const zone = fraction < 0.3 ? "before" : fraction > 0.7 ? "after" : "inside";
+    // Nothing goes under a divider: above it or below it only.
+    const isDivider = row.dataset.divider !== undefined;
+    const zone = isDivider ? (fraction < 0.5 ? "before" : "after") : fraction < 0.3 ? "before" : fraction > 0.7 ? "after" : "inside";
     return { kind: "task", id: row.dataset.taskRow!, zone };
   }
   const weekDay = el.closest<HTMLElement>("[data-week-day]");

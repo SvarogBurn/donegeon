@@ -122,6 +122,9 @@ model User {
   notesTab        Boolean  @default(false)
   // Whether the News tab (the newspaper: what's new, the projects, the story events) is shown; on by default.
   newsTab         Boolean  @default(true)
+  // Whether the Stats and Calendar tabs are shown; on by default. The tutorial shows them anyway, as it has the user click them.
+  statsTab        Boolean  @default(true)
+  calendarTab     Boolean  @default(true)
   // The character at the top of the user's page: its name and title, the stats and skills it shows, and how it looks
   // (see frontend/src/lib/character/profile.ts). null = the defaults.
   profile         Json?
@@ -233,6 +236,8 @@ model Task {
   isPersistent Boolean       @default(false)
   /// A persistent task left out of the Stats page's Habits box and the Consistency stat.
   hideInStats  Boolean       @default(false)
+  // Not a task: a title and a line between the main tasks of a list. Never ticked, dated or counted.
+  isDivider    Boolean       @default(false)
   // A persistent task on a schedule: due again every repeatEvery units. Null = no schedule, done whenever.
   repeatEvery     Int?
   repeatUnit      RepeatUnit    @default(week)

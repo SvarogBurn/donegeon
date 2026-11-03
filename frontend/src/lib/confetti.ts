@@ -8,6 +8,7 @@ export const PIXEL = 3;
 export const SHOWER_SECONDS = 4.8;
 export const FADE_SECONDS = 0.6;
 const PIECES = 220;
+const POP_PIECES = 60;
 // Pieces are let go over this long, so they come down as a shower and not as one line.
 const RELEASE_SECONDS = 1.4;
 
@@ -48,14 +49,30 @@ export interface Piece {
 const DRAG_X = 2.5;
 const DRAG_Y = 5;
 
+// What every piece has whatever throws it: its colours, its shape, and how it sways and tumbles.
+function looks(random: () => number) {
+  const between = (low: number, high: number) => low + random() * (high - low);
+  const [front, back] = COLORS[Math.floor(random() * COLORS.length)];
+  const isStrip = random() < 0.35;
+  return {
+    width: PIXEL * (isStrip ? 2 : 3),
+    height: PIXEL * (isStrip ? 5 : 3),
+    front,
+    back,
+    sway: between(10, 34),
+    swaySpeed: between(2, 5),
+    tumbleSpeed: between(4, 11),
+    phase: between(0, Math.PI * 2),
+  };
+}
+
 /** A shower for a screen this size: half from each top corner, some thrown far across and some only a little. */
 export function makePieces(screenWidth: number, screenHeight: number, random = Math.random): Piece[] {
   const between = (low: number, high: number) => low + random() * (high - low);
   return Array.from({ length: PIECES }, (_, i) => {
     const fromLeft = i % 2 === 0;
-    const [front, back] = COLORS[Math.floor(random() * COLORS.length)];
-    const isStrip = random() < 0.35;
     return {
+      ...looks(random),
       x: fromLeft ? between(-20, 0) : screenWidth + between(0, 20),
       y: between(-40, 0),
       wait: between(0, RELEASE_SECONDS),
@@ -64,14 +81,24 @@ export function makePieces(screenWidth: number, screenHeight: number, random = M
       speedY: between(0, 500),
       // Over the height of the screen in 1.8 to 3.2 seconds.
       falling: screenHeight / between(1.8, 3.2),
-      width: PIXEL * (isStrip ? 2 : 3),
-      height: PIXEL * (isStrip ? 5 : 3),
-      front,
-      back,
-      sway: between(10, 34),
-      swaySpeed: between(2, 5),
-      tumbleSpeed: between(4, 11),
-      phase: between(0, Math.PI * 2),
+    };
+  });
+}
+
+/** A pop for a screen this size: a handful thrown out every way at once from one spot high in the middle, then falling. */
+export function makePop(screenWidth: number, screenHeight: number, random = Math.random): Piece[] {
+  const between = (low: number, high: number) => low + random() * (high - low);
+  return Array.from({ length: POP_PIECES }, () => {
+    const angle = between(0, Math.PI * 2);
+    const reach = between(0.1, 0.32) * Math.min(screenWidth, screenHeight);
+    return {
+      ...looks(random),
+      x: screenWidth / 2,
+      y: screenHeight * 0.3,
+      wait: between(0, 0.08),
+      speedX: Math.cos(angle) * reach * DRAG_X,
+      speedY: Math.sin(angle) * reach * DRAG_Y,
+      falling: screenHeight / between(2.5, 4),
     };
   });
 }
@@ -97,5 +124,8 @@ export function pieceAt(piece: Piece, time: number) {
   };
 }
 
-/** How see-through the shower is `time` seconds in: whole, then fading out at its end. */
+/** How see-through a shower is `time` seconds in: whole, then fading out at its end. */
 export const showerOpacity = (time: number) => Math.max(0, Math.min(1, (SHOWER_SECONDS - time) / FADE_SECONDS));
+
+/** Whether every piece has fallen off the bottom of the screen: a pop isn't timed or faded, it is over when it has all landed. */
+export const hasLanded = (pieces: Piece[], screenHeight: number) => pieces.every((piece) => piece.y > screenHeight);

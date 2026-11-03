@@ -20,6 +20,8 @@ export const taskInput = z.object({
   tagIds: labelIds.optional(),
   /** Where to insert among the new siblings; omitted = at the end. */
   index: index.optional(),
+  /** The sibling it goes right after, null = first; see spotFor. */
+  after: id.nullish(),
   /** A main task written into a day of the calendar starts with that day as its deadline; soft unless said otherwise. */
   deadlineDate: localDate.optional(),
   deadlineType: deadlineType.optional(),
@@ -34,6 +36,8 @@ export const taskInput = z.object({
   repeatEvery: repeatEvery.optional(),
   repeatUnit: repeatUnit.optional(),
   nextDue: localDate.optional(),
+  /** A title and a line between the main tasks of a list, not a task (see assertNewDivider). */
+  isDivider: z.boolean().optional(),
 });
 export type TaskInput = z.infer<typeof taskInput>;
 
@@ -74,6 +78,8 @@ export const moveInput = z.object({
   parentId: id.nullable(),
   listId: id.nullable(),
   index,
+  /** The sibling it goes right after, null = first; see spotFor. */
+  after: id.nullish(),
 });
 export type MoveInput = z.infer<typeof moveInput>;
 

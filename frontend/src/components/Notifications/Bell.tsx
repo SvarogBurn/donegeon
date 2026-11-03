@@ -10,8 +10,10 @@ import { formatDay } from "../../lib/dates";
 import { leftUndone, passedDeadlines, saveDismissed, type LeftUndone, type PassedDeadline } from "../../lib/notifications";
 import { dueToday, findTask, type Planned } from "../../lib/notifySchedule";
 import { markNewsSeen, useUnseenNews } from "../../lib/newsSeen";
+import { normalizeLook } from "../../lib/character/profile";
 import { newId } from "../../lib/offline/changes";
 import { useSevenTaps } from "../../hooks/useSevenTaps";
+import { FaceSprite } from "../Character/CharacterFace";
 import { PretendNotice } from "../layout/Clock";
 import { DevClock } from "../layout/DevClock";
 import { RichText } from "../RichText";
@@ -26,6 +28,7 @@ const KIND_COLORS: Partial<Record<Planned["kind"], string>> = {
   deadline: "text-amber-700 dark:text-amber-400",
 };
 const timeOf = (at: Date) => `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
+const requestKey = (id: string) => `request:${id}`;
 
 /** The app's moment, again every minute: today's messages come into the bell at their hour. */
 function useMinute() {
@@ -45,7 +48,8 @@ function useMinute() {
  * list); and deadlines whose day is over with the task still open, a tap asking for a new deadline. Dismissed
  * messages and deadlines stay away on this device (a deadline until it is moved and passes again). First, while the
  * setting is on, the News articles not yet read on this device (lib/newsSeen), a tap opening the paper. Before those,
- * whatever `bell` says, friend requests to answer and cheers not yet read, kept on the server, not on this device. `inStrip` = the installed app's top strip (the list opens below);
+ * whatever `bell` says, friend requests to answer and cheers not yet read, kept on the server, not on this device;
+ * Dismiss all only quiets a request on this device (no count, no dot), it stays here to be answered. `inStrip` = the installed app's top strip (the list opens below);
  * otherwise the browser's task bar along the bottom (it opens above), where the bell is teeny and `children` places it
  * (the clock puts it beside the time), and a click anywhere on them opens the list.
  */
@@ -98,19 +102,21 @@ export function Bell({
   // New articles in the News, while the setting is on (whatever the bell shows otherwise): read or dismissed, they are gone.
   const unseenNews = useUnseenNews();
   const news = settings.news.on ? unseenNews : [];
-  const { data: inbox } = useInbox(!useMe().user?.peopleOff);
+  const peopleOff = useMe().user?.peopleOff;
+  const { data: inbox } = useInbox(!peopleOff);
   const requests = inbox?.requests ?? [];
+  const loudRequests = requests.filter(({ id }) => !dismissed.has(requestKey(id)));
   const cheers = inbox?.cheers ?? [];
   const accept = useAcceptFriend();
   const ignore = useIgnoreFriend();
   const markSeen = useMarkCheersSeen();
-  const count = requests.length + cheers.length + news.length + shownMessages.length + shown.length + undone.length;
+  const count = loudRequests.length + cheers.length + news.length + shownMessages.length + shown.length + undone.length;
 
   useEffect(() => onOpenChange?.(isOpen || asking !== null || askingUndone !== null || isDevClock), [isOpen, asking, askingUndone, isDevClock, onOpenChange]);
-  // Only once the tasks are in: before that every dismissal would look out of date.
+  // Only once the tasks and the requests are in: before that every dismissal would look out of date.
   useEffect(() => {
-    if (trees.length) saveDismissed(dismissed, [...passed, ...messages].map((item) => item.key));
-  }, [dismissed, passed, messages, trees.length]);
+    if (trees.length && (inbox || peopleOff)) saveDismissed(dismissed, [...[...passed, ...messages].map((item) => item.key), ...(inbox?.requests ?? []).map(({ id }) => requestKey(id))]);
+  }, [dismissed, passed, messages, trees.length, inbox, peopleOff]);
 
   // A tap on a pushed "deadline passed" or "left undone" opens the app on /?bell=1: the list opens, where its new day is picked.
   useEffect(() => {
@@ -181,12 +187,14 @@ export function Bell({
         >
           <div className="flex items-center justify-between gap-2 border-b border-stone-200 px-3 py-2 dark:border-stone-700">
             <h2 className="font-pixel text-[10px]">Notifications</h2>
-            {count > 1 && (
+            {/* A request has no × of its own, so one alone still gets this. */}
+            {(count > 1 || loudRequests.length > 0) && (
               <button
                 type="button"
                 className="btn-quiet text-xs"
+                data-dismiss-all
                 onClick={() => {
-                  dismiss([...shownMessages, ...shown].map((item) => item.key));
+                  dismiss([...[...shownMessages, ...shown].map((item) => item.key), ...loudRequests.map(({ id }) => requestKey(id))]);
                   undone.filter(hasHome).forEach(drop);
                   if (news.length) markNewsSeen(news.map((feature) => feature.slug));
                   if (cheers.length) markSeen.mutate(cheers.map((cheer) => cheer.id));
@@ -196,7 +204,7 @@ export function Bell({
               </button>
             )}
           </div>
-          {count === 0 ? (
+          {count === 0 && requests.length === 0 ? (
             <p className="px-3 py-6 text-center text-xs text-stone-500">Nothing new. {showsAll && "Today's reminders, "}Tasks left undone and deadlines whose day has passed show up here.</p>
           ) : (
             <ul className="max-h-[60svh] divide-y divide-stone-200 overflow-y-auto dark:divide-stone-700">
@@ -219,9 +227,14 @@ export function Bell({
               ))}
               {cheers.map((cheer) => (
                 <li key={cheer.id} className="flex items-start gap-1 hover:bg-stone-100 dark:hover:bg-stone-800" data-notification-cheer={cheer.username}>
-                  <div className="min-w-0 flex-1 px-3 py-2">
-                    <span className="block text-sm">{cheer.line}</span>
-                    <span className="block truncate text-xs text-stone-500">-{cheer.username}</span>
+                  <div className="flex min-w-0 flex-1 items-start gap-2 px-3 py-2">
+                    <FaceSprite look={normalizeLook(cheer.look)} className="size-[42px] flex-none" iconClass="tab-icon tab-icon-user size-[42px] flex-none" />
+                    <div className="min-w-0 flex-1">
+                      <span className="block text-sm text-pink-700 dark:text-pink-400" data-cheer-text>
+                        {cheer.line}
+                      </span>
+                      <span className="block truncate text-xs text-stone-500">{cheer.username}</span>
+                    </div>
                   </div>
                   <button type="button" className="btn-quiet px-2 py-2 text-base leading-none" aria-label="Dismiss" title="Dismiss" onClick={() => markSeen.mutate([cheer.id])}>
                     ×

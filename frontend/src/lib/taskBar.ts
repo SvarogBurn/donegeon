@@ -27,8 +27,8 @@ const isKeys = (value: unknown): value is string[] => Array.isArray(value) && va
  * What the bar shows, from what was saved (anything, or null) and the folders in their own order. Items it doesn't
  * know and folders that are gone are left out; a page missing from it goes back to its usual side, and a folder not
  * yet placed goes at the end of the left, where a new one appears. The folders fill the places the layout has for
- * folders in their own order (Folder.position), the order the installed app's strip shows them in too. Notes and News
- * are kept even while their tab is off, so they come back where they were.
+ * folders in their own order (Folder.position), the order the installed app's strip shows them in too. Pages are
+ * kept even while their tab is off, so they come back where they were.
  */
 export function resolveTaskBar(saved: unknown, folderIds: string[]): TaskBarLayout {
   const raw = saved as Partial<TaskBarLayout> | null;

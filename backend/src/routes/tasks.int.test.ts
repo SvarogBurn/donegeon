@@ -246,6 +246,78 @@ describe("one user's things", () => {
   });
 });
 
+describe("dividers", () => {
+  it("sit among a list's tasks but are no tasks: no tick, no place elsewhere, not counted", async () => {
+    const { call, listId } = await user();
+    const made = async (body: object) => (await call("POST", "/tasks", body)).body.task;
+    const first = await made({ title: "First", listId });
+    const divider = await made({ title: "Evenings", listId, isDivider: true });
+    const second = await made({ title: "Second", listId });
+
+    expect((await call("GET", "/tasks")).body.tasks.map((t: { title: string }) => t.title)).toEqual(["First", "Evenings", "Second"]);
+    expect((await call("GET", "/lists")).body.lists[0].taskCount).toBe(2);
+    expect((await call("GET", "/tasks/stats")).body.tasks).toHaveLength(2);
+    expect((await call("GET", "/tasks/search?q=evening")).body.results).toEqual([]);
+
+    expect((await call("POST", "/tasks", { title: "Lost", isDivider: true })).status).toBe(400);
+    expect((await call("POST", "/tasks", { title: "Under", parentId: first.id, isDivider: true })).status).toBe(400);
+    expect((await call("POST", "/tasks", { title: "Dated", listId, isDivider: true, deadlineDate: "2026-11-01" })).status).toBe(400);
+    expect((await call("POST", "/tasks", { title: "Beneath", parentId: divider.id })).status).toBe(400);
+    expect((await call("PATCH", `/tasks/${divider.id}/toggle`, { done: true })).status).toBe(400);
+    expect((await call("PATCH", `/tasks/${divider.id}`, { today: true })).status).toBe(400);
+    expect((await call("POST", `/tasks/${divider.id}/week`, { day: TODAY })).status).toBe(400);
+    expect((await call("POST", `/tasks/${divider.id}/move`, { parentId: first.id, listId: null, index: 0 })).status).toBe(400);
+    expect((await call("POST", `/tasks/${second.id}/move`, { parentId: divider.id, listId: null, index: 0 })).status).toBe(400);
+
+    expect((await call("PATCH", `/tasks/${divider.id}`, { title: "Mornings" })).status).toBe(200);
+    expect((await call("POST", `/tasks/${divider.id}/move`, { parentId: null, listId, index: 0 })).status).toBe(204);
+    await call("DELETE", `/tasks/${first.id}`);
+    expect((await call("GET", "/tasks")).body.tasks.map((t: { title: string }) => t.title)).toEqual(["Mornings", "Second"]);
+  });
+});
+
+describe("a place in a list", () => {
+  /** Ticked two weeks before `TODAY`: in the list still, but not among the rows the app is sent. */
+  const OLD_DAY = "2026-10-06";
+  const titles = async (call: Awaited<ReturnType<typeof user>>["call"]) => (await call("GET", "/tasks")).body.tasks.map((t: { title: string }) => t.title);
+
+  it("goes by the row named, with old ticked tasks hidden above it", async () => {
+    const { call, listId } = await user();
+    const made = async (body: object) => (await call("POST", "/tasks", body)).body.task;
+    for (const title of ["Old 1", "Old 2"]) {
+      const old = await made({ title, listId });
+      await call("PATCH", `/tasks/${old.id}/toggle`, { done: true }, OLD_DAY);
+    }
+    const divider = await made({ title: "Part", listId, isDivider: true });
+    await made({ title: "Below", listId });
+    const moved = await made({ title: "Moved", listId });
+    expect(await titles(call)).toEqual(["Part", "Below", "Moved"]);
+
+    // As the app sends it: one row down from the divider, among the rows it has.
+    await call("POST", `/tasks/${moved.id}/move`, { parentId: null, listId, index: 1, after: divider.id });
+    expect(await titles(call)).toEqual(["Part", "Moved", "Below"]);
+
+    await made({ title: "New", listId, index: 1, after: divider.id });
+    expect(await titles(call)).toEqual(["Part", "New", "Moved", "Below"]);
+
+    await call("POST", `/tasks/${moved.id}/move`, { parentId: null, listId, index: 0, after: null });
+    expect(await titles(call)).toEqual(["Moved", "Part", "New", "Below"]);
+  });
+
+  it("falls back on the count if the row named has gone, or none is named", async () => {
+    const { call, listId } = await user();
+    const made = async (title: string) => (await call("POST", "/tasks", { title, listId })).body.task;
+    const [first, gone] = [await made("First"), await made("Gone")];
+    const last = await made("Last");
+    await call("DELETE", `/tasks/${gone.id}`);
+
+    await call("POST", `/tasks/${last.id}/move`, { parentId: null, listId, index: 0, after: gone.id });
+    expect(await titles(call)).toEqual(["Last", "First"]);
+    await call("POST", `/tasks/${first.id}/move`, { parentId: null, listId, index: 0 });
+    expect(await titles(call)).toEqual(["First", "Last"]);
+  });
+});
+
 describe("folders", () => {
   it("go back to the default arrangement when the layout is set to null", async () => {
     const { call } = await user();

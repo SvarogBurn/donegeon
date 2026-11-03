@@ -207,7 +207,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
     if (!draft) return { parentId: null, listId: null, index: 0 };
     const siblings = siblingsIn(tasks, byId, { parentId: draft.parentId, listId: draft.listId, inWeek: Boolean(draft.weekDay) });
     const after = siblings.findIndex((s) => s.id === draft.afterId);
-    return { parentId: draft.parentId, listId: draft.listId, index: after + 1 };
+    return { parentId: draft.parentId, listId: draft.listId, index: after + 1, after: draft.afterId };
   }, [draft, tasks, byId]);
 
   // A refused tick or press shows in the popup next to the click instead.

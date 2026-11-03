@@ -1,8 +1,12 @@
 import { useEffect, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import type { ReceivedCheer } from "../api/people";
+import { useCheerPops } from "../hooks/people";
 import { useSoundOff } from "../hooks/useAuth";
 import { getBigMoment, onBigMoment } from "../lib/bigMoment";
+import { normalizeLook } from "../lib/character/profile";
 import { playSound } from "../lib/sounds";
+import { FaceSprite } from "./Character/CharacterFace";
 import { Confetti } from "./Confetti";
 
 // The bolt, in rows of a 9x24 grid: where each row's pixels start and how many there are.
@@ -33,15 +37,39 @@ function Bolt({ className, style }: { className: string; style?: CSSProperties }
 
 const Words = ({ count }: { count: number }) => <p className="big-moment-words font-pixel">{count} {count === 1 ? "task" : "tasks"} today!</p>;
 
-/** Every so many tasks of a day, lightning and confetti in turn. It takes no clicks, and with reduced motion it stays the sound. */
+// As many as fit on a phone at their longest: nothing here can be scrolled, and the rest are in the bell.
+const MOST_CHEERS = 4;
+
+/** The cheers that came in, one under another on a card, so they read over anything: each friend's face, their line and their name, as in the bell. One alone is shown larger. */
+function CheerWords({ cheers }: { cheers: ReceivedCheer[] }) {
+  const hidden = cheers.length - MOST_CHEERS;
+  const face = cheers.length === 1 ? "size-[63px] flex-none" : "size-[42px] flex-none";
+  return (
+    <div className="big-moment-cheers card" data-cheer-words>
+      {cheers.slice(0, MOST_CHEERS).map(({ id, line, username, look }) => (
+        <div key={id} className="flex items-center gap-2" data-cheer-from={username}>
+          <FaceSprite look={normalizeLook(look)} className={face} iconClass={`tab-icon tab-icon-user ${face}`} />
+          <div className="min-w-0">
+            <span className={`block text-pink-700 dark:text-pink-400 ${cheers.length === 1 ? "text-base" : "text-sm"}`}>{line}</span>
+            <span className="block truncate text-xs text-stone-500">{username}</span>
+          </div>
+        </div>
+      ))}
+      {hidden > 0 && <p className="text-center text-xs text-stone-500">and {hidden} more in the bell</p>}
+    </div>
+  );
+}
+
+/** Every so many tasks of a day, lightning and confetti in turn, and a pop of confetti for a cheer, saying the cheers that came in. It takes no clicks, and with reduced motion it stays the sound. */
 export function BigMoment() {
   const moment = useSyncExternalStore(onBigMoment, getBigMoment);
   const soundOff = useSoundOff();
   const [shown, setShown] = useState(0);
+  useCheerPops();
 
   useEffect(() => {
     if (!moment) return;
-    if (!soundOff) playSound(moment.kind === "lightning" ? "lightning" : "fanfare");
+    if (!soundOff) playSound(moment.kind === "confetti" ? "fanfare" : moment.kind);
     if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) setShown(moment.id);
     // Only a new moment plays: not a change of the setting.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -60,6 +88,11 @@ export function BigMoment() {
           ))}
         </div>
         <Words count={moment.count} />
+      </div>
+    ) : moment.kind === "cheer" ? (
+      <div key={moment.id} className="big-moment" aria-hidden data-big-moment={moment.id} data-kind="cheer">
+        <Confetti pop onEnd={end} />
+        {!!moment.cheers?.length && <CheerWords cheers={moment.cheers} />}
       </div>
     ) : (
       <div key={moment.id} className="big-moment" aria-hidden data-big-moment={moment.id} data-kind="confetti">

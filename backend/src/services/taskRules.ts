@@ -1,7 +1,7 @@
 import { Prisma, type Task } from "@prisma/client";
 import { addDays, mondayOf } from "../../../shared/dates.js";
 import { HttpError } from "../lib/httpError.js";
-import type { TaskPatch } from "../schemas/task.js";
+import type { TaskInput, TaskPatch } from "../schemas/task.js";
 
 /** Deadlines are allowed on top-level tasks (depth 0) and their direct subtasks (depth 1). */
 export const MAX_DEADLINE_DEPTH = 1;
@@ -23,6 +23,29 @@ export function assertNoDeadlineIfPersistent(isPersistent: boolean, deadlineDate
 /** A press unticks what is under a persistent task, so a date on it would pass as missed however it was done. One it has already can stay, or move. */
 export function assertNoNewDeadlineInRound(inRound: boolean) {
   if (inRound) throw new HttpError(400, DEADLINE_IN_ROUND);
+}
+
+/** Whether all that was sent is among `allowed`. */
+const sentOnly = (input: object, allowed: string[]) => Object.entries(input).every(([key, value]) => value === undefined || allowed.includes(key));
+
+/** A divider sits among the main tasks of a list. */
+export function assertDividerPlace(parentId: string | null | undefined, listId: string | null | undefined) {
+  if (parentId || !listId) throw new HttpError(400, "A divider goes among the main tasks of a list");
+}
+
+/** A divider is a title and a line: it takes no date, points, labels or note. */
+export function assertNewDivider(input: TaskInput) {
+  assertDividerPlace(input.parentId, input.listId);
+  if (!sentOnly(input, ["id", "title", "parentId", "listId", "index", "after", "isDivider"])) throw new HttpError(400, "A divider only has a title");
+}
+
+export function assertDividerEdit(input: TaskPatch) {
+  if (!sentOnly(input, ["title"])) throw new HttpError(400, "A divider only has a title");
+}
+
+/** What only a task can do: refused for a divider, with `message`. */
+export function assertNotDivider(task: Pick<Task, "isDivider">, message: string) {
+  if (task.isDivider) throw new HttpError(400, message);
 }
 
 type Current = Pick<

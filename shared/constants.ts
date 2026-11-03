@@ -38,6 +38,9 @@ export const HEALTH_SINCE = "2026-10-30";
 /** What a cheer can say: picked, not typed, so there is nothing to moderate. */
 export const CHEER_LINES = ["Keep going!", "Well done!", "You've got this!", "Nice streak!",
     "You avoided the dragon by a hair, you licky bastard!", "Spirit inside your pc is cheering for you!", "Pick up the sword and keep moving", 
-    "Your magic is still inside you... or was that me?", 
+    "Your magic is still inside you... or was that me?", "We are always more afraid than we wish to be, but we can always be braver than we expect.", "The dragon is not as scary as it seems", 
+    "Dance a little bit in the morning", "Do fairies have tails or not? Are fairies even real? It's a eternal mystery, and thus an eternal adventure."
 ] as const;
 export type CheerLine = (typeof CHEER_LINES)[number];
+/** The longest a cheer's face can be, as a data URL: a push holds about 4 KB in all, the rest of a cheer about 300 bytes, and the largest face drawn 2.7 KB. */
+export const FACE_ICON_MAX = 3400;

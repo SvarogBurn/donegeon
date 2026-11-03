@@ -141,10 +141,10 @@ export async function doneOn(owner: string, day: string, today: string) {
   return asTrees(owner, tasks, today);
 }
 
-/** Every task there is, cut down to what the stats count with: one small flat row each. */
+/** Every task there is, cut down to what the stats count with: one small flat row each. A divider is no task. */
 export async function statRows(owner: string) {
   const tasks = await prisma.task.findMany({
-    where: live(owner),
+    where: { ...live(owner), isDivider: false },
     select: {
       id: true,
       parentId: true,
@@ -210,7 +210,7 @@ type PathRow = Pick<Task, "id" | "parentId" | "listId" | "title">;
 export async function searchTasks(owner: string, q: string) {
   const found = await prisma.task.findMany({
     // A % or _ that was typed is looked for as itself.
-    where: { ...live(owner), title: { contains: q.replace(/[\\%_]/g, "\\$&"), mode: "insensitive" } },
+    where: { ...live(owner), isDivider: false, title: { contains: q.replace(/[\\%_]/g, "\\$&"), mode: "insensitive" } },
     orderBy: [{ isComplete: "asc" }, { updatedAt: "desc" }],
     take: SEARCH_LIMIT + 1,
     select: { id: true, parentId: true, listId: true, title: true, isComplete: true, completedOn: true, isPersistent: true },

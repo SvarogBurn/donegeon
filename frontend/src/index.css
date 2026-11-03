@@ -477,6 +477,35 @@
     text-shadow: 3px 0 #1c2340, -3px 0 #1c2340, 0 3px #1c2340, 0 -3px #1c2340, 3px 3px #1c2340, -3px -3px #1c2340, 3px -3px #1c2340, -3px 3px #1c2340;
     animation: big-moment-words 1.2s var(--ease-out) 0.42s both;
   }
+  /* The cheers that came in: 2 s, however much they say, the last 0.6 s fading. The confetti falls on after them. */
+  .big-moment-cheers {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-width: min(32rem, calc(100% - 2rem));
+    animation:
+      big-moment-cheers-in 0.4s var(--ease-out) both,
+      big-moment-cheers-out 0.6s linear 1.4s forwards;
+  }
+  @keyframes big-moment-cheers-in {
+    0% {
+      opacity: 0;
+      transform: scale(0.9);
+    }
+    60% {
+      opacity: 1;
+      transform: scale(1.04);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  @keyframes big-moment-cheers-out {
+    100% {
+      opacity: 0;
+    }
+  }
   @keyframes big-moment-sky {
     0% {
       background-color: rgb(12 14 40 / 0);
@@ -752,6 +781,23 @@
   }
   .task-arrow[aria-expanded="false"] {
     transform: rotate(-90deg);
+  }
+  /* A title and a line between the main tasks of a list. The title's field and the copy that sizes it inherit the weight. */
+  .task-divider {
+    @apply mt-2 flex items-center gap-x-1.5 px-1 py-0.5 font-bold text-stone-600 dark:text-stone-300;
+  }
+  .task-divider:focus {
+    outline: none;
+  }
+  .task-divider-line {
+    @apply h-0.5 min-w-4 flex-1 bg-stone-300 dark:bg-stone-700;
+  }
+  /* Its buttons show once it is clicked, so that dividers don't add to what a list has to show. */
+  .task-divider-controls {
+    @apply hidden items-center gap-x-1.5;
+  }
+  .task-divider:focus-within .task-divider-controls {
+    @apply flex;
   }
   /*
    * The button of a task that repeats, in place of a checkbox: each press is one

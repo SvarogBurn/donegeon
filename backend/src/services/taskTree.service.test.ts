@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTree, completionPatch, countedIds, insertAt, subtreeIds, withFinishedRoots } from "./taskTree.service.js";
+import { buildTree, completionPatch, countedIds, insertAt, spotFor, subtreeIds, withFinishedRoots } from "./taskTree.service.js";
 
 const t0 = new Date("2026-10-01T10:00:00Z");
 
@@ -67,6 +67,25 @@ describe("countedIds", () => {
   it("leaves out persistent tasks beneath, with their own subtasks, but not the task asked about", () => {
     expect(countedIds(tasks, "root").sort()).toEqual(["a", "root"]);
     expect(countedIds(tasks, "p").sort()).toEqual(["p", "p1"]);
+  });
+});
+
+describe("spotFor", () => {
+  it("goes right after the row named, whatever the app's count says", () => {
+    expect(spotFor(["old", "older", "divider", "a"], 1, "divider")).toBe(3);
+  });
+
+  it("goes first when told so", () => {
+    expect(spotFor(["a", "b"], 1, null)).toBe(0);
+  });
+
+  it("falls back on the count if that row has gone, or none was named, as in a change queued offline before", () => {
+    expect(spotFor(["a", "b"], 1, "gone")).toBe(1);
+    expect(spotFor(["a", "b"], 1, undefined)).toBe(1);
+  });
+
+  it("goes last with neither", () => {
+    expect(spotFor(["a", "b"], undefined, undefined)).toBe(2);
   });
 });
 

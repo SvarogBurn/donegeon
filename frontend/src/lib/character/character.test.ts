@@ -300,12 +300,19 @@ describe("bodies", () => {
     const below = (body: Body) => HEIGHT - LIFT - data[body.file].height + (body.nudge?.[1] ?? 0);
     const across = (body: Body) => Math.floor((32 - data[body.file].width) / 2) + (body.nudge?.[0] ?? 0);
 
-    it("keeps long hair under every top", () => {
+    it("keeps every hairstyle over every top, collar, choker and overalls", () => {
       const human = BODY_BY_ID.get("human")!;
-      for (const shirt of ["hoodie", "shirt", "dress", "coat", "robe"]) {
-        const look = (hair: string): Look => ({ v: 2, body: "human", options: { top: shirt, hair }, colors: {} });
-        const [long, bald] = [top(look("long")), top(look("bald"))];
-        for (const [x0, y, w] of runsOf(human, shirt)) for (let x = x0; x < x0 + w; x++) expect(long.get(`${x},${y + below(human)}`), `${shirt} ${x},${y}`).toBe(bald.get(`${x},${y + below(human)}`));
+      const hairs = human.options!.find((o) => o.id === "hair")!.choices;
+      const worn: Record<string, string>[] = [...["hoodie", "shirt", "blouse", "dress", "coat", "robe"].map((shirt) => ({ top: shirt })), { bottoms: "overalls" }, { scarf: "ruffle" }, { jewellery: "choker" }];
+      for (const hair of hairs) {
+        for (const clothes of worn) {
+          const shown = top({ v: 2, body: "human", options: { hair: hair.id, ...clothes }, colors: {} });
+          for (const layer of hair.layers) {
+            for (const [x0, y, w, hex] of runsOf(human, layer)) {
+              for (let x = x0; x < x0 + w; x++) expect(shown.get(`${x + across(human)},${y + below(human)}`), `${hair.id} ${JSON.stringify(clothes)} ${x},${y}`).toBe(hex);
+            }
+          }
+        }
       }
     });
 

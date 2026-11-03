@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FADE_SECONDS, makePieces, pieceAt, PIXEL, showerOpacity, SHOWER_SECONDS, stepPiece, type Piece } from "./confetti";
+import { FADE_SECONDS, hasLanded, makePieces, makePop, pieceAt, PIXEL, showerOpacity, SHOWER_SECONDS, stepPiece, type Piece } from "./confetti";
 
 const STEP = 1 / 60;
 const fly = (piece: Piece, seconds: number) => {
@@ -74,5 +74,30 @@ describe("showerOpacity", () => {
     expect(showerOpacity(SHOWER_SECONDS - FADE_SECONDS)).toBeCloseTo(1);
     expect(showerOpacity(SHOWER_SECONDS - FADE_SECONDS / 2)).toBeCloseTo(0.5);
     expect(showerOpacity(SHOWER_SECONDS)).toBe(0);
+  });
+});
+
+describe("makePop", () => {
+  const pieces = makePop(1280, 720);
+  it("is a handful, all from one spot and at once", () => {
+    expect(pieces.length).toBeLessThan(makePieces(1280, 720).length / 2);
+    expect(new Set(pieces.map(({ x, y }) => `${x},${y}`)).size).toBe(1);
+    expect(Math.max(...pieces.map(({ wait }) => wait))).toBeLessThan(0.1);
+  });
+  it("goes every way", () => {
+    expect(pieces.some(({ speedX }) => speedX < 0) && pieces.some(({ speedX }) => speedX > 0)).toBe(true);
+    expect(pieces.some(({ speedY }) => speedY < 0) && pieces.some(({ speedY }) => speedY > 0)).toBe(true);
+  });
+  it("stays around the middle of the screen as it falls", () => {
+    for (const piece of pieces) {
+      const { x } = fly(piece, 2);
+      expect(x).toBeGreaterThan(0);
+      expect(x).toBeLessThan(1280);
+    }
+  });
+  it("is over once every piece has landed, in a few seconds", () => {
+    expect(hasLanded(pieces, 720)).toBe(false);
+    expect(hasLanded(pieces.map((piece) => fly(piece, 2)), 720)).toBe(false);
+    expect(hasLanded(pieces.map((piece) => fly(piece, 6)), 720)).toBe(true);
   });
 });

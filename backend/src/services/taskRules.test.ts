@@ -1,8 +1,30 @@
 import { Prisma } from "@prisma/client";
 import { describe, expect, it } from "vitest";
-import { assertDeadlineDepth, taskPatchData } from "./taskRules.js";
+import { assertDeadlineDepth, assertDividerEdit, assertDividerPlace, assertNewDivider, taskPatchData } from "./taskRules.js";
 
 const TODAY = "2026-10-20";
+
+describe("dividers", () => {
+  const LIST = "11111111-1111-4111-8111-111111111111";
+
+  it("go among the main tasks of a list, nowhere else", () => {
+    expect(() => assertDividerPlace(null, LIST)).not.toThrow();
+    expect(() => assertDividerPlace(LIST, null)).toThrow("among the main tasks");
+    expect(() => assertDividerPlace(null, null)).toThrow("among the main tasks");
+  });
+
+  it("are made with a title and a place, and nothing else", () => {
+    expect(() => assertNewDivider({ title: "Work", listId: LIST, index: 2, isDivider: true, deadlineDate: undefined })).not.toThrow();
+    expect(() => assertNewDivider({ title: "Work", listId: LIST, isDivider: true, points: 5 })).toThrow("only has a title");
+    expect(() => assertNewDivider({ title: "Work", listId: LIST, isDivider: true, tagIds: [] })).toThrow("only has a title");
+  });
+
+  it("take a new title and no other edit", () => {
+    expect(() => assertDividerEdit({ title: "Home" })).not.toThrow();
+    expect(() => assertDividerEdit({ today: true })).toThrow("only has a title");
+    expect(() => assertDividerEdit({ isPersistent: true })).toThrow("only has a title");
+  });
+});
 
 const task = (over: Partial<Parameters<typeof taskPatchData>[0]> = {}): Parameters<typeof taskPatchData>[0] => ({
   parentId: null,

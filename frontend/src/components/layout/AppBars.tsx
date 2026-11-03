@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { useNewNote } from "../../hooks/notes";
 import { usePoints } from "../../hooks/points";
+import { useCalendarTab, useStatsTab } from "../../hooks/useAuth";
 import type { User } from "../../types";
 import { CharacterFace } from "../Character/CharacterFace";
 import { Bell } from "../Notifications/Bell";
@@ -93,6 +94,8 @@ export function AppBars({ user }: { user: User }) {
   const [isBellOpen, setIsBellOpen] = useState(false);
   const newNote = useNewNote();
   const isOnNotes = pathname === "/notes";
+  const statsTab = useStatsTab();
+  const calendarTab = useCalendarTab();
   const isHidden = useHideOnScroll(isAdding || isSearching || isBellOpen);
   // Another page: the search has done its job.
   useEffect(() => setIsSearching(false), [pathname]);
@@ -160,26 +163,35 @@ export function AppBars({ user }: { user: User }) {
           <Notch />
           <div className="app-bar-fill flex-1 border-t" />
         </div>
-        <nav className="relative grid pb-[env(safe-area-inset-bottom)]" style={{ gridTemplateColumns: `1fr 1fr ${NOTCH_W}px 1fr 1fr` }} aria-label="Pages">
-          {/* A box dragged from a folder's page and dropped on Tasks is no longer shown in that folder (see useDropOnTab). */}
-          <NavLink to="/" end className={barTab} aria-label="Tasks" data-tab-drop="main">
-            <span className="tab-icon tab-icon-tasks !size-[21px]" aria-hidden />
-            Tasks
-          </NavLink>
-          <NavLink to="/stats" className={barTab} aria-label="Stats">
-            <span className="tab-icon tab-icon-stats !size-[21px]" aria-hidden />
-            Stats
-          </NavLink>
+        {/* Two tabs each side of the "+"; with a tab switched off, the one left stands in the middle of its half, as wide as ever, and the "+" stays where it is. */}
+        <nav className="relative grid pb-[env(safe-area-inset-bottom)]" style={{ gridTemplateColumns: `minmax(0, 1fr) ${NOTCH_W}px minmax(0, 1fr)` }} aria-label="Pages">
+          <div className="flex justify-center [&>a]:w-1/2">
+            {/* A box dragged from a folder's page and dropped on Tasks is no longer shown in that folder (see useDropOnTab). */}
+            <NavLink to="/" end className={barTab} aria-label="Tasks" data-tab-drop="main">
+              <span className="tab-icon tab-icon-tasks !size-[21px]" aria-hidden />
+              Tasks
+            </NavLink>
+            {statsTab && (
+              <NavLink to="/stats" className={barTab} aria-label="Stats">
+                <span className="tab-icon tab-icon-stats !size-[21px]" aria-hidden />
+                Stats
+              </NavLink>
+            )}
+          </div>
           <span />
-          <NavLink to="/calendar" className={barTab} aria-label="Calendar">
-            <span className="tab-icon tab-icon-calendar !size-[21px]" aria-hidden />
-            Calendar
-          </NavLink>
-          {/* The user's own page (and logging out), under their name. */}
-          <NavLink to="/user" className={barTab} aria-label="Account" title={user.username}>
-            <CharacterFace user={user} className="tab-icon !size-[21px]" iconClass="tab-icon tab-icon-user bar-user-icon !size-[21px] !bg-size-[15px]" />
-            <span className="max-w-16 truncate">{user.username}</span>
-          </NavLink>
+          <div className="flex justify-center [&>a]:w-1/2">
+            {calendarTab && (
+              <NavLink to="/calendar" className={barTab} aria-label="Calendar">
+                <span className="tab-icon tab-icon-calendar !size-[21px]" aria-hidden />
+                Calendar
+              </NavLink>
+            )}
+            {/* The user's own page (and logging out), under their name. */}
+            <NavLink to="/user" className={barTab} aria-label="Account" title={user.username}>
+              <CharacterFace user={user} className="tab-icon !size-[21px]" iconClass="tab-icon tab-icon-user bar-user-icon !size-[21px] !bg-size-[15px]" />
+              <span className="max-w-16 truncate">{user.username}</span>
+            </NavLink>
+          </div>
         </nav>
         {/* Half of it above the bar's top edge, the rest down in the notch with a gap all round. */}
         <button

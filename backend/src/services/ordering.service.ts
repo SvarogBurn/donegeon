@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { addDays, mondayOf } from "../../../shared/dates.js";
-import { insertAt } from "./taskTree.service.js";
+import { insertAt, spotFor } from "./taskTree.service.js";
 
 /** The orders the user arranges by hand: a column of a table, named here so no other text reaches the SQL. */
 const ORDERS = {
@@ -36,7 +36,7 @@ export async function nextPosition(db: Prisma.TransactionClient, kind: keyof typ
 }
 
 /**
- * Puts `taskId` at `at` among the tasks sharing its place in the tree and
+ * Puts `taskId` right after `after` (or at `at`: see spotFor) among the tasks sharing its place in the tree and
  * rewrites every sibling's position, so ties and gaps can't accumulate.
  * Top-level tasks are ordered within their list; subtasks within their parent.
  */
@@ -47,6 +47,7 @@ export async function placeAmongSiblings(
   parentId: string | null,
   listId: string | null,
   at: number | undefined,
+  after?: string | null,
 ) {
   // Without a list, the tasks written into Today and those written into Week are ordered apart.
   const inWeek = !parentId && !listId && (await tx.task.findUniqueOrThrow({ where: { id: taskId } })).weekDay !== null;
@@ -61,7 +62,7 @@ export async function placeAmongSiblings(
     select: { id: true, position: true },
   });
   const others = siblings.map((s) => s.id).filter((id) => id !== taskId);
-  const order = insertAt(others, taskId, at ?? others.length);
+  const order = insertAt(others, taskId, spotFor(others, at, after));
   await writeOrder(tx, "taskPosition", order, new Map(siblings.map((s) => [s.id, s.position])));
 }
 

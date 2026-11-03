@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_LOOK } from "./character/bodies";
-import { cardBasics, cardSheet, shownActivity, shownStats } from "./people";
+import { CHEER_LINES } from "../../../shared/constants";
+import { cardBasics, cardSheet, linesToOffer, newCheers, shownActivity, shownStats } from "./people";
 
 const days = [
   { day: "2026-11-01", count: 5 },
@@ -67,5 +68,30 @@ describe("shownActivity", () => {
 describe("shownStats", () => {
   it("names a stat itself, and leaves out one it doesn't know", () => {
     expect(shownStats([{ key: "ever", value: 40 }, { key: "<b>rude</b>", value: 1 }])).toEqual([{ key: "ever", value: 40, name: "Done ever" }]);
+  });
+});
+
+describe("linesToOffer", () => {
+  it("offers three different lines of the cheers' own", () => {
+    for (let i = 0; i < 50; i++) {
+      const lines = linesToOffer();
+      expect(new Set(lines).size).toBe(3);
+      expect(lines.every((line) => CHEER_LINES.includes(line))).toBe(true);
+    }
+  });
+  it("goes by chance", () => {
+    expect(linesToOffer(() => 0)).toEqual(CHEER_LINES.slice(0, 3));
+    expect(linesToOffer(() => 0.999)).toEqual(CHEER_LINES.slice(-3).reverse());
+  });
+});
+
+describe("newCheers", () => {
+  const [a, b] = [{ id: "a" }, { id: "b" }];
+  it("is the ones not popped yet", () => {
+    expect(newCheers([a, b], ["a"])).toEqual([b]);
+  });
+  it("is all of them with nothing kept, and none once all are", () => {
+    expect(newCheers([a, b], [""])).toEqual([a, b]);
+    expect(newCheers([a, b], ["b", "a"])).toEqual([]);
   });
 });

@@ -417,6 +417,24 @@ export function SettingsBox() {
           ? "A News tab: what's new in Donegeon, the devs' other projects and the story events."
           : "No News tab. The paper is still in the News box on this page."}
       </p>
+      <label className="flex items-center gap-2 text-xs">
+        <PixelCheckbox small checked={user.statsTab ?? true} onChange={(e) => update.mutate({ statsTab: e.target.checked })} data-stats-tab />
+        Stats tab
+      </label>
+      <p className="text-xs text-stone-500">
+        {(user.statsTab ?? true)
+          ? "A Stats tab: charts of what you got done."
+          : "No Stats tab. Stats boxes copied to a folder stay there."}
+      </p>
+      <label className="flex items-center gap-2 text-xs">
+        <PixelCheckbox small checked={user.calendarTab ?? true} onChange={(e) => update.mutate({ calendarTab: e.target.checked })} data-calendar-tab />
+        Calendar tab
+      </label>
+      <p className="text-xs text-stone-500">
+        {(user.calendarTab ?? true)
+          ? "A Calendar tab: your deadlines and tasks by the day."
+          : "No Calendar tab. Deadlines still count down in the Deadlines box."}
+      </p>
       <FontChoice
         label="Font in boxes"
         value={textFont(user.boxFont)}

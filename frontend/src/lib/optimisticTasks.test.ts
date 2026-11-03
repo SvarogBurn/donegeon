@@ -1,7 +1,7 @@
 import { dueAfter } from "../../../shared/repeat";
 import { describe, expect, it } from "vitest";
 import type { List, TaskTreeNode } from "../types";
-import { draftNode, insertedInTrees, movedInTrees, patchFor, placedInWeek, pressedInTrees, removedFromTrees } from "./optimisticTasks";
+import { draftNode, insertedInTrees, movedInTrees, patchFor, placedInWeek, pressedInTrees, removedFromTrees, rowBefore } from "./optimisticTasks";
 
 const LIST: List = { id: "L", name: "List", kind: "task", defaultPoints: 3 } as List;
 const ctx = { day: "2026-10-18", at: "2026-10-18T10:00:00.000Z", lists: [LIST], todayPoints: 2, parent: null };
@@ -9,6 +9,15 @@ const ctx = { day: "2026-10-18", at: "2026-10-18T10:00:00.000Z", lists: [LIST], 
 function node(id: string, extra: Partial<TaskTreeNode> = {}): TaskTreeNode {
   return { ...draftNode({ id, title: id, listId: "L" }, ctx), ...extra };
 }
+
+describe("rowBefore", () => {
+  it("is the row in front of a place, none at the top", () => {
+    const rows = [node("a"), node("b")];
+    expect(rowBefore(rows, 0)).toBeNull();
+    expect(rowBefore(rows, 1)).toBe("a");
+    expect(rowBefore(rows, 2)).toBe("b");
+  });
+});
 
 describe("draftNode", () => {
   it("is a Today-only task when written with no list or parent, worth the Today amount", () => {

@@ -78,6 +78,7 @@ While adding a task (a list's add field, a new row, the Today box, a day of the 
 | `/list` | puts it in that list |
 | `// note` | everything after it is the task's note |
 | `\` in front | keeps a shortcut as plain text |
+| `--- title` | at the start, in a list: a divider there instead of a task, a title and a line that split the list into parts (also the **+ Divider** button under a list) |
 
 Dates: `tomorrow` (`tmr`), a weekday (`fri`, the next one), `next week`, `next month`, `in 3 days`, `3d`, `2w`, `25/12`, `25/12/26`, `25 dec`; after `~` also `today`. A shortcut counts only at the start of a word. Deadlines are for main tasks and their direct subtasks; lists for main tasks. The same table is in the app, in the Cheat sheet box of the user page.
 

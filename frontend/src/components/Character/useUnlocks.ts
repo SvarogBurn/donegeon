@@ -98,9 +98,9 @@ export function useSomethingNew(user: User) {
 }
 
 /** The look the task bar's face shows: as saved, less what a knockout took back (shownLook). */
-export function useFaceLook(user: User, look: Look): Look {
+export function useFaceLook(user: User | null | undefined, look: Look): Look {
   const bar = useBarProgress();
-  const seen = useMemo(() => normalizeProfile(user.profile).seen ?? [], [user.profile]);
+  const seen = useMemo(() => normalizeProfile(user?.profile).seen ?? [], [user?.profile]);
   const level = bar?.progress.level;
   const longest = bar?.progress.longest;
   const knockedOut = Boolean(bar && bar.lost > 0);

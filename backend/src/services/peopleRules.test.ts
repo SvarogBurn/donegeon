@@ -43,8 +43,13 @@ describe("canCheer", () => {
 });
 
 describe("cheerPush", () => {
-  it("says the cheer, signed", () => {
-    expect(cheerPush({ id: "a", username: "gabriel" }, "Keep going!")).toMatchObject({ body: "Keep going!\n-gabriel", tag: "cheer:a" });
+  it("says the cheer, over the sender's name", () => {
+    expect(cheerPush({ id: "a", username: "gabriel" }, "Keep going!")).toMatchObject({ body: "Keep going!\ngabriel", tag: "cheer:a" });
+  });
+
+  it("carries their face when it came with the cheer", () => {
+    expect(cheerPush({ id: "a", username: "gabriel" }, "Keep going!", "data:image/png;base64,AAAA").icon).toBe("data:image/png;base64,AAAA");
+    expect(cheerPush({ id: "a", username: "gabriel" }, "Keep going!")).not.toHaveProperty("icon");
   });
 });
 

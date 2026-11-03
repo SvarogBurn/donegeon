@@ -89,6 +89,15 @@ export function useNewsTab(): boolean {
   return useMe().user?.newsTab ?? true;
 }
 
+/** Whether a tab the tutorial has the user click is shown: on unless switched off on the user's page, and always while the tutorial runs. */
+function useTutorialTab(tab: "statsTab" | "calendarTab"): boolean {
+  const user = useMe().user;
+  return (user?.[tab] ?? true) || user?.tutorialSeen === false;
+}
+
+export const useStatsTab = () => useTutorialTab("statsTab");
+export const useCalendarTab = () => useTutorialTab("calendarTab");
+
 /** Whether the points system is switched off on the user's page: no points shown, earned or spent. */
 export function usePointsOff(): boolean {
   return useMe().user?.pointsOff ?? false;

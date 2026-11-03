@@ -1,3 +1,4 @@
+import { CHEER_LINES } from "../../../shared/constants";
 import { addDays, daysBetween, mondayOf } from "../../../shared/dates";
 import type { ShareKey } from "../../../shared/enums";
 import type { Look } from "./character/bodies";
@@ -5,6 +6,17 @@ import { levelOf } from "./character/levels";
 import type { StatValue } from "./character/profileStats";
 import { STAT_NAMES } from "./character/profileStats";
 import type { StatKey } from "./character/profile";
+
+/** The cheers in the bell not yet popped on this device; only those in `cheers` are worth remembering. */
+export const newCheers = <T extends { id: string }>(cheers: T[], popped: string[]) => cheers.filter(({ id }) => !popped.includes(id));
+
+const LINES_OFFERED = 3;
+
+/** A few different lines to pick from, chosen anew each time the picker opens. */
+export function linesToOffer(random = Math.random) {
+  const left = [...CHEER_LINES];
+  return Array.from({ length: LINES_OFFERED }, () => left.splice(Math.floor(random() * left.length), 1)[0]);
+}
 
 // The card: what other people can read of the character. Level, title, stats and skills are worked out in the browser
 // from every task, and the server can't do that for someone else (it writes health as it reads it, has no one's local

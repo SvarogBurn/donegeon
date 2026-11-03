@@ -78,12 +78,9 @@ const BUNNY_EARS = ["ears", "back ear", "ears up", "back ear up"];
 const APRON = ["#4A2755", "#140B26", "#80354D", "#5A2238"];
 
 /** Every layer drawn in the human's hair colour: the hairstyles, the fringes and the beards. */
-const HUMAN_HAIRSTYLES = [
+const HUMAN_HAIR = [
   ...["messy", "messy shorter", "short", "short 2", "punk", "bob", "bun", "ponytail", "low pony", "loose", "long loose straight"].map((h) => `hair ${h}`),
   "curly", "afro",
-];
-const HUMAN_HAIR = [
-  ...HUMAN_HAIRSTYLES,
   ...[1, 2, 3, 4, 5, 6].map((n) => `Hair front ${n}`),
   "beard", "beard flatter", "moustache",
 ];
@@ -140,7 +137,8 @@ const FOOTWEAR = [
  * top and under the hair, so no one order fits every piece.
  */
 export const BEHIND = new Map<string, Set<string>>([
-  ...HUMAN_HAIRSTYLES.map((l): [string, Set<string>] => [l, new Set(["hoodie", "shirt", "dress", "coat", "robe"])]),
+  // Hair goes over what's worn: these four are above it in the human's file, the other tops already below it.
+  ...["blouse", "overalls", "collar ruffle", "neckwear choker"].map((l): [string, Set<string>] => [l, new Set(HUMAN_HAIR)]),
   ...FOOTWEAR.map((l): [string, Set<string>] => [l, new Set(PANTS)]),
 ]);
 

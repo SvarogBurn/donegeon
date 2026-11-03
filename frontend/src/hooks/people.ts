@@ -1,9 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import * as peopleApi from "../api/people";
+import { popCheer } from "../lib/bigMoment";
 import { useOnline } from "../lib/offline/online";
 import { refuse } from "../lib/refusal";
-import type { Card } from "../lib/people";
+import { newCheers, type Card } from "../lib/people";
+import { readStored, writeStored } from "../lib/storage";
 import { PEOPLE } from "./queryKeys";
 import { useInvalidating } from "./mutations";
 import { useMe } from "./useAuth";
@@ -30,11 +32,27 @@ export const useAskFriend = () => useInvalidating(peopleApi.askFriend, [PEOPLE])
 export const useAcceptFriend = () => usePeopleChange(peopleApi.acceptFriend);
 export const useIgnoreFriend = () => usePeopleChange(peopleApi.ignoreFriend);
 export const useRemoveFriend = () => usePeopleChange(peopleApi.removeFriend);
-export const useSendCheer = () => usePeopleChange(peopleApi.sendCheer);
-export const useCheerEveryone = () => usePeopleChange(peopleApi.cheerEveryone);
+// Confetti once the server has taken it: a refused cheer pops nothing.
+const popping = <TArgs,>(send: (args: TArgs) => Promise<unknown>) => (args: TArgs) => send(args).then(() => popCheer());
+export const useSendCheer = () => usePeopleChange(popping(peopleApi.sendCheer));
+export const useCheerEveryone = () => usePeopleChange(popping(peopleApi.cheerEveryone));
 export const useMarkCheersSeen = () => usePeopleChange(peopleApi.markCheersSeen);
 export const useBlock = () => usePeopleChange(peopleApi.block);
 export const useUnblock = () => usePeopleChange(peopleApi.unblock);
+
+const POPPED_KEY = "donegeon.cheersPopped";
+
+/** One pop of confetti saying the cheers that came in, however many: those waiting since you were away too, and none again after a reload. */
+export function useCheerPops() {
+  const { data } = useInbox(!useMe().user?.peopleOff);
+  const cheers = data?.cheers;
+  useEffect(() => {
+    if (!cheers) return;
+    const fresh = newCheers(cheers, (readStored(POPPED_KEY) ?? "").split(" "));
+    writeStored(POPPED_KEY, cheers.map(({ id }) => id).join(" "));
+    if (fresh.length) popCheer(fresh);
+  }, [cheers]);
+}
 
 /** How long a card waits after it last changed before it is sent: ticks often come in a row. */
 const PUBLISH_AFTER_MS = 2000;

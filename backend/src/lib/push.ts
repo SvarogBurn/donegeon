@@ -28,6 +28,8 @@ export interface PushMessage {
   url: string;
   /** A second message with the same tag replaces the first on the device instead of piling up. */
   tag: string;
+  /** A picture of its own, as a data URL, in place of the app's icon (a cheer's face). Not on iPhones, which always show the app's. */
+  icon?: string;
   /** The planned row's key, for its Snooze. */
   key?: string;
   /** The buttons under it, where the device shows them (not on iPhones). */

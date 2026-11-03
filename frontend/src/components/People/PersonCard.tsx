@@ -7,6 +7,7 @@ import { localDate } from "../../lib/clock";
 import { formatDay } from "../../lib/dates";
 import { shownActivity, shownStats, type Person } from "../../lib/people";
 import { ExpBar, Hearts } from "../Character/Bars";
+import { useFaceIcon } from "../Character/CharacterFace";
 import { CharacterSprite } from "../Character/CharacterSprite";
 import { CheerLines } from "./CheerLines";
 import { Popup } from "./Popup";
@@ -16,6 +17,7 @@ function FriendMenu({ person, close }: { person: Person; close: () => void }) {
   const [isCheering, setIsCheering] = useState(false);
   const [asking, setAsking] = useState<"unfriend" | "block" | null>(null);
   const cheer = useSendCheer();
+  const drawFace = useFaceIcon();
   const unfriend = useRemoveFriend();
   const block = useBlock();
   const { id, username } = person;
@@ -60,7 +62,7 @@ function FriendMenu({ person, close }: { person: Person; close: () => void }) {
             {isCheering && (
               <CheerLines
                 onPick={(line) => {
-                  cheer.mutate({ id, line });
+                  cheer.mutate({ id, line, face: drawFace() });
                   close();
                 }}
               />

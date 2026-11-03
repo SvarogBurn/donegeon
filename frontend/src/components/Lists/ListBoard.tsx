@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useCreateList, useUpdateList } from "../../hooks/lists";
+import { useAddTask } from "../../hooks/tasks";
 import { usePointsOff } from "../../hooks/useAuth";
 import { useOnline } from "../../lib/offline/online";
 import { NeedsConnection } from "../NeedsConnection";
@@ -12,6 +13,7 @@ import type { List, ListKind, TaskTreeNode, TickedTasks } from "../../types";
 import { ColorSwatch } from "../ColorChoices";
 import { TaskForm } from "../TaskTree/TaskForm";
 import { TaskTree } from "../TaskTree/TaskNode";
+import { selectTaskEditor } from "../TaskTree/TitleEditor";
 import { useDrag, useTree } from "../TaskTree/TreeContext";
 import { TileFrame } from "../Tiles/TileFrame";
 
@@ -167,6 +169,12 @@ export function ListCard({ list, tasks, taskCount }: ListCardProps) {
   const isDropTarget = useDrag((state) => state.dropTarget?.kind === "list" && state.dropTarget.listId === list.id);
   const isReward = list.kind === "reward";
   const [confirming, setConfirming] = useState(false);
+  const addRow = useAddTask();
+
+  /** A divider at the end of the list, its title selected to be typed over. */
+  function addDivider() {
+    addRow.add({ text: "---", listId: list.id }).then(selectTaskEditor, () => {});
+  }
 
   function askDelete() {
     if (taskCount > 0) setConfirming(true);
@@ -252,7 +260,15 @@ export function ListCard({ list, tasks, taskCount }: ListCardProps) {
       <div className="box-scroll" data-box-scroll>
         <TaskTree nodes={tasks} parentId={null} listId={list.id} />
       </div>
-      <TaskForm listId={list.id} placeholder={isReward ? "Add a reward, then press Enter" : "Add a task, then press Enter"} />
+      <div className="flex items-center gap-1.5">
+        <div className="min-w-0 flex-1">
+          <TaskForm listId={list.id} placeholder={isReward ? "Add a reward, then press Enter" : "Add a task, then press Enter"} />
+        </div>
+        <button type="button" className="btn-quiet text-xs whitespace-nowrap" onClick={addDivider} title="Add a divider at the end of this list, to split it into parts. Or type --- and its title">
+          + Divider
+        </button>
+      </div>
+      {addRow.error && <p className="text-xs text-red-600">{addRow.error.message}</p>}
       {confirming && (
         <ConfirmDelete
           list={list}
@@ -333,7 +349,7 @@ export function listCards(lists: List[], tasks: TaskTreeNode[], filter: LabelFil
     .map((list) => {
       const own = tasks.filter((t) => t.listId === list.id);
       // The list's own count is as old as the last load of the lists; a task added since is in `own`.
-      return { list, taskCount: Math.max(own.length, list.taskCount), tasks: filterTree(shown(own), filter) };
+      return { list, taskCount: Math.max(own.filter((t) => !t.isDivider).length, list.taskCount), tasks: filterTree(shown(own), filter) };
     })
     .filter((card) => !filtering || card.tasks.length > 0);
 }

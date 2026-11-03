@@ -33,7 +33,7 @@ listsRouter.get("/", async (req, res) => {
     where: { userId: owner, deletedAt: null },
     orderBy: [{ position: "asc" }, { createdAt: "asc" }],
     // Its main tasks, finished long ago or not: the task trees only hold the open and the just ticked.
-    include: { _count: { select: { tasks: { where: { deletedAt: null } } } } },
+    include: { _count: { select: { tasks: { where: { deletedAt: null, isDivider: false } } } } },
   });
   res.json({ lists: lists.map(({ _count, ...list }) => ({ ...list, taskCount: _count.tasks })) });
 });

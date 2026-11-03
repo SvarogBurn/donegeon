@@ -8,6 +8,7 @@ import { moveInput, roundInput, taskInput, taskPatch, weekInput } from "../schem
 import { healthFor } from "../services/health.service.js";
 import { placeInWeek } from "../services/ordering.service.js";
 import { ownTask } from "../services/ownership.js";
+import { assertNotDivider } from "../services/taskRules.js";
 import { countdownOf, donePage, doneOn, openTrees, progressDays, searchTasks, statRows } from "../services/taskRead.service.js";
 import { clearAnswered } from "../services/notifications.service.js";
 import { createTask, deleteTask, doneToday, moveRound, moveTask, restoreTask, toggleTask, updateTask } from "../services/taskWrite.service.js";
@@ -96,6 +97,7 @@ tasksRouter.post("/:id/round", async (req, res) => {
 tasksRouter.post("/:id/week", async (req, res) => {
   const { day, after } = weekInput.parse(req.body);
   const task = await pathTask(req);
+  assertNotDivider(task, "A divider stays in its list");
   await prisma.$transaction((tx) => placeInWeek(tx, task.userId, task.id, day, after, req.localDate));
   res.status(204).end();
 });

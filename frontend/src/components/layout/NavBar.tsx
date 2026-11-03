@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { Link, NavLink } from "react-router";
 import { useFolders, useReorderFolders } from "../../hooks/folders";
 import { usePoints } from "../../hooks/points";
-import { useUpdateMe } from "../../hooks/useAuth";
+import { useCalendarTab, useStatsTab, useUpdateMe } from "../../hooks/useAuth";
 import { useStandalone } from "../../lib/standalone";
 import { folderOfKey, folderOrder, moveItem, resolveTaskBar, type BarSide } from "../../lib/taskBar";
 import type { User } from "../../types";
@@ -53,6 +53,8 @@ function TaskBar({ user }: { user: User }) {
   const [editingId, setEditingId] = useFolderEditing();
   const [draggedKey, setDraggedKey] = useState<string | null>(null);
   const updateMe = useUpdateMe();
+  const statsTab = useStatsTab();
+  const calendarTab = useCalendarTab();
   const reorderFolders = useReorderFolders();
   const layout = resolveTaskBar(user.taskBar, folders.map((folder) => folder.id));
 
@@ -103,7 +105,7 @@ function TaskBar({ user }: { user: User }) {
         );
         break;
       case "stats":
-        content = (
+        content = statsTab && (
           <NavLink to="/stats" className={tab} aria-label="Stats" title={`Stats. ${DRAG_HINT}`} draggable={false}>
             <span className="tab-icon tab-icon-stats" aria-hidden />
             Stats
@@ -111,7 +113,7 @@ function TaskBar({ user }: { user: User }) {
         );
         break;
       case "calendar":
-        content = (
+        content = calendarTab && (
           <NavLink to="/calendar" className={tab} aria-label="Calendar" title={`Calendar. ${DRAG_HINT}`} draggable={false}>
             <span className="tab-icon tab-icon-calendar" aria-hidden />
             Calendar

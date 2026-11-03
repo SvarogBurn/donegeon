@@ -3,6 +3,7 @@ import type { TaskPlacement } from "../../api/tasks";
 import { useMoveRound, useMoveTask, usePlaceInWeek, useSetToday } from "../../hooks/tasks";
 import { localDate } from "../../lib/clock";
 import { orderDay } from "../../lib/deadlines";
+import { rowBefore } from "../../lib/optimisticTasks";
 import { areaScroller, edgeScroller } from "../../lib/edgeScroll";
 import { isInRound, isShown } from "../../lib/recent";
 import { isPutOff, livesInToday, livesInWeek, weekColumn, weekDays } from "../../lib/week";
@@ -33,20 +34,32 @@ function placementFor(tasks: TaskTreeNode[], byId: Map<string, TaskTreeNode>, ta
   if (target.kind === "today" || target.kind === "week" || target.kind === "weekDay" || target.kind === "weekItem") return null;
   if (target.kind === "list") {
     const inList = tasks.filter((t) => t.listId === target.listId).filter(notDragged);
-    return { parentId: null, listId: target.listId, index: inList.length };
+    return { parentId: null, listId: target.listId, index: inList.length, after: inList.at(-1)?.id ?? null };
   }
   const over = byId.get(target.id);
   if (!over) return null;
   if (target.zone === "inside") {
-    return { parentId: over.id, listId: null, index: over.children.filter(notDragged).length };
+    const beneath = over.children.filter(notDragged);
+    return { parentId: over.id, listId: null, index: beneath.length, after: beneath.at(-1)?.id ?? null };
   }
   const siblings = siblingsOf(tasks, byId, over).filter(notDragged);
   const at = siblings.findIndex((s) => s.id === over.id);
+  const index = target.zone === "after" ? at + 1 : at;
   return {
     parentId: over.parentId,
     listId: over.parentId ? null : over.listId,
-    index: target.zone === "after" ? at + 1 : at,
+    index,
+    after: rowBefore(siblings, index),
   };
+}
+
+/** Where a dragged divider can go: among the main tasks of a list, so a row's middle means below it, and Today, Week and subtasks take none. */
+export function dividerTarget(target: DropTarget | null, byId: Map<string, TaskTreeNode>): DropTarget | null {
+  if (target?.kind === "list") return target;
+  if (target?.kind !== "task") return null;
+  const over = byId.get(target.id);
+  if (!over || over.parentId || !over.listId) return null;
+  return target.zone === "inside" ? { ...target, zone: "after" } : target;
 }
 
 interface Options {
@@ -121,7 +134,10 @@ export function useTaskMoves({ tasks, byId, drag, rootId, ticked, byDeadline }: 
       const handle = e.currentTarget;
       const own = handle.closest("li");
       let pointer = { x: e.clientX, y: e.clientY };
-      const retarget = () => drag.set({ dropTarget: hitTest(pointer.x, pointer.y, own) });
+      const retarget = () => {
+        const target = hitTest(pointer.x, pointer.y, own);
+        drag.set({ dropTarget: node.isDivider ? dividerTarget(target, latest.current.byId) : target });
+      };
       const scroller = edgeScroller();
       // Near the top or bottom of the Week tab's days, or of a box's tasks capped on a phone, they scroll on, with the pointer held still too.
       const area = areaScroller(retarget);
@@ -177,14 +193,18 @@ export function useTaskMoves({ tasks, byId, drag, rootId, ticked, byDeadline }: 
       // The swap is with the row next to it on screen. Ticked tasks shown under the open ones: step over siblings of
       // the other kind. Otherwise rows are in their own order, and a list leaves out the ticked ones it no longer shows.
       // Shown soonest date first: a task only changes places with those of its own day, or with the others that have none.
+      // A divider is never stepped over, as each part of a list is ordered on its own; one moved goes a row at a time.
+      const notShown = (sibling: TaskTreeNode) => rootId === null && !isShown(sibling, ticked, isInRound(node, nodes));
       const steppedOver = (sibling: TaskTreeNode) =>
-        (byDeadline && orderDay(sibling) !== orderDay(node)) ||
-        (ticked === "bottom" ? sibling.isComplete !== node.isComplete : rootId === null && !isShown(sibling, ticked, isInRound(node, nodes)));
+        node.isDivider || sibling.isDivider
+          ? notShown(sibling)
+          : (byDeadline && orderDay(sibling) !== orderDay(node)) || (ticked === "bottom" ? sibling.isComplete !== node.isComplete : notShown(sibling));
       let index = siblings.findIndex((s) => s.id === node.id) + direction;
       while (siblings[index] && steppedOver(siblings[index])) index += direction;
       if (index < 0 || index >= siblings.length) return;
       // The row is re-inserted in the DOM, which drops focus; put it back.
-      move({ id: node.id, placement: { parentId: node.parentId, listId: node.parentId ? null : node.listId, index } });
+      const after = rowBefore(siblings.filter((s) => s.id !== node.id), index);
+      move({ id: node.id, placement: { parentId: node.parentId, listId: node.parentId ? null : node.listId, index, after } });
       afterRender(() => focusTaskEditor(node.id));
     },
     [move, placeInWeek, ticked, byDeadline, rootId],

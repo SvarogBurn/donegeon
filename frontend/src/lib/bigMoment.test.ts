@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bigEveryIn, BIG_EVERY, isBigMoment, kindOf, soundOffIn } from "./bigMoment";
+import { bigEveryIn, BIG_EVERY, celebrate, getBigMoment, isBigMoment, kindOf, onBigMoment, popCheer, soundOffIn } from "./bigMoment";
 
 describe("isBigMoment", () => {
   it("comes at each multiple", () => {
@@ -31,5 +31,33 @@ describe("the settings", () => {
 describe("kindOf", () => {
   it("starts with lightning, then takes turns", () => {
     expect([1, 2, 3, 4].map(kindOf)).toEqual(["lightning", "confetti", "lightning", "confetti"]);
+  });
+});
+
+describe("popCheer", () => {
+  it("brings a pop, afresh each time", () => {
+    let heard = 0;
+    const stop = onBigMoment(() => heard++);
+    popCheer();
+    const first = getBigMoment();
+    popCheer();
+    stop();
+    expect(first).toMatchObject({ kind: "cheer", count: 0 });
+    expect(getBigMoment()?.id).toBe(first!.id + 1);
+    expect(heard).toBe(2);
+  });
+  it("doesn't take a turn from the moments", () => {
+    celebrate(10, 10);
+    const before = getBigMoment()!.kind;
+    popCheer();
+    celebrate(20, 10);
+    expect(getBigMoment()!.kind).toBe(before === "lightning" ? "confetti" : "lightning");
+  });
+  it("carries the cheers that came in, and none for one sent", () => {
+    const cheers = [{ id: "1", username: "ann", line: "Well done!" as const }];
+    popCheer(cheers);
+    expect(getBigMoment()?.cheers).toEqual(cheers);
+    popCheer();
+    expect(getBigMoment()?.cheers).toEqual([]);
   });
 });

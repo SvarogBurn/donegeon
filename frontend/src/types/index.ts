@@ -41,6 +41,9 @@ export interface User {
   notesTab: boolean;
   /** Whether the News tab (the newspaper) is shown; on by default. Missing in an account kept on the device from before (= on). */
   newsTab?: boolean;
+  /** Whether the Stats and Calendar tabs are shown; on by default. Missing in an account kept on the device from before (= on). */
+  statsTab?: boolean;
+  calendarTab?: boolean;
   /** The character at the top of the user's page as saved; null = the defaults. Read it with normalizeProfile (lib/character/profile.ts). */
   profile: unknown;
   /** The task bar's items in the user's own order, each side of the logo, as saved; null = the default. Read it with resolveTaskBar (lib/taskBar.ts). */
@@ -189,6 +192,8 @@ export interface Task {
   weekPosition: number;
   /** Top-level tasks only: done again and again with a button instead of ticked once. */
   isPersistent: boolean;
+  /** Not a task: a title and a line between the main tasks of a list. */
+  isDivider: boolean;
   /** A persistent task on a schedule: due again every so many units. null = no schedule. */
   repeatEvery: number | null;
   repeatUnit: RepeatUnit;

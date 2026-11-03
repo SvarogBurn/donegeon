@@ -30,8 +30,8 @@ export function canSee(viewer: Person, target: Person, { isFriend, isBlocked }: 
 export const canCheer = (viewer: Person, target: Person, relation: Relation) =>
   viewer.id !== target.id && canSee(viewer, target, relation) && !viewer.cheersOff && !target.cheersOff;
 
-/** A cheer as a push: its own words are what it says, signed by who sent it. A title would cut a long one off. */
-export const cheerPush = (sender: { id: string; username: string }, line: string) => ({ title: "Donegeon", body: `${line}\n-${sender.username}`, url: "/?bell=1", tag: `cheer:${sender.id}` });
+/** A cheer as a push: its own words are what it says, over the name of who sent it, with their face. A title would cut a long one off. */
+export const cheerPush = (sender: { id: string; username: string }, line: string, face?: string) => ({ title: "Donegeon", body: `${line}\n${sender.username}`, url: "/?bell=1", tag: `cheer:${sender.id}`, ...(face && { icon: face }) });
 
 /** What is on every card. */
 const BASE = ["level", "into", "span", "title", "look"] as const;
@@ -39,6 +39,9 @@ const BASE = ["level", "into", "span", "title", "look"] as const;
 type Card = Record<string, unknown>;
 
 const asCard = (card: unknown): Card => (card && typeof card === "object" ? (card as Card) : {});
+
+/** The look on a card: part of the base, so anyone who may see the card may see it. */
+export const cardLook = (card: unknown) => asCard(card).look;
 
 /** The card with only the base and these sections. */
 function withSections(card: unknown, sections: readonly string[]): Card {

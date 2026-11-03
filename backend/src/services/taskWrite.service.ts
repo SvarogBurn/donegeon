@@ -9,8 +9,10 @@ import { placeAmongSiblings, placeInWeek } from "./ordering.service.js";
 import { assertOwnLabels, ownList, ownTask } from "./ownership.js";
 import { bookTick, reverseTaskBooking } from "./points.service.js";
 import { progressDays } from "./taskRead.service.js";
-import { assertDeadlineDepth, assertNoDeadlineIfPersistent, assertNoNewDeadlineInRound, MAX_DEADLINE_DEPTH, taskPatchData } from "./taskRules.js";
+import { assertDeadlineDepth, assertDividerEdit, assertDividerPlace, assertNewDivider, assertNoDeadlineIfPersistent, assertNoNewDeadlineInRound, assertNotDivider, MAX_DEADLINE_DEPTH, taskPatchData } from "./taskRules.js";
 import { completionPatch, countedIds, findDepth, findSubtree, persistentAtOrAbove } from "./taskTree.service.js";
+
+const NO_SUBTASKS = "A divider has no subtasks";
 
 /** When a change was made, as the device saw it, and on which of the user's days. */
 interface Moment {
@@ -30,7 +32,8 @@ export async function createTask(owner: string, input: TaskInput, { today, at }:
   const listId = input.listId ?? null;
 
   if (parentId && listId) throw new HttpError(400, "A task goes either in a list or under a parent task");
-  if (parentId) await ownTask(owner, parentId);
+  if (input.isDivider) assertNewDivider(input);
+  if (parentId) assertNotDivider(await ownTask(owner, parentId), NO_SUBTASKS);
   if (parentId && input.deadlineDate) {
     assertDeadlineDepth((await findDepth(prisma, parentId)) + 1);
     assertNoNewDeadlineInRound(await persistentAtOrAbove(prisma, parentId));
@@ -57,6 +60,7 @@ export async function createTask(owner: string, input: TaskInput, { today, at }:
         todaySince: input.today || (!(parentId || listId) && !input.weekDay) ? today : null,
         points: input.points,
         isPersistent,
+        isDivider: input.isDivider,
         // A schedule makes the task persistent, due today unless another day was given.
         ...(input.repeatEvery && {
           repeatEvery: input.repeatEvery,
@@ -68,7 +72,7 @@ export async function createTask(owner: string, input: TaskInput, { today, at }:
       },
     });
     if (input.weekDay) await placeInWeek(tx, owner, created.id, input.weekDay, input.weekAfter, today);
-    await placeAmongSiblings(tx, owner, created.id, parentId, listId, input.index);
+    await placeAmongSiblings(tx, owner, created.id, parentId, listId, input.index, input.after);
     return input.weekDay ? tx.task.findUniqueOrThrow({ where: { id: created.id } }) : created;
   });
   return { task, isNew: true };
@@ -76,6 +80,7 @@ export async function createTask(owner: string, input: TaskInput, { today, at }:
 
 /** An edit of anything a task has (see taskPatchData for the rules); one coming into Week goes last on today. */
 export async function updateTask(task: Task, input: TaskPatch, today: string) {
+  if (task.isDivider) assertDividerEdit(input);
   await assertOwnLabels(task.userId, input.goalIds, input.tagIds);
   if (input.deadlineDate) assertDeadlineDepth(await findDepth(prisma, task.id));
   if (input.deadlineDate && !task.deadlineDate && task.parentId) assertNoNewDeadlineInRound(await persistentAtOrAbove(prisma, task.parentId));
@@ -123,6 +128,7 @@ export async function countedBelow(id: string) {
  * un-ticking reverses exactly that booking.
  */
 export async function toggleTask(task: Task, done: boolean | undefined, { today, at }: Moment) {
+  assertNotDivider(task, "A divider can't be ticked");
   if (task.isPersistent) throw new HttpError(400, "A persistent task is done with its “done it” button");
   const next = done ?? !task.isComplete;
   if (next && !task.isComplete && (await countedBelow(task.id)).some((t) => !t.isComplete)) {
@@ -159,8 +165,9 @@ export async function moveTask(task: Task, input: MoveInput) {
   // The task and everything that moves with it, each with its depth below the task.
   const moved = await findSubtree(prisma, [task.id]);
 
+  if (task.isDivider) assertDividerPlace(input.parentId, input.listId);
   if (input.parentId) {
-    await ownTask(owner, input.parentId);
+    assertNotDivider(await ownTask(owner, input.parentId), NO_SUBTASKS);
     if (moved.some((t) => t.id === input.parentId)) throw new HttpError(400, "A task can't be moved inside itself");
   } else if (input.listId) {
     await ownList(owner, input.listId);
@@ -189,7 +196,7 @@ export async function moveTask(task: Task, input: MoveInput) {
       // Subtasks belong to their parent's list implicitly.
       data: input.parentId ? { parentId: input.parentId, listId: null } : { parentId: null, listId: input.listId },
     });
-    await placeAmongSiblings(tx, owner, task.id, input.parentId, input.parentId ? null : input.listId, input.index);
+    await placeAmongSiblings(tx, owner, task.id, input.parentId, input.parentId ? null : input.listId, input.index, input.after);
   });
 }
 

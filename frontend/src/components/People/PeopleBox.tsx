@@ -3,6 +3,7 @@ import type { Named } from "../../api/people";
 import { useAcceptFriend, useAskFriend, useCheerEveryone, useFriends, useIgnoreFriend, useInbox, useRemoveFriend } from "../../hooks/people";
 import { useMe } from "../../hooks/useAuth";
 import { USER_BOX_COLORS } from "../../lib/frameTones";
+import { useFaceIcon } from "../Character/CharacterFace";
 import { NeedsConnection } from "../NeedsConnection";
 import { TileFrame } from "../Tiles/TileFrame";
 import type { Person } from "../../lib/people";
@@ -92,6 +93,7 @@ function Requests({ asking, waiting }: { asking: Named[]; waiting: Named[] }) {
  */
 function CheerEveryone({ friends }: { friends: Person[] }) {
   const cheer = useCheerEveryone();
+  const drawFace = useFaceIcon();
   const cheerable = friends.filter((friend) => friend.canCheer);
   if (cheerable.length < 2) return null;
   return (
@@ -105,7 +107,7 @@ function CheerEveryone({ friends }: { friends: Person[] }) {
           {(close) => (
             <CheerLines
               onPick={(line) => {
-                cheer.mutate(line);
+                cheer.mutate({ line, face: drawFace() });
                 close();
               }}
             />

@@ -1,3 +1,5 @@
+import type { ReceivedCheer } from "../api/people";
+
 /** Every so many tasks of a day until the user sets their own. */
 export const BIG_EVERY = 10;
 
@@ -14,7 +16,7 @@ export function bigEveryIn(profile: unknown) {
 
 export const isBigMoment = (doneToday: number, every: number | null) => Boolean(every && doneToday > 0 && doneToday % every === 0);
 
-export type MomentKind = "lightning" | "confetti";
+export type MomentKind = "lightning" | "confetti" | "cheer";
 
 /** Lightning first, then confetti, in turn. */
 export const kindOf = (id: number): MomentKind => (id % 2 === 1 ? "lightning" : "confetti");
@@ -25,16 +27,25 @@ export interface Moment {
   kind: MomentKind;
   /** The tasks of the day it came at. */
   count: number;
+  /** The cheers it says, newest first: none for a cheer you sent. */
+  cheers?: ReceivedCheer[];
 }
 
 let current: Moment | null = null;
+// Kept apart from the id, so a cheer between two moments doesn't skip a turn.
+let turns = 0;
 const listeners = new Set<() => void>();
 
 /** Called after every tick and "done it" press with the day's count so far. */
 export function celebrate(doneToday: number, every: number | null) {
   if (!isBigMoment(doneToday, every)) return;
-  const id = (current?.id ?? 0) + 1;
-  current = { id, kind: kindOf(id), count: doneToday };
+  current = { id: (current?.id ?? 0) + 1, kind: kindOf(++turns), count: doneToday };
+  listeners.forEach((listener) => listener());
+}
+
+/** A cheer sent, or those got, whose words it shows: a pop of confetti, not counted in tasks and not one of the turns above. */
+export function popCheer(cheers: ReceivedCheer[] = []) {
+  current = { id: (current?.id ?? 0) + 1, kind: "cheer", count: 0, cheers };
   listeners.forEach((listener) => listener());
 }
 

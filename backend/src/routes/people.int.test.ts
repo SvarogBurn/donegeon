@@ -2,6 +2,7 @@ import "dotenv/config";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { FACE_ICON_MAX } from "../../../shared/constants.js";
 import { createApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
 import { closeSessions } from "../lib/sessions.js";
@@ -256,6 +257,29 @@ describe("cheers", () => {
     expect(cheers.map((cheer: { username: string; line: string }) => [cheer.username, cheer.line]).sort()).toEqual([[one.username, "Keep going!"], [one.username, "Well done!"]]);
     await other.call("POST", "/people/cheers/seen", { ids: [cheers[0].id] });
     expect((await other.call("GET", "/people/inbox")).body.cheers).toHaveLength(1);
+  });
+
+  it("shows the sender's look in the bell", async () => {
+    const one = await user();
+    const other = await user();
+    await befriend(one, other);
+    const look = { v: 2, body: "boar", options: {}, colors: {} };
+    await one.call("PUT", "/people/card", { look });
+    await one.call("POST", `/people/cheers/${other.id}`, { line: "Keep going!" });
+    expect((await other.call("GET", "/people/inbox")).body.cheers[0].look).toMatchObject(look);
+  });
+
+  it("takes a face for the push, only a PNG of a small size, and keeps it nowhere", async () => {
+    const one = await user();
+    const other = await user();
+    await befriend(one, other);
+    const cheer = (face: string) => one.call("POST", `/people/cheers/${other.id}`, { line: "Keep going!", face });
+    expect((await cheer("data:image/svg+xml;base64,AAAA")).status).toBe(400);
+    expect((await cheer("https://example.com/face.png")).status).toBe(400);
+    expect((await cheer(`data:image/png;base64,${"A".repeat(FACE_ICON_MAX)}`)).status).toBe(400);
+    expect((await cheer("data:image/png;base64,AAAA")).status).toBe(201);
+    const { cheers } = (await other.call("GET", "/people/inbox")).body;
+    expect(cheers[0]).not.toHaveProperty("face");
   });
 
   it("only the receiver can mark one read", async () => {

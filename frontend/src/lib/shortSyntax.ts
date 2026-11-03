@@ -265,6 +265,7 @@ export const SYNTAX_HELP: [type: string, does: string, example: string][] = [
   ["/list", "Puts it in that list, whichever box you type in.", "Buy milk /Chores"],
   ["// note", "The rest of what you type is the task's note. Lists (* or - at a line's start) and **bold** and the like work in it.", "Call the plumber // ask about the boiler"],
   ["\\", "In front of a shortcut keeps it as plain text.", "Fix \\#home sign"],
+  ["--- title", "At the start, in a list: a divider there instead of a task, to split the list into parts.", "--- Evenings"],
 ];
 
 /** The ways to write a date after @ or ~. */

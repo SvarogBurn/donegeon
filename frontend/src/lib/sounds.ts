@@ -4,7 +4,7 @@
 const VOLUME = 0.04;
 const NOTE_SECONDS = 0.06;
 
-export type SoundName = "tick" | "press" | "untick" | "lightning" | "fanfare";
+export type SoundName = "tick" | "press" | "untick" | "lightning" | "fanfare" | "cheer";
 
 // The notes of each sound, in Hz, one after the other.
 const NOTES: Record<"tick" | "press" | "untick", number[]> = {
@@ -77,11 +77,24 @@ function playFanfare(ctx: AudioContext) {
   for (const frequency of [1047, 1319, 1568]) playNote(ctx, frequency, 0.05 + 4 * run, 0.45, VOLUME);
 }
 
+/** A small pop and a quick bright run, up to a sparkle: lighter and higher than the fanfare, in a key of its own. */
+function playCheer(ctx: AudioContext) {
+  const pop = noiseBurst(ctx, 0, 0.04, "highpass", 2500);
+  pop.gain.setValueAtTime(VOLUME * 4, pop.at);
+  pop.gain.exponentialRampToValueAtTime(0.001, pop.at + 0.04);
+  const run = 0.07;
+  [784, 988, 1175, 1568].forEach((frequency, i) => playNote(ctx, frequency, 0.03 + i * run, run, VOLUME * 1.5));
+  for (const frequency of [1568, 1976]) playNote(ctx, frequency, 0.03 + 4 * run, 0.3, VOLUME);
+}
+
 export function playSound(name: SoundName) {
+  // A cheer can come in before the first click. Sound couldn't start then, and its notes would all wait for that click.
+  if (navigator.userActivation?.hasBeenActive === false) return;
   try {
     const ctx = audio();
     if (name === "lightning") playLightning(ctx);
     else if (name === "fanfare") playFanfare(ctx);
+    else if (name === "cheer") playCheer(ctx);
     else NOTES[name].forEach((frequency, i) => playNote(ctx, frequency, i * NOTE_SECONDS, NOTE_SECONDS, VOLUME));
   } catch {
     // No sound, then.

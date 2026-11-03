@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
-import { useNewsTab, useNotesTab, usePointsOff } from "../../hooks/useAuth";
+import { useCalendarTab, useNewsTab, useNotesTab, usePointsOff, useStatsTab } from "../../hooks/useAuth";
 import { useFolders } from "../../hooks/folders";
 import { useGoals, useTags } from "../../hooks/labels";
 import { useLists } from "../../hooks/lists";
@@ -102,9 +102,11 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false, autoFocus = fal
   const { data: notesData } = useNotes();
   // Without the Notes tab, neither the page nor the notes are found.
   const notesTab = useNotesTab();
-  // Nor the Points page and box while the points system is off, nor News without its tab.
+  // Nor the Points page and box while the points system is off, nor News, Stats (and its boxes) or Calendar without their tabs.
   const pointsOff = usePointsOff();
   const newsTab = useNewsTab();
+  const statsTab = useStatsTab();
+  const calendarTab = useCalendarTab();
   // What the Tasks page shows: a task that is in here can be gone to.
   const { data: trees = [] } = useTaskTrees();
 
@@ -119,7 +121,7 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false, autoFocus = fal
   const places: Hit[] = !typed
     ? []
     : [
-        ...PLACES.filter(([title, path, , words]) => (notesTab || path !== "/notes") && (newsTab || path !== "/news") && !(pointsOff && path === "/points") && has(title, words)).map(([title, path, key]) => ({
+        ...PLACES.filter(([title, path, , words]) => (notesTab || path !== "/notes") && (newsTab || path !== "/news") && (statsTab || path !== "/stats") && (calendarTab || path !== "/calendar") && !(pointsOff && path === "/points") && has(title, words)).map(([title, path, key]) => ({
           key: `place:${path}:${key ?? ""}`,
           title,
           kind: key === null ? "Page" : `Box on ${path === "/" ? "Tasks" : "Stats"}`,

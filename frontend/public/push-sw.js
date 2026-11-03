@@ -14,7 +14,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(message.title, {
       body: message.body,
-      icon: "/favicon.svg",
+      icon: message.icon || "/favicon.svg",
       // A second one with the same tag (the plan sent again) takes the first one's place.
       tag: message.tag,
       // Done and Snooze, where the device shows buttons (not on iPhones: a tap opens the page there).

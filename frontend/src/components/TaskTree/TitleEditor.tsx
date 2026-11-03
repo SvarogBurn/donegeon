@@ -29,6 +29,15 @@ export function focusTaskEditor(taskId: string) {
   if (editor) focusAtEnd(editor);
 }
 
+/** A row just added, its title selected to be typed over, as soon as the row is on the page. */
+export function selectTaskEditor(taskId: string, framesLeft = 30) {
+  const editor = document.querySelector<HTMLTextAreaElement>(`[data-task-editor="${taskId}"]`);
+  if (editor) {
+    editor.focus();
+    editor.select();
+  } else if (framesLeft > 0) requestAnimationFrame(() => selectTaskEditor(taskId, framesLeft - 1));
+}
+
 interface Props extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "onChange"> {
   value: string;
   onChange: (value: string) => void;

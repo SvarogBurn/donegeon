@@ -2,10 +2,11 @@ import { currentRound } from "../../../../shared/repeat";
 import { Fragment, useEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { useNavigate } from "react-router";
 import { useGoals, useTags } from "../../hooks/labels";
-import { useAddTask, useEditTask } from "../../hooks/tasks";
+import { useAddTask, useEditTask, useUpdateTask } from "../../hooks/tasks";
 import { localDate } from "../../lib/clock";
 import { formatDay } from "../../lib/dates";
 import { soonestFirst } from "../../lib/deadlines";
+import { partsOf } from "../../lib/dividers";
 import { isFiltering } from "../../lib/labels";
 import { isDue, isWaiting, repeatLabel, roundsDue } from "../../lib/repeat";
 import { hasTaskPage } from "../../lib/taskPage";
@@ -15,7 +16,7 @@ import { DeadlineBadge } from "./DeadlineBadge";
 import { PressCopies } from "./PressCopies";
 import { ShortSyntaxEditor } from "./ShortSyntaxEditor";
 import { TaskMenu } from "./TaskMenu";
-import { focusNeighbor } from "./TitleEditor";
+import { focusNeighbor, TitleEditor } from "./TitleEditor";
 import { TickOrPress } from "./TickOrPress";
 import { useDrag, useDraftScope, useTree } from "./TreeContext";
 import { zoneOn } from "./dragState";
@@ -63,6 +64,81 @@ export const DROP_STYLES = {
 
 /** Parts of a row that do their own thing; a click anywhere else opens the task's page (if it has one). */
 const ROW_CONTROLS = "button, input, textarea, a, label, [role=dialog]";
+
+/**
+ * The Delete key in a row's title. With the caret at the end there is no text left to delete, so the key deletes the
+ * row (and its subtasks); Ctrl+Z undoes it. Mid-title it still edits text.
+ */
+function deleteByKey(e: KeyboardEvent<HTMLTextAreaElement>, title: string, remove: () => void) {
+  const el = e.currentTarget;
+  if (el.selectionStart !== el.value.length || el.selectionEnd !== el.value.length) return;
+  // Not while the title is being edited, nor from a held-down key: shortening a title with
+  // Delete ends with the caret at the end, and the next press must not take the task with it.
+  if (e.repeat || el.value !== title) return;
+  e.preventDefault();
+  // Focus stays in the same box (list, Today or task page) rather than jumping to the one above.
+  const box = el.closest("section");
+  if (!focusNeighbor(el, -1, box)) focusNeighbor(el, 1, box);
+  remove();
+}
+
+const isPlainDelete = (e: KeyboardEvent) => e.key === "Delete" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey;
+
+/**
+ * A title and a line between the main tasks of a list: the rows under it, up to the next one, read as one part. It
+ * has no tick, menu or subtasks, and shortcuts typed into its title stay text. It is moved and deleted like a task.
+ */
+function DividerRow({ node }: { node: TaskTreeNode }) {
+  const tree = useTree();
+  const update = useUpdateTask();
+  const [title, setTitle] = useState(node.title);
+  useEffect(() => setTitle(node.title), [node.title]);
+  const drop = useDrag((state) => zoneOn(state.dropTarget, node.id));
+  const isDragged = useDrag((state) => state.draggingId === node.id);
+
+  function saveTitle() {
+    const next = title.trim();
+    if (!next) setTitle(node.title);
+    else if (next !== node.title) update.mutate({ id: node.id, changes: { title: next } });
+  }
+
+  function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    // The new row takes the focus, and the blur saves the title.
+    if (e.key === "Enter" && !e.shiftKey) tree.setDraft({ parentId: null, listId: node.listId, afterId: node.id });
+    else if (e.key === "Escape") setTitle(node.title);
+    else if (isPlainDelete(e)) deleteByKey(e, node.title, () => tree.deleteTask(node));
+    else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      e.preventDefault();
+      tree.moveBy(node, e.key === "ArrowUp" ? -1 : 1);
+    }
+  }
+
+  return (
+    <li className={isDragged ? "opacity-40" : ""}>
+      {/* Clicking the row selects it, which shows its buttons, without a phone's keyboard; clicking the title edits it too. */}
+      <div data-task-row={node.id} data-divider="" tabIndex={-1} className={`task-divider ${drop ? DROP_STYLES[drop] : ""}`}>
+        <TitleEditor editorId={node.id} fitText value={title} onChange={setTitle} onKeyDown={onKeyDown} onBlur={saveTitle} aria-label="Divider title" />
+        <span className="task-divider-line" aria-hidden />
+        {/* Keeps the focus in the row, or the click would hide the button it lands on. */}
+        <span className="task-divider-controls" onMouseDown={(e) => e.preventDefault()}>
+          <button type="button" className="btn-quiet glyph" onClick={() => tree.deleteTask(node)} aria-label={`Delete divider "${node.title}"`} title="Delete this divider; the tasks under it stay (Ctrl+Z to undo)">
+            ×
+          </button>
+          <button
+            type="button"
+            className="btn-quiet cursor-grab touch-none glyph select-none active:cursor-grabbing"
+            onPointerDown={(e) => tree.startDrag(e, node)}
+            aria-label="Drag to move this divider"
+            title="Drag to move. Keyboard: Alt+↑ / Alt+↓ in the title"
+          >
+            ⠿
+          </button>
+        </span>
+      </div>
+      {update.error && <p className="ml-7 text-xs text-red-600">{update.error.message}</p>}
+    </li>
+  );
+}
 
 /** `inWeek`: shown as a row of the Week box, where its place is the box's own order. */
 export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; depth: number; inWeek?: boolean }) {
@@ -132,19 +208,8 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
         });
     } else if (e.key === "Escape") {
       setTitle(node.title);
-    } else if (e.key === "Delete" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
-      // With the caret at the end there is no text left to delete, so the key
-      // deletes the task (and its subtasks); Ctrl+Z undoes it. Mid-title it still edits text.
-      const el = e.currentTarget;
-      if (el.selectionStart !== el.value.length || el.selectionEnd !== el.value.length) return;
-      // Not while the title is being edited, nor from a held-down key: shortening a title with
-      // Delete ends with the caret at the end, and the next press must not take the task with it.
-      if (e.repeat || el.value !== node.title) return;
-      e.preventDefault();
-      // Focus stays in the same box (list, Today or task page) rather than jumping to the one above.
-      const box = el.closest("section");
-      if (!focusNeighbor(el, -1, box)) focusNeighbor(el, 1, box);
-      tree.deleteTask(node);
+    } else if (isPlainDelete(e)) {
+      deleteByKey(e, node.title, () => tree.deleteTask(node));
     } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
       e.preventDefault();
       tree.moveBy(node, e.key === "ArrowUp" ? -1 : 1);
@@ -370,7 +435,7 @@ export function TaskTree({ nodes, parentId, listId, depth = 0 }: TaskTreeProps) 
   const { draft, ticked, byDeadline } = useTree();
   const scope = useDraftScope();
   // If the user chose so: soonest date first. Shown that way only, like the ticked ones: nothing is moved.
-  const ordered = byDeadline ? soonestFirst(nodes) : nodes;
+  const ordered = byDeadline ? partsOf(nodes, soonestFirst) : nodes;
   // A row opened in the Week box is shown there, by the box itself; one opened in a day's popup, there only.
   const draftIsHere = draft !== null && draft.scope === scope?.scope && draft.parentId === parentId && (parentId !== null || (draft.listId === listId && !draft.weekDay));
 
@@ -378,9 +443,9 @@ export function TaskTree({ nodes, parentId, listId, depth = 0 }: TaskTreeProps) 
     <ul>
       {draftIsHere && draft.afterId === null && <DraftRow />}
       {/* Unless the user chose otherwise: then every task keeps its place, ticked or not. */}
-      {(ticked === "bottom" ? tickedLast(ordered) : ordered).map((node) => (
+      {(ticked === "bottom" ? partsOf(ordered, tickedLast) : ordered).map((node) => (
         <Fragment key={node.id}>
-          <TaskNode node={node} depth={depth} />
+          {node.isDivider ? <DividerRow node={node} /> : <TaskNode node={node} depth={depth} />}
           {draftIsHere && draft.afterId === node.id && <DraftRow />}
         </Fragment>
       ))}

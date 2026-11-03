@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CHEER_LINES } from "../../../shared/constants.js";
+import { CHEER_LINES, FACE_ICON_MAX } from "../../../shared/constants.js";
 import { hex, id, localDate } from "./common.js";
 import { look } from "./account.js";
 
@@ -29,6 +29,7 @@ export const cardPatch = z
 /** A friend asked for by the exact username: there is no other way to find anyone. */
 export const askInput = z.object({ username: z.string().trim().toLowerCase().min(1).max(32) });
 
-export const cheerInput = z.object({ line: z.enum(CHEER_LINES) });
+/** `face`: the sender's face as a PNG for the push to show. Only their app can draw it, and it is only passed on, not kept. */
+export const cheerInput = z.object({ line: z.enum(CHEER_LINES), face: z.string().max(FACE_ICON_MAX).regex(/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/).optional() });
 
 export const seenInput = z.object({ ids: z.array(id).min(1).max(200) });

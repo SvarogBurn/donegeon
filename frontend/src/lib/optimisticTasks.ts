@@ -93,6 +93,9 @@ export function insertedInTrees(trees: TaskTreeNode[], node: TaskTreeNode, place
   return countedAbove(next, placed.id, 1 + node.descendantCount, done);
 }
 
+/** The row in front of place `index` among `siblings`: what a task put there goes right after. Null = first. */
+export const rowBefore = (siblings: TaskTreeNode[], index: number) => siblings[index - 1]?.id ?? null;
+
 /** The trees without `id` (and what is under it), and where it was, for putting it back. */
 export function removedFromTrees(trees: TaskTreeNode[], id: string): { trees: TaskTreeNode[]; spot: Spot | null } {
   const find = (nodes: TaskTreeNode[], parentId: string | null): Spot | null => {
@@ -162,6 +165,7 @@ export function draftNode(task: NewTask & { id: string }, { day, at, lists, toda
     weekDay: null,
     weekPosition: 0,
     isPersistent: scheduled || Boolean(task.isPersistent),
+    isDivider: Boolean(task.isDivider),
     repeatEvery: scheduled ? task.repeatEvery! : null,
     repeatUnit: task.repeatUnit ?? "day",
     repeatAfterDone: false,

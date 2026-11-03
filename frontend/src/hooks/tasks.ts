@@ -5,6 +5,7 @@ import * as listsApi from "../api/lists";
 import * as tagsApi from "../api/tags";
 import * as tasksApi from "../api/tasks";
 import { localDate } from "../lib/clock";
+import { typedDivider } from "../lib/dividers";
 import { newId } from "../lib/offline/changes";
 import { parseShortSyntax, parseTitleEdit, type SyntaxContext } from "../lib/shortSyntax";
 import type { Goal, List, Tag, TaskTreeNode } from "../types";
@@ -119,6 +120,13 @@ export function useAddTask() {
   const add = useCallback(
     async ({ text, ...place }: TypedTask, options?: { onError?: (error: Error) => void }): Promise<string> => {
       try {
+        // "--- Work" in a list: a divider there, not a task. Anywhere else (under a task, Today, a day) it is plain text.
+        const divider = place.listId && !place.parentId && !place.weekDay && !place.deadlineDate ? typedDivider(text) : null;
+        if (divider) {
+          const id = newId();
+          mutate({ tags: [], goals: [], task: { id, title: divider, listId: place.listId, index: place.index, after: place.after, isDivider: true } }, options);
+          return id;
+        }
         const { tags, goals, lists, trees } = await syntaxLists(queryClient);
         const typed = parseShortSyntax(text, { today: localDate(), tags, goals, lists, depth: depthUnder(trees, place.parentId), pointsOff });
         if (!typed.title) throw new Error("A task needs a title too, not only shortcuts");
@@ -131,7 +139,7 @@ export function useAddTask() {
           id: newId(),
           title: typed.title,
           // In another list than the one typed in, it goes to the end: the place was counted for this one.
-          ...(movesList && { listId: typed.listId, index: undefined }),
+          ...(movesList && { listId: typed.listId, index: undefined, after: undefined }),
           tagIds: [...new Set([...(place.tagIds ?? []), ...typed.tagIds, ...newTags.map((tag) => tag.id)])],
           goalIds: [...new Set([...(place.goalIds ?? []), ...typed.goalIds, ...newGoals.map((goal) => goal.id)])],
           // A persistent task and a deadline don't go together, so a typed schedule (or @persistent) drops the day the caller gave.
@@ -195,8 +203,8 @@ export function useEditTask() {
           ...(typed.notes && { notes: node.notes ? `${node.notes}\n${typed.notes}` : typed.notes }),
         };
         const moves = typed.listId !== undefined && typed.listId !== node.listId;
-        const last = moves ? trees.filter((tree) => tree.listId === typed.listId && tree.id !== node.id).length : 0;
-        mutate({ id: node.id, tags: newTags, goals: newGoals, changes, move: moves ? { parentId: null, listId: typed.listId!, index: last } : null }, options);
+        const inList = moves ? trees.filter((tree) => tree.listId === typed.listId && tree.id !== node.id) : [];
+        mutate({ id: node.id, tags: newTags, goals: newGoals, changes, move: moves ? { parentId: null, listId: typed.listId!, index: inList.length, after: inList.at(-1)?.id ?? null } : null }, options);
         options?.onApplied?.(typed.title);
       } catch (error) {
         setTypo(error as Error);

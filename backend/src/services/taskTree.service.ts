@@ -185,6 +185,17 @@ export async function wholeTreeIds(db: Prisma.TransactionClient, owner: string, 
 }
 
 /** `ids` with `id` inserted at `index` (clamped to the list). `ids` must not already contain `id`. */
+/**
+ * Where a task goes among `others`. The app only has the open and the just ticked, so a count of its rows means
+ * nothing among all the tasks a list ever had: it says the row to go after (`after`, null = first). Without that, or
+ * if that row has gone meanwhile, `index`, else the end.
+ */
+export function spotFor(others: string[], index: number | undefined, after: string | null | undefined) {
+  if (after === null) return 0;
+  const before = after === undefined ? -1 : others.indexOf(after);
+  return before >= 0 ? before + 1 : (index ?? others.length);
+}
+
 export function insertAt(ids: string[], id: string, index: number): string[] {
   const at = Math.max(0, Math.min(index, ids.length));
   return [...ids.slice(0, at), id, ...ids.slice(at)];

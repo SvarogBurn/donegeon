@@ -7,8 +7,10 @@ import { api } from "./client";
 export interface TaskPlacement {
   parentId: string | null;
   listId: string | null;
-  /** Position among the destination's tasks, not counting the task being placed. */
+  /** Position among the destination's tasks the app has, not counting the task being placed. It shows the change at once. */
   index: number;
+  /** The task it goes right after, null = first: the server's place for it, as the server has more tasks than the app (old ticked ones). */
+  after?: string | null;
 }
 
 export interface TaskChanges {
@@ -54,6 +56,8 @@ export interface NewTask {
   parentId?: string | null;
   listId?: string | null;
   index?: number;
+  /** The task it goes right after, null = first; see TaskPlacement. */
+  after?: string | null;
   goalIds?: string[];
   tagIds?: string[];
   /** Main tasks and their direct subtasks: soft unless said otherwise. */
@@ -73,6 +77,8 @@ export interface NewTask {
   nextDue?: string;
   /** Main tasks only. */
   notes?: string;
+  /** A title and a line among the main tasks of a list: it takes nothing but its title and its place. */
+  isDivider?: boolean;
 }
 /** `id`: made on the device, so a task written offline has it at once (and a second send makes no second task). */
 export const createTask = (body: NewTask & { id?: string }, when?: When) => api<{ task: Task }>("/tasks", { body, when }).then((r) => r.task);
