@@ -1,7 +1,7 @@
 import type { ReceivedCheer } from "../api/people";
 
 /** Every so many tasks of a day until the user sets their own. */
-export const BIG_EVERY = 10;
+export const BIG_EVERY = 3;
 
 /** The settings kept in the user's profile, read without making the whole profile (lib/character/profile.ts). */
 const settingsIn = (profile: unknown) => (profile ?? {}) as { soundOff?: unknown; bigEvery?: unknown };

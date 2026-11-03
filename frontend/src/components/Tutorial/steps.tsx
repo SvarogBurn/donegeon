@@ -28,6 +28,10 @@ export interface TutorialContext {
   isNarrow: boolean;
   /** The points system switched off: the menu has no points to show. */
   pointsOff: boolean;
+  /** Health switched off: no hearts on the sheet. */
+  healthOff: boolean;
+  /** The streak freeze switched off (or health, which takes it along): a missed day costs no level. */
+  freezeOff: boolean;
 }
 
 export interface Step {
@@ -83,6 +87,7 @@ const ADD_FIELD = '[data-tile^="list:"] [data-task-editor^="add:"]';
 const FOLDER_EDITOR = 'nav [role="dialog"][aria-label^="Folder"]';
 const TODAY = 'section[aria-label="Today"]';
 const CHARACTER = 'section[aria-label="Character"]';
+const FRIENDS = 'section[aria-label="Friends"]';
 const EDIT = "[data-character-edit]";
 const EDITOR = "[data-character-editor]";
 /** The steps in the character editor are passed over once it is closed (or was never opened). */
@@ -680,6 +685,39 @@ export const STEPS: Step[] = [
   },
   {
     route: "/user",
+    text: () => (
+      <>
+        These are your hearts. You lose health by missing a deadline or repeating task. The only way to heal yourself and increase your
+        health is by solving enough tasks and leveling up.
+      </>
+    ),
+    target: () => ["[data-character-health]", CHARACTER],
+    also: () => [CHARACTER],
+    // No hearts on the sheet.
+    skip: (ctx) => ctx.healthOff,
+    button: "Next",
+  },
+  {
+    route: "/user",
+    text: (ctx) => (
+      <>
+        Here is your streak. You have to do at least one task per day to keep it.
+        {/* With the freeze off a missed day costs no level: the rest wouldn't be true. */}
+        {!ctx.freezeOff && (
+          <>
+            {" "}
+            If you have a rest day or miss your daily task, your level will be deducted by 1. Your levels act as a streak freeze. You can turn
+            off that feature in your settings.
+          </>
+        )}
+      </>
+    ),
+    target: () => ['[data-stat="streak"]', CHARACTER],
+    also: () => [CHARACTER],
+    button: "Next",
+  },
+  {
+    route: "/user",
     text: () => <>Here you can also see your basic stats and skills (hahaha you barely have any yet)</>,
     target: () => ["[data-character-stats]", CHARACTER],
     also: () => [CHARACTER],
@@ -841,6 +879,19 @@ export const STEPS: Step[] = [
     route: "/user",
     text: () => (
       <>
+        If you are a giga chad and actually have friends, add them by their username here. Their character shows up here, so you can see
+        how they're doing. You can cheer each other on. In settings, you can pick and choose which details you wanna see and show.
+      </>
+    ),
+    target: () => [FRIENDS],
+    // Not on the page: nothing to point at.
+    skip: () => !document.querySelector(FRIENDS),
+    button: "Next",
+  },
+  {
+    route: "/user",
+    text: () => (
+      <>
         Got notes that belong to no task? There's a <b>Notes</b> tab for those. Tick it here to show it in the bar, untick it to hide it
         again.
       </>
@@ -853,8 +904,8 @@ export const STEPS: Step[] = [
     route: "/user",
     text: () => (
       <>
-        Your streak counts the days in a row with at least one task done. In Settings you can cap your points, ask for a break reminder,
-        switch the boxes to a plain font, and start this tutorial again.
+        Don't like something? Everything can be adjusted in Settings: points, health, the streak freeze, sounds, big moments, fonts, which
+        tabs you see, who can find you. You can even start this tutorial again, if you miss me.
       </>
     ),
     target: () => ['section[aria-label="Settings"]'],

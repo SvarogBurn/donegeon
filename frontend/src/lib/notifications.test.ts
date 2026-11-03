@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TaskTreeNode } from "../types";
-import { isOverdue, leftUndone, passedDeadlines, passedItem } from "./notifications";
+import { isOverdue, leftUndone, levelsLost, passedDeadlines, passedItem } from "./notifications";
 
 function node(id: string, extra: Partial<TaskTreeNode> = {}): TaskTreeNode {
   return { id, title: id, isComplete: false, deadlineDate: null, todaySince: null, weekDay: null, isPersistent: false, completions: [], children: [], ...extra } as TaskTreeNode;
@@ -88,5 +88,31 @@ describe("leftUndone", () => {
 
   it("names the later day for one left in both", () => {
     expect(leftUndone([node("both", { todaySince: "2026-10-18", weekDay: "2026-10-20" })], today).map((item) => [item.day, item.inToday, item.inWeek])).toEqual([["2026-10-20", true, true]]);
+  });
+});
+
+describe("levelsLost", () => {
+  const today = "2026-11-03";
+
+  it("lists the last 7 days' knockouts and kept streaks, latest first, a row a day", () => {
+    const rows = levelsLost(
+      {
+        knockouts: [
+          { day: "2026-10-27", from: 4, to: 3 },
+          { day: "2026-11-03", from: 6, to: 5 },
+          { day: "2026-11-03", from: 5, to: 3 },
+        ],
+        freezes: [
+          { day: "2026-10-30", from: 7, to: 6 },
+          { day: "2026-10-31", from: 6, to: 5 },
+        ],
+      },
+      today,
+    );
+    expect(rows).toEqual([
+      { kind: "knockout", day: "2026-11-03", levels: 3, key: "knockout:2026-11-03" },
+      { kind: "freeze", day: "2026-10-31", levels: 1, key: "freeze:2026-10-31" },
+      { kind: "freeze", day: "2026-10-30", levels: 1, key: "freeze:2026-10-30" },
+    ]);
   });
 });

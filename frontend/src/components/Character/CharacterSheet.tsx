@@ -2,7 +2,7 @@ import { useState, useSyncExternalStore } from "react";
 import { usePoints } from "../../hooks/points";
 import { usePublishCard } from "../../hooks/people";
 import { useFreezeOff, useHealthOff, useMe, usePointsOff } from "../../hooks/useAuth";
-import { addDays, daysBetween } from "../../../../shared/dates";
+import { addDays } from "../../../../shared/dates";
 import { formatDay } from "../../lib/dates";
 import { useOnline } from "../../lib/offline/online";
 import { bodyOf, type Look } from "../../lib/character/bodies";
@@ -38,11 +38,6 @@ const useIsPhone = () => useSyncExternalStore(subscribePhone, () => matchMedia(P
 const hitsText = (health: Health) =>
   health.recent.length === 0 ? "Nothing missed yet" : health.recent.map((hit) => `−${hit.damage} ${hit.title} (${hit.kind} ${formatDay(addDays(hit.day, -1))})`).join("\n");
 
-/** How long the sheet says the character was knocked out, or a day missed cost a level. */
-const KNOCKOUT_SHOWN_DAYS = 7;
-
-const levelsText = (drop: { from: number; to: number }) => (drop.from > drop.to ? `: lost ${drop.from - drop.to} ${drop.from - drop.to === 1 ? "level" : "levels"}` : "");
-
 /**
  * The top of the user's page, as a game's character sheet, the character's name on its band: the character, its
  * title, level and exp, and beside it (under it on a phone, the character as wide as the box) the stats and skills the
@@ -58,10 +53,6 @@ export function CharacterSheet() {
   const freezeOff = useFreezeOff();
   // A knockout takes back what the lost levels earned, worn or not, until they are earned again.
   const shown = unlocks.knockedOut ? shownLook(look, unlocks) : look;
-  const knockout = health?.knockouts.at(-1);
-  const knockedOutLately = knockout && daysBetween(knockout.day, today) < KNOCKOUT_SHOWN_DAYS;
-  // Each day missed that kept the streak cost a level.
-  const freezes = health?.freezes.filter((f) => daysBetween(f.day, today) < KNOCKOUT_SHOWN_DAYS) ?? [];
   const online = useOnline();
   const skillName = useSkillNames();
   // Open, maybe with something new tried on.
@@ -106,18 +97,6 @@ export function CharacterSheet() {
           {health && !healthOff && (
             <div className="w-full" data-character-health>
               <Hearts hp={health.hp} max={health.max} title={hitsText(health)} />
-              {knockedOutLately && (
-                <p className="text-center text-xs text-red-700 dark:text-red-400" data-knockout>
-                  Knocked out on {formatDay(knockout.day)}
-                  {levelsText(knockout)}
-                </p>
-              )}
-              {freezes.length > 0 && (
-                <p className="text-center text-xs text-sky-700 dark:text-sky-400" data-freeze={freezes.length}>
-                  {freezes.length === 1 ? `Streak kept on ${formatDay(freezes[0].day)}` : `Streak kept over ${freezes.length} days missed`}
-                  {levelsText({ from: freezes.length, to: 0 })}
-                </p>
-              )}
             </div>
           )}
           <div className="flex w-full flex-col items-center gap-1">

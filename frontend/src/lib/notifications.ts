@@ -1,4 +1,5 @@
 import { daysBetween } from "../../../shared/dates";
+import type { Health } from "../../../shared/health";
 import type { TaskTreeNode } from "../types";
 import { plainFirstLine } from "./markup";
 import { readStored, writeStored } from "./storage";
@@ -77,6 +78,35 @@ export function leftUndone(trees: TaskTreeNode[], today: string): LeftUndone[] {
   };
   visit(trees, []);
   return found.sort((a, b) => b.day.localeCompare(a.day));
+}
+
+/** How long a knockout, or a day missed that kept the streak, stays in the bell (until dismissed). */
+export const KNOCKOUT_SHOWN_DAYS = 7;
+
+/** Levels the character lost on a day: to a knockout, or to a day with nothing done that kept the streak (a freeze). */
+export interface LevelLost {
+  kind: "knockout" | "freeze";
+  day: string;
+  levels: number;
+  key: string;
+}
+
+/**
+ * The knockouts and kept streaks of the last KNOCKOUT_SHOWN_DAYS days, latest first: a row a day (each day missed is
+ * its own; two knockouts on one day are one row with both their levels).
+ */
+export function levelsLost(health: Pick<Health, "knockouts" | "freezes">, today: string): LevelLost[] {
+  const rows = new Map<string, LevelLost>();
+  const add = (kind: LevelLost["kind"], drops: Health["knockouts"]) => {
+    for (const { day, from, to } of drops) {
+      if (daysBetween(day, today) >= KNOCKOUT_SHOWN_DAYS) continue;
+      const key = `${kind}:${day}`;
+      rows.set(key, { kind, day, levels: (rows.get(key)?.levels ?? 0) + from - to, key });
+    }
+  };
+  add("knockout", health.knockouts);
+  add("freeze", health.freezes);
+  return [...rows.values()].sort((a, b) => b.day.localeCompare(a.day));
 }
 
 // Dismissed notifications are this device's: the bell is a reminder, not part of the task.

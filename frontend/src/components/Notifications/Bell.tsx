@@ -2,12 +2,12 @@ import { daysBetween } from "../../../../shared/dates";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { appNow, localDate } from "../../lib/clock";
-import { usePressTask, useTaskTrees, useToggleTask } from "../../hooks/tasks";
+import { useHealth, usePressTask, useTaskTrees, useToggleTask } from "../../hooks/tasks";
 import { useDismissed } from "../../hooks/notifications";
 import { useAcceptFriend, useIgnoreFriend, useInbox, useMarkCheersSeen } from "../../hooks/people";
-import { useDeadlineToday, useMe, useNotifySettings, useTickedTasks } from "../../hooks/useAuth";
+import { useDeadlineToday, useHealthOff, useMe, useNotifySettings, useTickedTasks } from "../../hooks/useAuth";
 import { formatDay } from "../../lib/dates";
-import { leftUndone, passedDeadlines, saveDismissed, type LeftUndone, type PassedDeadline } from "../../lib/notifications";
+import { leftUndone, levelsLost, passedDeadlines, saveDismissed, type LeftUndone, type PassedDeadline } from "../../lib/notifications";
 import { dueToday, findTask, type Planned } from "../../lib/notifySchedule";
 import { markNewsSeen, useUnseenNews } from "../../lib/newsSeen";
 import { normalizeLook } from "../../lib/character/profile";
@@ -21,6 +21,7 @@ import { hasHome, LeftUndoneTask, useDropLeftUndone } from "./LeftUndoneTask";
 import { PostponeDeadline } from "./PostponeDeadline";
 
 const ago = (n: number) => (n === 1 ? "yesterday" : `${n} days ago`);
+const levelsText = (n: number) => `Lost ${n} ${n === 1 ? "level" : "levels"}`;
 
 /** The colour of each of today's messages in the list: a deadline coming is amber, a reminder blue. */
 const KIND_COLORS: Partial<Record<Planned["kind"], string>> = {
@@ -47,7 +48,9 @@ function useMinute() {
  * (nothing is carried on to the next day by itself), a tap asking when to do them, × dropping them (they stay in their
  * list); and deadlines whose day is over with the task still open, a tap asking for a new deadline. Dismissed
  * messages and deadlines stay away on this device (a deadline until it is moved and passes again). First, while the
- * setting is on, the News articles not yet read on this device (lib/newsSeen), a tap opening the paper. Before those,
+ * setting is on, the News articles not yet read on this device (lib/newsSeen), a tap opening the paper, and after them,
+ * whatever `bell` says, the levels lost to a knockout or a day missed that kept the streak (for a week, until
+ * dismissed on this device), a tap opening the character. Before those,
  * whatever `bell` says, friend requests to answer and cheers not yet read, kept on the server, not on this device;
  * Dismiss all only quiets a request on this device (no count, no dot), it stays here to be answered. `inStrip` = the installed app's top strip (the list opens below);
  * otherwise the browser's task bar along the bottom (it opens above), where the bell is teeny and `children` places it
@@ -102,6 +105,11 @@ export function Bell({
   // New articles in the News, while the setting is on (whatever the bell shows otherwise): read or dismissed, they are gone.
   const unseenNews = useUnseenNews();
   const news = settings.news.on ? unseenNews : [];
+  // The face in the task bar reads the health already: this asks for nothing more.
+  const health = useHealth();
+  const healthOff = useHealthOff();
+  const lost = useMemo(() => (health.data && !healthOff ? levelsLost(health.data, today) : []), [health.data, healthOff, today]);
+  const shownLost = lost.filter((item) => !dismissed.has(item.key));
   const peopleOff = useMe().user?.peopleOff;
   const { data: inbox } = useInbox(!peopleOff);
   const requests = inbox?.requests ?? [];
@@ -110,13 +118,14 @@ export function Bell({
   const accept = useAcceptFriend();
   const ignore = useIgnoreFriend();
   const markSeen = useMarkCheersSeen();
-  const count = loudRequests.length + cheers.length + news.length + shownMessages.length + shown.length + undone.length;
+  const count = loudRequests.length + cheers.length + news.length + shownLost.length + shownMessages.length + shown.length + undone.length;
 
   useEffect(() => onOpenChange?.(isOpen || asking !== null || askingUndone !== null || isDevClock), [isOpen, asking, askingUndone, isDevClock, onOpenChange]);
-  // Only once the tasks and the requests are in: before that every dismissal would look out of date.
+  // Only once the tasks, the requests and the health are in: before that every dismissal would look out of date.
   useEffect(() => {
-    if (trees.length && (inbox || peopleOff)) saveDismissed(dismissed, [...[...passed, ...messages].map((item) => item.key), ...(inbox?.requests ?? []).map(({ id }) => requestKey(id))]);
-  }, [dismissed, passed, messages, trees.length, inbox, peopleOff]);
+    if (trees.length && (inbox || peopleOff) && (health.data || healthOff))
+      saveDismissed(dismissed, [...[...passed, ...messages, ...lost].map((item) => item.key), ...(inbox?.requests ?? []).map(({ id }) => requestKey(id))]);
+  }, [dismissed, passed, messages, lost, trees.length, inbox, peopleOff, health.data, healthOff]);
 
   // A tap on a pushed "deadline passed" or "left undone" opens the app on /?bell=1: the list opens, where its new day is picked.
   useEffect(() => {
@@ -194,7 +203,7 @@ export function Bell({
                 className="btn-quiet text-xs"
                 data-dismiss-all
                 onClick={() => {
-                  dismiss([...[...shownMessages, ...shown].map((item) => item.key), ...loudRequests.map(({ id }) => requestKey(id))]);
+                  dismiss([...[...shownLost, ...shownMessages, ...shown].map((item) => item.key), ...loudRequests.map(({ id }) => requestKey(id))]);
                   undone.filter(hasHome).forEach(drop);
                   if (news.length) markNewsSeen(news.map((feature) => feature.slug));
                   if (cheers.length) markSeen.mutate(cheers.map((cheer) => cheer.id));
@@ -260,6 +269,29 @@ export function Bell({
                     <span className="mt-0.5 block text-xs text-stone-500">Tap to read it</span>
                   </button>
                   <button type="button" className="btn-quiet px-2 py-2 text-base leading-none" aria-label="Dismiss" title="Dismiss" onClick={() => markNewsSeen([feature.slug])}>
+                    ×
+                  </button>
+                </li>
+              ))}
+              {shownLost.map((item) => (
+                <li key={item.key} className="flex items-start gap-1 hover:bg-stone-100 dark:hover:bg-stone-800">
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 px-3 py-2 text-left"
+                    data-notification-lost={item.key}
+                    onClick={() => {
+                      setIsOpen(false);
+                      void navigate("/user");
+                    }}
+                  >
+                    <span className={`flex items-center gap-1.5 font-pixel text-[8px] ${item.kind === "knockout" ? "text-red-700 dark:text-red-400" : "text-sky-700 dark:text-sky-400"}`}>
+                      <span className="size-1.5 flex-none bg-current" aria-hidden />
+                      {item.kind === "knockout" ? "Knocked out" : "Streak kept"} · {formatDay(item.day)}
+                    </span>
+                    <span className="mt-1 block truncate text-sm">{levelsText(item.levels)}</span>
+                    <span className="mt-0.5 block text-xs text-stone-500">Tap to see your character</span>
+                  </button>
+                  <button type="button" className="btn-quiet px-2 py-2 text-base leading-none" aria-label="Dismiss" title="Dismiss" onClick={() => dismiss([item.key])}>
                     ×
                   </button>
                 </li>
