@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useFolders } from "../../hooks/folders";
 import { useGoals, useTags } from "../../hooks/labels";
 import { useLists } from "../../hooks/lists";
@@ -34,11 +34,19 @@ export const STAT_BOXES: Record<string, string> = Object.fromEntries(STAT_BOX_LI
  * What the boxes of the stats are drawn from: tasks only (reward lists are left out), narrowed by a filter of
  * this use's own. `data` is null until everything they need has loaded.
  */
-export function useStatsData(): { data: StatsData | null; error: Error | null } {
+export function useStatsData(): { data: StatsData | null; error: Error | null; retry: () => void } {
   const rows = useStatRows();
   const lists = useLists();
   const goals = useGoals();
   const tags = useTags();
+  const needed = [rows, lists, goals, tags];
+  const retry = () => needed.forEach((query) => query.data === undefined && void query.refetch());
+  // One with nothing yet and nothing on its way (its first fetch cancelled, say) would wait for good: it asks again.
+  const stuck = needed.some((query) => query.data === undefined && !query.error && query.fetchStatus === "idle");
+  useEffect(() => {
+    if (stuck) retry();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- asked once each time one gets stuck
+  }, [stuck]);
   const { data: folders = [] } = useFolders();
   const [filter, setFilter] = useState(NO_STAT_FILTER);
   const all = useMemo(() => collectStats(rows.data ?? [], lists.data ?? []), [rows.data, lists.data]);
@@ -46,9 +54,10 @@ export function useStatsData(): { data: StatsData | null; error: Error | null } 
   const view = useMemo(() => statsView(all, folders, filter, today), [all, folders, filter, today]);
 
   const error = rows.error ?? lists.error ?? goals.error ?? tags.error;
-  if (error) return { data: null, error };
-  if (!rows.data || !lists.data || !goals.data || !tags.data) return { data: null, error: null };
+  if (error) return { data: null, error, retry };
+  if (!rows.data || !lists.data || !goals.data || !tags.data) return { data: null, error: null, retry };
   return {
+    retry,
     data: {
       view,
       filter,
@@ -76,7 +85,28 @@ export function StatBoxView({ name }: { name: string }) {
   if (box && stats?.data) return <box.Box stats={stats.data} />;
   return (
     <TileFrame title={STAT_BOXES[name] ?? "Stats"}>
-      {stats?.error ? <p className="text-sm text-red-600">Couldn't load your stats: {stats.error.message}</p> : <p className="text-sm text-stone-500">Loading…</p>}
+      {stats?.error ? <p className="text-sm text-red-600">Couldn't load your stats: {stats.error.message}</p> : <StatsLoading retry={stats?.retry} />}
     </TileFrame>
+  );
+}
+
+/** How long the stats load before the page offers to ask again. */
+const STILL_LOADING_MS = 10_000;
+
+/** "Loading…", and after a while a way to ask again, rather than waiting for good. */
+export function StatsLoading({ retry }: { retry?: () => void }) {
+  const [isSlow, setIsSlow] = useState(false);
+  useEffect(() => {
+    const slow = setTimeout(() => setIsSlow(true), STILL_LOADING_MS);
+    return () => clearTimeout(slow);
+  }, []);
+  if (!isSlow || !retry) return <p className="text-sm text-stone-500" data-loading="stats">Loading…</p>;
+  return (
+    <p className="flex flex-wrap items-center gap-2 text-sm text-stone-500" data-loading="stats">
+      Still loading your stats…
+      <button type="button" className="btn-quiet underline" onClick={() => (setIsSlow(false), retry())}>
+        Try again
+      </button>
+    </p>
   );
 }

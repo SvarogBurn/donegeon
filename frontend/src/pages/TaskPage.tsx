@@ -65,7 +65,7 @@ export function TaskPage() {
             <header className="card flex flex-wrap items-start justify-between gap-4">
               <h1 className="min-w-0 text-xl font-bold break-words whitespace-pre-line"><RichText text={found.node.title} /></h1>
               {canHaveDeadline && (
-                <div className="w-56 shrink-0">
+                <div className="w-72 max-w-full shrink-0">
                   <DeadlineFields task={found.node} />
                   <DeadlineColors node={found.node} />
                 </div>

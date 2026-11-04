@@ -114,6 +114,16 @@ export function itemPrefix(line: string): string | null {
 }
 
 /**
+ * A list marker typed out of habit right after the one Enter carried on ("* " then "* ", "2. " then "2. "): the line
+ * with its marker once. Only while nothing else is written on it; null when no marker is doubled.
+ */
+export function doubledMarker(line: string): string | null {
+  const prefix = itemPrefix(line);
+  if (prefix === null) return null;
+  return /^(?:[*\-•]|\d{1,3}[.)]) $/.test(line.slice(prefix.length)) ? prefix : null;
+}
+
+/**
  * What Enter does on `line` in the note field: on a list item, the next line starts as the next item (a number
  * counts on); on an item with nothing written after its marker, the marker is taken off and the list ends.
  * Null = an ordinary new line.

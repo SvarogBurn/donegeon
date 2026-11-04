@@ -13,6 +13,12 @@ export class ApiError extends Error {
 /** What the host answers in the server's place; the app itself never sends these. */
 const HOST_ERRORS = [502, 503, 504];
 const RETRIES = 2;
+/**
+ * A read with no answer by then is given up (then asked again, see RETRIES): without it a request that hangs keeps its
+ * page on "Loading…" for good. Waking the server is waited for before this starts. Changes have no limit: one that
+ * arrived late may still have arrived.
+ */
+const READ_TIMEOUT_MS = 20_000;
 const UNREACHABLE = "Can't reach the server";
 const OFFLINE = "You're offline";
 const NOT_SAVED = "The server didn't answer, so this wasn't saved";
@@ -48,6 +54,7 @@ export async function api<T = void>(path: string, options: { method?: string; bo
           ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
         },
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        signal: reads ? AbortSignal.timeout(READ_TIMEOUT_MS) : undefined,
       });
     } catch {
       markStale();

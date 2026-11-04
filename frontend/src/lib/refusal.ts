@@ -27,14 +27,30 @@ function set(next: Refusal | null) {
   listeners.forEach((listener) => listener());
 }
 
-/** Shows why the last click did nothing, next to what was clicked. */
-export function refuse(error: Error) {
+/** The change a refusal is about: the task, and for a press which one. */
+export interface RefusedChange {
+  id?: string;
+  completionId?: string;
+}
+const refusedListeners = new Set<(change: RefusedChange) => void>();
+
+/**
+ * Shows why the last click did nothing, next to what was clicked (or next to `el`, for a key pressed on it). With
+ * `change`, whatever was offered at the click for it (the undo of a tick or press) hears that it didn't happen.
+ */
+export function refuse(error: Error, change?: RefusedChange, el?: Element) {
   // Not a refusal: the server never heard of it, and the notice at the top of the page says so.
   if (isUnreachable(error)) return;
-  const recent = clicked && Date.now() - clicked.time < CLICK_IS_OLD_MS ? clicked : null;
+  const recent = el ? { el, box: el.getBoundingClientRect() } : clicked && Date.now() - clicked.time < CLICK_IS_OLD_MS ? clicked : null;
   // Where it is now, or, if the click took it off the screen (a finished task leaves its list), where it was.
   const box = recent && (recent.el.isConnected ? recent.el.getBoundingClientRect() : recent.box);
   set({ message: error.message, at: box ? { left: box.left, top: box.top, bottom: box.bottom } : null });
+  if (change) refusedListeners.forEach((listener) => listener(change));
+}
+
+export function onRefusedChange(listener: (change: RefusedChange) => void) {
+  refusedListeners.add(listener);
+  return () => void refusedListeners.delete(listener);
 }
 
 export const dismissRefusal = () => current && set(null);

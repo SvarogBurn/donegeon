@@ -185,7 +185,10 @@ export function LookSection({ look, setLook, draft, set, username, unlocks, togg
           <Stepper
             label="Body"
             name="body"
-            options={BODIES.map((b) => ({ id: b.id, name: bodyLock(unlocks, b.id) ? "???" : b.name, locked: lockText(bodyLock(unlocks, b.id)) }))}
+            // The bodies earned first, then the "???" ones still to earn (each in the order of BODIES).
+            options={[...BODIES]
+              .sort((a, b) => Number(Boolean(bodyLock(unlocks, a.id))) - Number(Boolean(bodyLock(unlocks, b.id))))
+              .map((b) => ({ id: b.id, name: bodyLock(unlocks, b.id) ? "???" : b.name, locked: lockText(bodyLock(unlocks, b.id)) }))}
             value={body.id}
             onChange={setBody}
           />

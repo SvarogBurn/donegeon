@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useDeadlineToday } from "../../hooks/useAuth";
 import { localDate } from "../../lib/clock";
 import { readNotToday, saveNotToday } from "../../lib/notifications";
-import { isOwnToday, livesInToday, todayItems, weekDays } from "../../lib/week";
+import { isOwnToday, leftToDo, livesInToday, todayItems, weekDays } from "../../lib/week";
 import type { TaskTreeNode } from "../../types";
 import { TaskForm } from "../TaskTree/TaskForm";
 import { TaskTree } from "../TaskTree/TaskNode";
@@ -28,7 +28,7 @@ export function TodayTab({ tasks }: { tasks: TaskTreeNode[] }) {
   // was done on; left open, the bell asks about it after (not a round: that stays here until it is done).
   const doneToday = (task: TaskTreeNode) => ticked !== "hide" && (task.isComplete ? task.completedOn === today : task.completions.some((press) => press.day === today));
   const own = tasks.filter((task) => livesInToday(task) && (doneToday(task) || (!task.isComplete && isOwnToday(task, today))));
-  const left = [...items.map((item) => item.node), ...own].filter((node) => !node.isComplete && !node.isPersistent).length;
+  const left = leftToDo([...items.map((item) => item.node), ...own], today);
   // Under the day's tasks, the bin of what was put off to next week, as at the bottom of the Week tab.
   const putOff = weekDays(tasks, today, ticked, deadlines).find((day) => day.nextWeek)!;
 

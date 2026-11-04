@@ -9,6 +9,7 @@ import { useLists } from "../../hooks/lists";
 import { useMoveRound, usePlaceInWeek, useSetToday, useSetWeek, useUpdateTask } from "../../hooks/tasks";
 import { usePointsOff, useReminders } from "../../hooks/useAuth";
 import { localDate } from "../../lib/clock";
+import { formatDay } from "../../lib/dates";
 import { plainFirstLine } from "../../lib/markup";
 import { isNotifyTime, newReminderId, NOTIFY_FROM, NOTIFY_TO, reminderSummary } from "../../lib/notifySettings";
 import { useOnline } from "../../lib/offline/online";
@@ -18,6 +19,9 @@ import { REPEAT_UNIT_NAMES } from "../../lib/repeat";
 import type { RepeatUnit, TaskTreeNode } from "../../types";
 import { DateField, DeadlineFields } from "./DeadlineFields";
 import { useTree } from "./TreeContext";
+
+/** Sent on the window to close every open task menu. */
+export const CLOSE_TASK_MENUS = "donegeon:close-task-menus";
 
 interface Props {
   node: TaskTreeNode;
@@ -339,6 +343,7 @@ export function Repeat({ node }: { node: TaskTreeNode }) {
             <span className="shrink-0">Next</span>
             <DateField value={node.nextDue} label="Next due date" onChange={(nextDue) => nextDue && save({ nextDue })} />
           </div>
+          <RoundNote node={node} />
           <RemindAt node={node} />
           <div className="flex gap-1" role="group" aria-label="What the next round is counted from">
             {REPEAT_FROM.map((option) => (
@@ -454,11 +459,29 @@ export function TaskMenu({ node, depth, onAddSubtask, onOpenNote }: Props) {
       window.removeEventListener("resize", measure);
     };
   }, [isOpen]);
-  // Opened from a row low on the screen it would hang off the bottom: the page scrolls just enough to show all of it.
+  // Opened from a row low on the screen it would hang off the bottom: the page scrolls just enough to show all of it,
+  // and again when it grows (a reminder being made), so its bottom stays above the task bar.
   useEffect(() => {
-    if (isOpen && place) menu.current?.scrollIntoView({ block: "nearest" });
+    const el = menu.current;
+    if (!isOpen || !place || !el) return;
+    el.scrollIntoView({ block: "nearest" });
+    let height = el.offsetHeight;
+    const grows = new ResizeObserver(() => {
+      if (el.offsetHeight > height) el.scrollIntoView({ block: "nearest" });
+      height = el.offsetHeight;
+    });
+    grows.observe(el);
+    return () => grows.disconnect();
     // Once, when it opens and has its place; not each time it follows its button.
   }, [isOpen, place === null]);
+
+  // Closed from outside too: a step of the tutorial that is about something else (the sheet would cover it on a phone).
+  useEffect(() => {
+    if (!isOpen) return;
+    const close = () => setIsOpen(false);
+    window.addEventListener(CLOSE_TASK_MENUS, close);
+    return () => window.removeEventListener(CLOSE_TASK_MENUS, close);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -507,7 +530,7 @@ export function TaskMenu({ node, depth, onAddSubtask, onOpenNote }: Props) {
           <div
             ref={menu}
             style={{ "--menu-top": `${place.top}px`, "--menu-left": `${place.left}px` } as CSSProperties}
-            className="card absolute top-(--menu-top) left-(--menu-left) z-50 w-64 -translate-x-full max-sm:translate-x-0 space-y-3 !p-3 shadow-lg max-sm:fixed max-sm:inset-x-2 max-sm:top-auto max-sm:bottom-2 max-sm:z-50 max-sm:max-h-[75dvh] max-sm:w-auto max-sm:overflow-y-auto"
+            className="card absolute top-(--menu-top) left-(--menu-left) z-50 max-h-[calc(100dvh-var(--bar-h,5rem)-var(--top-h,0px)-1rem)] w-64 -translate-x-full overflow-y-auto max-sm:translate-x-0 space-y-3 !p-3 shadow-lg max-sm:fixed max-sm:inset-x-2 max-sm:top-auto max-sm:bottom-2 max-sm:z-50 max-sm:max-h-[75dvh] max-sm:w-auto max-sm:overflow-y-auto"
             role="dialog"
             aria-label="Task options"
           >
@@ -548,5 +571,20 @@ export function TaskMenu({ node, depth, onAddSubtask, onOpenNote }: Props) {
         document.body,
       )}
     </span>
+  );
+}
+
+/**
+ * The round the task is at when it isn't the Next day above: moved to another day in Week, or (skipping missed rounds)
+ * a later one, the planned one having gone by in an earlier week. The rows and the Rounds box show that one.
+ */
+function RoundNote({ node }: { node: TaskTreeNode }) {
+  const round = currentRound(node, localDate());
+  if (!round || round.day === node.nextDue) return null;
+  const why = round.missed ? `the round of ${formatDay(node.nextDue!)} went by in an earlier week` : `moved in Week from ${formatDay(round.planned)}`;
+  return (
+    <p className="px-1 text-xs text-stone-600 dark:text-stone-400" data-round-note>
+      This round: {formatDay(round.day)} ({why})
+    </p>
   );
 }

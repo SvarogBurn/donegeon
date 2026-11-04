@@ -7,9 +7,9 @@ import { prisma } from "../lib/prisma.js";
 import type { MoveInput, TaskInput, TaskPatch } from "../schemas/task.js";
 import { placeAmongSiblings, placeInWeek } from "./ordering.service.js";
 import { assertOwnLabels, ownList, ownTask } from "./ownership.js";
-import { bookTick, reverseTaskBooking } from "./points.service.js";
+import { bookTick, openTickBooking, reverseTaskBooking } from "./points.service.js";
 import { progressDays } from "./taskRead.service.js";
-import { assertDeadlineDepth, assertDividerEdit, assertDividerPlace, assertNewDivider, assertNoDeadlineIfPersistent, assertNoNewDeadlineInRound, assertNotDivider, MAX_DEADLINE_DEPTH, taskPatchData } from "./taskRules.js";
+import { assertDeadlineDepth, assertDividerEdit, assertDividerPlace, assertNewDivider, assertNoDeadlineIfPersistent, assertNoNewDeadlineInRound, assertNotDivider, MAX_DEADLINE_DEPTH, taskPatchData, tickBecomesPress } from "./taskRules.js";
 import { completionPatch, countedIds, findDepth, findSubtree, persistentAtOrAbove } from "./taskTree.service.js";
 
 const NO_SUBTASKS = "A divider has no subtasks";
@@ -86,6 +86,11 @@ export async function updateTask(task: Task, input: TaskPatch, today: string) {
   if (input.deadlineDate && !task.deadlineDate && task.parentId) assertNoNewDeadlineInRound(await persistentAtOrAbove(prisma, task.parentId));
   const data = taskPatchData(task, input, today);
   return prisma.$transaction(async (tx) => {
+    // Its tick becomes its first press, with what the tick booked: a later untick or press then books on its own.
+    if (tickBecomesPress(task, input)) {
+      const booked = await openTickBooking(tx, task.id);
+      await tx.taskCompletion.create({ data: { userId: task.userId, taskId: task.id, day: task.completedOn ?? today, pointTransactionId: booked?.id ?? null, createdAt: task.completedAt ?? undefined } });
+    }
     const changed = await tx.task.update({ where: { id: task.id }, data });
     if (!input.week || task.weekDay) return changed;
     await placeInWeek(tx, task.userId, task.id, today, undefined, today);

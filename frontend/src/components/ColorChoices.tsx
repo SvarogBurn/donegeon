@@ -43,6 +43,9 @@ export function ColorChoices({ current, onPick, reset }: Props) {
             aria-label={name}
             aria-pressed={current === hex}
             title={name}
+            // A click or tap keeps the focus where it was (a name being typed, whose Enter then still saves it).
+            onPointerDown={(e) => e.preventDefault()}
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => onPick(hex)}
           />
         ))}

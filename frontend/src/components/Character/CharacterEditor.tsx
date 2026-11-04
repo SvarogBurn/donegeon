@@ -78,7 +78,9 @@ export function CharacterEditor({ onClose, trying }: { onClose: () => void; tryi
             onClick={() => {
               // A title no longer earned is let go (the highest rank shows); before the tasks are in, it is kept.
               const title = progress && !earnedTitles(progress).some((t) => t.id === draft.title) ? undefined : draft.title;
-              save({ ...draft, title, look: normalizeLook(withoutLocked(look, unlocks)), custom: draft.custom.filter((c) => c.name.trim()) });
+              // A title picked here has been seen: its "New title" card goes.
+              const seen = title && !(draft.seen ?? []).includes(title) ? [...(draft.seen ?? []), title] : draft.seen;
+              save({ ...draft, title, seen, look: normalizeLook(withoutLocked(look, unlocks)), custom: draft.custom.filter((c) => c.name.trim()) });
               onClose();
             }}
             data-editor-save

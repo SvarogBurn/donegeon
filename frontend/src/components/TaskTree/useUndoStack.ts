@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { UNDO_WINDOW_MS } from "../../../../shared/constants";
 import { useRestoreList } from "../../hooks/lists";
+import { onRefusedChange } from "../../lib/refusal";
 import { useRestoreTask, useToggleTask, useUndoPress } from "../../hooks/tasks";
 import type { TaskTreeNode } from "../../types";
 import { focusTaskEditor } from "./TitleEditor";
@@ -42,6 +43,17 @@ export function useUndoStack(byId: Map<string, TaskTreeNode>) {
   /** A press taken back by hand is no longer there for Ctrl+Z to take back a second time. */
   const forgetPress = useCallback(
     (completionId: string) => setUndoable((stack) => stack.filter((item) => !(item.kind === "press" && item.completionId === completionId))),
+    [],
+  );
+
+  // A tick or press the server refused didn't happen: its undo, offered at the click, goes (no "Finished …" for a refusal).
+  useEffect(
+    () =>
+      onRefusedChange(({ id, completionId }) =>
+        setUndoable((stack) =>
+          stack.filter((item) => !(item.id === id && (item.kind === "finished" || (item.kind === "press" && (completionId === undefined || item.completionId === completionId))))),
+        ),
+      ),
     [],
   );
 

@@ -4,15 +4,15 @@ import { mondayOf } from "../../../../shared/dates";
 import { useDismissed } from "../../hooks/notifications";
 import { useCombinedCountdown, useTaskTrees } from "../../hooks/tasks";
 import { useDeadlineTable } from "../../hooks/useAuth";
-import { formatPace } from "../../lib/dates";
-import { deadlineColor, perDayOf, rangeEnd, rangeLabel, type PerDayMode } from "../../lib/deadlineTable";
+import { formatPace, formatShortDay } from "../../lib/dates";
+import { deadlineColor, foldedDays, perDayOf, rangeEnd, rangeLabel, type PerDayMode } from "../../lib/deadlineTable";
 import { firstLine } from "../../lib/markup";
 import { passedDeadlines, type PassedDeadline } from "../../lib/notifications";
 import { findNode } from "../../lib/optimisticToggle";
 import { pathIdsTo } from "../../lib/showOnPage";
 import { readStored, writeStored } from "../../lib/storage";
 import { isBigTask } from "../../lib/taskPage";
-import type { CombinedCountdown, CombinedItem, TaskTreeNode } from "../../types";
+import type { CombinedCountdown, CombinedItem, CombinedRow, TaskTreeNode } from "../../types";
 import { PostponeDeadline } from "../Notifications/PostponeDeadline";
 import { RichText } from "../RichText";
 import { DeadlineBadge } from "../TaskTree/DeadlineBadge";
@@ -186,19 +186,59 @@ function DeadlineSheet({ countdown, mode, colorOf, onOpen, to, lookBack }: Sheet
     </tr>
   );
 
+  // A row's Per day: one cell, or (columns) one for each deadline.
+  const paceCells = (row: CombinedRow, number: string) => {
+    if (!columns) {
+      const pace = perDayOf(row, mode);
+      return (
+        <PaceCell
+          className={number}
+          fill={pressureColor({ remaining: pace.remaining, perDay: pace.overdue ? null : pace.perDay })}
+          title={pace.overdue ? "Includes overdue work, counted in full" : undefined}
+        >
+          {formatPace(pace.perDay)}
+        </PaceCell>
+      );
+    }
+    return row.paces.map((own, i) =>
+      own ? (
+        <PaceCell key={items[i].taskId} className={number} fill={pressureColor(own)} title={own.perDay === null ? "Overdue, counted in full" : undefined}>
+          {formatPace(own.perDay ?? own.remaining)}
+        </PaceCell>
+      ) : (
+        // Not running that day: before its task was written down, or after its deadline.
+        <td key={items[i].taskId} className={`${number} bg-stone-50 dark:bg-stone-800/50`} />
+      ),
+    );
+  };
+
+  // The days before this week that a passed deadline takes the table back to are one row, its markers under it.
+  const foldBefore = mondayOf(today);
+  const fold = lookBack && lookBack < foldBefore ? foldedDays(countdown.rows, from, foldBefore) : null;
+  const isFolded = (date: string) => fold !== null && date < foldBefore;
   const rows = isRange ? countdown.rows.filter((row) => row.date >= from && row.date <= to) : countdown.rows;
   return (
     <SheetTable headers={headers} wide={columns}>
       {/* In the range, deadlines already past (still open, so overdue) and dismissed come first. */}
       {isRange && items.filter((item) => item.deadlineDate < from).map(marker)}
+      {fold && (
+        <tr data-folded-days={fold.since} className={dayRow(fold.last.date, today).row}>
+          <td colSpan={2} className={`${CELL} whitespace-nowrap font-semibold text-red-700 dark:text-red-400`} title={`Every day from ${formatShortDay(fold.since)} to last week in one row`}>
+            Overdue since {formatShortDay(fold.since)}
+          </td>
+          <td className={dayRow(fold.last.date, today).number}>{fold.done}</td>
+          <td className={dayRow(fold.last.date, today).number}>{fold.last.remaining}</td>
+          {paceCells(fold.last, dayRow(fold.last.date, today).number)}
+        </tr>
+      )}
+      {fold && items.filter((item) => isFolded(item.deadlineDate) && (!isRange || item.deadlineDate >= from)).map(marker)}
       {rows.map((row) => {
         const style = dayRow(row.date, today);
         const deadlines = items.filter((item) => item.deadlineDate === row.date);
         // A day with nothing to do and nothing done is left out, and so is every day of a week already over unless a
         // passed deadline looks back to it (their deadline markers stay: those deadlines are still open); today always shows.
         // A deadline's marker comes under its day: that day is the last one to do the work in.
-        const isHidden = row.date < from || (row.perDay === 0 && row.doneThatDay === 0 && !style.isToday);
-        const pace = perDayOf(row, mode);
+        const isHidden = row.date < from || isFolded(row.date) || (row.perDay === 0 && row.doneThatDay === 0 && !style.isToday);
         return (
           <Fragment key={row.date}>
             {!isHidden && (
@@ -207,29 +247,10 @@ function DeadlineSheet({ countdown, mode, colorOf, onOpen, to, lookBack }: Sheet
                 {/* A day that has gone by with nothing done reads 0; today and later stay blank until something is. */}
                 <td className={style.number}>{row.doneThatDay || (style.isPast ? 0 : "")}</td>
                 <td className={style.number}>{row.remaining}</td>
-                {columns ? (
-                  row.paces.map((own, i) =>
-                    own ? (
-                      <PaceCell key={items[i].taskId} className={style.number} fill={pressureColor(own)} title={own.perDay === null ? "Overdue, counted in full" : undefined}>
-                        {formatPace(own.perDay ?? own.remaining)}
-                      </PaceCell>
-                    ) : (
-                      // Not running that day: before its task was written down, or after its deadline.
-                      <td key={items[i].taskId} className={`${style.number} bg-stone-50 dark:bg-stone-800/50`} />
-                    ),
-                  )
-                ) : (
-                  <PaceCell
-                    className={style.number}
-                    fill={pressureColor({ remaining: pace.remaining, perDay: pace.overdue ? null : pace.perDay })}
-                    title={pace.overdue ? "Includes overdue work, counted in full" : undefined}
-                  >
-                    {formatPace(pace.perDay)}
-                  </PaceCell>
-                )}
+                {paceCells(row, style.number)}
               </tr>
             )}
-            {(!isRange || row.date >= from) && deadlines.map(marker)}
+            {(!isRange || row.date >= from) && !isFolded(row.date) && deadlines.map(marker)}
           </Fragment>
         );
       })}

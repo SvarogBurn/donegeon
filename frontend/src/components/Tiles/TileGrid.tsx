@@ -12,6 +12,7 @@ import {
   type Zone,
 } from "../../lib/tileLayout";
 import { TileControlsContext } from "./TileFrame";
+import { noteDropEnded } from "./useTabDrag";
 
 export interface Tile {
   key: string;
@@ -80,7 +81,17 @@ function dropAt(x: number, y: number, draggedKey: string): DropAt | null {
   const zone = zoneOf(el);
   if (zone === null) return null;
   const tile = el.closest<HTMLElement>("[data-tile]");
-  if (!tile || tile.dataset.tile === draggedKey) return tile ? null : { zone, key: null, after: true };
+  if (tile?.dataset.tile === draggedKey) return null;
+  if (!tile) {
+    // Between tiles (the gaps, the column's padding): before the first tile past the pointer, the end only below the last.
+    const zoneEl = el.closest("[data-zone]")!;
+    const tiles = [...zoneEl.querySelectorAll<HTMLElement>("[data-tile]")].filter((t) => t.closest("[data-zone]") === zoneEl && t.dataset.tile !== draggedKey);
+    const next = tiles.find((t) => {
+      const rect = t.getBoundingClientRect();
+      return zone === "pinned" ? rect.left + rect.width / 2 > x : rect.top + rect.height / 2 > y;
+    });
+    return next ? { zone, key: next.dataset.tile!, after: false } : { zone, key: null, after: true };
+  }
   const rect = tile.getBoundingClientRect();
   const after = zone === "pinned" ? x > rect.left + rect.width / 2 : y > rect.top + rect.height / 2;
   return { zone, key: tile.dataset.tile!, after };
@@ -157,6 +168,7 @@ export function TileGrid({ tiles, order, layout, onChange, onDropOnTab }: Props)
     };
     const finish = (dropped: boolean) => {
       delete document.documentElement.dataset.draggingList;
+      noteDropEnded();
       scroller.stop();
       handle.removeEventListener("pointermove", onMove);
       handle.removeEventListener("pointerup", onUp);

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useUpdateTask } from "../../hooks/tasks";
+import { localDate } from "../../lib/clock";
 import { formatFullDay, parseDay } from "../../lib/dates";
 import type { Task } from "../../types";
 
@@ -103,6 +104,12 @@ export function DeadlineFields({ task }: { task: Pick<Task, "id" | "deadlineDate
           </button>
         )}
       </div>
+      {/* A day gone by is kept (it may be meant), but said, as a typed one is on its chip. */}
+      {task.deadlineDate && task.deadlineDate < localDate() && (
+        <p className="text-xs text-red-700 dark:text-red-400" data-deadline-passed>
+          That day has already passed, so it counts as overdue.
+        </p>
+      )}
       {/* Hard or soft is the user's call and can be chosen before there is a date. */}
       <div className="flex gap-1" role="group" aria-label="Deadline type">
         {TYPES.map((option) => (

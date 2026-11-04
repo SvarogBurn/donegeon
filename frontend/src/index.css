@@ -40,6 +40,9 @@
   /* Room for the scrollbar is always kept, so the page doesn't change width (and the grid its column count) when its height changes. */
   html {
     scrollbar-gutter: stable;
+    /* A row given focus (arrows, a new task) or scrolled to stops clear of the fixed bars, not under them. */
+    scroll-padding-top: calc(var(--top-h, 0px) + 0.5rem);
+    scroll-padding-bottom: calc(var(--bar-h, 5rem) + 0.5rem);
   }
   /* The installed app scrolls like a phone app: no scrollbar, and no room kept for one. */
   html[data-standalone] {
@@ -252,7 +255,7 @@
     text-decoration-thickness: calc(0.5 * var(--u));
   }
   .tile-button {
-    @apply flex-none cursor-pointer;
+    @apply relative flex-none cursor-pointer;
     width: calc(7 * var(--u));
     height: calc(7 * var(--u));
     margin-top: calc(2 * var(--u));
@@ -320,6 +323,19 @@
   .tab-icon-folder {
     background-image: url("../../assets/icons/21x21folder_icon_v1.svg");
   }
+  /* The browser task bar's pages and folders on a phone, scrolling sideways: the right edge fades, so it shows there is more. */
+  @media (width < 40rem) {
+    .bar-scroll-fade {
+      mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent);
+      padding-right: 1.5rem;
+    }
+  }
+  /* While a task is dragged, no text is selected, however far the page scrolls under it. */
+  html[data-dragging-task],
+  html[data-dragging-task] * {
+    user-select: none;
+    -webkit-user-select: none;
+  }
   /* The "New folder" tab: there only when called up from the bar, or while a list is dragged (to be dropped on it). */
   .new-folder-slot {
     display: none;
@@ -329,6 +345,13 @@
   html[data-dragging-list] .new-folder-slot {
     display: flex;
     flex: none;
+  }
+  /* Called up by a drag only, in the browser's task bar it floats just above the bar's start: coming into the row it would move every tab under
+     the pointer and wrap the bar onto another row. */
+  html[data-dragging-list] [data-bar-side] .new-folder-slot:not([data-shown]) {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 0.5rem;
   }
   /* A tab a dragged list would be dropped on. */
   [data-tab-drop][data-drop-hover] {
@@ -476,6 +499,10 @@
     /* A hard edge, like the art, so it reads over anything. */
     text-shadow: 3px 0 #1c2340, -3px 0 #1c2340, 0 3px #1c2340, 0 -3px #1c2340, 3px 3px #1c2340, -3px -3px #1c2340, 3px -3px #1c2340, -3px 3px #1c2340;
     animation: big-moment-words 1.2s var(--ease-out) 0.42s both;
+  }
+  /* With reduced motion: the words stand still, then go. */
+  .big-moment-words.is-still {
+    animation: none;
   }
   /* The cheers that came in: 2 s, however much they say, the last 0.6 s fading. The confetti falls on after them. */
   .big-moment-cheers {
@@ -661,18 +688,20 @@
    * thin line. Variables, so the notch under the "+" (drawn as an SVG) has exactly the same colours.
    */
   :root {
-    --bar-fill: rgb(255 255 255 / 0.7);
+    --bar-fill: rgb(255 255 255 / 0.9);
     --bar-edge: var(--color-stone-300);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bar-fill: rgb(28 25 23 / 0.7);
+      --bar-fill: rgb(28 25 23 / 0.9);
       --bar-edge: var(--color-stone-700);
     }
   }
+  /* A little see-through (the user's pick), blurred behind so what scrolls under it doesn't read through the icons. */
   .app-bar-fill {
     background-color: var(--bar-fill);
     border-color: var(--bar-edge);
+    backdrop-filter: blur(4px);
   }
   /*
    * The bottom bar's "+": a NES button like the others, in the pale blue of the art, its shade a softer blue and the
@@ -775,9 +804,26 @@
    * The art points down, for shown; turned a quarter it points right, for hidden.
    */
   .task-arrow {
-    @apply size-4 flex-none cursor-pointer disabled:invisible;
+    @apply relative size-4 flex-none cursor-pointer disabled:invisible;
     background: url("../../assets/5x5dropdown_v1.svg") center / 10px 10px no-repeat;
     image-rendering: pixelated;
+  }
+  /*
+   * Hit areas past the drawn art on a touch screen: a box's band buttons (14px on a phone) reach up and down and half the
+   * gap to each side; a row's fold arrow (16px) up and down. Invisible; the art is as drawn.
+   */
+  @media (pointer: coarse) {
+    .tile-button::before,
+    .task-arrow::before {
+      content: "";
+      position: absolute;
+    }
+    .tile-button::before {
+      inset: calc(-4 * var(--u)) calc(-1 * var(--u));
+    }
+    .task-arrow::before {
+      inset: -8px -3px;
+    }
   }
   .task-arrow[aria-expanded="false"] {
     transform: rotate(-90deg);
@@ -1067,6 +1113,14 @@
     @apply absolute inset-0 z-10 m-0 size-full cursor-pointer opacity-0 disabled:cursor-default;
     clip: auto;
     clip-path: none;
+  }
+  /* On a touch screen the invisible input reaches past the drawn box (32px of 20), so a finger finds it; the art stays. */
+  @media (pointer: coarse) {
+    .pixel-check:not(.pixel-check-small) > .nes-checkbox {
+      inset: -6px;
+      width: auto;
+      height: auto;
+    }
   }
   .pixel-check > .nes-checkbox + span {
     @apply pointer-events-none absolute;

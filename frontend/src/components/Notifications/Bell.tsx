@@ -21,7 +21,8 @@ import { hasHome, LeftUndoneTask, useDropLeftUndone } from "./LeftUndoneTask";
 import { PostponeDeadline } from "./PostponeDeadline";
 
 const ago = (n: number) => (n === 1 ? "yesterday" : `${n} days ago`);
-const levelsText = (n: number) => `Lost ${n} ${n === 1 ? "level" : "levels"}`;
+// At Lv 1 a knockout takes no level, only the level's exp (my draft of the words).
+const levelsText = (n: number) => (n === 0 ? "Back to the start of Lv 1" : `Lost ${n} ${n === 1 ? "level" : "levels"}`);
 
 /** The colour of each of today's messages in the list: a deadline coming is amber, a reminder blue. */
 const KIND_COLORS: Partial<Record<Planned["kind"], string>> = {
@@ -163,7 +164,7 @@ export function Bell({
   return (
     <>
       {inStrip ? (
-        <button type="button" className="relative mr-1.5 flex-none p-0.5" data-bell aria-label={label} aria-expanded={isOpen} title="Notifications" onClick={tap}>
+        <button type="button" className="relative -my-1.5 mr-0 -ml-1.5 flex-none p-2" data-bell aria-label={label} aria-expanded={isOpen} title="Notifications" onClick={tap}>
           <span className="bar-glyph bar-glyph-bell" aria-hidden />
           {badge}
         </button>

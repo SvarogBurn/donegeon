@@ -138,9 +138,18 @@ function Screen({ note, folders }: { note: Note; folders: NoteFolder[] }) {
   typed.current = { title, text };
   const deleted = useRef(false);
 
-  function save() {
+  // Made by "+ New note" just now: left without a word written in it, it goes again rather than staying an empty card.
+  const isFresh = Boolean((location.state as NoteScreenState | null)?.fresh);
+
+  /** `leaving`: the screen goes (Back, the phone's own back): only then is an untouched new note removed. */
+  function save(leaving = false) {
     if (deleted.current) return;
     const next = { title: typed.current.title.trim(), text: typed.current.text.trimEnd() };
+    if (leaving && isFresh && !next.title && !next.text.trim() && !note.title && !note.text) {
+      deleted.current = true;
+      remove.mutate({ id: note.id });
+      return;
+    }
     const changes = {
       ...(next.title !== saved.current.title && { title: next.title }),
       ...(next.text !== saved.current.text && { text: next.text }),
@@ -151,7 +160,15 @@ function Screen({ note, folders }: { note: Note; folders: NoteFolder[] }) {
   const latestSave = useRef(save);
   latestSave.current = save;
   // Gone back with the phone's own button, with the field still open: saved all the same.
-  useEffect(() => () => latestSave.current(), []);
+  // Only once it is really gone: in development React unmounts and mounts it again at once, which isn't leaving.
+  const isMounted = useRef(false);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      setTimeout(() => !isMounted.current && latestSave.current(true));
+    };
+  }, []);
 
   const moveTo = (noteFolderId: string | null) => {
     if (noteFolderId !== note.noteFolderId) edit.mutate({ id: note.id, changes: { noteFolderId } });
@@ -214,7 +231,7 @@ function Screen({ note, folders }: { note: Note; folders: NoteFolder[] }) {
               value={title}
               placeholder="Title"
               onChange={(e) => setTitle(e.target.value)}
-              onBlur={save}
+              onBlur={() => save()}
               onKeyDown={(e) => e.key === "Enter" && (field.current?.focus(), e.preventDefault())}
               aria-label="Note title"
               maxLength={100}
@@ -236,7 +253,7 @@ function Screen({ note, folders }: { note: Note; folders: NoteFolder[] }) {
             aligner={aligner}
             onSelect={setCaret}
             hint="Tap to write. * or - starts a list"
-            autoFocus={Boolean((location.state as NoteScreenState | null)?.fresh)}
+            autoFocus={isFresh}
             className="min-h-[60dvh] cursor-text text-sm"
           />
         </div>

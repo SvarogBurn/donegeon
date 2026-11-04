@@ -15,6 +15,7 @@ import { PixelCheckbox } from "../components/PixelCheckbox";
 import { HiddenRow } from "../components/Tiles/HiddenRow";
 import { TileControlsContext, TileFrame } from "../components/Tiles/TileFrame";
 import { useTabDrag } from "../components/Tiles/useTabDrag";
+import { forgetTutorialPlace } from "../components/Tutorial/Tutorial";
 import { useDeleteAccount, useLogout, useMe, useUpdateMe } from "../hooks/useAuth";
 import { useDropOnTab, useFolders } from "../hooks/folders";
 import { useLayout, useSaveLayout } from "../hooks/layout";
@@ -477,6 +478,7 @@ export function SettingsBox() {
         className="nes-btn btn"
         data-start-tutorial
         onClick={() => {
+          forgetTutorialPlace();
           update.mutate({ tutorialSeen: false });
           navigate("/");
         }}

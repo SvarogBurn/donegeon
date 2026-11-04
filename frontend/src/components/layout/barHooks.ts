@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useState, type MouseEvent, type RefObject } from "react";
+import { justDropped } from "../Tiles/useTabDrag";
 
 /** A tab of the task bar (and of the installed app's bottom bar): the label under its icon, near-black, the frame's blue on the open page. */
 export const barTab = ({ isActive }: { isActive: boolean }) =>
@@ -47,7 +48,7 @@ export function useNewFolderTab(ref: RefObject<HTMLElement | null>) {
 
   const handlers = {
     "data-new-folder-shown": isNewShown || undefined,
-    onClick: (e: MouseEvent) => onEmptySpace(e) && setIsNewShown(!isNewShown),
+    onClick: (e: MouseEvent) => onEmptySpace(e) && !justDropped() && setIsNewShown(!isNewShown),
     // A hold on a touch screen arrives as this, as a right-click does.
     onContextMenu: (e: MouseEvent) => {
       if (!onEmptySpace(e)) return;

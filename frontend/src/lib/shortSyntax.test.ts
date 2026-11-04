@@ -158,6 +158,35 @@ describe("parseShortSyntax", () => {
   });
 });
 
+describe("chips that warn", () => {
+  const warned = (text: string, depth = 0) => parse(text, depth).tokens.filter((token) => token.warn).map((token) => [text.slice(token.start, token.end), token.warn, token.label]);
+
+  it("keeps a date already passed, and says it has", () => {
+    const parsed = parse("Tax @1/1/26");
+    expect(parsed).toMatchObject({ title: "Tax", deadlineDate: "2026-01-01", deadlineType: "hard" });
+    expect(warned("Tax @1/1/26")).toEqual([["@1/1/26", "passed", "hard Thu 01/01 · passed"]]);
+    expect(warned("Tax @friday")).toEqual([]);
+  });
+
+  it("names a second date or list as ignored, left in the title as before", () => {
+    expect(parse("Call @friday @monday")).toMatchObject({ title: "Call @monday", deadlineDate: "2026-10-16" });
+    expect(warned("Call @friday @monday")).toEqual([["@monday", "ignored", "one date only"]]);
+    expect(warned("Mop /Chores /Side projects")).toEqual([["/Side projects", "ignored", "one list only"]]);
+  });
+
+  it("names a deadline too deep or on a repeat", () => {
+    expect(warned("Step ~friday", 2)).toEqual([["~friday", "ignored", "no deadline this deep"]]);
+    expect(warned("Run @every day @friday")).toEqual([["@friday", "ignored", "no deadline on a repeat"]]);
+  });
+
+  it("says a schedule takes one weekday", () => {
+    const parsed = parse("Gym @every mon wed fri");
+    expect(parsed.title).toBe("Gym wed fri");
+    expect(warned("Gym @every mon wed fri")).toEqual([["wed fri", "ignored", "one weekday only"]]);
+    expect(warned("Gym @every 2 days")).toEqual([]);
+  });
+});
+
 describe("parseTitleEdit", () => {
   it("reads shortcuts typed into a title that exists", () => {
     expect(parseTitleEdit("Buy milk #home @fri 5p", "Buy milk", ctx)).toMatchObject({

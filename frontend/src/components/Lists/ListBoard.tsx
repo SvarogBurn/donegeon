@@ -155,9 +155,11 @@ interface ListCardProps {
   tasks: TaskTreeNode[];
   /** Every main task in the list, shown or not: what a delete would take along. */
   taskCount: number;
+  /** On a folder's page: the copy's × takes it out of the folder instead of deleting the list (and Delete in the name does nothing). */
+  onTakeOut?: () => void;
 }
 
-export function ListCard({ list, tasks, taskCount }: ListCardProps) {
+export function ListCard({ list, tasks, taskCount, onTakeOut }: ListCardProps) {
   const update = useUpdateList();
   // Lists are changed online only; their tasks work offline too.
   const online = useOnline();
@@ -202,14 +204,25 @@ export function ListCard({ list, tasks, taskCount }: ListCardProps) {
       // A picked colour recolours the frame's band; the title on it turns dark when the colour is a light one.
       style={listFrame(list).style}
       actions={
-        <button
-          type="button"
-          className="tile-button tile-button-x"
-          aria-label={`Delete list "${list.name}"`}
-          title={online ? "Delete this list and its tasks (Ctrl+Z to undo)" : "Needs a connection"}
-          disabled={!online}
-          onClick={askDelete}
-        />
+        onTakeOut ? (
+          <button
+            type="button"
+            className="tile-button tile-button-x"
+            aria-label={`Take list "${list.name}" out of this folder`}
+            title={online ? "Take it out of this folder (the list stays on Tasks)" : "Needs a connection"}
+            disabled={!online}
+            onClick={onTakeOut}
+          />
+        ) : (
+          <button
+            type="button"
+            className="tile-button tile-button-x"
+            aria-label={`Delete list "${list.name}"`}
+            title={online ? "Delete this list and its tasks (Ctrl+Z to undo)" : "Needs a connection"}
+            disabled={!online}
+            onClick={askDelete}
+          />
+        )
       }
       tone={listFrame(list).tone}
       title={
@@ -229,7 +242,7 @@ export function ListCard({ list, tasks, taskCount }: ListCardProps) {
             const el = e.currentTarget;
             const atEnd = el.selectionStart === el.value.length && el.selectionEnd === el.value.length;
             const untouched = el.value === list.name && !e.repeat;
-            if (e.key === "Delete" && atEnd && untouched && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+            if (e.key === "Delete" && !onTakeOut && atEnd && untouched && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
               e.preventDefault();
               askDelete();
             }

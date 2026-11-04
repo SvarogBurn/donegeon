@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { alignLines, enterOnLine, itemPrefix, lineAlign, parseNote } from "./noteText";
+import { alignLines, doubledMarker, enterOnLine, itemPrefix, lineAlign, parseNote } from "./noteText";
 
 describe("parseNote", () => {
   it("reads text, blank lines and list items", () => {
@@ -101,5 +101,19 @@ describe("alignment", () => {
   it("aligns every selected line with something on it, but not one the selection only reaches the start of", () => {
     expect(alignLines("a\n\nb\nc", 0, 5, "right")).toEqual({ text: ">> a\n\n>> b\nc", start: 3, end: 11 });
     expect(alignLines("a\nb", 0, 2, "center")).toEqual({ text: "<> a\nb", start: 3, end: 5 });
+  });
+});
+
+describe("doubledMarker", () => {
+  it("keeps one marker when the one Enter carried on is typed again", () => {
+    expect(doubledMarker("* * ")).toBe("* ");
+    expect(doubledMarker("  - * ")).toBe("  - ");
+    expect(doubledMarker("2. 2. ")).toBe("2. ");
+  });
+
+  it("leaves a line with words on it, or a single marker, alone", () => {
+    expect(doubledMarker("* * a")).toBeNull();
+    expect(doubledMarker("* ")).toBeNull();
+    expect(doubledMarker("plain * ")).toBeNull();
   });
 });

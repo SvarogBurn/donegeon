@@ -29,6 +29,8 @@ export interface SyntaxToken {
   end: number;
   kind: TokenKind;
   label: string;
+  /** Said on its chip: a deadline already passed (kept all the same), or a shortcut that can't apply here and stays text. */
+  warn?: "passed" | "ignored";
 }
 
 export interface ParsedTask {
@@ -87,6 +89,10 @@ function readName(rest: string, known: Named[]): { name: string; id?: string } |
  * word. What can't apply (a second deadline, a list on a subtask, a list nobody made, ...) stays in the title
  * as it was typed, so nothing goes missing without a trace.
  */
+/** A weekday named in a schedule's words, and more of them after it ("@every mon wed fri"). */
+const WEEKDAY_NAMES = /\b(mon|tue|wed|thu|fri|sat|sun)/i;
+const MORE_WEEKDAYS = /^(\s+)(?:(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*(?:,?\s+|,|$))+/i;
+
 export function parseShortSyntax(text: string, ctx: SyntaxContext): ParsedTask {
   const parsed: ParsedTask = { title: "", tagIds: [], goalIds: [], newTags: [], newGoals: [], today: false, tokens: [] };
   /** The stretches of the text that are not title: the shortcuts, and the backslashes that kept a character plain. */
@@ -96,7 +102,10 @@ export function parseShortSyntax(text: string, ctx: SyntaxContext): ParsedTask {
     cuts.push([start, start + length]);
     return start + length;
   };
+  // A shortcut that can't apply stays in the title as typed; its chip says why (my drafts of the words).
+  const skip = (start: number, length: number, kind: TokenKind, label: string) => parsed.tokens.push({ start, end: start + length, kind, label, warn: "ignored" });
   const canHaveDeadline = () => ctx.depth <= MAX_DEADLINE_DEPTH && !parsed.deadlineDate && !parsed.repeat && !parsed.persistent;
+  const noDeadlineBecause = () => (parsed.deadlineDate ? "one date only" : ctx.depth > MAX_DEADLINE_DEPTH ? "no deadline this deep" : "no deadline on a repeat");
 
   const note = noteStart(text);
   for (let at = 0; at < text.length; at++) {
@@ -124,8 +133,12 @@ export function parseShortSyntax(text: string, ctx: SyntaxContext): ParsedTask {
       if (!found.id && !names.some((name) => same(name, found.name))) names.push(found.name);
       at = take(at, 1 + found.name.length, isTag ? "tag" : "goal", `${mark}${found.name}${found.id ? "" : " (new)"}`) - 1;
     } else if (mark === "/") {
-      const found = ctx.depth === 0 && parsed.listId === undefined ? readName(rest, ctx.lists) : null;
+      const found = ctx.depth === 0 ? readName(rest, ctx.lists) : null;
       if (!found?.id) continue;
+      if (parsed.listId !== undefined) {
+        skip(at, 1 + found.name.length, "list", "one list only");
+        continue;
+      }
       parsed.listId = found.id;
       at = take(at, 1 + found.name.length, "list", `→ ${found.name}`) - 1;
     } else if (mark === "@" || mark === "~") {
@@ -143,11 +156,21 @@ export function parseShortSyntax(text: string, ctx: SyntaxContext): ParsedTask {
       } else if (repeat) {
         parsed.repeat = { every: repeat.every, unit: repeat.unit, nextDue: repeat.nextDue };
         const from = repeat.nextDue === ctx.today ? "" : ` from ${formatDay(repeat.nextDue, true)}`;
-        at = take(at, 1 + repeat.length, "repeat", repeatText(repeat.every, repeat.unit) + from) - 1;
+        const end = take(at, 1 + repeat.length, "repeat", repeatText(repeat.every, repeat.unit) + from);
+        // "@every mon wed fri": a schedule has one day, so the others stay text, and say so.
+        const more = WEEKDAY_NAMES.test(text.slice(at, end)) ? text.slice(end).match(MORE_WEEKDAYS) : null;
+        if (more) skip(end + more[1].length, more[0].length - more[1].length, "repeat", "one weekday only");
+        at = end - 1;
       } else if (date) {
         parsed.deadlineDate = date.day;
         parsed.deadlineType = mark === "@" ? "hard" : "soft";
-        at = take(at, 1 + date.length, parsed.deadlineType, `${parsed.deadlineType} ${formatDay(date.day, true)}`) - 1;
+        const passed = date.day < ctx.today;
+        const label = `${parsed.deadlineType} ${formatDay(date.day, true)}${passed ? " · passed" : ""}`;
+        at = take(at, 1 + date.length, parsed.deadlineType, label) - 1;
+        if (passed) parsed.tokens.at(-1)!.warn = "passed";
+      } else if (!doToday && !persistent) {
+        const unused = parseDayWords(rest, ctx.today);
+        if (unused) skip(at, 1 + unused.length, mark === "@" ? "hard" : "soft", noDeadlineBecause());
       }
     } else if (parsed.points === undefined && !ctx.pointsOff) {
       const points = text.slice(at).match(/^(\d{1,10})p(?=\s|$)/i);

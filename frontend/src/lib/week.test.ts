@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TaskTreeNode } from "../types";
 import { tasksOn } from "./notifySchedule";
-import { isOwnToday, isPutOff, todayItems, weekDays } from "./week";
+import { isOwnToday, isPutOff, leftToDo, todayItems, weekDays } from "./week";
 
 // Tuesday; its week's Sunday is 2026-10-25, the next Monday 2026-10-26.
 const today = "2026-10-20";
@@ -39,6 +39,22 @@ describe("a task written straight into Today, on a schedule", () => {
   it("is not a task from a list, which Today shows by itself, nor one with no schedule left from a day gone by", () => {
     expect(isOwnToday(task("listed", { isPersistent: true, repeatEvery: 1, nextDue: today }), today)).toBe(false);
     expect(isOwnToday(task("once", { listId: null, todaySince: "2026-10-19" }), today)).toBe(false);
+  });
+});
+
+describe("leftToDo", () => {
+  const daily = (nextDue: string, extra: Partial<TaskTreeNode> = {}) => task("run", { isPersistent: true, repeatEvery: 1, repeatUnit: "day", repeatAfterDone: false, repeatMakeUp: false, nextDue, completions: [], ...extra });
+
+  it("counts open tasks and due rounds, not done ones or rounds still to come", () => {
+    expect(leftToDo([task("a"), task("b", { isComplete: true }), daily(today), daily("2026-10-21")], today)).toBe(2);
+  });
+
+  it("counts each round a task making them up still owes", () => {
+    expect(leftToDo([daily("2026-10-17", { repeatMakeUp: true })], today)).toBe(4);
+  });
+
+  it("leaves out a persistent task with no schedule", () => {
+    expect(leftToDo([task("p", { isPersistent: true, completions: [] })], today)).toBe(0);
   });
 });
 

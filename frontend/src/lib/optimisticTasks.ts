@@ -208,6 +208,8 @@ export function patchFor(node: TaskTreeNode, changes: TaskChanges, day: string):
       patch.nextDue = changes.nextDue ?? node.nextDue ?? day;
     }
   }
+  // Made persistent while ticked (a reward bought once, to be bought again): open again, the tick kept as its first press.
+  if (patch.isPersistent && !node.isPersistent && node.isComplete) Object.assign(patch, { isComplete: false, completedAt: null, completedOn: null });
   return patch;
 }
 

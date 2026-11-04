@@ -143,6 +143,9 @@ export function useTaskMoves({ tasks, byId, drag, rootId, ticked, byDeadline }: 
       const area = areaScroller(retarget);
       handle.setPointerCapture(e.pointerId);
       drag.set({ draggingId: node.id });
+      // Nothing on the page is selected by the drag (as the page scrolls under it, it would select it all): index.css.
+      window.getSelection()?.removeAllRanges();
+      document.documentElement.dataset.draggingTask = "";
 
       const onMove = (ev: PointerEvent) => {
         pointer = { x: ev.clientX, y: ev.clientY };
@@ -151,6 +154,7 @@ export function useTaskMoves({ tasks, byId, drag, rootId, ticked, byDeadline }: 
         retarget();
       };
       const finish = (letGo: boolean) => {
+        delete document.documentElement.dataset.draggingTask;
         scroller.stop();
         area.stop();
         handle.removeEventListener("pointermove", onMove);

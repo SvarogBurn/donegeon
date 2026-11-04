@@ -157,7 +157,8 @@ function TaskBar({ user }: { user: User }) {
         content = (
           <NavLink to="/user" className={tab} aria-label="Account" title={`${user.username}. ${DRAG_HINT}`} draggable={false}>
             <CharacterFace user={user} className="tab-icon" iconClass="tab-icon tab-icon-user" />
-            <span className="max-w-16 truncate sm:max-w-28">{user.username}</span>
+            {/* On a phone the face alone: the room goes to the pages and folders. */}
+            <span className="max-w-28 truncate max-sm:hidden">{user.username}</span>
           </NavLink>
         );
         break;
@@ -179,11 +180,12 @@ function TaskBar({ user }: { user: User }) {
   }
 
   return (
-    // A task bar: fixed along the bottom of the screen, 70% opaque, while the page scrolls above it (AppShell leaves room for it).
+    // A task bar: fixed along the bottom of the screen, a little see-through (app-bar-fill), while the page scrolls above it (AppShell leaves room for it).
     <header
       ref={bar}
       {...handlers}
-      className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-stone-300 bg-white/70 pb-[env(safe-area-inset-bottom)] dark:border-stone-700 dark:bg-stone-900/70"
+      className="app-bar-fill fixed inset-x-0 bottom-0 z-40 border-t-2 pb-[env(safe-area-inset-bottom)]"
+      data-task-bar
     >
       {/*
         Two sides with the logo in the middle (equal side columns keep it centred). At first the pages and folders are at
@@ -193,7 +195,8 @@ function TaskBar({ user }: { user: User }) {
       */}
       <div className="flex items-center justify-between gap-x-2 px-2 py-1.5 sm:gap-x-4 sm:px-3 xl:grid xl:grid-cols-[1fr_auto_1fr]">
         {/* With folders there can be many tabs: they wrap onto more rows, or on a phone scroll sideways in one. */}
-        <nav ref={leftSide} className="flex min-w-0 items-center gap-1 max-sm:overflow-x-auto sm:flex-wrap" aria-label="Pages" data-bar-side="left">
+        {/* On a phone it scrolls sideways, its edge fading where more tabs are out of sight (bar-scroll-fade in index.css). */}
+        <nav ref={leftSide} className="bar-scroll-fade flex min-w-0 items-center gap-1 max-sm:overflow-x-auto sm:flex-wrap" aria-label="Pages" data-bar-side="left">
           {layout.left.map((key) => item(key, "left"))}
           <NewFolderTab tab={tab} isNewShown={isNewShown} onNewUsed={onNewUsed} onMade={setEditingId} />
         </nav>

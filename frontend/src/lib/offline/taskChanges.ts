@@ -6,7 +6,7 @@ import * as tasksApi from "../../api/tasks";
 import { COUNTDOWN, DONE, GOALS, LISTS, POINTS, PRESSURE, TAGS, TASK_DATA, TASKS } from "../../hooks/queryKeys";
 import { ME } from "../../hooks/useAuth";
 import type { Countdown, DonePage, Goal, List, PointsSummary, Tag, TaskPress, TaskTreeNode, User } from "../../types";
-import { bigEveryIn, celebrate } from "../bigMoment";
+import { bigEveryIn, celebrate, isBigMoment, MOMENT_WORDS_MS } from "../bigMoment";
 import { taskDone } from "../breakReminder";
 import {
   draftNode,
@@ -70,7 +70,9 @@ const trees = (queryClient: QueryClient) => queryClient.getQueryData<TaskTreeNod
 
 /** Saves what the trees hold now and applies `change` to them. */
 async function changeTrees(queryClient: QueryClient, change: (trees: TaskTreeNode[]) => TaskTreeNode[]): Promise<Saved> {
-  await queryClient.cancelQueries({ queryKey: TASKS });
+  // The trees only: every key under TASKS (stats, progress, health…) would be cancelled too, and one cancelled on its
+  // first fetch is left with nothing, showing "Loading…" for good.
+  await queryClient.cancelQueries({ queryKey: TASKS, exact: true });
   const before = trees(queryClient);
   if (!before) return [];
   queryClient.setQueryData(TASKS, change(before));
@@ -105,8 +107,10 @@ const breakEvery = (queryClient: QueryClient) => queryClient.getQueryData<User |
 
 /** After every tick and press: the day's count so far, for the break reminder and the big moments. */
 function counted(queryClient: QueryClient, doneToday: number) {
-  taskDone(doneToday, breakEvery(queryClient));
-  celebrate(doneToday, bigEveryIn(queryClient.getQueryData<User | null>(ME)?.profile));
+  const bigEvery = bigEveryIn(queryClient.getQueryData<User | null>(ME)?.profile);
+  // With a big moment at the same task, the break reminder comes after it, not over its words.
+  taskDone(doneToday, breakEvery(queryClient), isBigMoment(doneToday, bigEvery) ? MOMENT_WORDS_MS : 0);
+  celebrate(doneToday, bigEvery);
 }
 
 /** A task's title for the notice, from the trees as they are, or as they were before the change. */
@@ -174,7 +178,8 @@ export const taskSpecs: Specs<TaskChangeVars> = {
       tasksApi.toggleTask(id, done, when),
     // Ticking shows at once: the row, its parents' "x/y done", deadline pills and any open countdown table.
     show: async (queryClient, { id, done: ticks, when }) => {
-      await Promise.all([TASKS, COUNTDOWN, PRESSURE].map((queryKey) => queryClient.cancelQueries({ queryKey })));
+      // What it changes below; TASKS and DONE exactly, so the other keys under TASKS go on loading (see changeTrees).
+      await Promise.all([...[TASKS, DONE].map((queryKey) => queryClient.cancelQueries({ queryKey, exact: true })), ...[COUNTDOWN, PRESSURE].map((queryKey) => queryClient.cancelQueries({ queryKey }))]);
       const all = trees(queryClient);
       // The Done page unticks tasks finished long ago, which only its own pages hold.
       const done = queryClient.getQueryData<InfiniteData<DonePage>>(DONE);

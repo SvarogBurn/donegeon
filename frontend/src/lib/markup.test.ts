@@ -14,6 +14,9 @@ describe("parseMarkup", () => {
     expect(parseMarkup("**a *b* c**")).toEqual([{ style: "bold", children: ["a ", { style: "italic", children: ["b"] }, " c"] }]);
     expect(parseMarkup("*a **b** c*")).toEqual([{ style: "italic", children: ["a ", { style: "bold", children: ["b"] }, " c"] }]);
     expect(parseMarkup("***a***")).toEqual([{ style: "bold", children: [{ style: "italic", children: ["a"] }] }]);
+    // Ctrl+I over a title that starts (or ends) in bold.
+    expect(parseMarkup("***T34** rest*")).toEqual([{ style: "italic", children: [{ style: "bold", children: ["T34"] }, " rest"] }]);
+    expect(parseMarkup("*rest **T34***")).toEqual([{ style: "italic", children: ["rest ", { style: "bold", children: ["T34"] }] }]);
     expect(parseMarkup("__==a==__")).toEqual([{ style: "underline", children: [{ style: "mark", children: ["a"] }] }]);
   });
 

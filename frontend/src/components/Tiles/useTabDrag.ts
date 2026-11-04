@@ -14,6 +14,11 @@ const boxAt = (x: number, y: number) => document.elementFromPoint(x, y)?.closest
  * on, and whether it goes after that one.
  * The box it would be dropped on has data-drop ("above" / "below": the side it lands on) for as long.
  */
+/** When a box's drag last ended (Date.now()): the click that ends a drop isn't a click on the task bar's empty space. */
+let droppedAt = 0;
+export const noteDropEnded = () => void (droppedAt = Date.now());
+export const justDropped = () => Date.now() - droppedAt < 400;
+
 export function useTabDrag(onDrop: ((name: string, tab: string) => void) | null, onMove: (name: string, onto: string, after: boolean) => void) {
   return (e: ReactPointerEvent<HTMLElement>, name: string) => {
     if (e.button !== 0) return;
@@ -51,6 +56,7 @@ export function useTabDrag(onDrop: ((name: string, tab: string) => void) | null,
     };
     const finish = (dropped: boolean) => {
       delete document.documentElement.dataset.draggingList;
+      noteDropEnded();
       scroller.stop();
       if (box) box.style.opacity = "";
       handle.removeEventListener("pointermove", onPointerMove);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CombinedRow } from "../types";
-import { DEADLINE_DEFAULTS, deadlineColor, normalizeDeadlineTable, perDayOf, rangeEnd, rangeLabel } from "./deadlineTable";
+import { DEADLINE_DEFAULTS, deadlineColor, foldedDays, normalizeDeadlineTable, perDayOf, rangeEnd, rangeLabel } from "./deadlineTable";
 
 describe("normalizeDeadlineTable", () => {
   it("gives the defaults for nothing saved", () => {
@@ -75,5 +75,18 @@ describe("deadlineColor", () => {
     expect(deadlineColor({ taskId: "x", deadlineType: "hard" }, true, table)).toBe(table.colors.big);
     expect(deadlineColor({ taskId: "x", deadlineType: "hard" }, false, table)).toBe(table.colors.hard);
     expect(deadlineColor({ taskId: "x", deadlineType: "soft" }, false, table)).toBe(table.colors.soft);
+  });
+});
+
+describe("foldedDays", () => {
+  const row = (date: string, doneThatDay: number, remaining: number): CombinedRow => ({ date, doneThatDay, remaining, perDay: remaining, overdue: true, paces: [] });
+  const rows = [row("2026-01-01", 1, 9), row("2026-06-15", 2, 7), row("2026-11-01", 0, 7), row("2026-11-02", 3, 4), row("2026-11-03", 0, 4)];
+
+  it("folds the days before this week into one: since when, all done over them, the last of them", () => {
+    expect(foldedDays(rows, "2026-01-01", "2026-11-02")).toEqual({ since: "2026-01-01", done: 3, last: rows[2] });
+  });
+
+  it("is nothing when the table starts this week", () => {
+    expect(foldedDays(rows, "2026-11-02", "2026-11-02")).toBeNull();
   });
 });

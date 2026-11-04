@@ -3,7 +3,7 @@ import { EditorSelection, EditorState, type Range } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, WidgetType, keymap, placeholder, type Command, type DecorationSet, type ViewUpdate } from "@codemirror/view";
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef } from "react";
 import { markupRanges, toggleMarker, type MarkupStyle } from "../../lib/markup";
-import { alignLines, alignMark, enterOnLine, itemPrefix, lineMarks } from "../../lib/noteText";
+import { alignLines, alignMark, doubledMarker, enterOnLine, itemPrefix, lineMarks } from "../../lib/noteText";
 import type { NoteEditorProps } from "./NoteEditor";
 
 const MAX_LENGTH = 5000;
@@ -36,6 +36,17 @@ const enterInList: Command = (view) => {
   else view.dispatch({ ...view.state.replaceSelection("\n" + enter.next), scrollIntoView: true, userEvent: "input" });
   return true;
 };
+
+/** A space typed after a marker that doubles the one Enter carried on ("* * "): the line keeps one. */
+const oneMarker = EditorView.inputHandler.of((view, from, to, text) => {
+  if (text !== " ") return false;
+  const line = view.state.doc.lineAt(from);
+  const typed = line.text.slice(0, from - line.from) + text + line.text.slice(to - line.from);
+  const fixed = doubledMarker(typed);
+  if (fixed === null) return false;
+  view.dispatch({ changes: { from: line.from, to: line.to, insert: fixed }, selection: { anchor: line.from + fixed.length }, userEvent: "input" });
+  return true;
+});
 
 /** Tab / Shift+Tab on a list item: a level in or out (the indent after its alignment mark, if it has one). */
 const indentItem =
@@ -176,6 +187,7 @@ export default function LiveNoteEditor({ value, onChange, onDone, onFocus, ref, 
         selection: EditorSelection.cursor(value.length),
         extensions: [
           history(),
+          oneMarker,
           keymap.of([
             { key: "Enter", run: (view) => enterInList(view) || insertNewline(view) },
             { key: "Tab", run: indentItem(false) },

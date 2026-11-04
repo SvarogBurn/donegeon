@@ -17,13 +17,24 @@ const CHIP_STYLES: Record<SyntaxToken["kind"], string> = {
   note: "bg-[#EFD276] text-stone-800",
 };
 
+/** A date already passed (red, as overdue is); a shortcut that stays text (grey, words saying why). */
+const WARN_STYLES = {
+  passed: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
+  ignored: "bg-stone-100 text-stone-600 outline-1 outline-dashed outline-stone-400 dark:bg-stone-800 dark:text-stone-300",
+};
+
 /** What the shortcuts typed into a new task will set on it, as chips under the field. Nothing without shortcuts. */
 export function SyntaxChips({ tokens, className = "" }: { tokens: SyntaxToken[]; className?: string }) {
   if (tokens.length === 0) return null;
   return (
     <p className={`flex flex-wrap items-center gap-1.5 ${className}`} data-syntax-chips aria-label="What the shortcuts set">
       {tokens.map((token) => (
-        <span key={token.start} data-syntax-chip={token.kind} className={`pixel-chip max-w-40 truncate px-2 py-0.5 text-xs ${CHIP_STYLES[token.kind]}`}>
+        <span
+          key={token.start}
+          data-syntax-chip={token.kind}
+          data-warn={token.warn}
+          className={`pixel-chip max-w-40 truncate px-2 py-0.5 text-xs ${token.warn ? WARN_STYLES[token.warn] : CHIP_STYLES[token.kind]}`}
+        >
           {token.label}
         </span>
       ))}

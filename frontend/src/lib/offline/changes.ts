@@ -2,7 +2,7 @@ import { onlineManager, type Mutation, type QueryClient, type QueryKey } from "@
 import { ApiError, isUnreachable } from "../../api/client";
 import { PAST_DONE, TASKS } from "../../hooks/queryKeys";
 import { clockNow } from "../clock";
-import { refuse } from "../refusal";
+import { refuse, type RefusedChange } from "../refusal";
 import { getServerStatus, reportFailure } from "../serverStatus";
 import type { Change, Saved, Spec, Specs } from "./changeSpec";
 import { noteSpecs, type NoteChangeVars } from "./noteChanges";
@@ -95,7 +95,7 @@ function register<V>(queryClient: QueryClient, kind: string, spec: Spec<V>) {
     onError: (error: Error, change: Change<V>, saved: Saved | undefined) => {
       if (isFresh(change)) {
         // Just clicked: back to how it was, and why next to the click (or in the box that made it).
-        if (spec.popup) refuse(error);
+        if (spec.popup) refuse(error, change as RefusedChange);
         for (const [queryKey, data] of saved ?? []) queryClient.setQueryData(queryKey, data);
         return;
       }

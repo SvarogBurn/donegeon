@@ -83,6 +83,17 @@ export function perDayOf(row: CombinedRow, mode: PerDayMode): { perDay: number; 
   return { perDay: pace.perDay ?? pace.remaining, remaining: pace.remaining, overdue: pace.perDay === null };
 }
 
+/**
+ * The days before `before` (this Monday) that a passed deadline still open takes the table back to, folded into one
+ * row: since when, what was done over them, and the last of them (its Left and pace). A deadline gone by months ago
+ * would otherwise draw a red row for every day since. Null when there are none.
+ */
+export function foldedDays(rows: CombinedRow[], from: string, before: string): { since: string; done: number; last: CombinedRow } | null {
+  const days = rows.filter((row) => row.date >= from && row.date < before);
+  if (days.length === 0) return null;
+  return { since: from, done: days.reduce((sum, row) => sum + row.doneThatDay, 0), last: days.at(-1)! };
+}
+
 /** A deadline's colour: its own if picked, else a big task's, else its kind's. */
 export function deadlineColor(item: Pick<CombinedItem, "taskId" | "deadlineType">, isBig: boolean, table: DeadlineTable) {
   return table.taskColors[item.taskId] ?? table.colors[isBig ? "big" : item.deadlineType];

@@ -17,6 +17,8 @@ function closing(text: string, marker: string, open: number): number {
   for (let at = open + marker.length + 1; at < text.length && text[at] !== "\n"; at++) {
     if (text[at] === "\\") at++;
     else if (text.startsWith(marker, at) && !/\s/.test(text[at - 1])) {
+      // "*a **b***": the last of three closes the italics, the two before it the bold inside.
+      if (marker === "*" && text.startsWith("***", at - 2) && text[at + 1] !== "*" && /[^\s*]/.test(text[at - 3] ?? " ")) return at;
       // "*a **b** c*": the italics don't end at the bold's asterisks.
       if (marker === "*" && (text[at + 1] === "*" || text[at - 1] === "*")) continue;
       // "***a***": the bold ends at the last two asterisks, leaving the first for the italics inside.
@@ -33,6 +35,13 @@ function closing(text: string, marker: string, open: number): number {
  */
 /** The stretch of markup that opens at `at`: its marker and style, and where it closes; null if none does. */
 function stretchAt(text: string, at: number): { marker: string; style: MarkupStyle; end: number } | null {
+  // "***a** b*" (Ctrl+I over a title that starts in bold): the italics are outside, as they close after the bold does.
+  // "***a***" and "***a** b" are left to the bold-first reading below.
+  if (text.startsWith("***", at)) {
+    const bold = stretchAt(text, at + 1);
+    const end = bold?.style === "bold" ? closing(text, "*", bold.end + 1) : -1;
+    if (bold && end > bold.end + 1) return { marker: "*", style: "italic", end };
+  }
   // An opening marker has text right after it. An asterisk beside another is part of a "**", never italics by itself.
   const found = MARKERS.find(([marker]) => text.startsWith(marker, at) && /\S/.test(text[at + marker.length] ?? " ") && !(marker === "*" && text[at + 1] === "*"));
   const end = found ? closing(text, found[0], at) : -1;

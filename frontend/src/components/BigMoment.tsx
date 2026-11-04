@@ -35,7 +35,14 @@ function Bolt({ className, style }: { className: string; style?: CSSProperties }
   );
 }
 
-const Words = ({ count }: { count: number }) => <p className="big-moment-words font-pixel">{count} {count === 1 ? "task" : "tasks"} today!</p>;
+const Words = ({ count, still = false }: { count: number; still?: boolean }) => (
+  <p className={`big-moment-words font-pixel ${still ? "is-still" : ""}`}>
+    {count} {count === 1 ? "task" : "tasks"} today!
+  </p>
+);
+
+/** With reduced motion: the words alone, still, for this long (no bolts, no confetti). */
+const STILL_MS = 1500;
 
 // As many as fit on a phone at their longest: nothing here can be scrolled, and the rest are in the bell.
 const MOST_CHEERS = 4;
@@ -60,23 +67,37 @@ function CheerWords({ cheers }: { cheers: ReceivedCheer[] }) {
   );
 }
 
-/** Every so many tasks of a day, lightning and confetti in turn, and a pop of confetti for a cheer, saying the cheers that came in. It takes no clicks, and with reduced motion it stays the sound. */
+/** Every so many tasks of a day, lightning and confetti in turn, and a pop of confetti for a cheer, saying the cheers that came in. It takes no clicks; with reduced motion it is the words alone, still, and the sound. */
 export function BigMoment() {
   const moment = useSyncExternalStore(onBigMoment, getBigMoment);
   const soundOff = useSoundOff();
   const [shown, setShown] = useState(0);
+  const [still, setStill] = useState(false);
   useCheerPops();
 
   useEffect(() => {
     if (!moment) return;
     if (!soundOff) playSound(moment.kind === "confetti" ? "fanfare" : moment.kind);
-    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) setShown(moment.id);
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setStill(reduced);
+    setShown(moment.id);
+    if (!reduced) return;
+    const gone = setTimeout(() => setShown(0), STILL_MS);
+    return () => clearTimeout(gone);
     // Only a new moment plays: not a change of the setting.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moment]);
 
   if (!moment || shown !== moment.id) return null;
   const end = () => setShown(0);
+  if (still) {
+    return createPortal(
+      <div key={moment.id} className="big-moment" aria-hidden data-big-moment={moment.id} data-kind="still">
+        {moment.kind === "cheer" ? !!moment.cheers?.length && <CheerWords cheers={moment.cheers} /> : <Words count={moment.count} still />}
+      </div>,
+      document.body,
+    );
+  }
   return createPortal(
     moment.kind === "lightning" ? (
       <div key={moment.id} className="big-moment big-moment-storm" aria-hidden data-big-moment={moment.id} data-kind="lightning" onAnimationEnd={(e) => e.target === e.currentTarget && end()}>

@@ -6,6 +6,7 @@ import { useLayout, useSaveLayout } from "../../hooks/layout";
 import { useLists } from "../../hooks/lists";
 import { useTaskTrees } from "../../hooks/tasks";
 import type { User } from "../../types";
+import { CLOSE_TASK_MENUS } from "../TaskTree/TaskMenu";
 import { MAKE_TASK, STEPS, type TutorialContext } from "./steps";
 import { readStored } from "../../lib/storage";
 import { normalizeLayout, withCollapsed, withHidden } from "../../lib/tileLayout";
@@ -38,8 +39,11 @@ function stored<T>(read: () => T, otherwise: T): T {
   }
 }
 
+/** Asked for again from the settings: from the start, not from where an earlier run stopped on this device. */
+export const forgetTutorialPlace = () => stored(() => localStorage.removeItem(STORE), undefined);
+
 function load(userId: string): Progress {
-  const saved = stored(() => JSON.parse(sessionStorage.getItem(STORE) ?? "null") as Progress | null, null);
+  const saved = stored(() => JSON.parse(localStorage.getItem(STORE) ?? "null") as Progress | null, null);
   if (saved?.userId === userId && saved.step < STEPS.length) return { ...saved, entered: -1 };
   return { userId, step: 0, entered: -1, taskId: null, base: {}, known: [] };
 }
@@ -61,6 +65,8 @@ interface Place {
 // Room between the highlighted thing and the words, for the arrow.
 const GAP = 62;
 const BUBBLE = 352;
+/** The least room the words are squeezed into, scrolling, beside what they are about; less, and they go over it. */
+const MIN_ROOM = 96;
 
 /** Narrower than this is a phone: the words are kept small and some steps are left out. */
 const NARROW = 640;
@@ -131,7 +137,9 @@ function useTargetRects(selectors: string[], also: string[], step: number): Foun
         const isTall = size.height > seen * 0.6;
         const fillsScreen = size.top <= 0 && size.bottom >= seen;
         if (!isTall || !(fillsScreen || (size.top >= 0 && size.top <= seen * 0.4))) {
-          el.scrollIntoView({ block: el.closest("header, [role=dialog]") ? "nearest" : isTall ? "start" : "center", inline: "nearest", behavior: "smooth" });
+          // On a touch screen at once: a tap during a smooth scroll only stops the scroll, and the tap asked for is lost.
+          const behavior = stored(() => matchMedia("(pointer: coarse)").matches, false) ? "instant" : "smooth";
+          el.scrollIntoView({ block: el.closest("header, [role=dialog]") ? "nearest" : isTall ? "start" : "center", inline: "nearest", behavior });
         }
       }
       const rect = el ? box(el) : null;
@@ -180,7 +188,7 @@ function Running({ user }: { user: User }) {
     return () => clearInterval(timer);
   }, []);
   useEffect(() => {
-    stored(() => sessionStorage.setItem(STORE, JSON.stringify(progress)), undefined);
+    stored(() => localStorage.setItem(STORE, JSON.stringify(progress)), undefined);
   }, [progress]);
 
   const step = STEPS[progress.step];
@@ -230,7 +238,7 @@ function Running({ user }: { user: User }) {
 
   const goTo = (index: number, more: Partial<Progress> = {}) => setProgress((was) => ({ ...was, ...more, step: index }));
   function end() {
-    stored(() => sessionStorage.removeItem(STORE), undefined);
+    stored(() => localStorage.removeItem(STORE), undefined);
     update.mutate({ tutorialSeen: true });
   }
   const next = () => (progress.step + 1 < STEPS.length ? goTo(progress.step + 1) : end());
@@ -243,6 +251,8 @@ function Running({ user }: { user: User }) {
       if ((step.needsTask && !ctx.task && progress.noTask) || step.skip?.(ctx)) return next();
       const route = typeof step.route === "function" ? step.route(ctx) : step.route;
       if (route && path !== route) navigate(route);
+      // A task menu left open from a step before, about something else now: it goes (on a phone it covers the page).
+      if (![...(step.target?.(ctx) ?? []), ...(step.also?.(ctx) ?? [])].some((selector) => selector.includes('aria-label="Task options"'))) window.dispatchEvent(new Event(CLOSE_TASK_MENUS));
       // Shown, and opened if it was folded to its band.
       if (step.show && (ctx.hiddenBoxes.includes(step.show) || layout.data?.collapsed?.includes(step.show)))
         saveLayout.mutate(withCollapsed(withHidden(normalizeLayout(layout.data), step.show, false), step.show, false));
@@ -284,7 +294,7 @@ function Running({ user }: { user: User }) {
             Skip this step
           </button>
         ) : (
-          <button type="button" className="nes-btn is-primary btn-small" data-tutorial-next onClick={next}>
+          <button type="button" className={`nes-btn is-primary btn-small ${step.ready && !step.ready(ctx) ? "opacity-50" : ""}`} disabled={step.ready ? !step.ready(ctx) : false} data-tutorial-next onClick={next}>
             {step.button ?? "Next"}
           </button>
         )}
@@ -309,7 +319,8 @@ function Running({ user }: { user: User }) {
 
   // What can be seen of the page: less than the window while a phone's keyboard is up.
   const vw = area.width;
-  const seenTop = area.top;
+  // Installed, the top strip covers the top of the page: the words keep below it, as they keep above the task bar.
+  const seenTop = Math.max(area.top, document.querySelector("[data-top-strip]")?.getBoundingClientRect().bottom ?? 0);
   const seenBottom = area.top + area.height;
   const isNarrow = window.innerWidth < NARROW;
   const width = Math.min(isNarrow ? 300 : BUBBLE, vw - 16);
@@ -319,8 +330,11 @@ function Running({ user }: { user: User }) {
   // With room nowhere (it fills the screen) they go along the top or the bottom, whichever covers less of it;
   // with nothing to point at, along the bottom. Along the bottom they keep clear of the task bar.
   let place: Place | { top: number; left: number; arrow: null } | null = null;
+  // Set when the words only fit, scrolling, in the room beside what they are about.
+  let capped: number | null = null;
   if (height > 0 && !isFolded) {
-    const bar = document.querySelector("header")?.getBoundingClientRect().top ?? window.innerHeight;
+    // The task bar along the bottom (not just any header: every box has one).
+    const bar = document.querySelector("[data-task-bar]")?.getBoundingClientRect().top ?? window.innerHeight;
     const atBottom = Math.max(seenTop + 8, Math.min(seenBottom, bar) - height - 12);
     const atTop = seenTop + 8;
     const middle = area.left + (vw - width) / 2;
@@ -347,11 +361,24 @@ function Running({ user }: { user: User }) {
       const order = frame ? ["left", "right", "below", "above"] : [step.side ?? "below", "below", "above", "right", "left"];
       const beside = order.map((side) => sides[side]).find((side) => side !== false);
       const covered = (from: number) => Math.max(0, Math.min(from + height, bottom) - Math.max(from, around.top));
+      // No side has room for all of them: in the larger room above or below (the box, else the thing itself), scrolling,
+      // rather than over what is to be tapped (they would take the tap).
+      const fit = (zone: Rect) => {
+        const above = zone.top - seenTop - 16;
+        const below = Math.min(seenBottom, bar) - (zone.top + zone.height) - 16;
+        const room = Math.max(above, below);
+        if (room < MIN_ROOM) return null;
+        return { top: below >= above ? zone.top + zone.height + 8 : zone.top - 8 - Math.min(height, room), room };
+      };
+      const fitted = beside ? null : (fit(around) ?? fit(rect));
       if (beside) place = beside;
-      else if (covered(atTop) < covered(atBottom)) place = { top: atTop, left: middle, arrow: null };
+      else if (fitted) {
+        place = { top: fitted.top, left: middle, arrow: null };
+        capped = fitted.room;
+      } else if (covered(atTop) < covered(atBottom)) place = { top: atTop, left: middle, arrow: null };
     }
   }
-  const bubble: CSSProperties = { width, top: place?.top ?? 0, left: place?.left ?? 0, maxHeight: isNarrow ? Math.round(area.height * 0.45) : undefined, visibility: place ? undefined : "hidden" };
+  const bubble: CSSProperties = { width, top: place?.top ?? 0, left: place?.left ?? 0, maxHeight: capped ?? (isNarrow ? Math.round(area.height * 0.45) : undefined), visibility: place ? undefined : "hidden" };
   const holes = rect ? [rect, ...more] : [];
 
   return (

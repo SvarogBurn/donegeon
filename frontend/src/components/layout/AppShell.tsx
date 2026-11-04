@@ -41,15 +41,16 @@ export function AppShell() {
   useTextFont("notesFont", textFont(user?.notesFont));
 
   if (isLoading && !online) return <p className="p-8 text-center text-sm text-stone-500">You're offline, and nothing was kept on this device yet.</p>;
-  if (isLoading) return <p className="p-8 text-center text-sm text-stone-500">Loading…</p>;
+  if (isLoading) return <p className="p-8 text-center text-sm text-stone-500" data-loading="app">Loading…</p>;
   // An account kept on the phone still shows when the server can't be asked about it.
   if (error && !user) return <p className="p-8 text-center text-sm text-red-600">Can't reach the server: {error.message}</p>;
   if (!user) return <Navigate to="/login" replace />;
 
   return (
     <>
-      {/* The bottom padding is the room the task bar covers (--bar-h, set by NavBar); installed, the top strip's too (--top-h). */}
-      <main className={`px-4 pb-[calc(var(--bar-h,5rem)+1.5rem)] ${isStandalone ? "pt-[calc(var(--top-h,4rem)+1rem)]" : "pt-6"}`}>
+      {/* The bottom padding is the room the task bar covers (--bar-h, set by NavBar); installed, the top strip's too (--top-h),
+          and the "+" standing up out of the bottom bar (24px, PLUS_ABOVE in AppBars). */}
+      <main className={`px-4 ${isStandalone ? "pt-[calc(var(--top-h,4rem)+1rem)] pb-[calc(var(--bar-h,5rem)+24px+1.5rem)]" : "pt-6 pb-[calc(var(--bar-h,5rem)+1.5rem)]"}`}>
         <Outlet />
       </main>
       <NavBar user={user} />

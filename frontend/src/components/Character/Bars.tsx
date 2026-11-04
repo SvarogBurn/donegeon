@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 /** A bar of 10 pixel cells (CuteKart's stat bars): a cell for each tenth of the way to `max`, all of them past it. */
 export function CellBar({ value, max, label }: { value: number; max: number; label: string }) {
@@ -36,11 +36,30 @@ const HEART_PIXELS = HEART.flatMap((row, y) => [...row].flatMap((c, x) => (c ===
 
 /**
  * The character's health: a pixel heart for every 2 hp, red as far as it goes (a half heart is its left half), the rest
- * grey, "x / y hp" under them. `title` says what cost it.
+ * grey, "x / y hp" under them. `title` says what cost it: on hover, and (a touch screen has no hover) in a small card a
+ * tap on "x / y hp" opens; a tap elsewhere or Escape closes it.
  */
 export function Hearts({ hp, max, title }: { hp: number; max: number; title?: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    const onPointerDown = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setIsOpen(false);
+    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && setIsOpen(false);
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isOpen]);
+  const count = (
+    <>
+      {hp} / {max} hp
+    </>
+  );
   return (
-    <div className="w-full">
+    <div ref={ref} className="relative w-full">
       <div className="hearts" role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={hp} aria-label="Health" title={title} data-hp={hp}>
         {Array.from({ length: Math.ceil(max / 2) }, (_, i) => {
           const filled = Math.max(0, Math.min(2, hp - 2 * i));
@@ -54,9 +73,20 @@ export function Hearts({ hp, max, title }: { hp: number; max: number; title?: st
           );
         })}
       </div>
-      <p className="mt-0.5 text-center text-[10px] text-stone-500 tabular-nums" data-hp-text>
-        {hp} / {max} hp
+      <p className="mt-0.5 text-center text-[10px] text-stone-600 tabular-nums dark:text-stone-400" data-hp-text>
+        {title ? (
+          <button type="button" className="cursor-pointer" aria-expanded={isOpen} title="What cost it" onClick={() => setIsOpen(!isOpen)} data-hp-hits-button>
+            {count}
+          </button>
+        ) : (
+          count
+        )}
       </p>
+      {isOpen && title && (
+        <p className="card absolute inset-x-0 top-full z-20 mt-1 !p-2 text-xs whitespace-pre-line" data-hp-hits>
+          {title}
+        </p>
+      )}
     </div>
   );
 }

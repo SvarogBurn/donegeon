@@ -208,7 +208,7 @@ export function MonthBox() {
                       type="button"
                       aria-pressed={day === selected}
                       aria-label={`${formatDay(day, true)}${open ? `, ${open} to do` : ""}${done.length ? `, ${done.length} done` : ""}`}
-                      className={`cursor-pointer self-center px-1 tabular-nums @xl:self-start ${day === today ? "bg-[#3544a1] text-white" : ""}`}
+                      className={`min-h-6 min-w-6 cursor-pointer self-center px-1 tabular-nums @xl:self-start ${day === today ? "bg-[#3544a1] text-white" : ""}`}
                     >
                       {Number(day.slice(8))}
                     </button>

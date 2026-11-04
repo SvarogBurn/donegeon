@@ -69,7 +69,7 @@ const TaskPage = page(() => import("./pages/TaskPage"), "TaskPage");
 const CountdownRedirect = page(() => import("./pages/TaskPage"), "CountdownRedirect");
 const UserPage = page(() => import("./pages/User"), "UserPage");
 
-const loading = <p className="text-sm text-stone-500">Loading…</p>;
+const loading = <p className="text-sm text-stone-500" data-loading="page">Loading…</p>;
 const later = (element: ReactNode) => <Suspense fallback={loading}>{element}</Suspense>;
 
 /** A folder's own page: the dashboard, showing that folder's lists. */

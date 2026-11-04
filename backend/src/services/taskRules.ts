@@ -53,6 +53,12 @@ type Current = Pick<
   "parentId" | "listId" | "weekDay" | "todaySince" | "isPersistent" | "isComplete" | "deadlineDate" | "deadlineType" | "repeatEvery" | "nextDue"
 >;
 
+/** A schedule only makes sense on a task that is done again and again, so setting one makes the task persistent. */
+const becomesPersistent = (task: Current, input: TaskPatch) => input.isPersistent ?? (input.repeatEvery ? true : task.isPersistent);
+
+/** Whether the edit makes a ticked task persistent: its tick then becomes its first press. */
+export const tickBecomesPress = (task: Current, input: TaskPatch) => becomesPersistent(task, input) && !task.isPersistent && task.isComplete;
+
 /**
  * What an edit of `task` writes, on the user's `today`; throws when the edit isn't allowed. Labels and the deadline's
  * depth are checked by the caller, which has to read the database for them.
@@ -94,9 +100,10 @@ export function taskPatchData(task: Current, input: TaskPatch, today: string): P
   const nextMonday = addDays(mondayOf(today), 7);
   if (markedFor && markedFor < nextMonday && task.weekDay && task.weekDay >= nextMonday) data.weekDay = null;
 
-  // A schedule only makes sense on a task that is done again and again, so setting one makes the task persistent.
-  const isPersistent = input.isPersistent ?? (input.repeatEvery ? true : task.isPersistent);
-  if (isPersistent && !task.isPersistent && task.isComplete) throw new HttpError(400, "Untick it first");
+  const isPersistent = becomesPersistent(task, input);
+  // A ticked task made persistent (a reward bought once, now to be bought again): open again for the next time, its tick
+  // kept as its first press (tickBecomesPress, in updateTask).
+  if (tickBecomesPress(task, input)) Object.assign(data, { isComplete: false, completedAt: null, completedOn: null });
   assertNoDeadlineIfPersistent(isPersistent, input.deadlineDate === undefined ? task.deadlineDate : input.deadlineDate);
   data.isPersistent = isPersistent;
   const repeatEvery = input.repeatEvery === undefined ? task.repeatEvery : input.repeatEvery;

@@ -9,7 +9,6 @@ import { soonestFirst } from "../../lib/deadlines";
 import { partsOf } from "../../lib/dividers";
 import { isFiltering } from "../../lib/labels";
 import { isDue, isWaiting, repeatLabel, roundsDue } from "../../lib/repeat";
-import { hasTaskPage } from "../../lib/taskPage";
 import type { TaskTreeNode } from "../../types";
 import { ValueChip } from "../Points/ValueChip";
 import { DeadlineBadge } from "./DeadlineBadge";
@@ -172,7 +171,11 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
   const hasChildren = node.children.length > 0;
   // A task is ticked last: everything beneath it first.
   const hasDraftChild = tree.draft?.parentId === node.id && tree.draft.scope === scope?.scope;
-  const drop = useDrag((state) => zoneOn(state.dropTarget, node.id, inWeek ? ["task", "weekItem"] : ["task"]));
+  // A subtask being written opens its task, so the next one (Enter under it) has somewhere to go, and those just written show.
+  useEffect(() => {
+    if (hasDraftChild) setOpened(true);
+  }, [hasDraftChild]);
+  const drop =useDrag((state) => zoneOn(state.dropTarget, node.id, inWeek ? ["task", "weekItem"] : ["task"]));
   const isDragged = useDrag((state) => state.draggingId === node.id);
 
   function saveTitle() {
@@ -216,7 +219,7 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
     }
   }
 
-  const opens = hasTaskPage(node);
+  const opens = tree.hasPage(node);
   function openTask(e: MouseEvent<HTMLDivElement>) {
     if (!opens || pressedControl.current || (e.target as Element).closest(ROW_CONTROLS)) return;
     navigate(`/tasks/${node.id}`);
@@ -260,7 +263,7 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
             onBlur={saveTitle}
             aria-label="Task title"
             // A scheduled task that is done for now is greyed until its next day.
-            className={node.isComplete ? "text-stone-400 line-through" : isWaiting(node, today) ? "text-stone-400" : ""}
+            className={node.isComplete ? "text-stone-500 line-through dark:text-stone-400" : isWaiting(node, today) ? "text-stone-500 dark:text-stone-400" : ""}
           />
           <button
             type="button"
@@ -301,7 +304,7 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
           )}
           <DeadlineBadge task={node} />
           {hasChildren && (
-            <span className="text-xs text-stone-500 tabular-nums">
+            <span className="text-xs text-stone-500 tabular-nums dark:text-stone-400">
               {node.descendantDoneCount}/{node.descendantCount} done
             </span>
           )}
@@ -326,7 +329,7 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
 
       {((hasChildren && isOpen) || hasDraftChild) && (
         <div className="ml-3 border-l border-stone-200 pl-3 dark:border-stone-800">
-          <TaskTree nodes={isOpen ? node.children : []} parentId={node.id} listId={null} depth={depth + 1} />
+          <TaskTree nodes={isOpen || hasDraftChild ? node.children : []} parentId={node.id} listId={null} depth={depth + 1} />
         </div>
       )}
     </li>
@@ -372,9 +375,10 @@ export function DraftRow() {
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    // Esc leaves the row keeping what was typed, as a click elsewhere does; an empty Enter leaves it too.
     if (e.key === "Escape" || (e.key === "Enter" && !e.shiftKey && !tree.draftText.trim())) {
       focusNeighbor(e.currentTarget, -1);
-      close();
+      finishRef.current();
     } else if (e.key === "Enter" && !e.shiftKey) {
       submit(e.ctrlKey || e.metaKey ? "subtask" : "sibling");
     }
@@ -438,6 +442,9 @@ export function TaskTree({ nodes, parentId, listId, depth = 0 }: TaskTreeProps) 
   const ordered = byDeadline ? partsOf(nodes, soonestFirst) : nodes;
   // A row opened in the Week box is shown there, by the box itself; one opened in a day's popup, there only.
   const draftIsHere = draft !== null && draft.scope === scope?.scope && draft.parentId === parentId && (parentId !== null || (draft.listId === listId && !draft.weekDay));
+  // The row it goes after may not be shown yet (just saved, not yet in the trees): the new row waits at the end meanwhile,
+  // rather than nowhere, which would drop what is typed into it.
+  const draftWaits = draftIsHere && draft.afterId !== null && !nodes.some((node) => node.id === draft.afterId);
 
   return (
     <ul>
@@ -449,6 +456,7 @@ export function TaskTree({ nodes, parentId, listId, depth = 0 }: TaskTreeProps) 
           {draftIsHere && draft.afterId === node.id && <DraftRow />}
         </Fragment>
       ))}
+      {draftWaits && <DraftRow />}
     </ul>
   );
 }

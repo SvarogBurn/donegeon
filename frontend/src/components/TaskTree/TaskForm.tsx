@@ -20,7 +20,8 @@ export function TaskForm({ listId, parentId, weekDay, placeholder, editorId }: P
   const { newTaskLabels } = useTree();
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Escape") setTitle("");
+    // Esc leaves the field and keeps what was typed (it used to be wiped, with no way back).
+    if (e.key === "Escape") return e.currentTarget.blur();
     if (e.key !== "Enter" || e.shiftKey || !title.trim()) return;
     const submitted = title;
     setTitle("");

@@ -7,7 +7,7 @@ import { useLists } from "../../hooks/lists";
 import { useNotes } from "../../hooks/notes";
 import { useTaskSearch, useTaskTrees } from "../../hooks/tasks";
 import { formatDay } from "../../lib/dates";
-import { listView, noteView } from "../../lib/folders";
+import { listView, noteView, USER_BOXES } from "../../lib/folders";
 import { useOnline } from "../../lib/offline/online";
 import { findNode } from "../../lib/optimisticToggle";
 import { findTaskRow, showOnPage } from "../../lib/showOnPage";
@@ -34,6 +34,25 @@ const PLACES: [title: string, path: string, tile: string | null, words?: string]
   ["Deadline pressure", "/", "pressure"],
   ["All deadlines", "/", "deadlines", "countdown"],
   ...Object.entries(STAT_BOXES).map(([key, label]): [string, string, string] => [label, "/stats", key]),
+];
+
+/** The user page's boxes (not the devs' Inbox), found by name: [key, more words to find it by]. */
+const USER_PAGE_BOXES: [key: string, words: string][] = [
+  ["character", "avatar look editor level exp hearts health streak skills titles"],
+  ["people", "people friends cheer cheers"],
+  ["news", "newspaper"],
+  ["cheatsheet", "shortcuts keyboard syntax help markup"],
+  ["feedback", "mail bug feature feedback devs"],
+];
+/** The parts of Settings, found by name and by what is in them: [section, title, words]. Opened when picked. */
+const SETTINGS_SECTIONS: [name: string, title: string, words: string][] = [
+  ["tasks", "Task settings", "ticked tasks soonest date deadlines into today break reminder"],
+  ["deadlines", "Deadlines box settings", "range per day soft deadlines"],
+  ["notifications", "Notification settings", "notifications push reminders bell snooze test"],
+  ["gamification", "Gamification settings", "points cap health hearts streak freeze dot unlocks"],
+  ["social", "Social settings", "people friends sharing card cheers block"],
+  ["design", "Theme and design settings", "theme font fonts dyslexic large print tabs notes news stats calendar box colours colors tutorial"],
+  ["account", "Account settings", "log out logout delete account username"],
 ];
 
 /** One line of what was found. `go` is absent for what there is nowhere to go to. */
@@ -87,6 +106,8 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false, autoFocus = fal
     const onPointerDown = (e: PointerEvent) => {
       if (ref.current?.contains(e.target as Node)) return;
       setIsOpen(false);
+      // Done with: the next search starts afresh, not after what was typed before.
+      setText("");
       onClose?.();
     };
     document.addEventListener("pointerdown", onPointerDown);
@@ -126,6 +147,24 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false, autoFocus = fal
           title,
           kind: key === null ? "Page" : `Box on ${path === "/" ? "Tasks" : "Stats"}`,
           go: goTo(path, key === null ? undefined : tile(key)),
+        })),
+        ...USER_PAGE_BOXES.filter(([key, words]) => has(USER_BOXES[key], words)).map(([key]) => ({
+          key: `user:${key}`,
+          title: USER_BOXES[key],
+          kind: "Box on Account",
+          go: goTo("/user", () => document.querySelector<HTMLElement>(`[data-box="${key}"]`)),
+        })),
+        ...SETTINGS_SECTIONS.filter(([, title, words]) => has(title, words)).map(([name, title]) => ({
+          key: `settings:${name}`,
+          title,
+          kind: "Settings",
+          go: goTo("/user", () => {
+            const section = document.querySelector<HTMLElement>(`[data-settings-section="${name}"]`);
+            // Sections start folded: this one is opened (once; it stays open after).
+            const heading = section?.querySelector<HTMLButtonElement>("[data-settings-heading]");
+            if (heading?.getAttribute("aria-expanded") === "false") heading.click();
+            return section ?? null;
+          }),
         })),
         ...folders.filter((folder) => has(folder.name)).map((folder) => ({ key: `folder:${folder.id}`, title: folder.name, kind: "Folder", go: goTo(`/folders/${folder.id}`) })),
         ...lists.filter((list) => has(list.name)).map((list) => ({ key: listView(list.id), title: list.name, kind: list.kind === "reward" ? "Reward list" : "List", go: goTo("/", tile(listView(list.id))) })),
@@ -191,6 +230,7 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false, autoFocus = fal
             onKeyDown={(e) => {
               if (e.key === "Escape") {
                 setIsOpen(false);
+                setText("");
                 onClose?.();
               }
               // Enter goes to the first result there is somewhere to go for.

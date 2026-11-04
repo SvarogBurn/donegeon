@@ -122,6 +122,13 @@ export function weekDays(trees: TaskTreeNode[], today: string, ticked: TickedTas
   }));
 }
 
+/**
+ * How much is left to do among Today's tasks: each open one, and each due round of a task on a schedule (a task making
+ * up missed rounds counts each). A persistent task with no round due (pressed already, or on no schedule) isn't left.
+ */
+export const leftToDo = (nodes: TaskTreeNode[], today: string) =>
+  nodes.filter((node) => !node.isComplete && (!node.isPersistent || isDue(node, today))).reduce((sum, node) => sum + (node.isPersistent ? Math.max(1, roundsDue(node, today)) : 1), 0);
+
 export interface TodayItem {
   node: TaskTreeNode;
   /** The day it came into Today: marked for it (today), due (a task on a schedule), or its deadline near. */

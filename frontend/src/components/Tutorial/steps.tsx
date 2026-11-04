@@ -62,6 +62,8 @@ export interface Step {
   needsTask?: boolean;
   /** What the button says, on a step without `done`. */
   button?: string;
+  /** On a step with a button: false while what it asks for isn't done yet, and the button waits (off) until it is. */
+  ready?: (ctx: TutorialContext) => boolean;
 }
 
 const MENU = '[role="dialog"][aria-label="Task options"]';
@@ -202,7 +204,7 @@ export const STEPS: Step[] = [
     route: "/",
     text: (ctx) => (
       <>
-        What, you didnt think the tutorial ends there? <b>make another subtask</b> for {name(ctx)}
+        What, you didn't think the tutorial ends there? <b>make another subtask</b> for {name(ctx)}
       </>
     ),
     target: (ctx) => [tree(ctx)],
@@ -310,7 +312,7 @@ export const STEPS: Step[] = [
     text: () => (
       <>
         you can attribute goals or other tags to tasks. I recommend giving each big task a goal so you don't get lost in the sauce
-        and do tasks just to do them. Later, when creating a list, you can give it tags or goals too, so they automatically transfer to it's
+        and do tasks just to do them. Later, when creating a list, you can give it tags or goals too, so they automatically transfer to its
         tasks. You can also filter by going to the goals or tags panel so it shows only tasks from that goal/task.
       </>
     ),
@@ -455,14 +457,14 @@ export const STEPS: Step[] = [
   },
   {
     route: "/",
-    text: () => <>grab a tab by it's handle and reorder it</>,
+    text: () => <>grab a tab by its handle and reorder it</>,
     target: () => [HANDLE],
     note: (ctx) => ({ arranged: ctx.arranged }),
     done: (ctx) => ctx.arranged !== ctx.base.arranged,
   },
   {
     route: "/",
-    text: () => <>grab a tab by it's handle and pull it to the right to create a new colum</>,
+    text: () => <>grab a tab by its handle and pull it to the right to create a new column</>,
     // The handle to grab; once a box is in the air, the strip at the right edge to drop it on.
     target: () => ['[data-zone="new"]', HANDLE],
     also: () => [HANDLE],
@@ -747,11 +749,12 @@ export const STEPS: Step[] = [
   },
   {
     text: () => <>Every body has its own bits that come and go: hats, hair, horns, tails.</>,
-    target: () => [`${EDITOR} [data-stepper]:not([data-stepper="body"])`, EDIT],
-    also: () => [`${EDITOR} [data-stepper]:not([data-stepper="body"])`, `${EDITOR} .character-stage`],
+    // The body's own rows: not the body's, nor the title's above them.
+    target: () => [`${EDITOR} [data-stepper]:not([data-stepper="body"]):not([data-stepper="title"])`, EDIT],
+    also: () => [`${EDITOR} [data-stepper]:not([data-stepper="body"]):not([data-stepper="title"])`, `${EDITOR} .character-stage`],
     flag: "tutorialEditor",
     // A body with nothing to change has no rows to show; on a phone the colours are enough.
-    skip: (ctx) => noEditor() || ctx.isNarrow || count(`${EDITOR} [data-stepper]`) < 2,
+    skip: (ctx) => noEditor() || ctx.isNarrow || count(`${EDITOR} [data-stepper]:not([data-stepper="body"]):not([data-stepper="title"])`) < 1,
     button: "Next",
   },
   {
@@ -759,7 +762,8 @@ export const STEPS: Step[] = [
     target: () => [`${EDITOR} [data-color-row]`, EDIT],
     also: () => [`${EDITOR} [data-color-row]`, `${EDITOR} .character-stage`],
     flag: "tutorialEditor",
-    skip: noEditor,
+    // A body still to earn ("???") shows no colours: nothing to point at.
+    skip: () => noEditor() || count(`${EDITOR} [data-color-row]`) === 0,
     button: "Next",
   },
   {
@@ -854,6 +858,8 @@ export const STEPS: Step[] = [
     flag: "tutorialEditor",
     // No skill was added: none to name.
     skip: (ctx) => noEditor() || count("[data-skill-editor]") <= ctx.base.skills,
+    // Not before a name is written.
+    ready: () => Boolean(document.querySelector<HTMLInputElement>(`${NEW_SKILL} [data-skill-name]`)?.value.trim()),
     button: "Written",
   },
   {

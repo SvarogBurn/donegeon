@@ -9,6 +9,7 @@ import { isInRound } from "../../lib/recent";
 import { playSound } from "../../lib/sounds";
 import type { List, TaskTreeNode, TickedTasks } from "../../types";
 import { DragStore, type DragState } from "./dragState";
+import { hasTaskPage } from "../../lib/taskPage";
 import { NotePanel } from "./NoteView";
 import { siblingsIn, useTaskMoves } from "./useTaskMoves";
 import { useBusyGuard, useUndoStack, type Undoable } from "./useUndoStack";
@@ -70,6 +71,9 @@ interface TreeContextValue {
   tick: (node: TaskTreeNode) => void;
   /** Whether it sits, at any depth, under a persistent task. */
   inRound: (node: TaskTreeNode) => boolean;
+  /** Whether a row opens a page of its own, asked of the whole task: a row shown filtered (ticked subtasks hidden, a
+   * goal or tag picked) may show fewer subtasks than it has. */
+  hasPage: (node: TaskTreeNode) => boolean;
   /** This task was just ticked or pressed: its checkbox or button waits a moment, so a double click counts once. */
   isBusy: (id: string) => boolean;
   /** One press of a persistent task's "done it" button; undoable. */
@@ -202,6 +206,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
   );
 
   const inRound = useCallback((node: TaskTreeNode) => isInRound(node, byId), [byId]);
+  const hasPage = useCallback((node: TaskTreeNode) => hasTaskPage(byId.get(node.id) ?? node), [byId]);
 
   const draftPlacement = useCallback((): TaskPlacement => {
     if (!draft) return { parentId: null, listId: null, index: 0 };
@@ -230,6 +235,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       deleteList,
       tick,
       inRound,
+      hasPage,
       isBusy,
       pressTask,
       takeBackPress,
@@ -240,7 +246,7 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       closeNote,
       error,
     }),
-    [draft, draftText, draftPlacement, newTaskLabels, rootId, ticked, byDeadline, drag, startDrag, moveBy, deleteTask, deleteList, tick, inRound, isBusy, pressTask, takeBackPress, undoable, undo, openNote, showNote, closeNote, error],
+    [draft, draftText, draftPlacement, newTaskLabels, rootId, ticked, byDeadline, drag, startDrag, moveBy, deleteTask, deleteList, tick, inRound, hasPage, isBusy, pressTask, takeBackPress, undoable, undo, openNote, showNote, closeNote, error],
   );
   // A deleted task takes its note along.
   const noteNode = openNote ? byId.get(openNote.id) : undefined;

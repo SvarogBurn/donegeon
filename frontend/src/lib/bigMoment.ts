@@ -14,6 +14,9 @@ export function bigEveryIn(profile: unknown) {
   return bigEvery === null ? null : typeof bigEvery === "number" && bigEvery >= 1 ? bigEvery : BIG_EVERY;
 }
 
+/** How long a moment's words are on screen ("N tasks today!", in at 0.42 s for 1.2 s; index.css): what waits for it. */
+export const MOMENT_WORDS_MS = 1700;
+
 export const isBigMoment = (doneToday: number, every: number | null) => Boolean(every && doneToday > 0 && doneToday % every === 0);
 
 export type MomentKind = "lightning" | "confetti" | "cheer";

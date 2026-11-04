@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { describe, expect, it } from "vitest";
-import { assertDeadlineDepth, assertDividerEdit, assertDividerPlace, assertNewDivider, taskPatchData } from "./taskRules.js";
+import { assertDeadlineDepth, assertDividerEdit, assertDividerPlace, assertNewDivider, taskPatchData, tickBecomesPress } from "./taskRules.js";
 
 const TODAY = "2026-10-20";
 
@@ -65,8 +65,16 @@ describe("taskPatchData", () => {
     expect(() => taskPatchData(task({ deadlineDate: "2026-11-01" }), { isPersistent: true }, TODAY)).toThrow("can't have a deadline");
   });
 
-  it("refuses making a ticked task persistent, and points handed down from a subtask", () => {
-    expect(() => taskPatchData(task({ isComplete: true }), { isPersistent: true }, TODAY)).toThrow("Untick it first");
+  it("opens a ticked task made persistent again, its tick becoming its first press", () => {
+    const ticked = task({ isComplete: true });
+    expect(taskPatchData(ticked, { isPersistent: true }, TODAY)).toMatchObject({ isPersistent: true, isComplete: false, completedAt: null, completedOn: null });
+    expect(tickBecomesPress(ticked, { isPersistent: true })).toBe(true);
+    expect(tickBecomesPress(ticked, { repeatEvery: 1 })).toBe(true);
+    expect(tickBecomesPress(task({ isComplete: true, isPersistent: true }), { isPersistent: true })).toBe(false);
+    expect(tickBecomesPress(task(), { isPersistent: true })).toBe(false);
+  });
+
+  it("refuses points handed down from a subtask", () => {
     expect(() => taskPatchData(task({ parentId: "p", listId: null }), { pointsToSubtasks: true }, TODAY)).toThrow("Only a main task");
   });
 

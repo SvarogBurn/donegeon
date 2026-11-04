@@ -136,7 +136,8 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
     name: `list "${card.list.name}"`,
     label: card.list.name,
     ownColor: true,
-    node: <ListCard list={card.list} tasks={card.tasks} taskCount={card.taskCount} />,
+    // On a folder's page the list is a copy: its × takes it out of the folder, and the list itself stays.
+    node: <ListCard list={card.list} tasks={card.tasks} taskCount={card.taskCount} onTakeOut={folder ? () => drop.dropOnTab(listView(card.list.id), "main") : undefined} />,
   }));
   const newListTile = !filtering && { key: NEW_LIST_TILE, name: "the new-list field", node: <ListForm folderId={folderId} /> };
   // Picking a goal or a tag shows only its tasks in the lists of this page (a folder's copy filters that folder's lists).

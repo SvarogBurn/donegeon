@@ -96,7 +96,8 @@ export function AppBars({ user }: { user: User }) {
   const isOnNotes = pathname === "/notes";
   const statsTab = useStatsTab();
   const calendarTab = useCalendarTab();
-  const isHidden = useHideOnScroll(isAdding || isSearching || isBellOpen);
+  // Kept in place while the tutorial runs, too: its arrows point at them.
+  const isHidden = useHideOnScroll(isAdding || isSearching || isBellOpen || !user.tutorialSeen);
   // Another page: the search has done its job.
   useEffect(() => setIsSearching(false), [pathname]);
 
@@ -107,6 +108,7 @@ export function AppBars({ user }: { user: User }) {
         {...handlers}
         className={`${BAR} app-bar-fill top-0 border-b pt-[env(safe-area-inset-top)] ${isHidden ? "-translate-y-full" : ""}`}
         data-bar-hidden={isHidden || undefined}
+        data-top-strip
       >
         <div className={`flex items-center gap-2 py-1 pr-3 ${user.notesTab || (user.newsTab ?? true) ? "" : "pl-1"}`}>
           {isSearching ? (
@@ -156,7 +158,7 @@ export function AppBars({ user }: { user: User }) {
       </header>
 
       {/* Slid out by more than its height, so the "+" standing up out of it goes too. */}
-      <header ref={bottom} className={`${BAR} bottom-0 ${isHidden ? "translate-y-[calc(100%+2rem)]" : ""}`} data-bar-hidden={isHidden || undefined}>
+      <header ref={bottom} className={`${BAR} bottom-0 ${isHidden ? "translate-y-[calc(100%+2rem)]" : ""}`} data-bar-hidden={isHidden || undefined} data-task-bar>
         {/* The bar itself: flat to either side, the notch in the middle; under the phone's own buttons too (safe area). */}
         <div className="absolute inset-0 flex" aria-hidden>
           <div className="app-bar-fill flex-1 border-t" />

@@ -1,4 +1,5 @@
 import { plainFirstLine } from "../../lib/markup";
+import { refuse } from "../../lib/refusal";
 import type { TaskTreeNode } from "../../types";
 import { PixelCheckbox } from "../PixelCheckbox";
 import { useTree } from "./TreeContext";
@@ -47,11 +48,13 @@ export function TickOrPress({
     <PixelCheckbox
       className={`${className} ${hasOpenSubtasks ? "opacity-40" : ""}`}
       checked={node.isComplete}
-      disabled={tree.isBusy(node.id) || hasOpenSubtasks}
+      // Not `disabled` while subtasks are open: a click (or a tap, with no hover to show the title) says why beside it.
+      disabled={tree.isBusy(node.id)}
+      aria-disabled={hasOpenSubtasks || undefined}
       title={hasOpenSubtasks ? "Tick its subtasks first" : undefined}
       // Ticking a main task finishes it: it is in the Done page, and leaves its list 24 hours later. With an undo,
       // as for any task that leaves its list the moment it is ticked.
-      onChange={() => tree.tick(node)}
+      onChange={(e) => (hasOpenSubtasks ? refuse(new Error("Tick its subtasks first"), undefined, e.currentTarget) : tree.tick(node))}
       aria-label={`Mark "${name}" ${node.isComplete ? "not done" : "done"}`}
     />
   );

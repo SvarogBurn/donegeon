@@ -4,7 +4,7 @@ import { statView } from "../../lib/folders";
 import { normalizeLayout, withHidden, type DashboardLayout } from "../../lib/tileLayout";
 import { HiddenRow } from "../Tiles/HiddenRow";
 import { TileGrid } from "../Tiles/TileGrid";
-import { FILTER_BOX, STAT_BOX_LIST, useStatsData } from "./statBoxes";
+import { FILTER_BOX, STAT_BOX_LIST, StatsLoading, useStatsData } from "./statBoxes";
 
 /** An arrangement saved before `top` were tiles of the grid: they go where they were, above everything else. */
 function withTopBoxes(layout: DashboardLayout, top: string[]): DashboardLayout {
@@ -30,7 +30,7 @@ export function StatsPanel() {
 
   if (stats.error) return <p className="text-sm text-red-600">Couldn't load your stats: {stats.error.message}</p>;
   // The layout is waited for (not required), so the boxes don't jump once it arrives.
-  if (!stats.data || layout.isLoading) return <p className="text-sm text-stone-500">Loading…</p>;
+  if (!stats.data || layout.isLoading) return <StatsLoading retry={stats.retry} />;
   const data = stats.data;
 
   // Every box is a tile of a grid like the dashboard's: dragged by its tab button, pinned, or minimized away.
