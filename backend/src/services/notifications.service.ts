@@ -1,5 +1,6 @@
 import { Prisma, type ScheduledNotification } from "@prisma/client";
 import { addDays } from "../../../shared/dates.js";
+import { heartsText, restDays, restRanges } from "../../../shared/health.js";
 import { HttpError } from "../lib/httpError.js";
 import { prisma } from "../lib/prisma.js";
 import { pushTo, type PushDevice, type PushMessage } from "../lib/push.js";
@@ -67,24 +68,30 @@ interface RowParams extends Partial<RecapParams> {
 /**
  * The week's recap, written when it is sent (the app can't know the week's numbers in advance): the tasks ticked and
  * the presses from Monday to the reminder's day, and the points earned since Monday began and not taken back (none told
- * while the points system is off). Null when nothing was done.
+ * while the points system is off), and the deadlines and rounds whose miss came in this week, half a heart each (none
+ * while health is off, nor for a rest day). Null when nothing was done.
  */
 export async function recapText(userId: string, { from, to, since }: RecapParams): Promise<Pick<PushMessage, "title" | "body"> | null> {
-  const [ticked, pressed, earned, user] = await Promise.all([
+  const [ticked, pressed, earned, user, hits] = await Promise.all([
     prisma.task.count({ where: { userId, deletedAt: null, isComplete: true, completedOn: { gte: from, lte: to } } }),
     prisma.taskCompletion.count({ where: { userId, day: { gte: from, lte: to } } }),
     prisma.pointTransaction.aggregate({
       where: { userId, type: "earned", createdAt: { gte: new Date(since) }, reversedBy: { is: null } },
       _sum: { amount: true },
     }),
-    prisma.user.findUnique({ where: { id: userId }, select: { pointsOff: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { pointsOff: true, healthOff: true, restDays: true } }),
+    prisma.hit.findMany({ where: { userId, kind: { not: "day" }, day: { gte: from, lte: to } }, select: { day: true } }),
   ]);
   const done = ticked + pressed;
   if (done === 0) return null;
   const points = user?.pointsOff ? 0 : (earned._sum.amount ?? 0);
+  const rest = restDays(restRanges(user?.restDays), addDays(from, -1), to);
+  const missed = user?.healthOff ? 0 : hits.filter(({ day }) => !rest.has(addDays(day, -1))).length;
+  const earnedText = points > 0 ? `${points} point${points === 1 ? "" : "s"} earned since Monday. ` : "";
+  const missedText = missed > 0 ? `${missed} missed (−${heartsText(missed)} ♥). ` : "";
   return {
     title: `${to === addDays(from, 6) ? "This week" : "This week so far"}: ${done} task${done === 1 ? "" : "s"} done`,
-    body: points > 0 ? `${points} point${points === 1 ? "" : "s"} earned since Monday. Well done!` : "Well done!",
+    body: `${earnedText}${missedText}Well done!`,
   };
 }
 

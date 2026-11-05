@@ -111,6 +111,8 @@ model User {
   freezeOff       Boolean  @default(false)
   // The day the streak freeze was last switched back on: days missed before it aren't frozen. null = never switched off.
   freezeSince     String?
+  // Days off (a rest day, an exam week): [{from, to}] local days, both in. Nothing missed on them costs health, and the streak goes on across them. null = none.
+  restDays        Json?
   // A reminder to take a break after every so many tasks done in a day; null = no reminder.
   breakEvery      Int?
   // Whether the tutorial was finished or skipped; it shows until then, and again when asked for in the settings.

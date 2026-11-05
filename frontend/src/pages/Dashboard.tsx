@@ -26,7 +26,7 @@ import { countLabels, isFiltering, NO_FILTER, toggleId, type LabelFilter } from 
 import { calOfView, DEADLINES_VIEW, DONE_VIEW, GOALS_VIEW, listOfView, listView, noteOfView, PRESSURE_VIEW, statOfView, TAGS_VIEW, TODAY_VIEW, USER_BOXES, userOfView } from "../lib/folders";
 import { useOnline } from "../lib/offline/online";
 import { findTaskRow, pathIdsTo, showOnPage } from "../lib/showOnPage";
-import { useStandalone } from "../lib/standalone";
+import { useAppLayout } from "../lib/standalone";
 import { STAT_BOXES, StatBoxView, StatBoxesProvider } from "../components/Stats/statBoxes";
 import { NEW_LIST_TILE, normalizeLayout, withHidden, type DashboardLayout } from "../lib/tileLayout";
 import { UserBox } from "./User";
@@ -69,7 +69,7 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   const notes = useNotes();
   const [picked, setPicked] = useState<LabelFilter>(NO_FILTER);
   // The installed app has the search in its top strip instead; a goal or tag picked there arrives here with the page.
-  const isStandalone = useStandalone();
+  const usesAppLayout = useAppLayout();
   const location = useLocation();
   const navigate = useNavigate();
   const pickLabel = (location.state as PickLabelState | null)?.pickLabel;
@@ -169,17 +169,18 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
       error={createTag.error ?? deleteTag.error}
     />
   );
-  // In their order where nothing was arranged. The two deadline boxes only exist once there is a deadline.
+  // In their order where nothing was arranged: what is done every day first (Today, then the lists), the overviews after
+  // (2026-11-04, playtest 1: the deadlines table stood first). The two deadline boxes only exist once there is a deadline.
   const mainTiles: ((Tile & { label?: string }) | false)[] = [
-    // Done, All deadlines and Deadline pressure can be dropped on a folder's tab too; their colours stay kept under their old keys.
-    Boolean(combined.data?.items.length) && { key: "deadlines", view: DEADLINES_VIEW, colorKey: "deadlines", name: "All deadlines", node: <DeadlinesBox /> },
-    // The other pages' boxes that were dropped on the Tasks tab (and the calendar's Calendar, from the start).
-    ...(saved.extras ?? []).flatMap(otherPageTile),
-    ...listTiles,
-    newListTile,
     // Today, Goals and Tags can be dropped on a folder's tab too: a copy, shown there as well.
     { key: "today", view: TODAY_VIEW, name: "Today", node: <TodayBox tasks={tasks.data} /> },
+    ...listTiles,
+    newListTile,
+    // Done, All deadlines and Deadline pressure can be dropped on a folder's tab too; their colours stay kept under their old keys.
+    Boolean(combined.data?.items.length) && { key: "deadlines", view: DEADLINES_VIEW, colorKey: "deadlines", name: "All deadlines", node: <DeadlinesBox /> },
     Boolean(pressure.data?.items.length) && { key: "pressure", view: PRESSURE_VIEW, colorKey: "pressure", name: "deadline pressure", node: <PressureSummary /> },
+    // The other pages' boxes that were dropped on the Tasks tab (and the calendar's Calendar, from the start).
+    ...(saved.extras ?? []).flatMap(otherPageTile),
     { key: "goals", view: GOALS_VIEW, name: "Goals", node: goalsBox },
     { key: "tags", view: TAGS_VIEW, name: "Tags", node: tagsBox },
     { key: "done", view: DONE_VIEW, colorKey: "done", name: "Done", node: <DoneLog tasks={tasks.data} /> },
@@ -214,16 +215,16 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   const shownTiles = allTiles.filter((tile) => !isHidden(tile));
   const isSearchHidden = (saved.hidden ?? []).includes(SEARCH);
   const hiddenTiles = [
-    ...(isSearchHidden && !isStandalone ? [{ key: SEARCH, label: "Search" }] : []),
+    ...(isSearchHidden && !usesAppLayout ? [{ key: SEARCH, label: "Search" }] : []),
     ...allTiles.filter(isHidden).map((tile) => ({ key: tile.key, label: tile.label ?? LABELS[tile.key] ?? tile.name })),
   ];
 
-  const grid = <TileGrid tiles={shownTiles} order={allTiles.map((tile) => tile.key)} layout={saved} onChange={save} onDropOnTab={drop.dropOnTab} />;
+  const grid = <TileGrid tiles={shownTiles} order={allTiles.map((tile) => tile.key)} layout={saved} onChange={save} onDropOnTab={drop.dropOnTab} spreads />;
 
   return (
     <TreeProvider tasks={tasks.data} newTaskLabels={filter}>
       <div className="space-y-4">
-        {!isSearchHidden && !isStandalone && (
+        {!isSearchHidden && !usesAppLayout && (
           <SiteSearch
             onPickLabel={(key, id) => !filter[key].includes(id) && setPicked({ ...filter, [key]: [...filter[key], id] })}
             onHide={() => save(withHidden(saved, SEARCH, true))}

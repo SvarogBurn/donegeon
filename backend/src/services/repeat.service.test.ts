@@ -55,6 +55,16 @@ describe("dueAfter", () => {
     expect(dueAfter(makeUp, "2026-10-01")).toBe("2026-10-26");
   });
 
+  it("making up missed rounds: those on a rest day gone by aren't owed", () => {
+    const daily = { ...planned, repeatEvery: 1, repeatUnit: "day", repeatMakeUp: true, nextDue: "2026-11-02" } as const;
+    // The 2nd and 3rd were rest days: a press on the 5th does the 4th's, and the 5th's is next.
+    expect(dueAfter(daily, "2026-11-05", new Set(["2026-11-02", "2026-11-03"]))).toBe("2026-11-05");
+    // The 3rd only: the press does the 2nd's and goes past the 3rd.
+    expect(dueAfter(daily, "2026-11-05", new Set(["2026-11-03"]))).toBe("2026-11-04");
+    // A rest day today (or ahead) is still owed when its day comes.
+    expect(dueAfter(daily, "2026-11-02", new Set(["2026-11-02"]))).toBe("2026-11-03");
+  });
+
   it("after done: counted from the day it was done", () => {
     const afterDone = { ...planned, repeatAfterDone: true };
     expect(dueAfter(afterDone, "2026-10-07")).toBe("2026-10-28");

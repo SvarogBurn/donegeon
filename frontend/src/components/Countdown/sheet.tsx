@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { formatShortDay } from "../../lib/dates";
+import { InfoTip } from "../InfoTip";
 
 // Shared look of the spreadsheet-style tables (a task's countdown, the dashboard's combined one).
 
@@ -21,10 +22,10 @@ export const CELL = `border-r border-b ${LINE} px-1 py-0.5 sm:px-2`;
 const WEEK_END = "!border-b-2 !border-b-stone-700 dark:!border-b-stone-300";
 
 /** Little labelled sheet cells above a table, e.g. Tasks / Done / Left. A cell given `onClick` is a button: it opens what its number counts. */
-export function SummaryCells({ cells }: { cells: readonly (readonly [label: string, value: number | string, onClick?: () => void])[] }) {
+export function SummaryCells({ cells }: { cells: readonly (readonly [label: string, value: number | string, onClick?: () => void, info?: string])[] }) {
   return (
     <dl className="flex flex-wrap gap-2 text-sm tabular-nums">
-      {cells.map(([label, value, onClick]) => (
+      {cells.map(([label, value, onClick, info]) => (
         <div
           key={label}
           className={`flex border ${LINE} bg-white dark:bg-stone-900 ${onClick ? "cursor-pointer hover:brightness-95 dark:hover:brightness-125" : ""}`}
@@ -36,7 +37,10 @@ export function SummaryCells({ cells }: { cells: readonly (readonly [label: stri
             onKeyDown: (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onClick()),
           })}
         >
-          <dt className={`border-r ${LINE} bg-stone-100 px-2 py-0.5 font-bold dark:bg-stone-800`}>{label}</dt>
+          <dt className={`flex items-center border-r ${LINE} bg-stone-100 px-2 py-0.5 font-bold dark:bg-stone-800`}>
+            {label}
+            {info && <InfoTip text={info} className="font-normal" />}
+          </dt>
           <dd data-summary={label} className="min-w-10 px-2 py-0.5 text-center">
             {value}
           </dd>
@@ -98,7 +102,7 @@ export function DayCells({ date, cell }: { date: string; cell: string }) {
 /** A coloured "Per day" cell; `fill` null leaves it plain. */
 export function PaceCell({ className, fill, title, children }: { className: string; fill: string | null; title?: string; children: ReactNode }) {
   return (
-    <td className={`${className} ${fill ? "!text-stone-900" : ""}`} style={fill ? { backgroundColor: fill } : undefined} title={title}>
+    <td className={`${className} ${fill ? "!text-stone-900" : ""}`} style={fill ? { backgroundColor: fill } : undefined} title={title} data-tip={title ? "" : undefined}>
       {children}
     </td>
   );

@@ -3,7 +3,7 @@ import { Link, NavLink } from "react-router";
 import { useFolders, useReorderFolders } from "../../hooks/folders";
 import { usePoints } from "../../hooks/points";
 import { useCalendarTab, useStatsTab, useUpdateMe } from "../../hooks/useAuth";
-import { useStandalone } from "../../lib/standalone";
+import { useAppLayout } from "../../lib/standalone";
 import { folderOfKey, folderOrder, moveItem, resolveTaskBar, type BarSide } from "../../lib/taskBar";
 import type { User } from "../../types";
 import { CharacterFace } from "../Character/CharacterFace";
@@ -15,8 +15,8 @@ import { FolderTab, NewFolderTab, useFolderEditing } from "./FolderTabs";
 import { dragAlong, useTabPress, type OnTabDrag } from "./tabDrag";
 
 export function NavBar({ user }: { user: User }) {
-  const isStandalone = useStandalone();
-  return isStandalone ? <AppBars user={user} /> : <TaskBar user={user} />;
+  const usesAppLayout = useAppLayout();
+  return usesAppLayout ? <AppBars user={user} /> : <TaskBar user={user} />;
 }
 
 const DRAG_HINT = "Drag to move it along the bar, to either side.";

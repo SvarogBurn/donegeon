@@ -116,3 +116,20 @@ describe("levelsLost", () => {
     ]);
   });
 });
+
+describe("levelsLost: comebacks and last week", () => {
+  const today = "2026-11-10";
+  const week = { from: "2026-11-02", to: "2026-11-08", done: 5, hits: 3, hpLost: 3, levelFrom: 3, levelTo: 2, knockouts: 1, freezes: 0, comebacks: 0, rested: 1 };
+
+  it("puts last week's summary first, the open comeback on its knockout, and a comeback won as its own row", () => {
+    const quest = { day: "2026-11-09", until: "2026-11-11", done: 1, needed: 3 };
+    const rows = levelsLost({ knockouts: [{ day: "2026-11-09", from: 3, to: 2 }], freezes: [], comebacks: [{ day: "2026-11-05", from: 2, to: 3 }], quest, lastWeek: week }, today);
+    expect(rows.map(({ key }) => key)).toEqual(["week:2026-11-02", "knockout:2026-11-09", "comeback:2026-11-05"]);
+    expect(rows[1].quest).toEqual(quest);
+    expect(rows[2].levels).toBe(1);
+  });
+
+  it("no summary of a week with nothing in it", () => {
+    expect(levelsLost({ knockouts: [], freezes: [], lastWeek: { ...week, done: 0, hits: 0, rested: 0 } }, today)).toEqual([]);
+  });
+});

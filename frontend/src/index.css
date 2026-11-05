@@ -292,6 +292,16 @@
       0 2px #212529;
     margin: 2px;
   }
+  /* A soft deadline's chip: its edge dashed, where a hard one's is solid. */
+  .pixel-chip-soft {
+    box-shadow: none;
+    outline: 2px dashed #212529;
+  }
+  @media (prefers-color-scheme: dark) {
+    .pixel-chip-soft {
+      outline-color: #a8a29e;
+    }
+  }
   /* The Donegeon wordmark (123x21 art pixels); give it a height that is a whole multiple of 21px. */
   .logo {
     @apply block flex-none;
@@ -970,9 +980,13 @@
   .tile-button-pin {
     background-image: url("../../assets/buttons/7x7pin_blue_v1.svg");
   }
+  /* The handle: a grip of dots (it was the [ ] tab, which read as "maximize": playtest 1). */
   .tile-button-tab {
     @apply cursor-grab touch-none select-none active:cursor-grabbing;
-    background-image: url("../../assets/buttons/7x7tab_blue_v1.svg");
+    background-image: url("../../assets/buttons/7x7grip_blue_v1.svg");
+  }
+  .tile-button-more {
+    background-image: url("../../assets/buttons/7x7more_blue_v1.svg");
   }
   /*
    * A built-in box's colour (TileFrame's BoxColorButton): no art of its own, drawn like the others' plate (light

@@ -7,6 +7,7 @@ import { formatDay, formatPace } from "../../lib/dates";
 import { TileFrame } from "../Tiles/TileFrame";
 import { pressureColor } from "./pressureColor";
 import { RichText } from "../RichText";
+import { InfoTip } from "../InfoTip";
 
 /** Links to the task's page: every deadline has one from here. */
 function ItemTitle({ taskId, title, trees }: { taskId: string; title: string; trees: TaskTreeNode[] }) {
@@ -31,10 +32,12 @@ export function PressureSummary() {
         <p>
           <span className="text-2xl font-bold tabular-nums">{formatPace(pressure.perDayToday)}</span>{" "}
           <span className="text-sm text-stone-500">tasks to do today</span>
+          <InfoTip text="Today's share of the work for every hard deadline: each one's tasks left, spread over its days left, added up." />
         </p>
         <p>
           <span className="text-2xl font-bold tabular-nums">{pressure.totalOutstanding}</span>{" "}
           <span className="text-sm text-stone-500">outstanding against hard deadlines</span>
+          <InfoTip text="The tasks still open under every hard deadline." />
         </p>
       </div>
       <ul className="space-y-1 text-sm">

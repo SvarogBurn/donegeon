@@ -1,5 +1,5 @@
 import { Fragment, useLayoutEffect, useRef } from "react";
-import { useDeadlineToday } from "../../hooks/useAuth";
+import { useDeadlineToday, useRestDays } from "../../hooks/useAuth";
 import { localDate } from "../../lib/clock";
 import { formatDay } from "../../lib/dates";
 import { livesInWeek, weekDays, type WeekItem } from "../../lib/week";
@@ -10,6 +10,7 @@ import { DraftRow, TaskNode } from "../TaskTree/TaskNode";
 import { useDrag, useTree } from "../TaskTree/TreeContext";
 import { PickedRow } from "./PickedRow";
 import { TodayPoints } from "./TodayPoints";
+import { InfoTip } from "../InfoTip";
 
 /** How much there is to do among a day's items: what is open and not just a round still to come; a task making up rounds counts each. */
 const toDo = (items: WeekItem[]) =>
@@ -47,7 +48,7 @@ export function WeekDay({ day, items, today, nextWeek = false }: { day: string; 
         <h3 className={`text-center text-sm ${day === today ? "text-[#3544a1] dark:text-[#cbdbfc]" : ""}`}>{heading}</h3>
         <span className="flex items-center gap-2">
           <span className="h-0.5 flex-1 bg-stone-200 dark:bg-stone-700" aria-hidden />
-          <span className="text-xs whitespace-nowrap text-stone-500" data-day-summary>
+          <span className="text-xs whitespace-nowrap text-stone-500" data-day-summary data-tip title="Still open on this day">
             {day === today && "Today · "}
             {open} to do
           </span>
@@ -88,7 +89,8 @@ export function WeekTab({ tasks }: { tasks: TaskTreeNode[] }) {
   const { ticked } = useTree();
   const today = localDate();
   const deadlines = useDeadlineToday();
-  const days = weekDays(tasks, today, ticked, deadlines);
+  const rest = useRestDays();
+  const days = weekDays(tasks, today, ticked, deadlines, rest);
   // This week's: what was put off to next week isn't left for this one.
   const left = toDo(days.filter((d) => !d.nextWeek).flatMap((d) => d.items));
   const scroll = useRef<HTMLDivElement>(null);
@@ -106,7 +108,12 @@ export function WeekTab({ tasks }: { tasks: TaskTreeNode[] }) {
         <span className="mr-auto tabular-nums" data-week-range>
           {formatDay(days[0].day, true)} – {formatDay(days[6].day, true)}
         </span>
-        {left > 0 && <span className="tabular-nums">{left} left</span>}
+        {left > 0 && (
+          <span className="flex items-center tabular-nums">
+            {left} left
+            <InfoTip text="This week's tasks still open, Monday to Sunday; what is put off to next week isn't counted." />
+          </span>
+        )}
         <TodayPoints />
       </header>
       <ScrollArea ref={scroll} data-week-scroll className="relative max-h-[min(70dvh,36rem)]">

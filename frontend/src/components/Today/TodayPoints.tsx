@@ -31,7 +31,7 @@ export function TodayPoints() {
         onBlur={done}
         onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), e.currentTarget.blur())}
         aria-label="Points per task added in Today"
-        title="What a task typed into Today or Week is worth unless it has its own amount"
+        data-tip title="What a task typed into Today or Week is worth unless it has its own amount"
       />
       each
       {save.error && <span className="text-red-600">{save.error.message}</span>}

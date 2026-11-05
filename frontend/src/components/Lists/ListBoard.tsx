@@ -15,7 +15,7 @@ import { TaskForm } from "../TaskTree/TaskForm";
 import { TaskTree } from "../TaskTree/TaskNode";
 import { selectTaskEditor } from "../TaskTree/TitleEditor";
 import { useDrag, useTree } from "../TaskTree/TreeContext";
-import { TileFrame } from "../Tiles/TileFrame";
+import { BandMenuItem, TileFrame } from "../Tiles/TileFrame";
 
 interface KindFieldsProps {
   kind: ListKind;
@@ -102,6 +102,8 @@ function ColorPicker({ list, onPick }: { list: List; onPick: (color: string | nu
     <ColorSwatch
       label="List colour"
       title="Pick this list's colour"
+      // In the band's menu, at its left: the colours open rightwards.
+      align="start"
       className="size-4 cursor-pointer border-2 border-[#222034] bg-(--swatch)"
       current={listColor(list)}
       // The kind's own colour is "no colour picked", so the list follows its kind again.
@@ -203,26 +205,27 @@ export function ListCard({ list, tasks, taskCount, onTakeOut }: ListCardProps) {
       className={isDropTarget ? "ring-2 ring-emerald-600" : ""}
       // A picked colour recolours the frame's band; the title on it turns dark when the colour is a light one.
       style={listFrame(list).style}
-      actions={
-        onTakeOut ? (
-          <button
-            type="button"
-            className="tile-button tile-button-x"
-            aria-label={`Take list "${list.name}" out of this folder`}
-            title={online ? "Take it out of this folder (the list stays on Tasks)" : "Needs a connection"}
-            disabled={!online}
-            onClick={onTakeOut}
-          />
-        ) : (
-          <button
-            type="button"
-            className="tile-button tile-button-x"
-            aria-label={`Delete list "${list.name}"`}
-            title={online ? "Delete this list and its tasks (Ctrl+Z to undo)" : "Needs a connection"}
-            disabled={!online}
-            onClick={askDelete}
-          />
-        )
+      // Its colour and its delete (on a folder's page, taking the copy out) in the band's ⋯, with pin and hide.
+      menu={
+        <>
+          <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-stone-800 dark:text-stone-200" data-list-color-row>
+            <NeedsConnection>
+              <ColorPicker list={list} onPick={(color) => update.mutate({ id: list.id, changes: { color } })} />
+            </NeedsConnection>
+            Colour
+          </div>
+          {onTakeOut ? (
+            <BandMenuItem onClick={onTakeOut} disabled={!online} aria-label={`Take list "${list.name}" out of this folder`} title={online ? undefined : "Needs a connection"}>
+              <span className="tile-button tile-button-x !mt-0" aria-hidden />
+              Take it out of this folder (the list stays on Tasks)
+            </BandMenuItem>
+          ) : (
+            <BandMenuItem onClick={askDelete} disabled={!online} aria-label={`Delete list "${list.name}"`} title={online ? undefined : "Needs a connection"}>
+              <span className="tile-button tile-button-x !mt-0" aria-hidden />
+              Delete this list and its tasks (Ctrl+Z to undo)
+            </BandMenuItem>
+          )}
+        </>
       }
       tone={listFrame(list).tone}
       title={
@@ -263,9 +266,7 @@ export function ListCard({ list, tasks, taskCount, onTakeOut }: ListCardProps) {
           onPointsDone={savePoints}
           inCorner
           color={list.color}
-        >
-          <ColorPicker list={list} onPick={(color) => update.mutate({ id: list.id, changes: { color } })} />
-        </KindFields>
+        />
         </NeedsConnection>
       </header>
       {update.error && <p className="text-xs text-red-600">{update.error.message}</p>}

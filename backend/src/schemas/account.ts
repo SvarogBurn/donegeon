@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { MAX_POINTS, MAX_REMINDER_TIMES, MAX_REMINDERS, NOTIFY_FROM, NOTIFY_TO } from "../../../shared/constants.js";
 import { BELL_SHOWS, DEADLINE_TODAY, REMINDER_KINDS, SHARE_KEYS, TEXT_FONTS, TICKED_TASKS } from "../../../shared/enums.js";
-import { hex } from "./common.js";
+import { hex, localDate } from "./common.js";
 
 export const credentials = z.object({
   username: z
@@ -57,6 +57,8 @@ const profile = z
     look: look.optional(),
     /** The unlocks and titles already announced on the character sheet. */
     seen: z.array(z.string().max(80)).max(400).optional(),
+    /** Learn Donegeon: the tutorial chapters finished and the hints offered (frontend/src/lib/character/profile.ts). */
+    learned: z.array(z.string().max(40)).max(50).optional(),
     /** The user page's settings for the dot on the task bar's face and the sheet's Unlocked box and the editor's Next up box. */
     hideDot: z.boolean().optional(),
     hideNews: z.boolean().optional(),
@@ -148,6 +150,8 @@ export const settings = z
     cheersOff: z.boolean(),
     /** null = no cap. */
     pointsCap: z.number().int().min(1, "A cap is at least 1 point").max(MAX_POINTS).nullable(),
+    /** Days off: the days from today on (those gone by stay as they were, see settleRest). */
+    restDays: z.array(z.object({ from: localDate, to: localDate }).refine(({ from, to }) => from <= to, "A rest starts before it ends")).max(50, "At most 50 rests"),
     /** null = no reminder. */
     breakEvery: z.number().int().min(1, "A reminder comes after at least 1 task").max(1000).nullable(),
     /** null = back to the defaults. */

@@ -12,6 +12,7 @@ import type { WeekAuto } from "../../lib/week";
 import type { TaskTreeNode } from "../../types";
 import { PostponeDeadline } from "../Notifications/PostponeDeadline";
 import { ValueChip } from "../Points/ValueChip";
+import { isTipTap } from "../TapTips";
 import { RichText } from "../RichText";
 import { DeadlineBadge } from "../TaskTree/DeadlineBadge";
 import { zoneOn } from "../TaskTree/dragState";
@@ -72,7 +73,7 @@ export function PickedRow({ node, path, today, box, dueSince, auto, onNotToday, 
   // Its deadline is today: that is what it says, not since when its round is due.
   const dueToday = node.deadlineDate === today && !node.isComplete;
   function onRowClick(e: MouseEvent<HTMLDivElement>) {
-    if ((e.target as Element).closest("button, input, a, label")) return;
+    if ((e.target as Element).closest("button, input, a, label") || isTipTap(e.target)) return;
     if (hasPage) navigate(`/tasks/${node.id}`);
     else showInList();
   }
@@ -111,10 +112,10 @@ export function PickedRow({ node, path, today, box, dueSince, auto, onNotToday, 
         <TickOrPress
           node={node}
           control={isAhead ? "ahead" : undefined}
-          title={isAhead ? `Repeats ${repeatLabel(node)}` : isReminder ? "Done it now: counts as this week's round" : undefined}
+          data-tip title={isAhead ? `Repeats ${repeatLabel(node)}` : isReminder ? "Done it now: counts as this week's round" : undefined}
         />
         {missed && (
-          <span className="flex-none font-bold text-red-600" data-missed title="A round of this was missed in an earlier week">
+          <span className="flex-none font-bold text-red-600" data-missed data-tip title="A round of this was missed in an earlier week">
             !
           </span>
         )}
@@ -126,7 +127,7 @@ export function PickedRow({ node, path, today, box, dueSince, auto, onNotToday, 
           {rounds > 1 && (
             <span
               data-rounds={rounds}
-              title="Rounds missed are made up: each press does the oldest"
+              data-tip title="Rounds missed are made up: each press does the oldest"
               className="pixel-chip bg-red-100 px-2 py-0.5 text-xs whitespace-nowrap text-red-800 dark:bg-red-950 dark:text-red-300"
             >
               ×{rounds} to do
@@ -140,7 +141,7 @@ export function PickedRow({ node, path, today, box, dueSince, auto, onNotToday, 
           )}
           {isReminder && (
             <span
-              title="It doesn't have to be made up: it is on its planned days this week as ever"
+              data-tip title="It doesn't have to be made up: it is on its planned days this week as ever"
               className="pixel-chip bg-red-100 px-2 py-0.5 text-xs whitespace-nowrap text-red-800 dark:bg-red-950 dark:text-red-300"
             >
               not done since {formatDay(node.nextDue!)}
@@ -155,6 +156,11 @@ export function PickedRow({ node, path, today, box, dueSince, auto, onNotToday, 
             </span>
           )}
           <ValueChip node={node} />
+          {hasPage && (
+            <button type="button" className="btn-quiet glyph" aria-label={`Open the page of "${name}"`} title="Open its page" onClick={() => navigate(`/tasks/${node.id}`)} data-open-page>
+              ›
+            </button>
+          )}
           {/* The reminder of a dropped round has nothing to move. */}
           {inWeek && isReminder ? null : inWeek ? (
             <>

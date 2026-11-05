@@ -46,6 +46,8 @@ interface Props {
    * `tab` is that attribute's value. Other tiles can't be dropped there.
    */
   onDropOnTab?: (view: string, tab: string) => void;
+  /** Where nothing was arranged, spread the tiles over the columns that fit (the Tasks page and folders: see arrange). */
+  spreads?: boolean;
 }
 
 /** A column is never narrower than this; fewer fit on a narrower screen. */
@@ -108,7 +110,7 @@ function tabAt(x: number, y: number) {
   return document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-tab-drop]") ?? null;
 }
 
-export function TileGrid({ tiles, order, layout, onChange, onDropOnTab }: Props) {
+export function TileGrid({ tiles, order, layout, onChange, onDropOnTab, spreads = false }: Props) {
   const wrapper = useRef<HTMLDivElement>(null);
   const [fits, setFits] = useState(1);
   useLayoutEffect(() => {
@@ -125,7 +127,7 @@ export function TileGrid({ tiles, order, layout, onChange, onDropOnTab }: Props)
   const [drop, setDrop] = useState<DropAt | null>(null);
 
   const byKey = new Map(tiles.map((tile) => [tile.key, tile]));
-  const arrangement = arrange(layout, fits, tiles.map((tile) => tile.key), order);
+  const arrangement = arrange(layout, fits, tiles.map((tile) => tile.key), order, spreads);
   const shown = (keys: string[]) => keys.flatMap((key) => byKey.get(key) ?? []);
   const pinned = shown(arrangement.pinned);
   // Columns keep their index in the full arrangement, which also holds tiles that aren't shown right now.

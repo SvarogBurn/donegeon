@@ -1,4 +1,4 @@
-import { calView } from "./folders";
+import { calView, TODAY_VIEW } from "./folders";
 
 /**
  * How the dashboard's tiles are arranged. Tiles are named by key ("today",
@@ -65,6 +65,32 @@ export function normalizeLayout(layout: DashboardLayout | null | undefined): Das
   return { pinned: layout.pinned, hidden: layout.hidden ?? [], collapsed: layout.collapsed ?? [], extras: layout.extras ?? [], byColumns };
 }
 
+/** Today, on the Tasks page or as a copy in a folder: what a phone shows first, where nothing was arranged on one. */
+const TODAY_KEYS = ["today", TODAY_VIEW];
+
+/**
+ * About how tall a tile stands, to spread tiles over columns where nothing was arranged: a list, Today, a table or a
+ * calendar are tall, a note or a box of labels short. A minimized one counts as shown, so hiding a box or bringing it
+ * back moves no other.
+ */
+function tileWeight(key: string): number {
+  if (key.startsWith("list:") || TODAY_KEYS.includes(key) || key.startsWith("cal:") || key === "deadlines" || key === "box:deadlines") return 3;
+  if (key === "pressure" || key === "done" || key.startsWith("stat:")) return 2;
+  return 1;
+}
+
+/** The tiles in their default order over `n` columns, each to the one standing shortest so far (the first, on a tie). */
+function spread(keys: string[], n: number): string[][] {
+  const columns = Array.from({ length: n }, () => [] as string[]);
+  const heights = columns.map(() => 0);
+  for (const key of keys) {
+    const at = heights.indexOf(Math.min(...heights));
+    columns[at].push(key);
+    heights[at] += tileWeight(key);
+  }
+  return columns.filter((column, i) => i === 0 || column.length > 0);
+}
+
 /** The saved arrangement for a screen that fits `n` columns, if there is one to go by. */
 function savedFor(layout: DashboardLayout, n: number): string[][] | null {
   const { phone, wide } = layout.byColumns;
@@ -87,14 +113,26 @@ function savedFor(layout: DashboardLayout, n: number): string[][] | null {
  * `known` is `keys` plus the tiles that exist but are minimized, in the same
  * default order: they get a place too, so one hidden before anything was
  * arranged comes back where it was rather than at the end.
+ *
+ * Where nothing was arranged at all, a wide screen spreads the tiles over its
+ * columns (with `spreads`: the Tasks page and folders), evenly by about how
+ * tall each stands (2026-11-04, playtest 1: they all stood in the first
+ * column, the rest of the screen empty), and a phone puts Today first: it is
+ * what is looked at every morning.
  */
-export function arrange(layout: DashboardLayout, n: number, keys: string[], known: string[] = keys): Arrangement {
+export function arrange(layout: DashboardLayout, n: number, keys: string[], known: string[] = keys, spreads = false): Arrangement {
   const pinned = [...new Set(layout.pinned)];
   const seen = new Set(pinned);
-  const columns = (savedFor(layout, n) ?? [[]]).map((column) =>
-    column.filter((key) => !seen.has(key) && Boolean(seen.add(key))),
-  );
+  const saved = savedFor(layout, n);
+  const fresh = known.filter((key) => !seen.has(key));
+  const start = saved ?? (n > 1 ? (spreads ? spread(fresh, n) : [fresh]) : [[...fresh.filter((key) => TODAY_KEYS.includes(key)), ...fresh.filter((key) => !TODAY_KEYS.includes(key))]]);
+  const columns = start.map((column) => column.filter((key) => !seen.has(key) && Boolean(seen.add(key))));
   if (columns.length === 0) columns.push([]);
+  // A phone with only the wide arrangement saved: Today still first, unless it was arranged on a phone.
+  if (n === 1 && saved && !layout.byColumns.phone) {
+    const today = columns[0].findIndex((key) => TODAY_KEYS.includes(key));
+    if (today > 0) columns[0].unshift(...columns[0].splice(today, 1));
+  }
 
   let notesAt = 0;
   for (const key of known) {

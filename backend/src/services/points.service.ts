@@ -1,5 +1,4 @@
 import type { List, PointTransaction, Prisma, Task } from "@prisma/client";
-import { HttpError } from "../lib/httpError.js";
 import { findRoot } from "./taskTree.service.js";
 
 /**
@@ -19,25 +18,18 @@ export function subtaskValue(task: Pick<Task, "points">, root: Pick<Task, "point
   return task.points ?? (root.pointsToSubtasks ? rootValue : 0);
 }
 
-export type Booking =
-  | { ok: true; row: { type: "earned" | "redeemed"; amount: number } | null }
-  | { ok: false; short: number }
-  | { ok: false; over: number };
+export type Booking = { type: "earned" | "redeemed"; amount: number } | null;
 
 /**
- * The ledger row for doing an item worth `value` in a list of this kind: a
- * task list adds, a reward list subtracts and needs the balance to cover it.
- * If the user set a cap (null = none), earning may reach it but not pass it.
- * Nothing is written for a value of 0.
+ * The ledger row for doing an item worth `value` in a list of this kind: a task list adds, a reward list subtracts.
+ * Nothing is ever refused (2026-11-04, playtest 1: the cap mustn't stop real work being logged): with a cap (null =
+ * none) earning stops at it, and a reward costing more than the balance takes what there is, never below 0. Nothing
+ * is written for a value of 0, nor when the cap is reached or the balance is empty.
  */
 export function bookingFor(kind: List["kind"], value: number, balance: number, cap: number | null): Booking {
-  if (value <= 0) return { ok: true, row: null };
-  if (kind === "task") {
-    if (cap !== null && balance + value > cap) return { ok: false, over: balance + value - cap };
-    return { ok: true, row: { type: "earned", amount: value } };
-  }
-  if (balance < value) return { ok: false, short: value - balance };
-  return { ok: true, row: { type: "redeemed", amount: -value } };
+  const amount = kind === "task" ? Math.min(value, cap === null ? value : cap - balance) : Math.min(value, balance);
+  if (amount <= 0) return null;
+  return kind === "task" ? { type: "earned", amount } : { type: "redeemed", amount: -amount };
 }
 
 type LedgerRow = Pick<PointTransaction, "id" | "type" | "amount" | "reversesId" | "createdAt">;
@@ -59,8 +51,8 @@ export async function balanceOf(tx: Prisma.TransactionClient, userId: string): P
 
 /**
  * One booking at a time per user, until the transaction ends: the balance a
- * booking is checked against (enough for a reward, room under the cap, not
- * below 0) is then still the balance when its row is written, however fast
+ * booking is measured against (what a reward can take, the room under the cap,
+ * not below 0) is then still the balance when its row is written, however fast
  * the buttons are pressed.
  */
 async function lockLedger(tx: Prisma.TransactionClient, userId: string) {
@@ -70,7 +62,8 @@ async function lockLedger(tx: Prisma.TransactionClient, userId: string) {
 /**
  * Books a task being done (ticked, or pressed if persistent). A subtask is booked
  * in its main task's list: that list's kind decides add or subtract.
- * Returns the row, or null if the task is worth nothing or the user has the points system off (then nothing is refused either).
+ * Returns the row, or null if the task is worth nothing, the cap is reached, the balance can't pay for any of a reward,
+ * or the user has the points system off.
  */
 export async function bookTask(tx: Prisma.TransactionClient, task: Task) {
   await lockLedger(tx, task.userId);
@@ -85,17 +78,9 @@ export async function bookTask(tx: Prisma.TransactionClient, task: Task) {
   const rootValue = taskValue(root, list, todayPoints);
   const value = task.parentId ? subtaskValue(task, root, rootValue) : rootValue;
   const booking = bookingFor(list?.kind ?? "task", value, await balanceOf(tx, task.userId), pointsCap);
-  if (!booking.ok) {
-    throw new HttpError(
-      400,
-      "short" in booking
-        ? `Not enough points: you need ${booking.short} more`
-        : `Over your point cap of ${pointsCap}. Spend some points first`,
-    );
-  }
-  if (!booking.row) return null;
+  if (!booking) return null;
   return tx.pointTransaction.create({
-    data: { ...booking.row, userId: task.userId, relatedTaskId: task.id, title: task.title },
+    data: { ...booking, userId: task.userId, relatedTaskId: task.id, title: task.title },
   });
 }
 

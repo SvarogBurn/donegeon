@@ -19,6 +19,7 @@ export function ValueChip({ node }: { node: Pick<TaskTreeNode, "parentId" | "lis
   return (
     <span
       data-value-chip
+      data-tip
       title={`${isReward ? "Costs" : "Earns"} ${node.value} ${node.value === 1 ? "point" : "points"} (${source})`}
       className={`pixel-chip px-2 py-0.5 text-xs font-medium whitespace-nowrap tabular-nums ${isReward ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"}`}
     >

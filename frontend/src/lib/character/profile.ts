@@ -58,6 +58,12 @@ export interface Profile {
   hideNews?: boolean;
   /** Settings › Gamification: no tick sounds. */
   soundOff?: boolean;
+  /**
+   * Learn Donegeon: the chapters of the tutorial finished, and the hints of them already offered ("hint:<chapter>", and
+   * "hint:pill" for the pill after the core). Set (empty) when the core ends: an account that had the whole tutorial
+   * before gets no hints.
+   */
+  learned?: string[];
   /** Settings › Gamification: a big moment after every so many tasks of a day (null = none, left out = BIG_EVERY, lib/bigMoment.ts). */
   bigEvery?: number | null;
 }
@@ -121,7 +127,7 @@ export function normalizeProfile(raw: unknown, known?: Known): Profile {
   });
   const title = text(p.title, 80);
   const seenIds = Array.isArray(p.seen) ? [...new Set(p.seen.filter((id): id is string => typeof id === "string"))] : null;
-  return { ...(title && { title }), stats, custom, skills, ...(p.look !== undefined && { look: normalizeLook(p.look) }), ...(seenIds && { seen: seenIds }), ...(p.hideDot === true && { hideDot: true }), ...(p.hideNews === true && { hideNews: true }), ...(p.soundOff === true && { soundOff: true }), ...(p.bigEvery === null && { bigEvery: null }), ...(typeof p.bigEvery === "number" && p.bigEvery >= 1 && { bigEvery: Math.floor(p.bigEvery) }) };
+  return { ...(title && { title }), stats, custom, skills, ...(p.look !== undefined && { look: normalizeLook(p.look) }), ...(seenIds && { seen: seenIds }), ...(p.hideDot === true && { hideDot: true }), ...(p.hideNews === true && { hideNews: true }), ...(p.soundOff === true && { soundOff: true }), ...(Array.isArray(p.learned) && { learned: [...new Set(p.learned.filter((id): id is string => typeof id === "string"))] }), ...(p.bigEvery === null && { bigEvery: null }), ...(typeof p.bigEvery === "number" && p.bigEvery >= 1 && { bigEvery: Math.floor(p.bigEvery) }) };
 }
 
 /** A fresh id for a custom stat. */

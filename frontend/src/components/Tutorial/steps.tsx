@@ -77,6 +77,11 @@ const name = (ctx: TutorialContext) => <b>{ctx.task?.title.split("\n")[0]}</b>;
 const subtasks = (ctx: TutorialContext) => ctx.task?.descendantCount ?? 0;
 const views = (ctx: TutorialContext) => ctx.folders.reduce((sum, folder) => sum + folder.views.length, 0);
 const rewardLists = (ctx: TutorialContext) => ctx.lists.filter((list) => list.kind === "reward").length;
+/** The items of the reward lists (main tasks), and how many of them were bought (ticked, or pressed once at least). */
+const rewards = (ctx: TutorialContext) => ctx.tasks.filter((task) => ctx.lists.some((list) => list.kind === "reward" && list.id === task.listId));
+const bought = (ctx: TutorialContext) => rewards(ctx).filter((task) => task.isComplete || task.completions.length > 0).length;
+/** The box of a reward list (the newest, made a step before). */
+const REWARD_LIST = 'section[data-list-kind="reward"]';
 /** Main tasks that carry something a typed shortcut sets: points, a deadline, a Today mark, a tag, a goal or a schedule. */
 const withShortcuts = (ctx: TutorialContext) =>
   ctx.tasks.filter((task) => task.points !== null || task.deadlineDate || task.isPersistent || task.tagIds.length + task.goalIds.length > 0 || (task.todaySince && task.listId)).length;
@@ -468,16 +473,20 @@ export const STEPS: Step[] = [
     // The handle to grab; once a box is in the air, the strip at the right edge to drop it on.
     target: () => ['[data-zone="new"]', HANDLE],
     also: () => [HANDLE],
-    // One column is all a narrow screen has.
-    skip: () => document.querySelector<HTMLElement>("[data-tile-grid]")?.dataset.fits === "1",
+    // One column is all a narrow screen has; and where the boxes already fill every column there is, no new one is offered.
+    skip: () => {
+      const grid = document.querySelector<HTMLElement>("[data-tile-grid]");
+      const fits = Number(grid?.dataset.fits ?? 1);
+      return fits === 1 || (grid?.querySelectorAll('[data-zone]:not([data-zone="pinned"]):not([data-zone="new"])').length ?? 0) >= fits;
+    },
     note: (ctx) => ({ columns: Math.max(1, ctx.columns) }),
     done: (ctx) => ctx.columns > ctx.base.columns,
   },
   {
     route: "/",
     text: () => <>before you become a slob, learn to minimize your lists and tabs, regardless of folders, tasks, stats,..</>,
-    // The new-list field, done with now.
-    target: () => ['[data-tile="newList"] .tile-button-min', ".tile-button-min"],
+    // The new-list field, done with now: its Hide is in its band's ⋯.
+    target: () => ['[data-tile="newList"] [data-band-hide]', "[data-band-menu] [data-band-hide]", '[data-tile="newList"] .tile-button-more', ".tile-button-more"],
     done: (ctx) => ctx.hiddenBoxes.includes(NEW_LIST_TILE),
   },
   {
@@ -934,4 +943,72 @@ export const STEPS: Step[] = [
     target: () => ['header [aria-label="Account"]'],
     button: "Get out",
   },
+  // The three steps the short core needed that no step said (2026-11-04): their words are drafts (Claude), for the user to reword.
+  {
+    needsTask: true,
+    route: "/",
+    // draft (Claude)
+    text: () => <>Now tick its subtasks, then the task itself. That's what gets you the points.</>,
+    target: (ctx) => [tree(ctx)],
+    skip: (ctx) => Boolean(ctx.task?.isComplete),
+    done: (ctx) => Boolean(ctx.task?.isComplete),
+  },
+  {
+    route: "/",
+    // draft (Claude)
+    text: () => <>Put something fun in your reward list, with what it costs. Like: Episode of a show 5p</>,
+    target: () => [`${REWARD_LIST} [data-task-editor^="add:"]`],
+    also: () => [REWARD_LIST],
+    skip: (ctx) => rewardLists(ctx) === 0,
+    note: (ctx) => ({ rewardItems: rewards(ctx).length }),
+    done: (ctx) => rewards(ctx).length > ctx.base.rewardItems,
+  },
+  {
+    route: "/",
+    // draft (Claude)
+    text: () => <>Tick it to buy it with your points.</>,
+    target: () => [`${REWARD_LIST} [data-task-row] input[type="checkbox"]`, `${REWARD_LIST} [data-task-row] .repeat-button`],
+    also: () => [REWARD_LIST],
+    skip: (ctx) => rewards(ctx).length === 0,
+    note: (ctx) => ({ bought: bought(ctx) }),
+    done: (ctx) => bought(ctx) > ctx.base.bought,
+  },
 ];
+
+/** The step that asks to tick the task, and the two about a reward: at the end of STEPS, so the others keep their numbers. */
+const TICK = STEPS.length - 3;
+const ADD_REWARD = STEPS.length - 2;
+const BUY = STEPS.length - 1;
+/** The step that says goodbye. */
+const SEND_OFF = TICK - 1;
+
+/**
+ * The short tutorial every account gets first, about two minutes (2026-11-04, playtest 1: all of it took fifteen):
+ * a task, its subtasks, a deadline and its pace table, ticking, a reward list, a reward and buying it.
+ */
+export const CORE: number[] = [0, 1, MAKE_TASK, 3, 4, 5, 6, 7, 8, 15, 16, 17, 18, TICK, 23, ADD_REWARD, BUY, SEND_OFF];
+
+/** A chapter of Learn Donegeon: the rest of the tutorial's steps, run on their own from the user page's box. */
+export interface Chapter {
+  id: string;
+  /** Its name in the box (a draft, Claude). */
+  name: string;
+  steps: number[];
+}
+
+/** Every step not in the core, in chapters. A chapter about the task starts with making one, passed over while the core's is there. */
+export const CHAPTERS: Chapter[] = [
+  { id: "menu", name: "The ⋯ menu", steps: [MAKE_TASK, 8, 9, 10, 11, 12, 13, 14] },
+  { id: "shortcuts", name: "Shortcuts and search", steps: [19, 20, 21, 22] },
+  { id: "boxes", name: "Arranging boxes", steps: [24, 25, 26, 27] },
+  { id: "stats", name: "Stats", steps: [28, 29] },
+  { id: "week", name: "Today and Week", steps: [30, 31, 32, 33] },
+  { id: "calendar", name: "Calendar", steps: [34, 35, 36, 37] },
+  { id: "folders", name: "Folders", steps: [38, 39, 40] },
+  { id: "you", name: "You", steps: [41, 42, 43, 44, 45, 46, 47] },
+  { id: "dressing", name: "Dressing up", steps: [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60] },
+  { id: "friends", name: "Friends and settings", steps: [61, 62, 63, 64, 65] },
+];
+
+/** The steps of a run: the core's, or a chapter's (none for an id no longer known). */
+export const stepsOf = (run: string) => (run === "core" ? CORE : (CHAPTERS.find((chapter) => chapter.id === run)?.steps ?? []));

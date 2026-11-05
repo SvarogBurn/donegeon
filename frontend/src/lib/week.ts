@@ -2,7 +2,7 @@ import { addDays, mondayOf } from "../../../shared/dates";
 import { addInterval, currentRound, movedDay } from "../../../shared/repeat";
 import type { DeadlineToday, TaskTreeNode, TickedTasks } from "../types";
 import { deadlineTodayFrom } from "./deadlines";
-import { isDue, roundsDue } from "./repeat";
+import { isDue, missedOffRest, roundsDue } from "./repeat";
 import { plainFirstLine, plainTitle } from "./markup";
 
 /** Monday to Sunday of the week `day` is in. */
@@ -41,7 +41,7 @@ export const weekColumn = (node: TaskTreeNode, today: string) => {
  * week began: Monday); a task on a schedule is due (its oldest open round) or has a round that day still to come;
  * or, on Monday, a reminder that a round of it was missed in an earlier week and dropped (nothing to do about it).
  */
-export type WeekAuto = "deadline" | "due" | "round" | "missed";
+export type WeekAuto = "deadline" | "due" | "round" | "missed" | "today";
 
 export interface WeekItem {
   node: TaskTreeNode;
@@ -70,13 +70,14 @@ export interface WeekDayItems {
  * and greyed on the days of their later rounds, each round where it was moved to if it was (into the bucket too), and
  * flagged with a red "!" on Monday when a round was missed in an earlier week: one that makes up missed rounds is due
  * there, one that skips them has only the reminder there and is on its planned days as ever; and, if the user chose
- * that deadlines come into Today, tasks on the day of their deadline (Monday, if it passed before the week began).
+ * that deadlines come into Today, tasks on the day of their deadline (Monday, if it passed before the week began); and
+ * the tasks in Today, on today (a ticked one on the day it was ticked).
  * Then everything the user planned for a day, in their order for it, and in the bucket what they put off to next
  * week. A ticked task stays on its day until the week is over (or goes at once, if the user chose to hide ticked
  * tasks); one still open stays on its day, and once the week is over it isn't carried on to the next: the bell asks
  * when to do it (see leftUndone). Subtasks left open inside a finished main task went to the Done page with it.
  */
-export function weekDays(trees: TaskTreeNode[], today: string, ticked: TickedTasks, deadlines: DeadlineToday): WeekDayItems[] {
+export function weekDays(trees: TaskTreeNode[], today: string, ticked: TickedTasks, deadlines: DeadlineToday, rest: ReadonlySet<string> = new Set()): WeekDayItems[] {
   const days = daysOfWeek(today);
   const [monday, sunday] = [days[0], days[6]];
   const nextMonday = addDays(monday, 7);
@@ -91,12 +92,14 @@ export function weekDays(trees: TaskTreeNode[], today: string, ticked: TickedTas
         if (shown && node.weekDay >= monday) put(node.weekDay, item);
       } else if (node.repeatEvery && node.nextDue) {
         const round = currentRound(node, today)!;
-        const missed = round.missed || round.day < monday;
+        // Rounds dropped on rest days only aren't a miss (nor one left open from a rest day).
+        const dropped = round.missed && missedOffRest(node, round.planned, rest);
+        const missed = dropped || (round.day < monday && !rest.has(round.day));
         const isMoved = (planned: string) => node.roundMoves?.[planned] !== undefined;
         // A dropped round that would have been Monday's anyway is flagged there, on the round itself.
-        if (round.missed && round.day !== monday) put(monday, { ...item, auto: "missed", missed: true });
+        if (dropped && round.day !== monday) put(monday, { ...item, auto: "missed", missed: true });
         if (round.day <= sunday || isMoved(round.planned)) {
-          put(round.day, { ...item, auto: round.day <= today ? "due" : "round", missed: missed && round.day <= monday, rounds: roundsDue(node, today), round: round.planned });
+          put(round.day, { ...item, auto: round.day <= today ? "due" : "round", missed: missed && round.day <= monday, rounds: roundsDue(node, today, rest), round: round.planned });
         }
         for (let planned = addInterval(round.planned, node.repeatEvery, node.repeatUnit); planned <= sunday; planned = addInterval(planned, node.repeatEvery, node.repeatUnit)) {
           // Rounds on days gone by, or today, are in the due one's count (making up) or skipped.
@@ -105,6 +108,9 @@ export function weekDays(trees: TaskTreeNode[], today: string, ticked: TickedTas
         }
       } else if (node.deadlineDate && node.deadlineDate <= sunday && deadlineTodayFrom(node, deadlines) !== null && shown && !(node.isComplete && node.deadlineDate < monday)) {
         put(node.deadlineDate, { ...item, auto: "deadline" });
+      } else if (!node.isPersistent && shown && (node.isComplete ? node.completedOn !== null && node.todaySince === node.completedOn : node.todaySince === today || isOwnToday(node, today))) {
+        // In Today (marked for it, or typed there): on today, or, ticked, on the day it was ticked (2026-11-04, playtest 1).
+        put(node.isComplete ? node.completedOn! : today, { ...item, auto: "today" });
       }
       visit(node.children, [...path, plainTitle(node.title.split("\n")[0])], rootFinished || (path.length === 0 && node.isComplete));
     }
@@ -112,7 +118,7 @@ export function weekDays(trees: TaskTreeNode[], today: string, ticked: TickedTas
   visit(trees, [], false);
   // What came by itself first (the due ones, then deadlines, then rounds to come), then the user's order; ticked
   // ones under the open ones, unless the user chose to leave them where they are.
-  const AUTO_RANK = { missed: 0, due: 0, deadline: 1, round: 2 };
+  const AUTO_RANK = { missed: 0, due: 0, deadline: 1, today: 1, round: 2 };
   const rank = (item: WeekItem) => (item.auto ? AUTO_RANK[item.auto] : 3);
   const tickedLast = (item: WeekItem) => Number(ticked === "bottom" && item.node.isComplete);
   return [...days, nextMonday].map((day) => ({

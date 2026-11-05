@@ -35,30 +35,34 @@ describe("subtaskValue", () => {
 
 describe("bookingFor", () => {
   it("adds points in a task list, whatever the balance", () => {
-    expect(bookingFor("task", 5, -3, null)).toEqual({ ok: true, row: { type: "earned", amount: 5 } });
+    expect(bookingFor("task", 5, -3, null)).toEqual({ type: "earned", amount: 5 });
   });
 
   it("subtracts points in a reward list", () => {
-    expect(bookingFor("reward", 10, 10, null)).toEqual({ ok: true, row: { type: "redeemed", amount: -10 } });
+    expect(bookingFor("reward", 10, 10, null)).toEqual({ type: "redeemed", amount: -10 });
   });
 
-  it("refuses a reward the balance can't cover and says how much is missing", () => {
-    expect(bookingFor("reward", 10, 4, null)).toEqual({ ok: false, short: 6 });
+  it("buys a reward the balance can't cover with what there is, never below 0", () => {
+    expect(bookingFor("reward", 10, 4, null)).toEqual({ type: "redeemed", amount: -4 });
+    expect(bookingFor("reward", 10, 0, null)).toBeNull();
   });
 
-  it("lets earning reach the user's cap but not pass it", () => {
-    expect(bookingFor("task", 10, 10, 25)).toEqual({ ok: true, row: { type: "earned", amount: 10 } });
-    expect(bookingFor("task", 5, 20, 25)).toEqual({ ok: true, row: { type: "earned", amount: 5 } });
-    expect(bookingFor("task", 10, 20, 25)).toEqual({ ok: false, over: 5 });
+  it("lets earning reach the user's cap and stop there, the tick still logged", () => {
+    expect(bookingFor("task", 10, 10, 25)).toEqual({ type: "earned", amount: 10 });
+    expect(bookingFor("task", 5, 20, 25)).toEqual({ type: "earned", amount: 5 });
+    expect(bookingFor("task", 10, 20, 25)).toEqual({ type: "earned", amount: 5 });
+    expect(bookingFor("task", 10, 25, 25)).toBeNull();
+    // A cap lowered under the balance takes nothing away.
+    expect(bookingFor("task", 3, 40, 25)).toBeNull();
   });
 
   it("never holds a reward to the cap", () => {
-    expect(bookingFor("reward", 10, 40, 25)).toEqual({ ok: true, row: { type: "redeemed", amount: -10 } });
+    expect(bookingFor("reward", 10, 40, 25)).toEqual({ type: "redeemed", amount: -10 });
   });
 
   it("writes nothing for an item worth 0", () => {
-    expect(bookingFor("task", 0, 0, null)).toEqual({ ok: true, row: null });
-    expect(bookingFor("reward", 0, -5, null)).toEqual({ ok: true, row: null });
+    expect(bookingFor("task", 0, 0, null)).toBeNull();
+    expect(bookingFor("reward", 0, -5, null)).toBeNull();
   });
 });
 

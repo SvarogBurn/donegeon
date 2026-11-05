@@ -7,6 +7,8 @@ import { isUnreachable } from "../api/client";
  */
 export interface Refusal {
   message: string;
+  /** A note, not a refusal: what happened isn't quite what the click looked like (points stopped at the cap). Grey, not red. */
+  isNote?: boolean;
   /** The control that was clicked, as the viewport saw it; null when nothing was (Ctrl+Z). */
   at: { left: number; top: number; bottom: number } | null;
 }
@@ -46,6 +48,13 @@ export function refuse(error: Error, change?: RefusedChange, el?: Element) {
   const box = recent && (recent.el.isConnected ? recent.el.getBoundingClientRect() : recent.box);
   set({ message: error.message, at: box ? { left: box.left, top: box.top, bottom: box.bottom } : null });
   if (change) refusedListeners.forEach((listener) => listener(change));
+}
+
+/** A note beside the last click (or `el`), in the refusal's place but grey: it went through, with something to know. */
+export function note(message: string, el?: Element) {
+  const recent = el ? { el, box: el.getBoundingClientRect() } : clicked && Date.now() - clicked.time < CLICK_IS_OLD_MS ? clicked : null;
+  const box = recent && (recent.el.isConnected ? recent.el.getBoundingClientRect() : recent.box);
+  set({ message, isNote: true, at: box ? { left: box.left, top: box.top, bottom: box.bottom } : null });
 }
 
 export function onRefusedChange(listener: (change: RefusedChange) => void) {

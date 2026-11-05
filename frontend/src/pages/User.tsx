@@ -5,6 +5,8 @@ import { FeedbackBox } from "../components/Feedback/FeedbackBox";
 import { FeedbackInbox } from "../components/Feedback/FeedbackInbox";
 import { NewsStand } from "../components/News/NewsStand";
 import { CharacterSheet } from "../components/Character/CharacterSheet";
+import { RestDaysSettings } from "../components/Character/RestDays";
+import { LearnBox } from "../components/Tutorial/Learn";
 import { useProfile } from "../components/Character/useProfile";
 import { DeadlineSettings } from "../components/Countdown/DeadlineSettings";
 import { PeopleBox } from "../components/People/PeopleBox";
@@ -16,7 +18,7 @@ import { HiddenRow } from "../components/Tiles/HiddenRow";
 import { TileControlsContext, TileFrame } from "../components/Tiles/TileFrame";
 import { useTabDrag } from "../components/Tiles/useTabDrag";
 import { forgetTutorialPlace } from "../components/Tutorial/Tutorial";
-import { useDeleteAccount, useLogout, useMe, useUpdateMe } from "../hooks/useAuth";
+import { useDeleteAccount, useLogout, useMe, useTutorialRunning, useUpdateMe } from "../hooks/useAuth";
 import { useDropOnTab, useFolders } from "../hooks/folders";
 import { useLayout, useSaveLayout } from "../hooks/layout";
 import { useOnline } from "../lib/offline/online";
@@ -140,7 +142,7 @@ function SwitchedAmount({ label, value, first, onSave, amountLabel, name, note }
             onBlur={done}
             onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
             aria-label={amountLabel}
-            data-font-choice={name}
+            {...{ [`data-${name}`]: true }}
           />
         )}
       </div>
@@ -152,7 +154,7 @@ function SwitchedAmount({ label, value, first, onSave, amountLabel, name, note }
 const capNote = (cap: number | null) =>
   cap === null
     ? "Your points can add up without limit."
-    : `A task that would take you past ${cap} ${cap === 1 ? "point" : "points"} can't be ticked or done until you spend some on a reward.`;
+    : `Your points stop at ${cap}: tasks still tick, and earn nothing past it until you spend some on a reward.`;
 
 const breakNote = (every: number | null) =>
   every === null
@@ -253,6 +255,7 @@ function DeleteAccount({ username, onCancel }: { username: string; onCancel: () 
 /** Every setting of the account's: on the user page, and wherever it was copied (the Tasks page, a folder). */
 export function SettingsBox() {
   const { user } = useMe();
+  const tutorialRuns = useTutorialRunning();
   const logout = useLogout();
   const update = useUpdateMe();
   const { profile, save: saveProfile } = useProfile();
@@ -354,7 +357,7 @@ export function SettingsBox() {
       <p className="text-xs text-stone-500">
         {user.healthOff
           ? "No health: deadlines and rounds missed cost nothing, and the character shows no hearts."
-          : "Hearts on the character. A deadline or round missed costs health, as much as it was worth; a new level heals it all. Run out and the character loses levels, and what they unlocked, until it earns them back."}
+          : "Hearts on the character. Each deadline or round missed costs half a heart; a new level heals them all. Run out and the character loses a level, and what it unlocked: do 3 tasks in the next 3 days to win it back."}
       </p>
       {!user.healthOff && (
         <>
@@ -367,6 +370,7 @@ export function SettingsBox() {
               ? "A day with nothing done breaks the streak."
               : "A day with nothing done costs the character a level (it keeps how far into it it was) instead of breaking the streak. At Lv 1 the streak breaks."}
           </p>
+          <RestDaysSettings />
         </>
       )}
       <label className="flex items-center gap-2 text-xs">
@@ -399,7 +403,7 @@ export function SettingsBox() {
         <SocialSettings />
       </SettingsSection>
       {/* How the app looks, and which tabs it has. Open while the tutorial runs: it points at the Notes tab's switch. */}
-      <SettingsSection name="design" title="Theme and design" forceOpen={!user.tutorialSeen}>
+      <SettingsSection name="design" title="Theme and design" forceOpen={tutorialRuns}>
       <label className="flex items-center gap-2 text-xs">
         <PixelCheckbox small checked={user.notesTab} onChange={(e) => update.mutate({ notesTab: e.target.checked })} data-notes-tab />
         Notes tab
@@ -509,6 +513,7 @@ export function UserBox({ name }: { name: string }) {
   const { user } = useMe();
   if (!user) return null;
   if (name === "character") return <CharacterSheet />;
+  if (name === "learn") return <LearnBox />;
   if (name === "people") return <PeopleBox />;
   if (name === "news") return <NewsStand />;
   if (name === "settings") return <SettingsBox />;
@@ -527,6 +532,7 @@ export function UserBox({ name }: { name: string }) {
  */
 export function UserPage() {
   const { user } = useMe();
+  const tutorialRuns = useTutorialRunning();
   const { hash } = useLocation();
   const layout = useLayout("user");
   const saveLayout = useSaveLayout("user");
@@ -553,7 +559,7 @@ export function UserPage() {
 
   const saved = normalizeLayout(layout.data);
   // The tutorial points at these boxes, and the "All shortcuts" link at the cheat sheet: those show even when minimized.
-  const isHidden = (key: string) => user.tutorialSeen && !(key === "cheatsheet" && hash === "#shortcuts") && (saved.hidden ?? []).includes(key);
+  const isHidden = (key: string) => !tutorialRuns && !(key === "cheatsheet" && hash === "#shortcuts") && (saved.hidden ?? []).includes(key);
 
   // Their names are the buttons' labels and the Hidden row's.
   // The Inbox is the devs' only.

@@ -221,7 +221,7 @@ export const editedInTrees = (trees: TaskTreeNode[], id: string, patch: Partial<
  * One press of a persistent task's "done it" button: logged, its subtasks unticked for the next round and, on a
  * schedule, due one interval on, as the server's press does it. A persistent task under it keeps its own rounds.
  */
-export function pressedInTrees(trees: TaskTreeNode[], id: string, press: TaskPress): TaskTreeNode[] {
+export function pressedInTrees(trees: TaskTreeNode[], id: string, press: TaskPress, rest?: ReadonlySet<string>): TaskTreeNode[] {
   const untick = (nodes: TaskTreeNode[]): TaskTreeNode[] =>
     nodes.map((node) =>
       node.isPersistent ? node : { ...node, isComplete: false, completedAt: null, completedOn: null, descendantDoneCount: 0, children: untick(node.children) },
@@ -231,7 +231,7 @@ export function pressedInTrees(trees: TaskTreeNode[], id: string, press: TaskPre
     const scheduled: Partial<Task> =
       node.repeatEvery && node.nextDue
         ? (() => {
-            const nextDue = dueAfter({ ...node, repeatEvery: node.repeatEvery, nextDue: node.nextDue }, press.day);
+            const nextDue = dueAfter({ ...node, repeatEvery: node.repeatEvery, nextDue: node.nextDue }, press.day, rest);
             return { nextDue, roundMoves: movesFrom(node.roundMoves, nextDue) };
           })()
         : {};

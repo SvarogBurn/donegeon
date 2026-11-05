@@ -214,12 +214,12 @@ export function MonthBox() {
                     </button>
                     <span className="flex min-h-3 flex-wrap items-center justify-center gap-1 text-[8px] leading-none @xl:hidden">
                       {open > 0 && (
-                        <span data-cal-open={open} className="bg-[#3544a1] px-1 py-0.5 text-white" title={`${open} to do`}>
+                        <span data-cal-open={open} className="bg-[#3544a1] px-1 py-0.5 text-white" data-tip title={`${open} to do`}>
                           {open}
                         </span>
                       )}
                       {done.length > 0 && (
-                        <span data-cal-done={done.length} className="border border-stone-400 px-1 py-0.5 text-stone-500" title={`${done.length} done`}>
+                        <span data-cal-done={done.length} className="border border-stone-400 px-1 py-0.5 text-stone-500" data-tip title={`${done.length} done`}>
                           {done.length}
                         </span>
                       )}

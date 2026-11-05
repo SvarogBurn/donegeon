@@ -1,5 +1,5 @@
-import { daysBetween } from "../../../shared/dates";
-import type { Health } from "../../../shared/health";
+import { addDays, daysBetween } from "../../../shared/dates";
+import type { Comeback, Health, WeekHealth } from "../../../shared/health";
 import type { TaskTreeNode } from "../types";
 import { plainFirstLine } from "./markup";
 import { readStored, writeStored } from "./storage";
@@ -83,30 +83,43 @@ export function leftUndone(trees: TaskTreeNode[], today: string): LeftUndone[] {
 /** How long a knockout, or a day missed that kept the streak, stays in the bell (until dismissed). */
 export const KNOCKOUT_SHOWN_DAYS = 7;
 
-/** Levels the character lost on a day: to a knockout, or to a day with nothing done that kept the streak (a freeze). */
+/**
+ * Levels the character lost on a day: to a knockout (with its comeback, while it is open), or to a day with nothing
+ * done that kept the streak (a freeze); levels won back by a comeback; or last week summed up (`week`, on its Monday).
+ */
 export interface LevelLost {
-  kind: "knockout" | "freeze";
+  kind: "knockout" | "freeze" | "comeback" | "week";
   day: string;
   levels: number;
   key: string;
+  quest?: Comeback;
+  week?: WeekHealth;
 }
 
 /**
- * The knockouts and kept streaks of the last KNOCKOUT_SHOWN_DAYS days, latest first: a row a day (each day missed is
- * its own; two knockouts on one day are one row with both their levels).
+ * The knockouts, kept streaks and comebacks of the last KNOCKOUT_SHOWN_DAYS days, latest first: a row a day (each day
+ * missed is its own; two knockouts on one day are one row with both their levels). The last knockout's row carries its
+ * comeback while it is open. Last week's summary comes first, all this week, if anything happened in it.
  */
-export function levelsLost(health: Pick<Health, "knockouts" | "freezes">, today: string): LevelLost[] {
+export function levelsLost(health: Pick<Health, "knockouts" | "freezes"> & Partial<Pick<Health, "comebacks" | "quest" | "lastWeek">>, today: string): LevelLost[] {
   const rows = new Map<string, LevelLost>();
   const add = (kind: LevelLost["kind"], drops: Health["knockouts"]) => {
     for (const { day, from, to } of drops) {
       if (daysBetween(day, today) >= KNOCKOUT_SHOWN_DAYS) continue;
       const key = `${kind}:${day}`;
-      rows.set(key, { kind, day, levels: (rows.get(key)?.levels ?? 0) + from - to, key });
+      rows.set(key, { kind, day, levels: (rows.get(key)?.levels ?? 0) + Math.abs(from - to), key });
     }
   };
   add("knockout", health.knockouts);
   add("freeze", health.freezes);
-  return [...rows.values()].sort((a, b) => b.day.localeCompare(a.day));
+  add("comeback", health.comebacks ?? []);
+  const { quest } = health;
+  const open = quest && rows.get(`knockout:${quest.day}`);
+  if (open) open.quest = quest;
+  const sorted = [...rows.values()].sort((a, b) => b.day.localeCompare(a.day));
+  const week = health.lastWeek;
+  const happened = week && (week.done > 0 || week.hits > 0 || week.rested > 0);
+  return happened && daysBetween(week.to, today) <= 7 ? [{ kind: "week", day: addDays(week.to, 1), levels: week.levelTo - week.levelFrom, key: `week:${week.from}`, week }, ...sorted] : sorted;
 }
 
 // Dismissed notifications are this device's: the bell is a reminder, not part of the task.

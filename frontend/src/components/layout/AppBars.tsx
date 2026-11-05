@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { useNewNote } from "../../hooks/notes";
 import { usePoints } from "../../hooks/points";
-import { useCalendarTab, useStatsTab } from "../../hooks/useAuth";
+import { useCalendarTab, useStatsTab, useTutorialRunning } from "../../hooks/useAuth";
 import type { User } from "../../types";
 import { CharacterFace } from "../Character/CharacterFace";
 import { Bell } from "../Notifications/Bell";
@@ -92,12 +92,13 @@ export function AppBars({ user }: { user: User }) {
   const [isSearching, setIsSearching] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [isBellOpen, setIsBellOpen] = useState(false);
+  const tutorialRuns = useTutorialRunning();
   const newNote = useNewNote();
   const isOnNotes = pathname === "/notes";
   const statsTab = useStatsTab();
   const calendarTab = useCalendarTab();
   // Kept in place while the tutorial runs, too: its arrows point at them.
-  const isHidden = useHideOnScroll(isAdding || isSearching || isBellOpen || !user.tutorialSeen);
+  const isHidden = useHideOnScroll(isAdding || isSearching || isBellOpen || tutorialRuns);
   // Another page: the search has done its job.
   useEffect(() => setIsSearching(false), [pathname]);
 

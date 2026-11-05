@@ -77,12 +77,20 @@ export function currentRound(task: Rounds, today: string): { day: string; planne
  * and one done early doesn't come back before its own day has passed. With `repeatMakeUp` they do pile up: the press
  * does the oldest round still open, and the next one is due one interval after it. Without, the press is for the
  * current round (currentRound): one left open from a week before `doneOn`'s was dropped. A task done every day and
- * done again before its round has come keeps that round: pressed twice today, it is still due tomorrow.
+ * done again before its round has come keeps that round: pressed twice today, it is still due tomorrow. Making rounds
+ * up, those on a rest day gone by (`rest`) aren't owed: the press goes past them, to the oldest one that is.
  */
-export function dueAfter(task: Rounds & { repeatEvery: number; nextDue: string }, doneOn: string): string {
+export function dueAfter(task: Rounds & { repeatEvery: number; nextDue: string }, doneOn: string, rest: ReadonlySet<string> = new Set()): string {
   const { repeatEvery, repeatUnit } = task;
   if (task.repeatAfterDone) return addInterval(doneOn, repeatEvery, repeatUnit);
-  if (task.repeatMakeUp) return addInterval(task.nextDue, repeatEvery, repeatUnit);
+  if (task.repeatMakeUp) {
+    const rested = (day: string) => rest.has(movedDay(task, day)) && movedDay(task, day) < doneOn;
+    let round = task.nextDue;
+    while (rested(round)) round = addInterval(round, repeatEvery, repeatUnit);
+    let next = addInterval(round, repeatEvery, repeatUnit);
+    while (rested(next)) next = addInterval(next, repeatEvery, repeatUnit);
+    return next;
+  }
   const round = currentRound(task, doneOn)!;
   if (repeatEvery === 1 && repeatUnit === "day" && round.day > doneOn) return round.planned;
   let next = addInterval(round.planned, repeatEvery, repeatUnit);

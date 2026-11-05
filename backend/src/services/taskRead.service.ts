@@ -45,7 +45,7 @@ async function wholeTrees(owner: string, where: Prisma.TaskWhereInput, presses: 
 async function valuedRows(owner: string, tasks: TreeRow[], today: string) {
   const [lists, user] = await Promise.all([
     prisma.list.findMany({ where: { userId: owner } }),
-    prisma.user.findUniqueOrThrow({ where: { id: owner }, select: { todayPoints: true, healthOff: true, healthSince: true } }),
+    prisma.user.findUniqueOrThrow({ where: { id: owner }, select: { todayPoints: true, healthOff: true, healthSince: true, restDays: true } }),
   ]);
   const { todayPoints } = user;
   const listById = new Map(lists.map((list) => [list.id, list]));

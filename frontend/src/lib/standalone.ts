@@ -41,3 +41,19 @@ const subscribe = (onChange: () => void) => {
 };
 
 export const useStandalone = () => useSyncExternalStore(subscribe, isStandalone);
+
+/** A phone-wide screen (under 40rem, as Tailwind's `sm`). */
+const narrow = window.matchMedia("(width < 40rem)");
+const isAppLayout = () => isStandalone() || narrow.matches;
+const subscribeLayout = (onChange: () => void) => {
+  const unsubscribe = subscribe(onChange);
+  narrow.addEventListener("change", onChange);
+  return () => (unsubscribe(), narrow.removeEventListener("change", onChange));
+};
+
+/**
+ * Whether the installed app's layout (AppBars: the strip along the top, the bottom bar with its "+") is used: when it
+ * is installed, and on a phone-wide screen in a browser tab too (2026-11-04, playtest 1: the browser's task bar hid
+ * its tabs in a strip too narrow to show them). The scroll bar is still the browser's there (html[data-standalone]).
+ */
+export const useAppLayout = () => useSyncExternalStore(subscribeLayout, isAppLayout);

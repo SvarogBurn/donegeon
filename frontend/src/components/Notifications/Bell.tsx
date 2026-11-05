@@ -1,4 +1,5 @@
 import { daysBetween } from "../../../../shared/dates";
+import { heartsText } from "../../../../shared/health";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { appNow, localDate } from "../../lib/clock";
@@ -7,7 +8,7 @@ import { useDismissed } from "../../hooks/notifications";
 import { useAcceptFriend, useIgnoreFriend, useInbox, useMarkCheersSeen } from "../../hooks/people";
 import { useDeadlineToday, useHealthOff, useMe, useNotifySettings, useTickedTasks } from "../../hooks/useAuth";
 import { formatDay } from "../../lib/dates";
-import { leftUndone, levelsLost, passedDeadlines, saveDismissed, type LeftUndone, type PassedDeadline } from "../../lib/notifications";
+import { leftUndone, levelsLost, passedDeadlines, saveDismissed, type LeftUndone, type LevelLost, type PassedDeadline } from "../../lib/notifications";
 import { dueToday, findTask, type Planned } from "../../lib/notifySchedule";
 import { markNewsSeen, useUnseenNews } from "../../lib/newsSeen";
 import { normalizeLook } from "../../lib/character/profile";
@@ -23,6 +24,24 @@ import { PostponeDeadline } from "./PostponeDeadline";
 const ago = (n: number) => (n === 1 ? "yesterday" : `${n} days ago`);
 // At Lv 1 a knockout takes no level, only the level's exp (my draft of the words).
 const levelsText = (n: number) => (n === 0 ? "Back to the start of Lv 1" : `Lost ${n} ${n === 1 ? "level" : "levels"}`);
+
+/** What a row of levels lost (or won, or last week's) says, under its heading. */
+function lostText(item: LevelLost) {
+  if (item.kind === "comeback") return `Back on your feet: ${item.levels === 1 ? "the level" : `${item.levels} levels`} won back`;
+  if (item.kind === "week" && item.week) {
+    const { done, hits, levelFrom, levelTo, rested } = item.week;
+    const level = levelTo === levelFrom ? `still Lv ${levelTo}` : `Lv ${levelFrom} → ${levelTo}`;
+    return `${done} ${done === 1 ? "task" : "tasks"} done, ${hits} missed (−${heartsText(hits)} ♥), ${level}${rested ? `, ${rested} ${rested === 1 ? "day" : "days"} rested` : ""}`;
+  }
+  return levelsText(item.levels);
+}
+
+const LOST_HEADS: Record<LevelLost["kind"], [string, string]> = {
+  knockout: ["Knocked out", "text-red-700 dark:text-red-400"],
+  freeze: ["Streak kept", "text-sky-700 dark:text-sky-400"],
+  comeback: ["Comeback", "text-emerald-700 dark:text-emerald-400"],
+  week: ["Last week", "text-stone-700 dark:text-stone-300"],
+};
 
 /** The colour of each of today's messages in the list: a deadline coming is amber, a reminder blue. */
 const KIND_COLORS: Partial<Record<Planned["kind"], string>> = {
@@ -285,11 +304,16 @@ export function Bell({
                       void navigate("/user");
                     }}
                   >
-                    <span className={`flex items-center gap-1.5 font-pixel text-[8px] ${item.kind === "knockout" ? "text-red-700 dark:text-red-400" : "text-sky-700 dark:text-sky-400"}`}>
+                    <span className={`flex items-center gap-1.5 font-pixel text-[8px] ${LOST_HEADS[item.kind][1]}`}>
                       <span className="size-1.5 flex-none bg-current" aria-hidden />
-                      {item.kind === "knockout" ? "Knocked out" : "Streak kept"} · {formatDay(item.day)}
+                      {LOST_HEADS[item.kind][0]} · {item.kind === "week" && item.week ? `${formatDay(item.week.from)}–${formatDay(item.week.to)}` : formatDay(item.day)}
                     </span>
-                    <span className="mt-1 block truncate text-sm">{levelsText(item.levels)}</span>
+                    <span className={`mt-1 block text-sm ${item.kind === "week" ? "" : "truncate"}`}>{lostText(item)}</span>
+                    {item.quest && (
+                      <span className="mt-0.5 block text-xs text-amber-700 dark:text-amber-400" data-notification-comeback>
+                        Comeback: {item.quest.done}/{item.quest.needed} tasks by {formatDay(item.quest.until)} win it back
+                      </span>
+                    )}
                     <span className="mt-0.5 block text-xs text-stone-500">Tap to see your character</span>
                   </button>
                   <button type="button" className="btn-quiet px-2 py-2 text-base leading-none" aria-label="Dismiss" title="Dismiss" onClick={() => dismiss([item.key])}>

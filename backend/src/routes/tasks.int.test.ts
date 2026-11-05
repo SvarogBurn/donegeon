@@ -350,7 +350,7 @@ describe("logging in", () => {
 });
 
 describe("health", () => {
-  it("a deadline gone by costs what it was worth when the trees are next read, and moving it after takes nothing back", async () => {
+  it("a deadline gone by costs half a heart when the trees are next read, and moving it after takes nothing back", async () => {
     const { call, listId } = await user();
     const essay = (await call("POST", "/tasks", { title: "Essay", listId, points: 3, deadlineDate: "2026-11-02", deadlineType: "soft" })).body.task;
     await call("POST", "/tasks", { title: "Draft", parentId: essay.id, points: 2 });
@@ -359,13 +359,24 @@ describe("health", () => {
     expect((await call("GET", "/tasks/hp", undefined, later)).body).toMatchObject({ hp: 10, max: 10, recent: [] });
     await Promise.all([1, 2].map(() => call("GET", "/tasks", undefined, later)));
     const hit = (await call("GET", "/tasks/hp", undefined, later)).body;
-    expect(hit).toMatchObject({ off: false, hp: 5, lost: 0, recent: [{ title: "Essay", kind: "deadline", day: "2026-11-03", damage: 5 }] });
+    expect(hit).toMatchObject({ off: false, hp: 9, lost: 0, recent: [{ title: "Essay", kind: "deadline", day: "2026-11-03", damage: 1 }] });
 
     await call("PATCH", `/tasks/${essay.id}`, { deadlineDate: "2026-11-20" }, later);
     await call("GET", "/tasks", undefined, later);
-    expect((await call("GET", "/tasks/hp", undefined, later)).body.hp).toBe(5);
+    expect((await call("GET", "/tasks/hp", undefined, later)).body.hp).toBe(9);
 
     await call("PATCH", "/auth/me", { healthOff: true }, later);
     expect((await call("GET", "/tasks/hp", undefined, later)).body.off).toBe(true);
+  });
+
+  it("a rest day: what is missed on it costs nothing, and only the days from today on can be changed", async () => {
+    const { call, listId } = await user();
+    await call("PATCH", "/auth/me", { restDays: [{ from: "2026-11-02", to: "2026-11-02" }] }, "2026-11-02");
+    await call("POST", "/tasks", { title: "Essay", listId, deadlineDate: "2026-11-02" });
+    await call("GET", "/tasks", undefined, "2026-11-04");
+    expect((await call("GET", "/tasks/hp", undefined, "2026-11-04")).body).toMatchObject({ hp: 10, recent: [] });
+    // Taken back after the day: it stays.
+    const after = (await call("PATCH", "/auth/me", { restDays: [] }, "2026-11-04")).body.user;
+    expect(after.restDays).toEqual([{ from: "2026-11-02", to: "2026-11-02" }]);
   });
 });

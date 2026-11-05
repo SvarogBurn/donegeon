@@ -16,6 +16,7 @@ import { cardSheet } from "../../lib/people";
 import type { Health } from "../../types";
 import { TileFrame } from "../Tiles/TileFrame";
 import { CellBar, ExpBar, Hearts } from "./Bars";
+import { RestToday } from "./RestDays";
 import { CharacterEditor } from "./CharacterEditor";
 import { CharacterSprite } from "./CharacterSprite";
 import { Unlocked } from "./Unlocked";
@@ -34,9 +35,21 @@ const subscribePhone = (onChange: () => void) => {
 /** One column: the stats go under the character, and the character is as wide as the box. */
 const useIsPhone = () => useSyncExternalStore(subscribePhone, () => matchMedia(PHONE).matches);
 
-/** What cost the health lately, a line each, for the hearts' tooltip: "−2 Essay (deadline 27/10)". */
+/** What cost the health lately, a line each, for the hearts' tooltip: "−½ ♥ Essay (deadline 27/10)" (each miss is half a heart). */
 const hitsText = (health: Health) =>
-  health.recent.length === 0 ? "Nothing missed yet" : health.recent.map((hit) => `−${hit.damage} ${hit.title} (${hit.kind} ${formatDay(addDays(hit.day, -1))})`).join("\n");
+  health.recent.length === 0 ? "Nothing missed yet" : health.recent.map((hit) => `−½ ♥ ${hit.title} (${hit.kind} ${formatDay(addDays(hit.day, -1))})`).join("\n");
+
+/** The comeback after a knockout, while there is time: "Comeback: 1/3 tasks by 14/11 win Lv 3 back". */
+function ComebackLine({ health }: { health: Health }) {
+  const { quest } = health;
+  const knockout = health.knockouts.at(-1);
+  if (!quest || !knockout) return null;
+  return (
+    <p className="text-center text-xs text-amber-700 dark:text-amber-400" data-comeback={`${quest.done}/${quest.needed}`}>
+      Comeback: {quest.done}/{quest.needed} tasks by {formatDay(quest.until)} win Lv {knockout.from} back
+    </p>
+  );
+}
 
 /**
  * The top of the user's page, as a game's character sheet, the character's name on its band: the character, its
@@ -97,6 +110,10 @@ export function CharacterSheet() {
           {health && !healthOff && (
             <div className="w-full" data-character-health>
               <Hearts hp={health.hp} max={health.max} title={hitsText(health)} />
+              <ComebackLine health={health} />
+              <div className="mt-1 flex justify-center">
+                <RestToday />
+              </div>
             </div>
           )}
           <div className="flex w-full flex-col items-center gap-1">
@@ -171,7 +188,7 @@ export function CharacterSheet() {
         </div>
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <p className="flex-1 text-xs text-stone-500">Every task done is 1 exp, and so is every mail to the devs. Do at least one task a day to keep the streak going.{!healthOff && " A deadline or round missed costs health, as much as it was worth; only a new level heals it, and running out costs levels."}{!freezeOff && " A day with nothing done costs a level instead of the streak."}</p>
+        <p className="flex-1 text-xs text-stone-500">Every task done is 1 exp, and so is every mail to the devs. Do at least one task a day to keep the streak going.{!healthOff && " Each deadline or round missed costs half a heart; only a new level heals them, and running out costs a level, won back by 3 tasks in the next 3 days. A rest day costs nothing."}{!freezeOff && " A day with nothing done costs a level instead of the streak."}</p>
         <button type="button" className="band-button justify-center max-sm:h-8 max-sm:w-full" disabled={!online} title={online ? "The character's look, name, stats and skills" : "Needs a connection"} onClick={() => setEditing({})} data-character-edit>
           Edit
         </button>

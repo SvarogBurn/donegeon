@@ -3,14 +3,17 @@ import { Fragment, useEffect, useRef, useState, type FocusEvent, type KeyboardEv
 import { useNavigate } from "react-router";
 import { useGoals, useTags } from "../../hooks/labels";
 import { useAddTask, useEditTask, useUpdateTask } from "../../hooks/tasks";
+import { useRestDays } from "../../hooks/useAuth";
 import { localDate } from "../../lib/clock";
 import { formatDay } from "../../lib/dates";
 import { soonestFirst } from "../../lib/deadlines";
+import { plainFirstLine } from "../../lib/markup";
 import { partsOf } from "../../lib/dividers";
 import { isFiltering } from "../../lib/labels";
 import { isDue, isWaiting, repeatLabel, roundsDue } from "../../lib/repeat";
 import type { TaskTreeNode } from "../../types";
 import { ValueChip } from "../Points/ValueChip";
+import { isTipTap } from "../TapTips";
 import { DeadlineBadge } from "./DeadlineBadge";
 import { PressCopies } from "./PressCopies";
 import { ShortSyntaxEditor } from "./ShortSyntaxEditor";
@@ -35,6 +38,7 @@ function LabelChips({ node }: { node: TaskTreeNode }) {
           <span
             key={goal.id}
             className="pixel-chip max-w-32 truncate bg-stone-200 px-2 py-0.5 text-xs text-stone-700 dark:bg-stone-700 dark:text-stone-200"
+            data-tip
             title={`Goal: ${goal.name}`}
           >
             {goal.name}
@@ -46,6 +50,7 @@ function LabelChips({ node }: { node: TaskTreeNode }) {
           <span
             key={tag.id}
             className="pixel-chip max-w-32 truncate bg-white px-2 py-0.5 text-xs text-stone-600 dark:bg-stone-900 dark:text-stone-300"
+            data-tip
             title={`Tag: ${tag.name}`}
           >
             #{tag.name}
@@ -168,6 +173,7 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
   const today = localDate();
   const pressedToday = node.completions.filter((press) => press.day === today).length;
   const round = currentRound(node, today);
+  const owed = roundsDue(node, today, useRestDays());
   const hasChildren = node.children.length > 0;
   // A task is ticked last: everything beneath it first.
   const hasDraftChild = tree.draft?.parentId === node.id && tree.draft.scope === scope?.scope;
@@ -221,7 +227,7 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
 
   const opens = tree.hasPage(node);
   function openTask(e: MouseEvent<HTMLDivElement>) {
-    if (!opens || pressedControl.current || (e.target as Element).closest(ROW_CONTROLS)) return;
+    if (!opens || pressedControl.current || (e.target as Element).closest(ROW_CONTROLS) || isTipTap(e.target)) return;
     navigate(`/tasks/${node.id}`);
   }
 
@@ -234,7 +240,7 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
         data-today={node.todaySince === today ? "" : undefined}
         title={node.todaySince === today ? "In Today" : undefined}
         // Tasks marked for Today are tinted green in their list.
-        className={`flex ${opens ? "cursor-pointer" : ""} flex-wrap items-start gap-x-1.5 gap-y-1 rounded px-1 py-0.5 ${node.todaySince === today ? "bg-emerald-50 dark:bg-emerald-950/40" : "hover:bg-stone-50 dark:hover:bg-stone-800/50"} ${drop ? DROP_STYLES[drop] : ""}`}
+        className={`flex ${opens ? "cursor-pointer" : ""} items-start gap-x-1.5 rounded px-1 py-0.5 ${node.todaySince === today ? "bg-emerald-50 dark:bg-emerald-950/40" : "hover:bg-stone-50 dark:hover:bg-stone-800/50"} ${drop ? DROP_STYLES[drop] : ""}`}
       >
         <button
           type="button"
@@ -251,6 +257,8 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
           title={node.isPersistent ? "Done it. Stays here for next time; a ticked copy underneath can be unticked to take it back" : undefined}
         />
 
+        {/* The title and its chips; on a narrow row the chips go under the title, the ⋯ and the handle staying beside it (2026-11-04, playtest 1). */}
+        <div className="flex min-w-0 flex-1 flex-wrap items-start gap-x-1.5 gap-y-1">
         <div className="flex min-w-32 flex-1 items-start gap-1">
           <ShortSyntaxEditor
             parentId={node.parentId}
@@ -286,7 +294,7 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
             </span>
           )}
           {round?.missed && (
-            <span className="font-bold text-red-600" data-missed title={`Not done since ${formatDay(node.nextDue!)}: that round was dropped, it doesn't have to be made up`}>
+            <span className="font-bold text-red-600" data-missed data-tip title={`Not done since ${formatDay(node.nextDue!)}: that round was dropped, it doesn't have to be made up`}>
               !
             </span>
           )}
@@ -294,21 +302,32 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
             <span
               data-next-due={round.day}
               data-due={isDue(node, today) ? "" : undefined}
+              data-tip
               title={`Repeats ${repeatLabel(node)}`}
               className={`pixel-chip px-2 py-0.5 text-xs whitespace-nowrap ${isDue(node, today) ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" : "bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400"}`}
             >
               {round.day === today ? "due today" : `${isDue(node, today) ? "due since" : "next"} ${formatDay(round.day)}`}
               {/* Making up missed rounds: how many are still to be done. */}
-              {roundsDue(node, today) > 1 && ` ×${roundsDue(node, today)}`}
+              {owed > 1 && ` ×${owed}`}
             </span>
           )}
           <DeadlineBadge task={node} />
           {hasChildren && (
-            <span className="text-xs text-stone-500 tabular-nums dark:text-stone-400">
-              {node.descendantDoneCount}/{node.descendantCount} done
+            <span className="text-xs text-stone-500 tabular-nums dark:text-stone-400" data-tip={`${node.descendantDoneCount} of its ${node.descendantCount} subtasks done (at any depth)`}>
+              {node.descendantDoneCount}/{node.descendantCount}
+              <span className="max-sm:sr-only"> done</span>
             </span>
           )}
           <ValueChip node={node} />
+        </span>
+        </div>
+        <span className="flex flex-none items-center gap-1.5 pt-1">
+          {/* A task with a page of its own says so (the whole row opens it too; a phone shows no pointer). */}
+          {opens && (
+            <button type="button" className="btn-quiet glyph" aria-label={`Open the page of "${plainFirstLine(node.title)}"`} title="Open its page" onClick={() => navigate(`/tasks/${node.id}`)} data-open-page>
+              ›
+            </button>
+          )}
           <TaskMenu node={node} depth={depth} onAddSubtask={addSubtask} onOpenNote={() => tree.showNote(node.id, !hasNote)} />
           <button
             type="button"

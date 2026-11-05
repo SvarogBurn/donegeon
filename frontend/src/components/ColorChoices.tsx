@@ -69,8 +69,8 @@ interface SwatchProps extends Props {
   title: string;
   /** The button's look, drawn from --swatch (the colour in use): a list's plate has a small square, a box's band a 7x7 button like its others. */
   className: string;
-  /** Which edge of the button the popup lines up with: a box's band button sits at the right of the box. */
-  align?: "left" | "right";
+  /** Which edge of the button the popup lines up with: "left" turns to the right edge on a phone (a list's plate is at the right there); "start" stays at the left (a band menu's, opening onto the screen). */
+  align?: "left" | "right" | "start";
 }
 
 /**
@@ -108,7 +108,7 @@ export function ColorSwatch({ label, title, className, align = "left", ...choice
       />
       {isOpen && (
         <div
-          className={`card absolute top-full z-40 mt-2 w-44 !p-2 text-left font-normal text-stone-900 shadow-lg dark:text-stone-100 ${align === "right" ? "right-0" : "left-0 max-sm:right-0 max-sm:left-auto"}`}
+          className={`card absolute top-full z-40 mt-2 w-44 !p-2 text-left font-normal text-stone-900 shadow-lg dark:text-stone-100 ${align === "right" ? "right-0" : align === "start" ? "left-0" : "left-0 max-sm:right-0 max-sm:left-auto"}`}
           role="dialog"
           aria-label={label}
         >

@@ -2,6 +2,7 @@ import { Prisma, type User } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { Router, type Request } from "express";
 import { z } from "zod";
+import { restRanges, settleRest } from "../../../shared/health.js";
 import { isDev } from "../lib/devs.js";
 import { HttpError } from "../lib/httpError.js";
 import { LoginLimit } from "../lib/loginLimit.js";
@@ -34,6 +35,7 @@ const publicUser = (user: User) => ({
   pointsOff: user.pointsOff,
   healthOff: user.healthOff,
   freezeOff: user.freezeOff,
+  restDays: restRanges(user.restDays),
   peopleOff: user.peopleOff,
   shares: user.shares,
   cheersOff: user.cheersOff,
@@ -118,9 +120,11 @@ async function cardChange(id: string, change: CardSettings): Promise<Prisma.User
 
 // The account's own settings, from the user's page.
 authRouter.patch("/me", requireAuth, async (req, res) => {
-  const { profile, taskBar, boxColors, deadlineTable, notifications, ...rest } = settings.parse(req.body);
+  const { profile, taskBar, boxColors, deadlineTable, notifications, restDays, ...rest } = settings.parse(req.body);
+  const before = restDays && (await prisma.user.findUniqueOrThrow({ where: { id: userId(req) }, select: { restDays: true } }));
   const data = {
     ...rest,
+    ...(restDays && { restDays: settleRest(restRanges(before?.restDays), restDays, req.localDate) as unknown as Prisma.InputJsonArray }),
     ...(await cardChange(userId(req), rest)),
     ...(profile !== undefined && { profile: profile ?? Prisma.DbNull }),
     ...(taskBar !== undefined && { taskBar: taskBar ?? Prisma.DbNull }),

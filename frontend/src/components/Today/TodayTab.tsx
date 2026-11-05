@@ -10,6 +10,7 @@ import { useTree } from "../TaskTree/TreeContext";
 import { PickedRow } from "./PickedRow";
 import { TodayPoints } from "./TodayPoints";
 import { WeekDay } from "./WeekTab";
+import { InfoTip } from "../InfoTip";
 
 export function TodayTab({ tasks }: { tasks: TaskTreeNode[] }) {
   const { ticked } = useTree();
@@ -35,7 +36,12 @@ export function TodayTab({ tasks }: { tasks: TaskTreeNode[] }) {
   return (
     <>
       <header className="flex flex-wrap items-center justify-end gap-2 text-xs text-stone-500">
-        {items.length + own.length > 0 && <span className="tabular-nums">{left} left</span>}
+        {items.length + own.length > 0 && (
+          <span className="flex items-center tabular-nums">
+            {left} left
+            <InfoTip text="Today's tasks still open, and the rounds of habits due today (each one owed counts)." />
+          </span>
+        )}
         <TodayPoints />
       </header>
       {items.length + own.length === 0 && (

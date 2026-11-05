@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { TaskTreeNode } from "../types";
 import { tasksOn } from "./notifySchedule";
 import { isOwnToday, isPutOff, leftToDo, todayItems, weekDays } from "./week";
+import { missedOffRest, roundsDue } from "./repeat";
 
 // Tuesday; its week's Sunday is 2026-10-25, the next Monday 2026-10-26.
 const today = "2026-10-20";
@@ -70,5 +71,36 @@ describe("nothing is carried on", () => {
     const days = weekDays(trees, "2026-10-22", "bottom", "never");
     expect(days.find((day) => day.day === "2026-10-20")!.items.map((item) => item.node.id)).toEqual(["tue"]);
     expect(days.flatMap((day) => day.items).some((item) => item.node.id === "before")).toBe(false);
+  });
+});
+
+describe("rest days", () => {
+  const daily = (nextDue: string, extra: Partial<TaskTreeNode> = {}) => task("run", { isPersistent: true, repeatEvery: 1, repeatUnit: "day", repeatAfterDone: false, repeatMakeUp: false, nextDue, completions: [], ...extra });
+
+  it("rounds on a rest day gone by aren't owed when making them up", () => {
+    const rest = new Set(["2026-10-18", "2026-10-19"]);
+    expect(roundsDue(daily("2026-10-17", { repeatMakeUp: true }), today, rest)).toBe(2);
+    // Today's round is owed today even when resting.
+    expect(roundsDue(daily(today, { repeatMakeUp: true }), today, new Set([today]))).toBe(1);
+  });
+
+  it("no red '!' on Monday for rounds dropped on rest days only", () => {
+    // Skipping missed rounds: one left from last week, on rest days, is no miss.
+    const node = daily("2026-10-15");
+    const flagged = (rest: Set<string>) => weekDays([node], today, "stay", "never", rest)[0].items.some((item) => item.missed);
+    expect(flagged(new Set())).toBe(true);
+    expect(flagged(new Set(["2026-10-15", "2026-10-16", "2026-10-17", "2026-10-18"]))).toBe(false);
+    expect(missedOffRest(node, "2026-10-19", new Set(["2026-10-15"]))).toBe(true);
+  });
+});
+
+describe("Today's tasks in Week", () => {
+  it("are on today, a ticked one on the day it was ticked; one marked for another day isn't", () => {
+    const open = task("call", { todaySince: today });
+    const before = task("old", { todaySince: "2026-10-19" });
+    const ticked = task("shop", { todaySince: "2026-10-19", isComplete: true, completedOn: "2026-10-19" });
+    const days = weekDays([open, before, ticked], today, "stay", "never");
+    expect(days.find((d) => d.day === today)!.items.map((item) => [item.node.id, item.auto])).toEqual([["call", "today"]]);
+    expect(days.find((d) => d.day === "2026-10-19")!.items.map((item) => item.node.id)).toEqual(["shop"]);
   });
 });

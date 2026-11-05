@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { healthOf, heartsAt, maxHp } from "../../../shared/health.js";
+import { healthOf, heartsAt, maxHp, restDays, settleRest } from "../../../shared/health.js";
 import { expFor, levelOf, spanOf } from "../../../shared/levels.js";
 import { missedDays, missesOf, type ValuedRow } from "./health.service.js";
 
@@ -30,27 +30,62 @@ describe("healthOf", () => {
     expect(walk([], [exp("2026-11-01", expFor(3))])).toMatchObject({ hp: 12, max: 12, level: 3 });
   });
 
-  it("run out, the character drops 1 level, then 2, 3 …, its hearts full again", () => {
-    const days = [exp("2026-11-01", expFor(5)), exp("2026-11-04", 7)];
-    const once = walk([hit("2026-11-02", 14)], days.slice(0, 1));
+  it("run out, the character drops 1 level, always, its hearts full again; never below Lv 1", () => {
+    const days = [exp("2026-11-01", expFor(5))];
+    const once = walk([hit("2026-11-02", 14)], days);
     expect(once).toMatchObject({ level: 4, hp: 12, max: 12, lost: expFor(5) - expFor(4), knockouts: [{ day: "2026-11-02", from: 5, to: 4 }] });
-    const twice = walk([hit("2026-11-02", 14), hit("2026-11-03", 12)], days.slice(0, 1));
-    expect(twice).toMatchObject({ level: 2, hp: 10, lost: expFor(5) - expFor(2) });
-    // A level regained heals; the next knockout still costs 3, as Lv 5 wasn't passed.
-    const thrice = walk([hit("2026-11-02", 14), hit("2026-11-03", 12), hit("2026-11-05", 12)], days);
-    expect(thrice.knockouts.map(({ from, to }) => [from, to])).toEqual([[5, 4], [4, 2], [3, 1]]);
-    expect(thrice).toMatchObject({ level: 1, hp: 10, lost: expFor(5) + 7 });
+    const twice = walk([hit("2026-11-02", 14), hit("2026-11-03", 12)], days);
+    expect(twice.knockouts.map(({ from, to }) => [from, to])).toEqual([[5, 4], [4, 3]]);
+    expect(twice).toMatchObject({ level: 3, hp: 12, lost: expFor(5) - expFor(3) });
+    const many = walk(Array.from({ length: 7 }, (_, i) => hit(`2026-11-0${i + 2}`, 20)), [exp("2026-11-01", expFor(30))]);
+    expect(many.knockouts.map(({ from, to }) => from - to)).toEqual([1, 1, 1, 1, 1, 1, 1]);
+    expect(walk([hit("2026-11-02", 10)], [])).toMatchObject({ level: 1, lost: 0, knockouts: [{ from: 1, to: 1 }] });
   });
 
-  it("never below Lv 1, at most 5 levels, and a level never had before forgives the knockouts", () => {
-    const hits = Array.from({ length: 7 }, (_, i) => hit(`2026-11-0${i + 2}`, 20));
-    const many = walk(hits, [exp("2026-11-01", expFor(30))]);
-    expect(many.knockouts.map(({ from, to }) => from - to)).toEqual([1, 2, 3, 4, 5, 5, 5]);
-    const low = walk([hit("2026-11-02", 10)], []);
-    expect(low).toMatchObject({ level: 1, lost: 0, knockouts: [{ from: 1, to: 1 }] });
-    // Lv 5, knocked to 4, then past 5 to 6: the next knockout costs 1 again.
-    const forgiven = walk([hit("2026-11-02", 14), hit("2026-11-04", 14)], [exp("2026-11-01", expFor(5)), exp("2026-11-03", expFor(6) - expFor(4))]);
-    expect(forgiven.knockouts.map(({ from, to }) => [from, to])).toEqual([[5, 4], [6, 5]]);
+  it("a comeback: 3 tasks on the day of the knockout or the 2 after win its level back", () => {
+    const start = exp("2026-11-01", expFor(5));
+    const won = walk([hit("2026-11-02", 14)], [start, exp("2026-11-02", 1), exp("2026-11-04", 2)]);
+    expect(won).toMatchObject({ level: 5, lost: 0, quest: null, comebacks: [{ day: "2026-11-04", from: 4, to: 5 }] });
+    // Two only, then the time is up: the level stays lost, and nothing more.
+    const missed = walk([hit("2026-11-02", 14)], [start, exp("2026-11-03", 2), exp("2026-11-05", 1)]);
+    expect(missed).toMatchObject({ level: 4, comebacks: [], quest: null });
+    // Still going: the quest says how far it is.
+    const open = healthOf({ hits: [hit("2026-11-02", 14)], done: [start, exp("2026-11-02", 1)], today: "2026-11-03" });
+    expect(open.quest).toEqual({ day: "2026-11-02", until: "2026-11-04", done: 1, needed: 3 });
+  });
+
+  it("a second knockout during a comeback starts a new one, which wins back only its own level", () => {
+    const health = walk([hit("2026-11-02", 14), hit("2026-11-03", 12)], [exp("2026-11-01", expFor(5)), exp("2026-11-03", 3)]);
+    expect(health.knockouts.map(({ to }) => to)).toEqual([4, 3]);
+    expect(health.comebacks).toEqual([{ day: "2026-11-03", from: 3, to: 4 }]);
+  });
+
+  it("nothing missed on a rest day costs anything", () => {
+    const rest = new Set(["2026-11-01"]);
+    expect(healthOf({ hits: [hit("2026-11-02", 3)], done: [], rest, today }).hp).toBe(10);
+    expect(healthOf({ hits: [hit("2026-11-03", 3)], done: [], rest, today }).hp).toBe(7);
+  });
+
+  it("last week summed up: done, missed, levels, rest days", () => {
+    const health = healthOf({ hits: [hit("2026-11-10", 1), hit("2026-11-11", 1)], done: [exp("2026-11-01", expFor(2)), exp("2026-11-12", 2)], rest: new Set(["2026-11-14"]), week: "2026-11-09", today: "2026-11-18" });
+    expect(health.lastWeek).toEqual({ from: "2026-11-09", to: "2026-11-15", done: 2, hits: 2, hpLost: 2, levelFrom: 2, levelTo: 2, knockouts: 0, freezes: 0, comebacks: 0, rested: 1 });
+  });
+});
+
+describe("rest days", () => {
+  it("settleRest: days gone by stay, days from today are the new ones', old ones go", () => {
+    const today = "2026-11-10";
+    const before = [{ from: "2026-11-08", to: "2026-11-12" }, { from: "2026-08-01", to: "2026-08-02" }];
+    // Taking the whole rest back leaves the days already gone by; a new one from yesterday starts today.
+    expect(settleRest(before, [{ from: "2026-11-09", to: "2026-11-11" }], today)).toEqual([
+      { from: "2026-11-08", to: "2026-11-09" },
+      { from: "2026-11-10", to: "2026-11-11" },
+    ]);
+    expect(settleRest([], [{ from: "2026-11-01", to: "2026-11-05" }], today)).toEqual([]);
+  });
+
+  it("restDays: every day of the ranges, in a window if given", () => {
+    expect([...restDays([{ from: "2026-11-01", to: "2026-11-03" }], "2026-11-02")]).toEqual(["2026-11-02", "2026-11-03"]);
   });
 });
 
@@ -73,14 +108,14 @@ describe("missesOf", () => {
     ...over,
   });
 
-  it("a deadline gone by with its task open hits the day after, costing what is left undone", () => {
+  it("a deadline gone by with its task open hits the day after, for half a heart whatever it was worth", () => {
     const rows = [
       row({ id: "essay", deadlineDate: "2026-11-08", value: 5 }),
       row({ id: "draft", parentId: "essay", value: 3 }),
       row({ id: "outline", parentId: "essay", value: 4, isComplete: true, completedOn: "2026-11-05" }),
       row({ id: "habit", parentId: "essay", isPersistent: true, value: 9 }),
     ];
-    expect(missesOf(rows, today, since)).toEqual([{ key: "deadline:essay:2026-11-08", kind: "deadline", taskId: "essay", title: "essay", day: "2026-11-09", damage: 8 }]);
+    expect(missesOf(rows, today, since)).toEqual([{ key: "deadline:essay:2026-11-08", kind: "deadline", taskId: "essay", title: "essay", day: "2026-11-09", damage: 1 }]);
   });
 
   it("soft deadlines too; not on the day itself, nor done in time, nor before health came in, nor in a reward list", () => {
@@ -92,14 +127,14 @@ describe("missesOf", () => {
       row({ id: "old", deadlineDate: "2026-10-28" }),
       row({ id: "reward", deadlineDate: "2026-11-05", valueKind: "reward" }),
     ];
-    expect(missesOf(rows, today, since).map(({ taskId, damage }) => [taskId, damage])).toEqual([["soft", 1], ["late", 2]]);
+    expect(missesOf(rows, today, since).map(({ taskId, damage }) => [taskId, damage])).toEqual([["soft", 1], ["late", 1]]);
   });
 
   it("each deadline that goes by hits anew in full, however often the task was postponed; one moved before its day is free", () => {
     const missedOn = (deadlineDate: string, day: string) => missesOf([row({ id: "late", deadlineDate, value: 6 })], day, since);
     expect(missedOn("2026-11-12", today)).toEqual([]);
-    expect(missedOn("2026-11-05", "2026-11-06").map(({ key, damage }) => [key, damage])).toEqual([["deadline:late:2026-11-05", 6]]);
-    expect(missedOn("2026-11-08", "2026-11-09").map(({ key, damage }) => [key, damage])).toEqual([["deadline:late:2026-11-08", 6]]);
+    expect(missedOn("2026-11-05", "2026-11-06").map(({ key, damage }) => [key, damage])).toEqual([["deadline:late:2026-11-05", 1]]);
+    expect(missedOn("2026-11-08", "2026-11-09").map(({ key, damage }) => [key, damage])).toEqual([["deadline:late:2026-11-08", 1]]);
   });
 
   it("not a deadline under a persistent task: a press unticks it, so it would look missed however it was done", () => {
@@ -112,10 +147,16 @@ describe("missesOf", () => {
     const weekly = row({ id: "clean", isPersistent: true, repeatEvery: 1, repeatUnit: "week", nextDue: "2026-11-03", value: 1 });
     const keys = missesOf([daily, weekly, row({ id: "chore", parentId: "clean", value: 2 })], today, since).map(({ key, day, damage }) => [key, day, damage]);
     expect(keys).toEqual([
-      ["round:walk:2026-11-07", "2026-11-08", 2],
-      ["round:walk:2026-11-09", "2026-11-10", 2],
-      ["round:clean:2026-11-03", "2026-11-04", 3],
+      ["round:walk:2026-11-07", "2026-11-08", 1],
+      ["round:walk:2026-11-09", "2026-11-10", 1],
+      ["round:clean:2026-11-03", "2026-11-04", 1],
     ]);
+  });
+
+  it("nothing missed on a rest day: no deadline, no round", () => {
+    const rows = [row({ id: "essay", deadlineDate: "2026-11-08" }), row({ id: "walk", isPersistent: true, repeatEvery: 1, nextDue: "2026-11-07" })];
+    const rest = new Set(["2026-11-07", "2026-11-08"]);
+    expect(missesOf(rows, today, since, rest).map(({ key }) => key)).toEqual(["round:walk:2026-11-09"]);
   });
 
   it("no rounds before health came in, and none for a task without a schedule", () => {
@@ -162,5 +203,11 @@ describe("the streak freeze", () => {
     expect(missedDays(days, new Set(["2026-11-13"]), "2026-11-15", "2026-11-12")).toEqual(["2026-11-14"]);
     expect(missedDays(done(["2026-01-01", 1]), new Set(), "2026-11-15", "2026-01-01")[0]).toBe("2026-09-16");
     expect(missedDays([], new Set(), "2026-11-15", "2026-10-30")).toEqual([]);
+    expect(missedDays(days, new Set(), "2026-11-15", "2026-10-30", new Set(["2026-11-13"]))).toEqual(["2026-11-11", "2026-11-14"]);
+  });
+
+  it("a rest day carries the streak with no level lost", () => {
+    const health = healthOf({ hits: [], done: done(["2026-11-01", expFor(3)], ["2026-11-03", 1]), missed: [], rest: new Set(["2026-11-02"]), today });
+    expect(health).toMatchObject({ freezes: [], frozen: ["2026-11-02"], level: 3 });
   });
 });

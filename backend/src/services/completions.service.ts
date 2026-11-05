@@ -1,4 +1,5 @@
 import { Prisma, type Task } from "@prisma/client";
+import { restDays, restRanges } from "../../../shared/health.js";
 import { currentRound, dueAfter, movesFrom } from "../../../shared/repeat.js";
 import { alreadyMade } from "../lib/clientId.js";
 import { HttpError } from "../lib/httpError.js";
@@ -27,7 +28,9 @@ export async function pressTask(task: Task, id: string | undefined, { today, at 
     t.completedAt && t.completedOn ? [{ id: t.id, completedAt: t.completedAt, completedOn: t.completedOn }] : [],
   );
   const { repeatEvery, nextDue } = task;
-  const next = repeatEvery && nextDue ? dueAfter({ ...task, repeatEvery, nextDue }, today) : null;
+  // Making rounds up, the rounds on rest days aren't owed (see dueAfter).
+  const rest = task.repeatMakeUp ? restDays(restRanges((await prisma.user.findUnique({ where: { id: task.userId }, select: { restDays: true } }))?.restDays)) : undefined;
+  const next = repeatEvery && nextDue ? dueAfter({ ...task, repeatEvery, nextDue }, today, rest) : null;
 
   const completion = await prisma.$transaction(async (tx) => {
     const booked = await bookTask(tx, task);

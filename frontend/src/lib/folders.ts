@@ -31,7 +31,7 @@ export const noteView = (noteId: string) => `${NOTE_PREFIX}${noteId}`;
 export const noteOfView = (view: string) => (view.startsWith(NOTE_PREFIX) ? view.slice(NOTE_PREFIX.length) : null);
 const USER_PREFIX = "user:";
 /** The user page's boxes, by name: dropped on the Tasks tab or a folder's, they are shown there too. */
-export const USER_BOXES: Record<string, string> = { character: "Character", people: "Friends", news: "News", settings: "Settings", cheatsheet: "Cheat sheet", feedback: "Send mail to devs", inbox: "Inbox" };
+export const USER_BOXES: Record<string, string> = { character: "Character", learn: "Learn Donegeon", people: "Friends", news: "News", settings: "Settings", cheatsheet: "Cheat sheet", feedback: "Send mail to devs", inbox: "Inbox" };
 export const userView = (name: string) => `${USER_PREFIX}${name}`;
 /** The user page's box a view shows, or null for any other view. */
 export const userOfView = (view: string) => (view.startsWith(USER_PREFIX) ? view.slice(USER_PREFIX.length) : null);

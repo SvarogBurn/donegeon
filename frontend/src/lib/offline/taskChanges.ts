@@ -1,4 +1,5 @@
 import { DEFAULT_TODAY_POINTS } from "../../../../shared/constants";
+import { restDays, restRanges } from "../../../../shared/health";
 import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 import * as goalsApi from "../../api/goals";
 import * as tagsApi from "../../api/tags";
@@ -222,7 +223,7 @@ export const taskSpecs: Specs<TaskChangeVars> = {
         const node = findNode(all, id);
         if (node) beforePress.set(completionId, node);
         const press: TaskPress = { id: completionId, day: when.day, createdAt: when.at };
-        return pressedInTrees(all, id, press);
+        return pressedInTrees(all, id, press, restDays(restRanges(queryClient.getQueryData<User | null>(ME)?.restDays)));
       }),
     refresh: TASK_DATA,
     name: (_change, title) => `“done it” on ${quoted(title)}`,

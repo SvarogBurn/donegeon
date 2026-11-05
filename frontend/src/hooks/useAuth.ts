@@ -3,7 +3,9 @@ import { useMemo } from "react";
 import * as authApi from "../api/auth";
 import { ApiError } from "../api/client";
 import type { DeadlineToday, TickedTasks, User } from "../types";
+import { restDays, restRanges } from "../../../shared/health";
 import { soundOffIn } from "../lib/bigMoment";
+import { useRunningChapter } from "../lib/tutorialRun";
 import { readStored, writeStored } from "../lib/storage";
 import { normalizeDeadlineTable, type DeadlineTable } from "../lib/deadlineTable";
 import { normalizeNotifications, type NotifySettings, type Reminder } from "../lib/notifySettings";
@@ -89,10 +91,18 @@ export function useNewsTab(): boolean {
   return useMe().user?.newsTab ?? true;
 }
 
+/** Whether the tutorial is on: its core (until it was finished or skipped) or a chapter of Learn Donegeon. */
+export function useTutorialRunning(): boolean {
+  const user = useMe().user;
+  const chapter = useRunningChapter(user?.id);
+  return Boolean(user && (!user.tutorialSeen || chapter));
+}
+
 /** Whether a tab the tutorial has the user click is shown: on unless switched off on the user's page, and always while the tutorial runs. */
 function useTutorialTab(tab: "statsTab" | "calendarTab"): boolean {
   const user = useMe().user;
-  return (user?.[tab] ?? true) || user?.tutorialSeen === false;
+  const tutorialRuns = useTutorialRunning();
+  return (user?.[tab] ?? true) || tutorialRuns;
 }
 
 export const useStatsTab = () => useTutorialTab("statsTab");
@@ -106,6 +116,12 @@ export function usePointsOff(): boolean {
 /** Whether the character's health is switched off (Settings › Gamification): no hearts shown. */
 export function useHealthOff(): boolean {
   return useMe().user?.healthOff ?? false;
+}
+
+/** The rest days (Settings › Gamification › Rest days), every day of them. */
+export function useRestDays(): ReadonlySet<string> {
+  const ranges = useMe().user?.restDays;
+  return useMemo(() => restDays(restRanges(ranges)), [ranges]);
 }
 
 /** Whether the tick sounds are off (Settings › Gamification). */

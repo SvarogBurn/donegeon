@@ -1,6 +1,6 @@
 import type { DeadlineToday, FeedbackKind, HitKind, ListKind, RepeatUnit, ShareKey, TextFont, TickedTasks } from "../../../shared/enums";
 import type { EventState } from "../../../shared/events";
-import type { Health as HealthRules } from "../../../shared/health";
+import type { Health as HealthRules, RestRange } from "../../../shared/health";
 
 // The fixed choices are shared with the server (shared/enums.ts).
 export type { DeadlineToday, FeedbackKind, HitKind, ListKind, RepeatUnit, ShareKey, TextFont, TickedTasks };
@@ -25,6 +25,8 @@ export interface User {
   healthOff?: boolean;
   /** The streak freeze switched off: a day with nothing done breaks the streak instead of costing a level. Missing in an account kept on the device from before (= on). */
   freezeOff?: boolean;
+  /** Days off (a rest day, an exam week): nothing missed on them costs health, and the streak goes on across them. Missing in an account kept on the device from before (= none). */
+  restDays?: RestRange[];
   /** People switched off: you see nobody and nobody sees you. Missing in an account kept on the device from before (= on). */
   peopleOff?: boolean;
   /** What the card shows besides the character, title and level; what is shown is what is seen. Missing in an account kept on the device from before (= nothing). */
@@ -64,6 +66,8 @@ export interface User {
 export interface Health extends HealthRules {
   off: boolean;
   freezeOff: boolean;
+  /** The rest days as saved. */
+  rest: RestRange[];
   recent: { day: string; damage: number; title: string; kind: HitKind }[];
 }
 

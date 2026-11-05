@@ -1,10 +1,13 @@
 import { createContext, useCallback, useContext, useMemo, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { TaskPlacement } from "../../api/tasks";
-import { useSortByDeadline, useSoundOff, useTickedTasks } from "../../hooks/useAuth";
+import { useMe, useSortByDeadline, useSoundOff, useTickedTasks } from "../../hooks/useAuth";
+import { usePoints } from "../../hooks/points";
 import { useDeleteList } from "../../hooks/lists";
 import { useDeleteTask, usePressTask, useToggleTask, useUndoPress } from "../../hooks/tasks";
 import { NO_FILTER, type LabelFilter } from "../../lib/labels";
 import { newId } from "../../lib/offline/changes";
+import { pointsNote } from "../../lib/pointsNote";
+import { note } from "../../lib/refusal";
 import { isInRound } from "../../lib/recent";
 import { playSound } from "../../lib/sounds";
 import type { List, TaskTreeNode, TickedTasks } from "../../types";
@@ -149,6 +152,16 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
   const { undoable, offer, forgetPress, undo, error: undoError } = useUndoStack(byId);
   const { once, isBusy } = useBusyGuard();
   const soundOff = useSoundOff();
+  // What the balance and the cap make of a tick: said beside the click when it books less than it is worth.
+  const { user } = useMe();
+  const balance = usePoints().data?.balance;
+  const noteFor = useCallback(
+    (node: TaskTreeNode) => {
+      const said = !user?.pointsOff && balance !== undefined && pointsNote(node.value, node.valueKind, balance, user?.pointsCap ?? null);
+      if (said) note(said);
+    },
+    [user?.pointsOff, user?.pointsCap, balance],
+  );
   const { startDrag, moveBy, error: moveError } = useTaskMoves({ tasks, byId, drag, rootId, ticked, byDeadline });
 
   const deleteTask = useCallback(
@@ -178,10 +191,11 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
       once(node.id, () => {
         if (!soundOff) playSound(done ? "tick" : "untick");
         toggle({ id: node.id, done });
+        if (done) noteFor(node);
         if (leavesSight) offer({ kind: "finished", id: node.id, title: node.title });
       });
     },
-    [toggle, ticked, once, offer, soundOff],
+    [toggle, ticked, once, offer, soundOff, noteFor],
   );
 
   const pressTask = useCallback(
@@ -191,10 +205,11 @@ export function TreeProvider({ tasks, newTaskLabels = NO_FILTER, rootId = null, 
         if (!soundOff) playSound("press");
         const completionId = newId();
         press({ id: node.id, completionId });
+        noteFor(node);
         offer({ kind: "press", id: node.id, title: node.title, completionId });
       });
     },
-    [press, once, offer, soundOff],
+    [press, once, offer, soundOff, noteFor],
   );
 
   const takeBackPress = useCallback(

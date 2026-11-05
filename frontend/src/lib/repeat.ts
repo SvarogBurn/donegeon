@@ -23,12 +23,22 @@ export const isWaiting = (task: Rounds, today: string) => (currentRound(task, to
 
 /**
  * How many rounds of a task on a schedule are to be done by `today`: its due one and, if it makes up missed rounds,
- * every one after it up to today. 0 = not due.
+ * every one after it up to today, but those on a rest day gone by (`rest`: they aren't owed, see dueAfter). 0 = not due.
  */
-export function roundsDue(task: Rounds, today: string): number {
+export function roundsDue(task: Rounds, today: string, rest: ReadonlySet<string> = new Set()): number {
   if (!isDue(task, today)) return 0;
   if (!task.repeatMakeUp || task.repeatAfterDone || !task.nextDue || !task.repeatEvery) return 1;
   let count = 0;
-  for (let day = task.nextDue; day <= today; day = addInterval(day, task.repeatEvery, task.repeatUnit)) if (movedDay(task, day) <= today) count++;
+  for (let day = task.nextDue; day <= today; day = addInterval(day, task.repeatEvery, task.repeatUnit)) {
+    const at = movedDay(task, day);
+    if (at <= today && !(at < today && rest.has(at))) count++;
+  }
   return count;
+}
+
+/** Whether a round dropped by the Skip rule (before `planned`, the round now open) fell on a day that wasn't a rest day: only that is a miss worth a "!". */
+export function missedOffRest(task: Rounds, planned: string, rest: ReadonlySet<string>): boolean {
+  if (!task.nextDue || !task.repeatEvery) return false;
+  for (let day = task.nextDue; day < planned; day = addInterval(day, task.repeatEvery, task.repeatUnit)) if (!rest.has(movedDay(task, day))) return true;
+  return false;
 }
