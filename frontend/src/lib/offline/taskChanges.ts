@@ -7,7 +7,7 @@ import * as tasksApi from "../../api/tasks";
 import { COUNTDOWN, DONE, GOALS, LISTS, POINTS, PRESSURE, TAGS, TASK_DATA, TASKS } from "../../hooks/queryKeys";
 import { ME } from "../../hooks/useAuth";
 import type { Countdown, DonePage, Goal, List, PointsSummary, Tag, TaskPress, TaskTreeNode, User } from "../../types";
-import { bigEveryIn, celebrate, isBigMoment, MOMENT_WORDS_MS } from "../bigMoment";
+import { bigEveryIn, bigKindsIn, celebrate, isBigMoment, MOMENT_WORDS_MS } from "../bigMoment";
 import { taskDone } from "../breakReminder";
 import {
   draftNode,
@@ -108,10 +108,11 @@ const breakEvery = (queryClient: QueryClient) => queryClient.getQueryData<User |
 
 /** After every tick and press: the day's count so far, for the break reminder and the big moments. */
 function counted(queryClient: QueryClient, doneToday: number) {
-  const bigEvery = bigEveryIn(queryClient.getQueryData<User | null>(ME)?.profile);
+  const profile = queryClient.getQueryData<User | null>(ME)?.profile;
+  const bigEvery = bigEveryIn(profile);
   // With a big moment at the same task, the break reminder comes after it, not over its words.
   taskDone(doneToday, breakEvery(queryClient), isBigMoment(doneToday, bigEvery) ? MOMENT_WORDS_MS : 0);
-  celebrate(doneToday, bigEvery);
+  celebrate(doneToday, bigEvery, bigKindsIn(profile));
 }
 
 /** A task's title for the notice, from the trees as they are, or as they were before the change. */

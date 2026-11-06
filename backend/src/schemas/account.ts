@@ -65,6 +65,8 @@ const profile = z
     /** The tick sounds off, and how many tasks a day a big moment comes after (null = none, left out = the default). */
     soundOff: z.boolean().optional(),
     bigEvery: z.number().int().min(1).max(999).nullable().optional(),
+    /** The kinds of big moment unticked (BIG_KINDS in frontend/src/lib/bigMoment.ts); a kind not known now is kept for later. */
+    bigOff: z.array(z.string().max(20)).max(20).optional(),
   })
   .nullable();
 

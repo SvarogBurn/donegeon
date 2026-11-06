@@ -1,4 +1,5 @@
 import type { RangeKey } from "../stats";
+import { BIG_KINDS, type BigKind } from "../bigMoment";
 import { BODY_BY_ID, DEFAULT_LOOK, type Look } from "./bodies";
 
 // The character at the top of the user's page, as saved in User.profile. normalizeProfile reads whatever was saved
@@ -66,6 +67,8 @@ export interface Profile {
   learned?: string[];
   /** Settings › Gamification: a big moment after every so many tasks of a day (null = none, left out = BIG_EVERY, lib/bigMoment.ts). */
   bigEvery?: number | null;
+  /** Settings › Gamification: the kinds of big moment unticked (BIG_KINDS, lib/bigMoment.ts); left out = all ticked. */
+  bigOff?: BigKind[];
 }
 
 export const STAT_NAME_MAX = 12;
@@ -126,8 +129,9 @@ export function normalizeProfile(raw: unknown, known?: Known): Profile {
     return [{ kind, id: s.id, ...(name && { name }), ...(color && { color }) }];
   });
   const title = text(p.title, 80);
+  const bigOff = BIG_KINDS.filter((kind) => Array.isArray(p.bigOff) && p.bigOff.includes(kind));
   const seenIds = Array.isArray(p.seen) ? [...new Set(p.seen.filter((id): id is string => typeof id === "string"))] : null;
-  return { ...(title && { title }), stats, custom, skills, ...(p.look !== undefined && { look: normalizeLook(p.look) }), ...(seenIds && { seen: seenIds }), ...(p.hideDot === true && { hideDot: true }), ...(p.hideNews === true && { hideNews: true }), ...(p.soundOff === true && { soundOff: true }), ...(Array.isArray(p.learned) && { learned: [...new Set(p.learned.filter((id): id is string => typeof id === "string"))] }), ...(p.bigEvery === null && { bigEvery: null }), ...(typeof p.bigEvery === "number" && p.bigEvery >= 1 && { bigEvery: Math.floor(p.bigEvery) }) };
+  return { ...(title && { title }), stats, custom, skills, ...(p.look !== undefined && { look: normalizeLook(p.look) }), ...(seenIds && { seen: seenIds }), ...(p.hideDot === true && { hideDot: true }), ...(p.hideNews === true && { hideNews: true }), ...(p.soundOff === true && { soundOff: true }), ...(Array.isArray(p.learned) && { learned: [...new Set(p.learned.filter((id): id is string => typeof id === "string"))] }), ...(p.bigEvery === null && { bigEvery: null }), ...(typeof p.bigEvery === "number" && p.bigEvery >= 1 && { bigEvery: Math.floor(p.bigEvery) }), ...(bigOff.length && { bigOff }) };
 }
 
 /** A fresh id for a custom stat. */

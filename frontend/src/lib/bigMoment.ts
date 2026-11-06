@@ -4,7 +4,7 @@ import type { ReceivedCheer } from "../api/people";
 export const BIG_EVERY = 3;
 
 /** The settings kept in the user's profile, read without making the whole profile (lib/character/profile.ts). */
-const settingsIn = (profile: unknown) => (profile ?? {}) as { soundOff?: unknown; bigEvery?: unknown };
+const settingsIn = (profile: unknown) => (profile ?? {}) as { soundOff?: unknown; bigEvery?: unknown; bigOff?: unknown };
 
 export const soundOffIn = (profile: unknown) => settingsIn(profile).soundOff === true;
 
@@ -14,15 +14,26 @@ export function bigEveryIn(profile: unknown) {
   return bigEvery === null ? null : typeof bigEvery === "number" && bigEvery >= 1 ? bigEvery : BIG_EVERY;
 }
 
+/** What a big moment can be, in the order they take turns; each can be unticked in Settings (`bigOff`, the ones unticked, so one added later starts ticked). */
+export const BIG_KINDS = ["lightning", "confetti"] as const;
+export type BigKind = (typeof BIG_KINDS)[number];
+
+/** The kinds still ticked, in their turn order. */
+export function bigKindsIn(profile: unknown): BigKind[] {
+  const { bigOff } = settingsIn(profile);
+  return BIG_KINDS.filter((kind) => !(Array.isArray(bigOff) && bigOff.includes(kind)));
+}
+
 /** How long a moment's words are on screen ("N tasks today!", in at 0.42 s for 1.2 s; index.css): what waits for it. */
 export const MOMENT_WORDS_MS = 1700;
 
 export const isBigMoment = (doneToday: number, every: number | null) => Boolean(every && doneToday > 0 && doneToday % every === 0);
 
-export type MomentKind = "lightning" | "confetti" | "cheer";
+/** "words": every kind unticked, the words alone. */
+export type MomentKind = BigKind | "words" | "cheer";
 
-/** Lightning first, then confetti, in turn. */
-export const kindOf = (id: number): MomentKind => (id % 2 === 1 ? "lightning" : "confetti");
+/** The ticked kinds in turn, the first at turn 1; the words alone with none ticked. */
+export const kindOf = (turn: number, kinds: readonly BigKind[] = BIG_KINDS): MomentKind => (kinds.length ? kinds[(turn - 1) % kinds.length] : "words");
 
 export interface Moment {
   /** Counts up, so one right after another starts afresh. */
@@ -40,9 +51,9 @@ let turns = 0;
 const listeners = new Set<() => void>();
 
 /** Called after every tick and "done it" press with the day's count so far. */
-export function celebrate(doneToday: number, every: number | null) {
+export function celebrate(doneToday: number, every: number | null, kinds: readonly BigKind[] = BIG_KINDS) {
   if (!isBigMoment(doneToday, every)) return;
-  current = { id: (current?.id ?? 0) + 1, kind: kindOf(++turns), count: doneToday };
+  current = { id: (current?.id ?? 0) + 1, kind: kindOf(++turns, kinds), count: doneToday };
   listeners.forEach((listener) => listener());
 }
 

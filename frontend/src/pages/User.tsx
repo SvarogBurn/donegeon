@@ -22,7 +22,7 @@ import { useDeleteAccount, useLogout, useMe, useTutorialRunning, useUpdateMe } f
 import { useDropOnTab, useFolders } from "../hooks/folders";
 import { useLayout, useSaveLayout } from "../hooks/layout";
 import { useOnline } from "../lib/offline/online";
-import { BIG_EVERY } from "../lib/bigMoment";
+import { BIG_EVERY, BIG_KINDS, bigKindsIn, type BigKind } from "../lib/bigMoment";
 import { readStored } from "../lib/storage";
 import { NeedsConnection } from "../components/NeedsConnection";
 import { FONT_CHOICES, FONT_STACKS, textFont } from "../lib/fonts";
@@ -85,6 +85,14 @@ const DEADLINE_TODAY_NOTES: Record<DeadlineToday, string> = {
   day: "A task or subtask with a deadline, hard or soft, comes into Today by itself on the day of its deadline, and stays there until it is done. In Week it is on the day of its deadline.",
   dayBefore: "A task or subtask with a deadline, hard or soft, comes into Today by itself the day before its deadline, and stays there until it is done. In Week it is on the day of its deadline.",
 };
+
+const BIG_KIND_NAMES: Record<BigKind, string> = { lightning: "Lightning", confetti: "Confetti" };
+
+/** What a big moment will be, by the kinds ticked. */
+function bigNote(kinds: BigKind[], every: number) {
+  const what = !kinds.length ? '"N tasks today!" alone' : kinds.length === 1 ? `${BIG_KIND_NAMES[kinds[0]]} across the screen` : `${kinds.map((kind) => BIG_KIND_NAMES[kind]).join(" or ")} across the screen, in turn,`;
+  return `${what} after every ${every} tasks of a day.`;
+}
 
 interface SwitchedAmountProps {
   label: string;
@@ -395,8 +403,26 @@ export function SettingsBox() {
         onSave={(bigEvery) => saveProfile({ ...profile, bigEvery })}
         amountLabel="A big moment after every so many tasks of a day"
         name="big-every"
-        note={(every) => (every ? `Lightning or confetti across the screen, in turn, after every ${every} tasks of a day.` : "None, however much you get done.")}
+        note={(every) => (every ? bigNote(bigKindsIn(profile), every) : "None, however much you get done.")}
       />
+      {profile.bigEvery !== null && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+          {BIG_KINDS.map((kind) => (
+            <label key={kind} className="flex items-center gap-2">
+              <PixelCheckbox
+                small
+                checked={!profile.bigOff?.includes(kind)}
+                onChange={(e) => {
+                  const bigOff = BIG_KINDS.filter((k) => (k === kind ? !e.target.checked : profile.bigOff?.includes(k)));
+                  saveProfile({ ...profile, bigOff: bigOff.length ? bigOff : undefined });
+                }}
+                {...{ [`data-big-${kind}`]: true }}
+              />
+              {BIG_KIND_NAMES[kind]}
+            </label>
+          ))}
+        </div>
+      )}
       </SettingsSection>
       {/* Who sees the character, what of it, and the cheers. */}
       <SettingsSection name="social" title="Social">

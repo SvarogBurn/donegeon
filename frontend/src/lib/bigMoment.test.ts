@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bigEveryIn, BIG_EVERY, celebrate, getBigMoment, isBigMoment, kindOf, onBigMoment, popCheer, soundOffIn } from "./bigMoment";
+import { bigEveryIn, BIG_EVERY, bigKindsIn, celebrate, getBigMoment, isBigMoment, kindOf, onBigMoment, popCheer, soundOffIn } from "./bigMoment";
 
 describe("isBigMoment", () => {
   it("comes at each multiple", () => {
@@ -22,6 +22,12 @@ describe("the settings", () => {
     expect(bigEveryIn({ bigEvery: 5 })).toBe(5);
     expect(bigEveryIn({ bigEvery: null })).toBeNull();
   });
+  it("tick every kind until some are unticked", () => {
+    expect(bigKindsIn(null)).toEqual(["lightning", "confetti"]);
+    expect(bigKindsIn({ bigOff: ["lightning"] })).toEqual(["confetti"]);
+    expect(bigKindsIn({ bigOff: ["lightning", "confetti"] })).toEqual([]);
+    expect(bigKindsIn({ bigOff: "lightning" })).toEqual(["lightning", "confetti"]);
+  });
   it("ignore nonsense", () => {
     expect(bigEveryIn({ bigEvery: "a lot" })).toBe(BIG_EVERY);
     expect(bigEveryIn({ bigEvery: 0 })).toBe(BIG_EVERY);
@@ -30,7 +36,11 @@ describe("the settings", () => {
 
 describe("kindOf", () => {
   it("starts with lightning, then takes turns", () => {
-    expect([1, 2, 3, 4].map(kindOf)).toEqual(["lightning", "confetti", "lightning", "confetti"]);
+    expect([1, 2, 3, 4].map((turn) => kindOf(turn))).toEqual(["lightning", "confetti", "lightning", "confetti"]);
+  });
+  it("takes turns among the kinds ticked, and is the words alone with none", () => {
+    expect([1, 2, 3].map((turn) => kindOf(turn, ["confetti"]))).toEqual(["confetti", "confetti", "confetti"]);
+    expect(kindOf(1, [])).toBe("words");
   });
 });
 
