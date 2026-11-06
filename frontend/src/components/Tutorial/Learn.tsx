@@ -67,7 +67,7 @@ export function LearnBox() {
 /** What a chapter's first use is: a page opened, or a click on something it is about. Shortcuts has none: the box only. */
 const FIRST_USE: Record<string, { path?: (path: string) => boolean; click?: string }> = {
   menu: { click: '[aria-label="Task options"]' },
-  boxes: { click: ".tile-button-more, .tile-button-tab" },
+  boxes: { click: ".tile-button-pin, .tile-button-tab, .tile-button-min" },
   stats: { path: (path) => path === "/stats" },
   week: { click: '[data-tile="today"] .band-tab' },
   calendar: { path: (path) => path === "/calendar" },

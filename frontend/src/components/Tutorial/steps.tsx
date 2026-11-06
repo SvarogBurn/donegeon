@@ -485,8 +485,8 @@ export const STEPS: Step[] = [
   {
     route: "/",
     text: () => <>before you become a slob, learn to minimize your lists and tabs, regardless of folders, tasks, stats,..</>,
-    // The new-list field, done with now: its Hide is in its band's ⋯.
-    target: () => ['[data-tile="newList"] [data-band-hide]', "[data-band-menu] [data-band-hide]", '[data-tile="newList"] .tile-button-more', ".tile-button-more"],
+    // The new-list field, done with now.
+    target: () => ['[data-tile="newList"] .tile-button-min', ".tile-button-min"],
     done: (ctx) => ctx.hiddenBoxes.includes(NEW_LIST_TILE),
   },
   {

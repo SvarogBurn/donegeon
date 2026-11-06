@@ -193,7 +193,7 @@ function DeadlineSheet({ countdown, mode, colorOf, onOpen, to, lookBack, days }:
           </span>
         ))
       : [
-          // Its meaning on a hover, or a tap on a touch screen: an ⓘ would make the column too wide for the box.
+          // Its meaning on a hover, or a tap on a touch screen: a * would make the column too wide for the box.
           <span
             key="pace"
             className="cursor-help underline decoration-dotted underline-offset-2"

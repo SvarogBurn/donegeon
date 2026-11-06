@@ -980,13 +980,9 @@
   .tile-button-pin {
     background-image: url("../../assets/buttons/7x7pin_blue_v1.svg");
   }
-  /* The handle: a grip of dots (it was the [ ] tab, which read as "maximize": playtest 1). */
   .tile-button-tab {
     @apply cursor-grab touch-none select-none active:cursor-grabbing;
-    background-image: url("../../assets/buttons/7x7grip_blue_v1.svg");
-  }
-  .tile-button-more {
-    background-image: url("../../assets/buttons/7x7more_blue_v1.svg");
+    background-image: url("../../assets/buttons/7x7tab_blue_v1.svg");
   }
   /*
    * A built-in box's colour (TileFrame's BoxColorButton): no art of its own, drawn like the others' plate (light
