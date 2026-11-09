@@ -28,9 +28,9 @@ export interface Planned {
   /**
    * The recap's week, which the server counts when it sends it; a task reminder's task, whose Done ticks it (or
    * presses it: `press`); the day of a reminder that comes on days the task is due, which a Done on an earlier
-   * notification calls off (`dueDay`: the plan isn't made again until the app is open); the buttons under it.
+   * notification calls off (`dueDay`: the plan isn't made again until the app is open); the button under it.
    */
-  params?: { from?: string; to?: string; since?: string; taskId?: string; press?: boolean; dueDay?: string; actions?: ("done" | "snooze")[] };
+  params?: { from?: string; to?: string; since?: string; taskId?: string; press?: boolean; dueDay?: string; actions?: "done"[] };
 }
 
 /** How many days ahead the reminders are planned: opening the app once a fortnight keeps them coming. */
@@ -111,7 +111,7 @@ function deadlineBody(node: TaskTreeNode, under: string | undefined) {
   return [dateOf(node.deadlineDate!), ...(total > 1 ? [`${left} of ${total} left`] : []), ...(under ? [`in ${under}`] : [])].join(" · ");
 }
 
-interface Context {
+export interface Context {
   trees: TaskTreeNode[];
   ticked: TickedTasks;
   deadlines: DeadlineToday;
@@ -119,26 +119,65 @@ interface Context {
 
 type Message = Omit<Planned, "key" | "sendAt">;
 
+/** Next week's days (from `day`'s week), each with its open tasks; the days with none left out. */
+function nextWeekDays(day: string, { trees, ticked, deadlines }: Context): { day: string; nodes: TaskTreeNode[] }[] {
+  const week = weekDays(trees, addDays(mondayOf(day), 7), ticked, deadlines).filter((one) => !one.nextWeek);
+  return week.map((one) => ({ day: one.day, nodes: byId(one.items.map((item) => item.node)).filter((node) => !node.isComplete) })).filter((one) => one.nodes.length);
+}
+
+/** The hard deadlines from `day` to `ahead` days on, soonest first. */
+function deadlinesAhead(trees: TaskTreeNode[], day: string, ahead: number) {
+  const last = addDays(day, ahead);
+  return hardDeadlines(trees)
+    .filter(({ node }) => node.deadlineDate! >= day && node.deadlineDate! <= last)
+    .sort((a, b) => a.node.deadlineDate!.localeCompare(b.node.deadlineDate!));
+}
+
+/**
+ * The tasks a reminder names on `day`, open ones only: what its message lists, and what its tick list shows when it is
+ * tapped (see TickList). None for the recap or a reminder of its own words.
+ */
+export function reminderTasks(reminder: Reminder, day: string, context: Context): TaskTreeNode[] {
+  const { trees, ticked, deadlines } = context;
+  switch (reminder.kind) {
+    case "today":
+    case "open":
+      return tasksOn(trees, day, ticked, deadlines);
+    case "tomorrow":
+      return tasksOn(trees, addDays(day, 1), ticked, deadlines);
+    case "nextWeek":
+      return byId(nextWeekDays(day, context).flatMap((one) => one.nodes));
+    case "deadlines":
+      return deadlinesAhead(trees, day, reminder.ahead ?? 7).map(({ node }) => node);
+    default:
+      return [];
+  }
+}
+
+/** The page a tap on a reminder that names tasks opens: its tick list, over the Tasks page (see TickList). */
+export const tickUrl = (reminder: Reminder, day: string) => `/?tick=${encodeURIComponent(reminder.id)}&day=${day}`;
+
 /** What a reminder says on `day`, or null when it has nothing to say (nothing to do, its task ticked or gone). */
-function reminderMessage(reminder: Reminder, day: string, { trees, ticked, deadlines }: Context): Message | null {
+function reminderMessage(reminder: Reminder, day: string, context: Context): Message | null {
+  const { trees } = context;
   const label = KIND_NAMES[reminder.kind];
-  const tasks = (on: string, title: (n: number) => string): Message | null => {
-    const nodes = tasksOn(trees, on, ticked, deadlines);
-    return nodes.length ? { kind: "reminder", label, title: title(nodes.length), body: clip(named(nodes)), url: "/" } : null;
+  const url = tickUrl(reminder, day);
+  const tasks = (title: (n: number) => string): Message | null => {
+    const nodes = reminderTasks(reminder, day, context);
+    return nodes.length ? { kind: "reminder", label, title: title(nodes.length), body: clip(named(nodes)), url } : null;
   };
   switch (reminder.kind) {
     case "today":
-      return tasks(day, (n) => `Today: ${plural(n, "task")}`);
+      return tasks((n) => `Today: ${plural(n, "task")}`);
     case "open":
-      return tasks(day, (n) => `${plural(n, "task")} still open today`);
+      return tasks((n) => `${plural(n, "task")} still open today`);
     case "tomorrow":
-      return tasks(addDays(day, 1), (n) => `Tomorrow: ${plural(n, "task")}`);
+      return tasks((n) => `Tomorrow: ${plural(n, "task")}`);
     case "nextWeek": {
-      const week = weekDays(trees, addDays(mondayOf(day), 7), ticked, deadlines).filter((one) => !one.nextWeek);
-      const days = week.map((one) => ({ day: one.day, nodes: byId(one.items.map((item) => item.node)).filter((node) => !node.isComplete) })).filter((one) => one.nodes.length);
+      const days = nextWeekDays(day, context);
       const count = days.reduce((sum, one) => sum + one.nodes.length, 0);
       if (!count) return null;
-      return { kind: "reminder", label, title: `Next week: ${plural(count, "task")}`, body: clip(days.map((one) => `${weekday(one.day)}: ${named(one.nodes)}`).join("\n")), url: "/" };
+      return { kind: "reminder", label, title: `Next week: ${plural(count, "task")}`, body: clip(days.map((one) => `${weekday(one.day)}: ${named(one.nodes)}`).join("\n")), url };
     }
     case "recap": {
       // The text is the server's, counted when it is sent.
@@ -147,17 +186,14 @@ function reminderMessage(reminder: Reminder, day: string, { trees, ticked, deadl
     }
     case "deadlines": {
       const ahead = reminder.ahead ?? 7;
-      const last = addDays(day, ahead);
-      const coming = hardDeadlines(trees)
-        .filter(({ node }) => node.deadlineDate! >= day && node.deadlineDate! <= last)
-        .sort((a, b) => a.node.deadlineDate!.localeCompare(b.node.deadlineDate!));
+      const coming = deadlinesAhead(trees, day, ahead);
       if (!coming.length) return null;
       return {
         kind: "reminder",
         label,
         title: `${plural(coming.length, "deadline")} in the next ${plural(ahead, "day")}`,
         body: clip(coming.map(({ node }) => `${dateOf(node.deadlineDate!)}: ${plainFirstLine(node.title)}`).join("\n")),
-        url: "/",
+        url,
       };
     }
     case "text": {
@@ -174,15 +210,28 @@ function reminderMessage(reminder: Reminder, day: string, { trees, ticked, deadl
           title: reminder.text ?? title,
           body: [...(reminder.text ? [title] : []), ...(path.length ? [`in ${path.join(" › ")}`] : [])].join("\n"),
           url: hasTaskPage(node) ? `/tasks/${node.id}` : `/?task=${node.id}`,
-          params: { taskId: node.id, press: node.isPersistent, ...(reminder.days === "due" && { dueDay: day }), actions: ["done", "snooze"] },
+          params: { taskId: node.id, press: node.isPersistent, ...(reminder.days === "due" && { dueDay: day }), actions: ["done"] },
         };
       }
       if (reminder.noteId) {
-        return { kind: "reminder", label: "Reminder", title: reminder.text ?? reminder.linkTitle ?? "Your note", body: reminder.text ? (reminder.linkTitle ?? "") : "", url: `/notes/${reminder.noteId}`, params: { actions: ["snooze"] } };
+        return { kind: "reminder", label: "Reminder", title: reminder.text ?? reminder.linkTitle ?? "Your note", body: reminder.text ? (reminder.linkTitle ?? "") : "", url: `/notes/${reminder.noteId}` };
       }
-      return { kind: "reminder", label: "Reminder", title: reminder.text ?? "Reminder", body: "", url: "/", params: { actions: ["snooze"] } };
+      return { kind: "reminder", label: "Reminder", title: reminder.text ?? "Reminder", body: "", url: "/" };
     }
   }
+}
+
+/**
+ * The settings' "Send a test reminder": today's tasks as a Today's tasks reminder says them (a tap opens the tick list:
+ * its id is no reminder's, so that day's tasks), and the first of them as a reminder on it would (with Done). None with
+ * nothing to do today.
+ */
+export function testReminders(trees: TaskTreeNode[], today: string, ticked: TickedTasks, deadlines: DeadlineToday): Message[] {
+  const context = { trees, ticked, deadlines };
+  const test = (extra: Partial<Reminder> = {}): Reminder => ({ id: "test", on: true, kind: "today", days: "all", times: [], ...extra });
+  const first = reminderTasks(test(), today, context)[0];
+  if (!first) return [];
+  return [reminderMessage(test(), today, context), reminderMessage(test({ kind: "text", taskId: first.id }), today, context)].filter((message) => message !== null);
 }
 
 /** Whether a reminder comes on `day` at all: every day, the weekdays picked, or (on a task) the days it is due, worked out with its message. */

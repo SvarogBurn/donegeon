@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { useCalendarTab, useNewsTab, useNotesTab, usePointsOff, useStatsTab } from "../../hooks/useAuth";
 import { useFolders } from "../../hooks/folders";
+import { useGoToTask } from "../../hooks/goToTask";
 import { useGoals, useTags } from "../../hooks/labels";
 import { useLists } from "../../hooks/lists";
 import { useNotes } from "../../hooks/notes";
@@ -10,7 +11,7 @@ import { formatDay } from "../../lib/dates";
 import { listView, noteView, USER_BOXES } from "../../lib/folders";
 import { useOnline } from "../../lib/offline/online";
 import { findNode } from "../../lib/optimisticToggle";
-import { findTaskRow, showOnPage } from "../../lib/showOnPage";
+import { boxTabOf, showOnPage } from "../../lib/showOnPage";
 import type { SearchResult } from "../../types";
 import { STAT_BOXES } from "../Stats/statBoxes";
 import { RichText } from "../RichText";
@@ -48,7 +49,7 @@ const USER_PAGE_BOXES: [key: string, words: string][] = [
 const SETTINGS_SECTIONS: [name: string, title: string, words: string][] = [
   ["tasks", "Task settings", "ticked tasks soonest date deadlines into today break reminder"],
   ["deadlines", "Deadlines box settings", "range per day soft deadlines"],
-  ["notifications", "Notification settings", "notifications push reminders bell snooze test"],
+  ["notifications", "Notification settings", "notifications push reminders bell tick test"],
   ["gamification", "Gamification settings", "points cap health hearts streak freeze dot unlocks"],
   ["social", "Social settings", "people friends sharing card cheers block"],
   ["design", "Theme and design settings", "theme font fonts dyslexic large print tabs notes news stats calendar box colours colors tutorial"],
@@ -130,6 +131,7 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false, autoFocus = fal
   const calendarTab = useCalendarTab();
   // What the Tasks page shows: a task that is in here can be gone to.
   const { data: trees = [] } = useTaskTrees();
+  const goToTask = useGoToTask();
 
   const goTo = (path: string, find?: (isLast: boolean) => HTMLElement | null) => () => {
     navigate(path);
@@ -181,21 +183,25 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false, autoFocus = fal
       ];
 
   // The tasks come a moment later; until then the ones found for what was typed before stay.
-  const taskHit = (result: SearchResult): Hit => ({
-    key: result.id,
-    title: result.title,
-    isTask: true,
-    where: [lists.find((list) => list.id === result.listId)?.name ?? (result.listId ? null : "Today"), ...result.path.map((title) => plainTitle(title.split("\n")[0]))].filter(Boolean).join(" › "),
-    kind: result.isComplete && result.completedOn ? `Done ${formatDay(result.completedOn)}/${result.completedOn.slice(0, 4)}` : result.isPersistent ? "Repeats" : "Open",
-    mark: (
-      <span className={`flex-none ${result.isComplete ? "" : "text-stone-500"}`} aria-hidden>
-        {result.isComplete ? "✓" : "○"}
-      </span>
-    ),
-    hint: "Show it on the Tasks page",
-    // Finished too long ago to be on the Tasks page: there is nowhere to go, the result says it all.
-    go: findNode(trees, result.id) ? goTo("/", (isLast) => findTaskRow(result.id, result.pathIds, isLast)) : undefined,
-  });
+  const taskHit = (result: SearchResult): Hit => {
+    // One with no list lives in the Today box, on the tab it was written into.
+    const tab = boxTabOf(findNode(trees, result.pathIds[0] ?? result.id));
+    return {
+      key: result.id,
+      title: result.title,
+      isTask: true,
+      where: [lists.find((list) => list.id === result.listId)?.name ?? (result.listId ? null : tab === "week" ? "Week" : "Today"), ...result.path.map((title) => plainTitle(title.split("\n")[0]))].filter(Boolean).join(" › "),
+      kind: result.isComplete && result.completedOn ? `Done ${formatDay(result.completedOn)}/${result.completedOn.slice(0, 4)}` : result.isPersistent ? "Repeats" : "Open",
+      mark: (
+        <span className={`flex-none ${result.isComplete ? "" : "text-stone-500"}`} aria-hidden>
+          {result.isComplete ? "✓" : "○"}
+        </span>
+      ),
+      hint: "Show it where it is",
+      // Finished too long ago to be on the Tasks page: there is nowhere to go, the result says it all.
+      go: findNode(trees, result.id) ? () => goToTask(result.id) : undefined,
+    };
+  };
   const tasks = typed && q ? (search.data?.results ?? []).map(taskHit) : [];
   const isSearching = typed !== "" && (q !== typed || search.isFetching);
   const hits = [...places, ...tasks];

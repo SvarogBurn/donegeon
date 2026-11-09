@@ -2,9 +2,13 @@ import { addDays } from "../../../../shared/dates";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { localDate } from "../../lib/clock";
-import { useUpdateTask } from "../../hooks/tasks";
+import { useDeleteTask, useToggleTask, useUpdateTask } from "../../hooks/tasks";
 import { formatDay } from "../../lib/dates";
+import { finishingPlan } from "../../lib/deadlines";
+import { plainFirstLine } from "../../lib/markup";
 import type { PassedDeadline } from "../../lib/notifications";
+import { isBigTask } from "../../lib/taskPage";
+import { DeleteOrKeep } from "../DeleteOrKeep";
 import { RichText } from "../RichText";
 import { DateField } from "../TaskTree/DeadlineFields";
 
@@ -13,13 +17,19 @@ const days = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
 /**
  * What a passed deadline in the bell opens: when should it be instead? A day picked saves at once (offline too) and
  * the notification is gone, the task being on time again. The deadline can also be taken off, or the reminder dismissed.
+ * A big task can also be finished with what was done: what is left undone deleted, after asking, and it ticked
+ * (finishingPlan), offline too, the changes going out in that order.
  * Opened from the deadlines box too, which passes `onOpenTask`: its marker no longer goes straight to the task's page.
  */
 export function PostponeDeadline({ item, onDismiss, onClose, onOpenTask }: { item: PassedDeadline; onDismiss: () => void; onClose: () => void; onOpenTask?: () => void }) {
   const update = useUpdateTask();
+  const remove = useDeleteTask();
+  const toggle = useToggleTask();
   const [isPast, setIsPast] = useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
   const today = localDate();
   const { node } = item;
+  const plan = isBigTask(node) ? finishingPlan(node) : null;
   const choices = [
     { label: "Today", day: today },
     { label: "Tomorrow", day: addDays(today, 1) },
@@ -32,6 +42,14 @@ export function PostponeDeadline({ item, onDismiss, onClose, onOpenTask }: { ite
     update.mutate({ id: node.id, changes: { deadlineDate } });
     onClose();
   }
+
+  function finish() {
+    if (!plan) return;
+    plan.remove.forEach((id) => remove.mutate({ id }));
+    plan.tick.forEach((id) => toggle.mutate({ id, done: true }));
+    onClose();
+  }
+  const left = plan?.remove.length ?? 0;
 
   return createPortal(
     <div
@@ -62,10 +80,31 @@ export function PostponeDeadline({ item, onDismiss, onClose, onOpenTask }: { ite
           <DateField value={null} onChange={(day) => day && save(day)} label="New deadline" />
           {isPast && <p className="mt-1 text-xs text-red-600">Pick today or a later day.</p>}
         </div>
+        {isFinishing && (
+          <div className="space-y-2 border-t border-stone-200 pt-2 dark:border-stone-800" data-finish-ask>
+            <p className="text-sm">
+              Delete {left === 1 ? "the subtask" : `the ${left} subtasks`} not done and tick “{plainFirstLine(node.title)}”? What's done stays.
+            </p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <DeleteOrKeep onDelete={finish} onKeep={() => setIsFinishing(false)} />
+            </div>
+          </div>
+        )}
         <div className="flex flex-wrap justify-end gap-2">
           {onOpenTask && (
             <button type="button" className="btn-quiet" onClick={onOpenTask}>
               Go to the task
+            </button>
+          )}
+          {plan && !isFinishing && (
+            <button
+              type="button"
+              className="btn-quiet"
+              title="Deletes its subtasks not done (it asks first), keeps the ticked ones, and ticks it"
+              onClick={() => (left > 0 ? setIsFinishing(true) : finish())}
+              data-finish-big
+            >
+              {left > 0 ? "Delete what's left and finish it" : "Finish it"}
             </button>
           )}
           <button type="button" className="btn-quiet" onClick={() => save(null)}>

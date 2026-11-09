@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Navigate, Outlet } from "react-router";
 import type { TextFont } from "../../types";
 import { useMe } from "../../hooks/useAuth";
+import { BACKGROUNDS, backgroundIn, barsIn, boxesIn, themeOf, type BackgroundId, type BarFillId } from "../../lib/backgrounds";
 import { FONT_STACKS, textFont } from "../../lib/fonts";
 import { useOnline } from "../../lib/offline/online";
 import { useAppLayout } from "../../lib/standalone";
@@ -33,6 +34,49 @@ function useTextFont(setting: "boxFont" | "notesFont", font: TextFont) {
   }, [setting, font]);
 }
 
+/**
+ * The account's background, task bars and boxes on the page (lib/backgrounds.ts, index.css): data-background says which
+ * background (none: the theme's), --page-bg holds a picture, data-theme the theme White or Black forces (the phone's
+ * bars, theme-color, in its colour too), data-bars the bars' and data-boxes the boxes' (their own theme: useBarTheme,
+ * useBoxTheme).
+ */
+function usePageLook(id: BackgroundId, bars: BarFillId, boxes: BarFillId) {
+  useEffect(() => {
+    if (id === "default") return;
+    const html = document.documentElement;
+    const background = BACKGROUNDS.find((b) => b.value === id)!;
+    const theme = themeOf(background);
+    const metas = [...document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')];
+    const before = metas.map((meta) => meta.content);
+    html.dataset.background = id;
+    if ("image" in background) html.style.setProperty("--page-bg", `url("${background.image}")`);
+    if (theme) html.dataset.theme = theme;
+    if ("color" in background) for (const meta of metas) meta.content = background.color;
+    return () => {
+      delete html.dataset.background;
+      delete html.dataset.theme;
+      html.style.removeProperty("--page-bg");
+      metas.forEach((meta, i) => (meta.content = before[i]));
+    };
+  }, [id]);
+  useEffect(() => {
+    if (bars === "default") return;
+    const html = document.documentElement;
+    html.dataset.bars = bars;
+    return () => {
+      delete html.dataset.bars;
+    };
+  }, [bars]);
+  useEffect(() => {
+    if (boxes === "default") return;
+    const html = document.documentElement;
+    html.dataset.boxes = boxes;
+    return () => {
+      delete html.dataset.boxes;
+    };
+  }, [boxes]);
+}
+
 /** Wraps every logged-in page; sends anonymous visitors to /login. */
 export function AppShell() {
   const { user, isLoading, error } = useMe();
@@ -41,6 +85,7 @@ export function AppShell() {
   // The account's fonts, on the page itself so that popups drawn outside the shell follow them too (see index.css).
   useTextFont("boxFont", textFont(user?.boxFont));
   useTextFont("notesFont", textFont(user?.notesFont));
+  usePageLook(backgroundIn(user?.profile), barsIn(user?.profile), boxesIn(user?.profile));
 
   if (isLoading && !online) return <p className="p-8 text-center text-sm text-stone-500">You're offline, and nothing was kept on this device yet.</p>;
   if (isLoading) return <p className="p-8 text-center text-sm text-stone-500" data-loading="app">Loading…</p>;

@@ -32,12 +32,31 @@ export type RowScope = "page" | "lists";
 export const taskRow = (id: string, scope: RowScope = "page") =>
   document.querySelector<HTMLElement>(`${scope === "lists" ? "[data-drop-list] " : ""}[data-task-row="${id}"]`);
 
+/** A tab of the Today box. */
+export type BoxTab = "today" | "week";
+
+/**
+ * Where a main task with no list has its row: in the Today box, on the Week tab if it was planned for a day there,
+ * else on the Today tab. Its row is only on the page while that tab is open. None for a task in a list.
+ */
+export const boxTabOf = (main: TaskTreeNode | null): BoxTab | undefined => (!main || main.listId ? undefined : main.weekDay !== null ? "week" : "today");
+
+/** Opens that tab of the Today box if another is open; false if it had to be opened (its rows come a frame later). */
+function openBoxTab(tab: BoxTab) {
+  const button = document.querySelector<HTMLButtonElement>(`[role="tab"][data-drop-${tab}]`);
+  if (button?.getAttribute("aria-selected") !== "false") return true;
+  button.click();
+  return false;
+}
+
 /**
  * A task's row on the Tasks page, for showOnPage. `pathIds` are the tasks above it, outermost first: a subtask's row
  * is only there while every one of them is unfolded, so those are unfolded first, from the main task down, one a frame.
+ * A task with no list is in the Today box: `tab` is opened first if its row isn't there (see boxTabOf).
  * If it still can't be shown (the lists can be set to take ticked tasks out of sight), the closest task above it is settled for.
  */
-export function findTaskRow(id: string, pathIds: string[], isLast: boolean, scope: RowScope = "page"): HTMLElement | null {
+export function findTaskRow(id: string, pathIds: string[], isLast: boolean, scope: RowScope = "page", tab?: BoxTab): HTMLElement | null {
+  if (tab && !taskRow(pathIds[0] ?? id, scope) && !openBoxTab(tab)) return null;
   let closest: HTMLElement | null = null;
   for (const above of pathIds) {
     const row = taskRow(above, scope);

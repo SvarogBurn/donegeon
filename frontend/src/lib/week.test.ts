@@ -66,6 +66,12 @@ describe("nothing is carried on", () => {
     expect(todayItems(trees, "2026-10-22", "bottom", "never").map((item) => item.node.id)).toEqual(["later"]);
   });
 
+  it("Today shows what Week has planned for today, from a list or typed into the day, on that day only", () => {
+    const trees = [task("listed", { weekDay: today }), task("typed", { listId: null, weekDay: "2026-10-22" }), task("monday", { weekDay: "2026-10-19" })];
+    expect(todayItems(trees, today, "bottom", "never").map((item) => [item.node.id, item.auto])).toEqual([["listed", "week"]]);
+    expect(todayItems(trees, "2026-10-22", "bottom", "never").map((item) => item.node.id)).toEqual(["typed"]);
+  });
+
   it("Week keeps an open task on its day this week, and doesn't roll one from a week before onto Monday", () => {
     const trees = [task("tue", { weekDay: "2026-10-20" }), task("before", { weekDay: "2026-10-14" })];
     const days = weekDays(trees, "2026-10-22", "bottom", "never");

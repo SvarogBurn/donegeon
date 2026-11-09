@@ -86,10 +86,10 @@ export const updateTask = (id: string, body: TaskChanges, when?: When) =>
   api<{ task: Task }>(`/tasks/${id}`, { method: "PATCH", body, when }).then((r) => r.task);
 /** Ticks (`done`) or unticks a task. Saying what it should be, not "flip it", so a request sent twice changes nothing. */
 export const toggleTask = (id: string, done: boolean, when?: When) =>
-  api<{ task: Task; doneToday: number }>(`/tasks/${id}/toggle`, { method: "PATCH", body: { done }, when }).then((r) => ({ ...r.task, doneToday: r.doneToday }));
-/** One press of a persistent task's "done it" button, and its undo. */
+  api<{ task: Task; doneToday: number | null }>(`/tasks/${id}/toggle`, { method: "PATCH", body: { done }, when }).then((r) => ({ ...r.task, doneToday: r.doneToday }));
+/** One press of a persistent task's "done it" button, and its undo. `doneToday` (here and on a tick) is null for a reward. */
 export const pressTask = (id: string, completionId?: string, when?: When) =>
-  api<{ completion: { id: string; day: string }; doneToday: number }>(`/tasks/${id}/completions`, { body: { id: completionId }, when }).then((r) => ({
+  api<{ completion: { id: string; day: string }; doneToday: number | null }>(`/tasks/${id}/completions`, { body: { id: completionId }, when }).then((r) => ({
     ...r.completion,
     doneToday: r.doneToday,
   }));

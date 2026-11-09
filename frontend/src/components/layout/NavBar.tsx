@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { Link, NavLink } from "react-router";
 import { useFolders, useReorderFolders } from "../../hooks/folders";
 import { usePoints } from "../../hooks/points";
-import { useCalendarTab, useStatsTab, useUpdateMe } from "../../hooks/useAuth";
+import { useBarTheme, useCalendarTab, useStatsTab, useUpdateMe } from "../../hooks/useAuth";
 import { useAppLayout } from "../../lib/standalone";
 import { folderOfKey, folderOrder, moveItem, resolveTaskBar, type BarSide } from "../../lib/taskBar";
 import type { User } from "../../types";
@@ -43,6 +43,7 @@ function BarItem({ itemKey, isDragged, onDrag, children }: { itemKey: string; is
 }
 
 function TaskBar({ user }: { user: User }) {
+  const barTheme = useBarTheme();
   const { data: points } = usePoints();
   const { data: folders = [] } = useFolders();
   const bar = useRef<HTMLElement>(null);
@@ -186,6 +187,7 @@ function TaskBar({ user }: { user: User }) {
       {...handlers}
       className="app-bar-fill fixed inset-x-0 bottom-0 z-40 border-t-2 pb-[env(safe-area-inset-bottom)]"
       data-task-bar
+      data-theme={barTheme}
     >
       {/*
         Two sides with the logo in the middle (equal side columns keep it centred). At first the pages and folders are at

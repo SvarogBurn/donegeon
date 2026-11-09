@@ -141,13 +141,14 @@ export interface TodayItem {
   since: string;
   /** Titles of the tasks it sits under, outermost first. */
   path: string[];
-  /** Here by itself, not marked for today: a round due, or its deadline near. Taken out for the day per device (see notToday). */
-  auto?: "due" | "deadline";
+  /** Here by itself, not marked for today: a round due, planned in Week for today, or its deadline near. Taken out for the day per device (see notToday). */
+  auto?: "due" | "week" | "deadline";
 }
 
 /**
- * Everything from the lists that is marked for today, at any depth, plus the tasks (any depth) on a
- * schedule that are due and, if the user chose so, the tasks whose deadline is near (`deadlines`): those come in by
+ * Everything from the lists that is marked for today, at any depth, plus the tasks (any depth) on a schedule that are
+ * due, what the Week box has planned for today (from a list or typed into the day) and, if the user chose so, the
+ * tasks whose deadline is near (`deadlines`): those come in by
  * themselves and leave when done. A mark isn't carried on: what was marked for a day gone by and left open is in the
  * bell instead (see leftUndone), until the user says when to do it. A ticked one stays for the rest of the day it was ticked on (or goes at once, if the user chose to hide
  * ticked tasks). Subtasks left open inside a finished main task went to the Done page with it. What was put off to
@@ -162,8 +163,9 @@ export function todayItems(trees: TaskTreeNode[], today: string, ticked: TickedT
       const due = isDue(node, today) ? currentRound(node, today)!.day : null;
       const near = fromDeadline !== null && fromDeadline <= today ? fromDeadline : null;
       const marked = isMarkedFor(node, today);
-      const auto = marked ? undefined : due !== null ? "due" : near !== null ? "deadline" : undefined;
-      const since = marked ? today : (due ?? near);
+      const planned = node.weekDay === today ? today : null;
+      const auto = marked ? undefined : due !== null ? "due" : planned !== null ? "week" : near !== null ? "deadline" : undefined;
+      const since = marked ? today : (due ?? planned ?? near);
       if (since !== null && shown && !livesInToday(node) && !isPutOff(node, today)) found.push({ node, since, path, ...(auto && { auto }) });
       visit(node.children, [...path, plainFirstLine(node.title)], rootFinished || (path.length === 0 && node.isComplete));
     }

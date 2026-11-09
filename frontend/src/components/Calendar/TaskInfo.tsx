@@ -6,10 +6,11 @@ import { useNavigate } from "react-router";
 import { localDate } from "../../lib/clock";
 import { useLists } from "../../hooks/lists";
 import { usePointsOff } from "../../hooks/useAuth";
+import { useGoToTask } from "../../hooks/goToTask";
 import { useTaskTrees } from "../../hooks/tasks";
 import { formatDay, formatFullDay, formatPace } from "../../lib/dates";
 import { repeatLabel } from "../../lib/repeat";
-import { findTaskRow, pathIdsTo, showOnPage } from "../../lib/showOnPage";
+import { pathIdsTo } from "../../lib/showOnPage";
 import { ValueChip } from "../Points/ValueChip";
 import type { Info } from "./calendarData";
 import { RichText } from "../RichText";
@@ -42,10 +43,8 @@ export function TaskInfo({ info, onClose }: { info: Info; onClose: () => void })
   // Null once the Tasks page no longer has it: ticked long enough ago to be on the Done page only.
   const pathIds = pathIdsTo(trees, id);
 
-  function showInList() {
-    navigate("/");
-    showOnPage((isLast) => findTaskRow(id, pathIds ?? [], isLast));
-  }
+  const goToTask = useGoToTask();
+  const showInList = () => goToTask(id);
 
   let title: string;
   let rows: ReactNode;

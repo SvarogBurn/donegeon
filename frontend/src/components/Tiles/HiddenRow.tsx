@@ -3,7 +3,7 @@ export function HiddenRow({ tiles, onShow }: { tiles: { key: string; label: stri
   if (tiles.length === 0) return null;
   return (
     <div className="flex flex-wrap items-center justify-center gap-2 text-xs" role="group" aria-label="Hidden boxes">
-      <span className="text-stone-600 dark:text-stone-400">Hidden:</span>
+      <span className="text-stone-600 dark:text-stone-400" data-on-page>Hidden:</span>
       {tiles.map((tile) => (
         <button
           key={tile.key}

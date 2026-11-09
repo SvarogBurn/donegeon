@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TaskTreeNode } from "../types";
-import { buildSchedule, dueToday, momentOf, PLAN_DAYS } from "./notifySchedule";
+import { buildSchedule, dueToday, momentOf, PLAN_DAYS, reminderTasks, testReminders } from "./notifySchedule";
 import { NOTIFY_DEFAULTS, normalizeNotifications, reminderSummary, spreadTimes, type NotifySettings, type Reminder } from "./notifySettings";
 
 // Tuesday; its week's Saturday is 2026-10-24 and Sunday 2026-10-25, the next Monday 2026-10-26. The last day planned
@@ -67,6 +67,22 @@ describe("a reminder of the day's tasks", () => {
     expect(keyed(items, `r:today:${today}:1230`).sendAt).toEqual(momentOf(today, "12:30"));
     expect(keyed(items, "r:today:2026-10-21:0800").body).toBe("Later");
     expect(keyed(items, "r:today:2026-10-22:0800").body).toBe("Read");
+  });
+
+  it("opens its tasks, to be ticked: the ones it names", () => {
+    const ofToday = reminder("today");
+    expect(keyed(plan(trees, settings([ofToday])), `r:today:${today}:0800`).url).toBe(`/?tick=today&day=${today}`);
+    const context = { trees, ticked: "bottom", deadlines: "never" } as const;
+    expect(reminderTasks(ofToday, today, context).map((task) => task.id)).toEqual(["Essay", "Gym"]);
+    expect(reminderTasks(reminder("tomorrow"), today, context).map((task) => task.id)).toEqual(["Later"]);
+    expect(reminderTasks(reminder("recap"), today, context)).toEqual([]);
+  });
+
+  it("make the settings' test: today's, opening the tick list, and the first of them with Done; none with nothing to do", () => {
+    const [tasks, onTask] = testReminders(trees, today, "bottom", "never");
+    expect([tasks.title, tasks.url]).toEqual(["Today: 2 tasks", `/?tick=test&day=${today}`]);
+    expect([onTask.title, onTask.params]).toEqual(["Essay", { taskId: "Essay", press: false, actions: ["done"] }]);
+    expect(testReminders([], today, "bottom", "never")).toEqual([]);
   });
 
   it("comes only on the weekdays picked", () => {
@@ -140,16 +156,17 @@ describe("upcoming deadlines", () => {
     const item = keyed(plan(trees, settings([reminder("deadlines", { ahead: 7 })])), `r:deadlines:${today}:0800`);
     expect(item.title).toBe("2 deadlines in the next 7 days");
     expect(item.body).toBe("Fri 23/10: Essay\nTue 27/10: Exam");
+    expect(item.url).toBe(`/?tick=deadlines&day=${today}`);
   });
 });
 
 describe("a reminder of the user's own", () => {
-  it("on a task says the task, and has Done and Snooze; a persistent one's Done presses it", () => {
+  it("on a task says the task, and has Done; a persistent one's Done presses it", () => {
     const water = node("Water the plants", { id: "w", isPersistent: true });
     const items = plan([node("Home", { children: [water] })], settings([reminder("text", { taskId: "w", times: ["09:00", "15:00"] })]));
     const item = keyed(items, `r:text:${today}:0900`);
     expect([item.title, item.body]).toEqual(["Water the plants", "in Home"]);
-    expect(item.params).toEqual({ taskId: "w", press: true, actions: ["done", "snooze"] });
+    expect(item.params).toEqual({ taskId: "w", press: true, actions: ["done"] });
   });
 
   it("on a task opens the task: its row, by its id, when it has no page of its own", () => {
@@ -175,10 +192,10 @@ describe("a reminder of the user's own", () => {
     expect(keys.slice(0, 2)).toEqual(["r:text:2026-10-22:0800", "r:text:2026-10-23:0800"]);
   });
 
-  it("with its own words and a note opens the note, with Snooze", () => {
+  it("with its own words and a note opens the note, with no button", () => {
     const item = plan([], settings([reminder("text", { text: "Read it again", noteId: "n", linkTitle: "Recipes" })]))[0];
     expect([item.title, item.body, item.url]).toEqual(["Read it again", "Recipes", "/notes/n"]);
-    expect(item.params).toEqual({ actions: ["snooze"] });
+    expect(item.params).toBeUndefined();
   });
 });
 

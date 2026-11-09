@@ -1,5 +1,5 @@
 import { createContext, useContext, type HTMLAttributes, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import { useBoxColor, useBoxColorEdit, useSetBoxColor } from "../../hooks/useAuth";
+import { useBoxColor, useBoxColorEdit, useBoxTheme, useSetBoxColor } from "../../hooks/useAuth";
 import { frameStyle, TONE_COLORS } from "../../lib/frameTones";
 import { ColorSwatch } from "../ColorChoices";
 
@@ -76,6 +76,8 @@ export function TileFrame({ title, actions, tone = "blue", color, className = ""
   const picked = usePickedColor();
   // The colour button only while the setting "Box colours" is on; off, the picked colours stay.
   const canPick = useBoxColorEdit();
+  // The boxes' background picked in the settings, when it forces a theme on their insides (Black, White).
+  const theme = useBoxTheme();
   // A picked colour recolours the band, as a list's does; without one the box keeps its own colour, or its tone's.
   const shown = picked ?? color;
   const collapsed = Boolean(controls?.onToggleCollapse && controls.isCollapsed);
@@ -86,7 +88,7 @@ export function TileFrame({ title, actions, tone = "blue", color, className = ""
   };
 
   return (
-    <section {...rest} data-tone={tone} style={shown ? { ...style, ...frameStyle(shown) } : style} className={`tile-frame tile-tone-${tone} ${collapsed ? "tile-collapsed" : ""} ${className}`} data-collapsed={collapsed || undefined}>
+    <section {...rest} data-tone={tone} style={shown ? { ...style, ...frameStyle(shown) } : style} className={`tile-frame tile-tone-${tone} ${collapsed ? "tile-collapsed" : ""} ${className}`} data-collapsed={collapsed || undefined} data-theme={theme}>
       <div
         className="tile-band"
         data-collapsible={controls?.onToggleCollapse ? "" : undefined}

@@ -6,6 +6,7 @@ import { DeadlinesBox } from "../components/Countdown/DeadlinesBox";
 import { PressureSummary } from "../components/Countdown/PressureSummary";
 import { DoneLog } from "../components/Done/DoneLog";
 import { LabelsPanel } from "../components/Labels/LabelsPanel";
+import { TickList } from "../components/Notifications/TickList";
 import { ListCard, ListForm, listCards } from "../components/Lists/ListBoard";
 import { NoteCard } from "../components/Notes/NoteCard";
 import { SiteSearch } from "../components/Search/SiteSearch";
@@ -95,6 +96,21 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
     const pathIds = pathIdsTo(trees!, openTask);
     if (pathIds) showOnPage((isLast) => findTaskRow(openTask, pathIds, isLast) ?? (isLast ? document.querySelector<HTMLElement>(`[data-today-item="${openTask}"]`) : null));
   }, [openTask, ready, trees, setParams]);
+
+  // A tap on a reminder that names tasks ("Today: 5 tasks") opens the app on /?tick=<reminder>&day=<its day>: its
+  // tasks, to be ticked (see TickList). Once the page can be drawn.
+  const tickParam = params.get("tick");
+  const [tickList, setTickList] = useState<{ reminderId: string; day: string } | null>(null);
+  useEffect(() => {
+    if (!tickParam || !ready) return;
+    const day = params.get("day");
+    setParams((old) => {
+      old.delete("tick");
+      old.delete("day");
+      return old;
+    }, { replace: true });
+    if (day && /^\d{4}-\d{2}-\d{2}$/.test(day)) setTickList({ reminderId: tickParam, day });
+  }, [tickParam, ready, params, setParams]);
 
   const error = goals.error ?? tags.error ?? lists.error ?? tasks.error ?? folders.error;
   if (error) return <p className="text-sm text-red-600">Couldn't load your tasks: {error.message}</p>;
@@ -256,6 +272,7 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
         {drop.error && <p className="text-center text-sm text-red-600">Couldn't change the folder: {drop.error.message}</p>}
         <UndoBar />
       </div>
+      {tickList && <TickList key={`${tickList.reminderId}:${tickList.day}`} {...tickList} onClose={() => setTickList(null)} />}
     </TreeProvider>
   );
 }

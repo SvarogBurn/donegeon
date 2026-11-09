@@ -1,6 +1,6 @@
 import { addDays, mondayOf } from "../../../../shared/dates";
 import { addInterval, currentRound } from "../../../../shared/repeat";
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FocusEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FocusEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { PixelCheckbox } from "../PixelCheckbox";
 import { PushNotice, ReminderEditor, TimeField } from "../Notifications/ReminderEditor";
@@ -27,9 +27,12 @@ interface Props {
   node: TaskTreeNode;
   /** 0 = main task, 1 = its direct subtask, ... */
   depth: number;
-  onAddSubtask: () => void;
+  /** None in Today: a subtask written there would open the task's row in its list on the same page too. */
+  onAddSubtask?: () => void;
   /** Opens the task's note at the side of the page. */
   onOpenNote: () => void;
+  /** What the place it is shown in adds, as a row above Add subtask, Note and Delete (Today: Not today, Go to its list). */
+  actions?: (close: () => void) => ReactNode;
 }
 
 interface LabelPickerProps {
@@ -401,7 +404,7 @@ export function Repeat({ node }: { node: TaskTreeNode }) {
  */
 /**
  * The task's reminders: notifications at set times (or N times a day), every day, on weekdays, or, on a task on a
- * schedule, the days it is due; each with Done and Snooze. Saved with the account's settings, so they need a connection.
+ * schedule, the days it is due; each with Done. Saved with the account's settings, so they need a connection.
  */
 function Reminders({ node }: { node: TaskTreeNode }) {
   const { reminders, put, remove } = useReminders(node.id);
@@ -434,7 +437,7 @@ function Reminders({ node }: { node: TaskTreeNode }) {
   );
 }
 
-export function TaskMenu({ node, depth, onAddSubtask, onOpenNote }: Props) {
+export function TaskMenu({ node, depth, onAddSubtask, onOpenNote, actions }: Props) {
   const tree = useTree();
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
@@ -551,10 +554,13 @@ export function TaskMenu({ node, depth, onAddSubtask, onOpenNote }: Props) {
                 <DeadlineFields task={node} />
               </div>
             )}
+            {actions && <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-stone-200 pt-2 dark:border-stone-800" data-menu-part="actions">{actions(() => setIsOpen(false))}</div>}
             <div className="flex justify-between border-t border-stone-200 pt-2 dark:border-stone-800">
-              <button type="button" className="btn-quiet" onClick={() => (setIsOpen(false), onAddSubtask())}>
-                Add subtask
-              </button>
+              {onAddSubtask && (
+                <button type="button" className="btn-quiet" onClick={() => (setIsOpen(false), onAddSubtask())}>
+                  Add subtask
+                </button>
+              )}
               <button type="button" className="btn-quiet inline-flex items-center gap-1" data-menu-part="note" onClick={() => (setIsOpen(false), onOpenNote())}>
                 <span aria-hidden className={`notes-button ${node.notes ? "" : "opacity-45 grayscale"}`} />
                 Note

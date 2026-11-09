@@ -1,14 +1,16 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { sendTestNotification } from "../../api/notifications";
+import { sendTestCheer, sendTestNotification, sendTestReminders } from "../../api/notifications";
 import { ApiError } from "../../api/client";
 import { usePushDevice } from "../../hooks/notifications";
 import { useTaskTrees } from "../../hooks/tasks";
-import { useNotifySettings, useReminders } from "../../hooks/useAuth";
-import { findTask } from "../../lib/notifySchedule";
-import { DAYS_BEFORE, isNotifyTime, KIND_NAMES, NOTIFY_FROM, NOTIFY_TO, reminderSummary, SNOOZE, WEEKS_BEFORE, type BellShows, type NotifySettings, type Reminder } from "../../lib/notifySettings";
+import { useDeadlineToday, useNotifySettings, useReminders, useTickedTasks } from "../../hooks/useAuth";
+import { localDate } from "../../lib/clock";
+import { findTask, testReminders } from "../../lib/notifySchedule";
+import { DAYS_BEFORE, isNotifyTime, KIND_NAMES, NOTIFY_FROM, NOTIFY_TO, reminderSummary, WEEKS_BEFORE, type BellShows, type NotifySettings, type Reminder } from "../../lib/notifySettings";
 import { plainFirstLine } from "../../lib/markup";
 import { PUSH_NOTES } from "../../lib/pushDevice";
 import type { TaskTreeNode } from "../../types";
+import { useFaceIcon } from "../Character/CharacterFace";
 import { PixelCheckbox } from "../PixelCheckbox";
 import { FIELD, ReminderEditor, TimeField } from "./ReminderEditor";
 
@@ -26,13 +28,23 @@ const BELL_NOTES: Record<BellShows, string> = {
 function DeviceSwitch() {
   const { state, serverKey, busy, turnOn, turnOff } = usePushDevice();
   const [test, setTest] = useState<string | null>(null);
+  const drawFace = useFaceIcon();
+  const trees = useTaskTrees().data;
+  const ticked = useTickedTasks();
+  const deadlines = useDeadlineToday();
   if (state === null || serverKey === undefined) return null;
   if (serverKey === null) return <p className="text-xs text-stone-500">Notifications aren't set up on this server yet, so they only show in the bell.</p>;
 
-  async function sendTest() {
+  async function sendReminders() {
+    const items = trees ? testReminders(trees, localDate(), ticked, deadlines) : [];
+    if (!items.length) return setTest("Nothing to do today, so there's nothing to remind of: mark a task for today first.");
+    await sendTest(() => sendTestReminders(items.map(({ title, body, url, params }) => ({ title, body, url, params }))));
+  }
+
+  async function sendTest(send: () => Promise<void>) {
     setTest("Sending…");
     try {
-      await sendTestNotification();
+      await send();
       setTest("Sent: it should show in a moment.");
     } catch (err) {
       setTest(err instanceof ApiError ? err.message : "It couldn't be sent.");
@@ -47,8 +59,14 @@ function DeviceSwitch() {
             <button type="button" className="nes-btn btn-small" disabled={busy} onClick={() => void turnOff()} data-push-off>
               Turn off for this device
             </button>
-            <button type="button" className="nes-btn btn-small" onClick={() => void sendTest()} data-push-test>
+            <button type="button" className="nes-btn btn-small" onClick={() => void sendTest(sendTestNotification)} data-push-test>
               Send a test
+            </button>
+            <button type="button" className="nes-btn btn-small" onClick={() => void sendTest(() => sendTestCheer(drawFace()))} data-push-test-cheer>
+              Send a test cheer
+            </button>
+            <button type="button" className="nes-btn btn-small" onClick={() => void sendReminders()} data-push-test-reminder>
+              Send a test reminder
             </button>
           </>
         ) : (
@@ -167,14 +185,14 @@ function Reminders() {
         </button>
       )}
       <p className="text-xs text-stone-500">
-        A reminder on a task is made from its ⋯ menu; its notification has Done and Snooze. Times are between {NOTIFY_FROM} and {NOTIFY_TO}, and
+        A reminder on a task is made from its ⋯ menu; its notification has Done. A tap on one of the others opens its tasks, to be ticked there. Times are between {NOTIFY_FROM} and {NOTIFY_TO}, and
         reminders are planned two weeks ahead each time Donegeon is open.
       </p>
     </div>
   );
 }
 
-/** Notifications, on the user's Settings: this device's push switch, what the bell shows, the deadline notices, Snooze, the reminders. */
+/** Notifications, on the user's Settings: this device's push switch, what the bell shows, the deadline notices, the reminders. */
 export function NotificationSettings() {
   const [settings, save] = useNotifySettings();
   const { deadline } = settings;
@@ -257,11 +275,6 @@ export function NotificationSettings() {
           ? "A new article in The Donegeon Post comes into the bell until you read it. The paper on your page has a NEW stamp on it either way."
           : "No news in the bell. The paper on your page still gets a NEW stamp."}
       </p>
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        Snooze for
-        <AmountField value={settings.snoozeMinutes} bounds={SNOOZE} onSave={(snoozeMinutes) => set("snoozeMinutes", snoozeMinutes)} label="Snooze for how many minutes" name="snooze" width="w-12" />
-        minutes
-      </div>
       <h4 className="pt-1 text-xs font-medium">Reminders</h4>
       <Reminders />
     </>

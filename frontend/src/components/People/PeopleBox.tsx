@@ -30,7 +30,7 @@ function AddFriend({ waiting }: { waiting: Named[] }) {
           className="min-w-0 flex-1 border-2 border-stone-300 bg-white px-1 py-1 text-xs text-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          placeholder="Their username"
+          placeholder="Username"
           aria-label="Add a friend by their username"
           autoComplete="off"
           autoCapitalize="none"

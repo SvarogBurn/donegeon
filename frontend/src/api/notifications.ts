@@ -13,3 +13,7 @@ export const removeDevice = (endpoint: string) => api("/notifications/subscripti
 export const saveSchedule = (items: Planned[]) => api("/notifications/schedule", { method: "PUT", body: { items } });
 
 export const sendTestNotification = () => api("/notifications/test", { method: "POST" });
+/** Reminders made of today's tasks (testReminders), pushed at once. */
+export const sendTestReminders = (items: Pick<Planned, "title" | "body" | "url" | "params">[]) => api("/notifications/test-reminder", { body: { items } });
+/** A cheer from the user themselves, with their face, to their own devices. */
+export const sendTestCheer = (face?: string) => api("/notifications/test-cheer", { body: { face } });

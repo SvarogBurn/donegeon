@@ -49,7 +49,7 @@ export function RefusalPopup() {
       data-refusal={refusal.isNote ? "note" : ""}
       // Placed once it has been measured; over everything, the tutorial too.
       style={{ left: place?.left ?? 0, top: place?.top ?? 0, visibility: place ? "visible" : "hidden" }}
-      className={`fixed z-[70] max-w-[min(18rem,calc(100vw-1rem))] border-2 bg-white px-2 py-1.5 text-xs shadow-[2px_2px_0_rgb(0_0_0/0.35)] dark:bg-stone-900 ${refusal.isNote ? "border-stone-500 text-stone-700 dark:border-stone-400 dark:text-stone-300" : "border-red-600 text-red-700 dark:border-red-500 dark:text-red-300"}`}
+      className="fixed z-[70] max-w-[min(18rem,calc(100vw-1rem))] bg-white px-2 py-1.5 text-xs text-stone-800 shadow-[2px_2px_0_rgb(0_0_0/0.35)] dark:bg-stone-900 dark:text-stone-200"
     >
       {refusal.message}
     </div>,

@@ -25,6 +25,7 @@ import { useOnline } from "../lib/offline/online";
 import { BIG_EVERY, BIG_KINDS, bigKindsIn, type BigKind } from "../lib/bigMoment";
 import { readStored } from "../lib/storage";
 import { NeedsConnection } from "../components/NeedsConnection";
+import { BACKGROUNDS, BAR_FILLS, BOX_FILLS, backgroundIn, barsIn, boxesIn } from "../lib/backgrounds";
 import { FONT_CHOICES, FONT_STACKS, textFont } from "../lib/fonts";
 import { typedPoints } from "../lib/points";
 import { USER_BOX_COLORS } from "../lib/frameTones";
@@ -69,6 +70,39 @@ function FontChoice({ label, value, onChange, covers, name }: { label: string; v
       </label>
       <p className={`text-xs text-stone-500 ${value === "pixel" ? "font-pixel" : ""}`} style={value === "pixel" ? undefined : { fontFamily: FONT_STACKS[value] }}>
         {choice.note} {covers}
+      </p>
+    </>
+  );
+}
+
+/** What a swatch shows: a picture itself, else its colour on the light and the dark theme (See-through: a checker under it). */
+const SWATCH_LOOK: Record<string, string> = {
+  default: "bg-stone-100 dark:bg-stone-950",
+  white: "bg-white",
+  black: "bg-black",
+  clear: "bg-[repeating-conic-gradient(#a8a29e_0_25%,#fff_0_50%)] bg-size-[8px_8px]",
+};
+
+/** The page's background, the boxes' or the task bars': a swatch for each, what the picked one is, and who drew a picture. */
+function SwatchChoice<Id extends string>({ label, choices, value, onChange, name }: { label: string; choices: readonly { value: Id; label: string; note: string; image?: string; credit?: string }[]; value: Id; onChange: (id: Id) => void; name: string }) {
+  const choice = choices.find((c) => c.value === value)!;
+  return (
+    <>
+      <p className="text-xs">{label}</p>
+      <div className="flex flex-wrap gap-3">
+        {choices.map((c) => (
+          <button key={c.value} type="button" className="flex flex-col items-center gap-1 text-xs" aria-pressed={c.value === value} onClick={() => onChange(c.value)} {...{ [`data-${name}-choice`]: c.value }}>
+            <span
+              className={`block h-[27px] w-12 border-2 ${c.value === value ? "border-stone-900 dark:border-stone-100" : "border-stone-300 dark:border-stone-700"} ${SWATCH_LOOK[c.value] ?? ""}`}
+              style={c.image ? { background: `url("${c.image}") center / cover`, imageRendering: "pixelated" } : undefined}
+            />
+            {c.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-stone-500">
+        {choice.note}
+        {choice.credit && ` Pixel art by ${choice.credit}.`}
       </p>
     </>
   );
@@ -480,6 +514,9 @@ export function SettingsBox() {
         covers="The notes on the Notes page, their titles too."
         name="notes-font"
       />
+      <SwatchChoice label="Background" choices={BACKGROUNDS} value={backgroundIn(profile)} onChange={(background) => saveProfile({ ...profile, background: background === "default" ? undefined : background })} name="background" />
+      <SwatchChoice label="Boxes" choices={BOX_FILLS} value={boxesIn(profile)} onChange={(boxes) => saveProfile({ ...profile, boxes: boxes === "default" ? undefined : boxes })} name="boxes" />
+      <SwatchChoice label="Task bar" choices={BAR_FILLS} value={barsIn(profile)} onChange={(bars) => saveProfile({ ...profile, bars: bars === "default" ? undefined : bars })} name="bars" />
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <label className="flex items-center gap-2">
           <PixelCheckbox small checked={user.boxColorEdit} onChange={(e) => update.mutate({ boxColorEdit: e.target.checked })} data-box-color-edit />

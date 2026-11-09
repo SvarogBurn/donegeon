@@ -6,7 +6,7 @@ export type { BellShows, ReminderKind };
 
 /**
  * One of the user's reminders: what it says, on which days, at what times. A reminder on a task (`taskId`, made from
- * its ⋯ menu) says the task (or its own text) and has Done and Snooze; one on a note opens it.
+ * its ⋯ menu) says the task (or its own text) and has Done; one on a note opens it.
  */
 export interface Reminder {
   id: string;
@@ -39,8 +39,6 @@ export interface NotifySettings {
    * user chose so.
    */
   undone: { push: boolean; time: string };
-  /** How long Snooze puts a notification off. */
-  snoozeMinutes: number;
   /** The bell: everything, today's reminders and deadline notices too once their time has come; or only what needs an answer (left undone, deadlines passed). */
   bell: BellShows;
   /** A new article in the News (news/features) comes into the bell, whatever `bell` says, until it is read or dismissed. */
@@ -52,7 +50,6 @@ export interface NotifySettings {
 
 export const DAYS_BEFORE = { min: 2, max: 13 };
 export const WEEKS_BEFORE = { min: 1, max: 8 };
-export const SNOOZE = { min: 5, max: 120 };
 export const AHEAD = { min: 1, max: 60, first: 7 };
 
 export const KIND_NAMES: Record<ReminderKind, string> = {
@@ -89,7 +86,6 @@ export const NOTIFY_DEFAULTS: NotifySettings = {
   deadline: { on: true, dayBefore: true, days: { on: true, amount: 3 }, weeks: { on: false, amount: 2 }, time: "08:00" },
   passed: { on: true },
   undone: { push: false, time: "08:00" },
-  snoozeMinutes: 15,
   bell: "all",
   news: { on: true },
   people: { on: true },
@@ -155,7 +151,6 @@ export function normalizeNotifications(saved: unknown): NotifySettings {
     },
     passed: { on: flag(isRecord(s.passed) ? s.passed.on : undefined, d.passed.on) },
     undone: { push: flag(undone.push, d.undone.push), time: isNotifyTime(undone.time) ? undone.time : d.undone.time },
-    snoozeMinutes: whole(s.snoozeMinutes, SNOOZE.min, SNOOZE.max) ?? d.snoozeMinutes,
     bell: (BELL_SHOWS as readonly unknown[]).includes(s.bell) ? (s.bell as BellShows) : d.bell,
     news: { on: flag(isRecord(s.news) ? s.news.on : undefined, d.news.on) },
     people: { on: flag(isRecord(s.people) ? s.people.on : undefined, d.people.on) },

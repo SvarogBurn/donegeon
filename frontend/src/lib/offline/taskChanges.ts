@@ -106,8 +106,9 @@ const beforePress = new Map<string, TaskTreeNode>();
 /** After how many tasks done in a day the user wants to be reminded to take a break; null = never. */
 const breakEvery = (queryClient: QueryClient) => queryClient.getQueryData<User | null>(ME)?.breakEvery ?? null;
 
-/** After every tick and press: the day's count so far, for the break reminder and the big moments. */
-function counted(queryClient: QueryClient, doneToday: number) {
+/** After every tick and press: the day's count so far, for the break reminder and the big moments. None for a reward (null): it is no task done. */
+function counted(queryClient: QueryClient, doneToday: number | null) {
+  if (doneToday === null) return;
   const profile = queryClient.getQueryData<User | null>(ME)?.profile;
   const bigEvery = bigEveryIn(profile);
   // With a big moment at the same task, the break reminder comes after it, not over its words.
@@ -213,7 +214,7 @@ export const taskSpecs: Specs<TaskChangeVars> = {
     popup: true,
     // An untick is not a task done.
     onSaved: (queryClient, task) => {
-      const { isComplete, doneToday } = task as { isComplete: boolean; doneToday: number };
+      const { isComplete, doneToday } = task as { isComplete: boolean; doneToday: number | null };
       if (isComplete) counted(queryClient, doneToday);
     },
   },
@@ -229,7 +230,7 @@ export const taskSpecs: Specs<TaskChangeVars> = {
     refresh: TASK_DATA,
     name: (_change, title) => `“done it” on ${quoted(title)}`,
     popup: true,
-    onSaved: (queryClient, press) => counted(queryClient, (press as { doneToday: number }).doneToday),
+    onSaved: (queryClient, press) => counted(queryClient, (press as { doneToday: number | null }).doneToday),
   },
   undoPress: {
     send: ({ id, completionId, when }) => tasksApi.undoPress(id, completionId, when),

@@ -2,8 +2,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import { useLists } from "../../hooks/lists";
-import { useTaskTrees } from "../../hooks/tasks";
-import { findTaskRow, pathIdsTo, showOnPage } from "../../lib/showOnPage";
+import { useGoToTask } from "../../hooks/goToTask";
 import type { StatTask } from "../../lib/stats";
 import { SummaryCells } from "../Countdown/sheet";
 import { RichText } from "../RichText";
@@ -26,13 +25,10 @@ const LISTED = 200;
 function TaskListDialog({ title, items, onClose }: { title: string; items: ListedTask[]; onClose: () => void }) {
   const navigate = useNavigate();
   const { data: lists = [] } = useLists();
-  const { data: trees = [] } = useTaskTrees();
+  const goToTask = useGoToTask();
 
   function goTo(task: StatTask) {
-    const pathIds = pathIdsTo(trees, task.id);
-    if (!pathIds) return navigate("/done");
-    navigate("/");
-    showOnPage((isLast) => findTaskRow(task.id, pathIds, isLast));
+    if (!goToTask(task.id)) navigate("/done");
   }
 
   return createPortal(

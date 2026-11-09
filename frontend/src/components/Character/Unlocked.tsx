@@ -19,7 +19,7 @@ export function Unlocked({ progress, profile, knockedOut = false, onTry, onSeen 
   const count = rewards.length + titles.length;
 
   return (
-    <section className="space-y-3 border-2 border-amber-500 bg-amber-50 p-3 dark:bg-amber-950/40" aria-label="Unlocked" data-unlocked={count}>
+    <section className="space-y-3 bg-amber-50 p-3 dark:bg-amber-950/40" aria-label="Unlocked" data-unlocked={count}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="font-pixel text-xs text-amber-700 dark:text-amber-400">{levelUp && !knockedOut ? `LEVEL UP! Lv ${progress.level}` : "New!"}</h3>
         {count > 6 && <span className="text-xs text-stone-500">You've unlocked {count} things</span>}

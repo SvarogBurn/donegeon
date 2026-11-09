@@ -3,6 +3,32 @@
 @import "tailwindcss";
 
 /*
+ * The theme: the OS's, unless data-theme says otherwise (on <html> for the page, set by AppShell from the background
+ * picked; on a task bar for itself, from the bar picked). One level of nesting: a light bar on a dark page, or the
+ * other way round. CSS for one theme only goes in `@variant dark` / `@variant light`, never the media query.
+ */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *):not(:where([data-theme="dark"] [data-theme="light"], [data-theme="dark"] [data-theme="light"] *)) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:not(:where([data-theme="light"], [data-theme="light"] *)) {
+      @slot;
+    }
+  }
+}
+@custom-variant light {
+  &:where([data-theme="light"], [data-theme="light"] *):not(:where([data-theme="light"] [data-theme="dark"], [data-theme="light"] [data-theme="dark"] *)) {
+    @slot;
+  }
+  @media (prefers-color-scheme: light) {
+    &:not(:where([data-theme="dark"], [data-theme="dark"] *)) {
+      @slot;
+    }
+  }
+}
+
+/*
  * The whole app is set in the pixel font NES.css is designed around. It is
  * much wider than an ordinary font, so every text size is stepped down, and
  * corners are square everywhere.
@@ -57,6 +83,29 @@
     /* The pixel font has one weight; a faked bold smears its pixels. */
     font-synthesis: none;
     -webkit-font-smoothing: none;
+  }
+  /* Scrollbars, dropdowns and the like in the theme forced on the page or a bar. */
+  [data-theme="light"] {
+    color-scheme: light;
+  }
+  [data-theme="dark"] {
+    color-scheme: dark;
+  }
+  /* The background picked in Settings › Theme and design (lib/backgrounds.ts, set by AppShell); white and black whatever the theme. */
+  html[data-background="white"] body {
+    @apply bg-white text-stone-900;
+  }
+  html[data-background="black"] body {
+    @apply bg-black text-stone-100;
+  }
+  /* A picture: on a layer of its own fixed behind the page (iOS ignores background-attachment: fixed), its art pixels kept sharp. */
+  html[data-background="hills"] body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: var(--page-bg) center / cover no-repeat;
+    image-rendering: pixelated;
   }
   /*
    * A dropdown's choices, when it is open, in the dropdown's own font (the pixel one, or the one picked for its box):
@@ -136,8 +185,8 @@
 [data-chart] .nes-btn.is-primary:hover::after {
   box-shadow: inset -6px -6px color-mix(in srgb, var(--chart) 70%, #000);
 }
-@media (prefers-color-scheme: dark) {
-  :root {
+:root {
+  @variant dark {
     --heat-far: #fff;
     --chart: #3987e5;
     --chart-late: #e66767;
@@ -153,7 +202,10 @@
 
 @layer components {
   .tile-frame {
-    @apply relative bg-white bg-clip-padding dark:bg-stone-900;
+    /* Its words in its own theme, as the boxes' background picked in the settings can force one (data-theme, TileFrame). */
+    @apply relative bg-clip-padding text-stone-900 dark:text-stone-100;
+    /* The theme's white or near black, or the boxes' background picked in the settings (html[data-boxes]). */
+    background-color: var(--box-fill);
     border-style: solid;
     border-width: calc(18 * var(--u)) calc(4 * var(--u)) calc(5 * var(--u)) calc(5 * var(--u));
     /* The SVG is drawn at 140 units per art pixel: slices of 18, 4, 52 and 89 art pixels. */
@@ -297,8 +349,8 @@
     box-shadow: none;
     outline: 2px dashed #212529;
   }
-  @media (prefers-color-scheme: dark) {
-    .pixel-chip-soft {
+  .pixel-chip-soft {
+    @variant dark {
       outline-color: #a8a29e;
     }
   }
@@ -665,14 +717,14 @@
     background: center / contain no-repeat;
     image-rendering: pixelated;
   }
-  @media (prefers-color-scheme: light) {
-    .bar-glyph {
+  .bar-glyph {
+    @variant light {
       filter: brightness(0);
     }
   }
   /* The account in the installed app's bottom bar: its art is pale too, so it is shown black on the light theme as well. */
-  @media (prefers-color-scheme: light) {
-    .bar-user-icon {
+  .bar-user-icon {
+    @variant light {
       filter: brightness(0);
     }
   }
@@ -700,11 +752,46 @@
   :root {
     --bar-fill: rgb(255 255 255 / 0.9);
     --bar-edge: var(--color-stone-300);
+    --bar-text: var(--color-stone-900);
+    --box-fill: #fff;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
+  :root {
+    @variant dark {
       --bar-fill: rgb(28 25 23 / 0.9);
       --bar-edge: var(--color-stone-700);
+      --bar-text: var(--color-stone-100);
+      --box-fill: var(--color-stone-900);
+    }
+  }
+  /* The bars' background picked in Settings › Theme and design (lib/backgrounds.ts): black or white whatever the theme, or more see-through. */
+  html[data-bars="black"] {
+    --bar-fill: rgb(28 25 23 / 0.9);
+    --bar-edge: var(--color-stone-700);
+    --bar-text: var(--color-stone-100);
+  }
+  html[data-bars="white"] {
+    --bar-fill: rgb(255 255 255 / 0.9);
+    --bar-edge: var(--color-stone-300);
+    --bar-text: var(--color-stone-900);
+  }
+  html[data-bars="clear"] {
+    --bar-fill: rgb(255 255 255 / 0.45);
+    @variant dark {
+      --bar-fill: rgb(28 25 23 / 0.45);
+    }
+  }
+  /* The boxes' background picked there, inside their frames (TileFrame puts the theme Black / White forces on each box). */
+  html[data-boxes="black"] {
+    --box-fill: var(--color-stone-900);
+  }
+  html[data-boxes="white"] {
+    --box-fill: #fff;
+  }
+  /* Less see-through than the bars, so the words in the boxes still read on a picture. */
+  html[data-boxes="clear"] {
+    --box-fill: rgb(255 255 255 / 0.65);
+    @variant dark {
+      --box-fill: rgb(28 25 23 / 0.65);
     }
   }
   /* A little see-through (the user's pick), blurred behind so what scrolls under it doesn't read through the icons. */
@@ -791,16 +878,20 @@
   [data-in-bar] .search-pill > input {
     @apply placeholder:text-stone-400;
   }
-  @media (prefers-color-scheme: light) {
-    [data-in-bar] .search-pill::before {
-      filter: brightness(0);
+  [data-in-bar] .search-pill {
+    @variant light {
+      &::before {
+        filter: brightness(0);
+      }
     }
   }
-  @media (prefers-color-scheme: dark) {
-    .pixel-round-edge[data-in-bar] {
+  .pixel-round-edge[data-in-bar] {
+    @variant dark {
       --edge: var(--color-stone-700);
     }
-    .pixel-round-edge[data-in-bar]:focus-within {
+  }
+  .pixel-round-edge[data-in-bar]:focus-within {
+    @variant dark {
       --edge: #a8a29e;
     }
   }
@@ -1138,9 +1229,11 @@
     left: 28px;
   }
   /* NES draws the box in near-black; on the dark theme it needs to be light. */
-  @media (prefers-color-scheme: dark) {
-    .pixel-check > .nes-checkbox + span::before {
-      color: #e7e5e4;
+  .pixel-check > .nes-checkbox + span {
+    @variant dark {
+      &::before {
+        color: #e7e5e4;
+      }
     }
   }
   .pixel-check-small {
@@ -1327,8 +1420,8 @@
     border-image: url("../../assets/news/8x8paper_sheet_v1.svg") 3 / calc(3 * var(--u)) stretch;
     image-rendering: pixelated;
   }
-  @media (prefers-color-scheme: dark) {
-    .news-paper {
+  .news-paper {
+    @variant dark {
       filter: brightness(0.86) saturate(0.9);
     }
   }
@@ -1547,5 +1640,18 @@
 @keyframes tutorial-nudge {
   to {
     translate: var(--nudge);
+  }
+}
+
+/*
+ * Words set straight on the page, outside the boxes, on a backing like the task bar's, so they read on a picture.
+ * Among the utilities, so its colour wins over the words' own (text-stone-600 on "Hidden:").
+ */
+@layer utilities {
+  html[data-background="hills"] [data-on-page] {
+    @apply px-1;
+    background-color: var(--bar-fill);
+    color: var(--bar-text);
+    backdrop-filter: blur(4px);
   }
 }

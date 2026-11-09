@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { useNewNote } from "../../hooks/notes";
 import { usePoints } from "../../hooks/points";
-import { useCalendarTab, useStatsTab, useTutorialRunning } from "../../hooks/useAuth";
+import { useBarTheme, useCalendarTab, useStatsTab, useTutorialRunning } from "../../hooks/useAuth";
 import type { User } from "../../types";
 import { CharacterFace } from "../Character/CharacterFace";
 import { Bell } from "../Notifications/Bell";
@@ -84,6 +84,7 @@ export function AppBars({ user }: { user: User }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { data: points } = usePoints();
+  const barTheme = useBarTheme();
   const top = useRef<HTMLElement>(null);
   const bottom = useRef<HTMLElement>(null);
   usePublishedHeight(top, "--top-h");
@@ -108,6 +109,7 @@ export function AppBars({ user }: { user: User }) {
         ref={top}
         {...handlers}
         className={`${BAR} app-bar-fill top-0 border-b pt-[env(safe-area-inset-top)] ${isHidden ? "-translate-y-full" : ""}`}
+        data-theme={barTheme}
         data-bar-hidden={isHidden || undefined}
         data-top-strip
       >
@@ -159,7 +161,7 @@ export function AppBars({ user }: { user: User }) {
       </header>
 
       {/* Slid out by more than its height, so the "+" standing up out of it goes too. */}
-      <header ref={bottom} className={`${BAR} bottom-0 ${isHidden ? "translate-y-[calc(100%+2rem)]" : ""}`} data-bar-hidden={isHidden || undefined} data-task-bar>
+      <header ref={bottom} className={`${BAR} bottom-0 ${isHidden ? "translate-y-[calc(100%+2rem)]" : ""}`} data-bar-hidden={isHidden || undefined} data-task-bar data-theme={barTheme}>
         {/* The bar itself: flat to either side, the notch in the middle; under the phone's own buttons too (safe area). */}
         <div className="absolute inset-0 flex" aria-hidden>
           <div className="app-bar-fill flex-1 border-t" />

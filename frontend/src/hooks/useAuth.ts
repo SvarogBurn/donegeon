@@ -5,6 +5,7 @@ import { ApiError } from "../api/client";
 import type { DeadlineToday, TickedTasks, User } from "../types";
 import { restDays, restRanges } from "../../../shared/health";
 import { soundOffIn } from "../lib/bigMoment";
+import { BAR_FILLS, BOX_FILLS, barsIn, boxesIn, themeOf } from "../lib/backgrounds";
 import { useRunningChapter } from "../lib/tutorialRun";
 import { readStored, writeStored } from "../lib/storage";
 import { normalizeDeadlineTable, type DeadlineTable } from "../lib/deadlineTable";
@@ -122,6 +123,18 @@ export function useHealthOff(): boolean {
 export function useRestDays(): ReadonlySet<string> {
   const ranges = useMe().user?.restDays;
   return useMemo(() => restDays(restRanges(ranges)), [ranges]);
+}
+
+/** The theme the task bars' background forces (Settings › Theme and design), put on each bar as data-theme; none: the page's. */
+export function useBarTheme(): "light" | "dark" | undefined {
+  const bars = barsIn(useMe().user?.profile);
+  return themeOf(BAR_FILLS.find((b) => b.value === bars)!);
+}
+
+/** The theme the boxes' background forces (Settings › Theme and design), put on each box (TileFrame) as data-theme; none: the page's. */
+export function useBoxTheme(): "light" | "dark" | undefined {
+  const boxes = boxesIn(useMe().user?.profile);
+  return themeOf(BOX_FILLS.find((b) => b.value === boxes)!);
 }
 
 /** Whether the tick sounds are off (Settings › Gamification). */

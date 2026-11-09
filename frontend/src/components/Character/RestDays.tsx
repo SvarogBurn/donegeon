@@ -65,10 +65,10 @@ export function RestDaysSettings() {
       <RestToday />
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <label className="flex items-center gap-1">
-          From <input type="date" className="nes-input input !w-auto !py-0.5 text-xs" value={from} min={today} onChange={(e) => setFrom(e.target.value)} data-rest-from />
+          From <input type="date" className="input-small !m-0 bg-stone-100 dark:bg-stone-800 dark:text-stone-100" value={from} min={today} onChange={(e) => setFrom(e.target.value)} data-rest-from />
         </label>
         <label className="flex items-center gap-1">
-          to <input type="date" className="nes-input input !w-auto !py-0.5 text-xs" value={to} min={from} onChange={(e) => setTo(e.target.value)} data-rest-to />
+          to <input type="date" className="input-small !m-0 bg-stone-100 dark:bg-stone-800 dark:text-stone-100" value={to} min={from} onChange={(e) => setTo(e.target.value)} data-rest-to />
         </label>
         <button type="button" className="btn-quiet" disabled={!isValid} onClick={() => save([...ranges, { from, to }])} data-rest-add>
           Add

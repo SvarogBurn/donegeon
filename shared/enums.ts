@@ -30,10 +30,10 @@ export type FeedbackKind = (typeof FEEDBACK_KINDS)[number];
 
 /**
  * What a notification is about: one of the user's reminders, a hard deadline coming, a deadline gone by, the week's
- * recap (its text written by the server when it is sent), tasks left undone in Today or Week, a reminder snoozed, and
- * the test sent from the settings.
+ * recap (its text written by the server when it is sent), tasks left undone in Today or Week, and the test sent from
+ * the settings.
  */
-export const NOTIFICATION_KINDS = ["reminder", "deadline", "passed", "recap", "undone", "snooze", "test"] as const;
+export const NOTIFICATION_KINDS = ["reminder", "deadline", "passed", "recap", "undone", "test"] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
 /**

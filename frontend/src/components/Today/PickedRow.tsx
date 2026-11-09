@@ -1,14 +1,16 @@
 import { useState, type MouseEvent } from "react";
 import { useNavigate } from "react-router";
 import { useDismissed } from "../../hooks/notifications";
+import { useGoToTask } from "../../hooks/goToTask";
 import { useSetToday, useSetWeek, useTaskTrees } from "../../hooks/tasks";
 import { formatDay } from "../../lib/dates";
 import { firstLine, plainFirstLine } from "../../lib/markup";
 import { isOverdue, passedItem, passedKey } from "../../lib/notifications";
+import { findNode } from "../../lib/optimisticToggle";
 import { repeatLabel } from "../../lib/repeat";
-import { findTaskRow, pathIdsTo, showOnPage, taskRow } from "../../lib/showOnPage";
+import { boxTabOf, pathIdsTo } from "../../lib/showOnPage";
 import { hasTaskPage } from "../../lib/taskPage";
-import type { WeekAuto } from "../../lib/week";
+import type { TodayItem, WeekAuto } from "../../lib/week";
 import type { TaskTreeNode } from "../../types";
 import { PostponeDeadline } from "../Notifications/PostponeDeadline";
 import { ValueChip } from "../Points/ValueChip";
@@ -17,6 +19,7 @@ import { RichText } from "../RichText";
 import { DeadlineBadge } from "../TaskTree/DeadlineBadge";
 import { zoneOn } from "../TaskTree/dragState";
 import { PressCopies } from "../TaskTree/PressCopies";
+import { TaskMenu } from "../TaskTree/TaskMenu";
 import { DROP_STYLES, TaskTree } from "../TaskTree/TaskNode";
 import { TickOrPress } from "../TaskTree/TickOrPress";
 import { useDrag, useTree } from "../TaskTree/TreeContext";
@@ -30,10 +33,10 @@ interface PickedRowProps {
   /** In Today: a round due since a day gone by (its schedule keeps it due until it is done or skipped). */
   dueSince?: string;
   /**
-   * Here by itself (see WeekItem, TodayItem). In Week it has no × or handle: it leaves by being done. In Today its ×
-   * (`onNotToday`) takes it out for the rest of the day.
+   * Here by itself (see WeekItem, TodayItem). In Week it has no × or handle: it leaves by being done. In Today its ⋯
+   * menu's "Not today" (`onNotToday`) takes it out for the rest of the day.
    */
-  auto?: WeekAuto;
+  auto?: WeekAuto | TodayItem["auto"];
   onNotToday?: () => void;
   missed?: boolean;
   rounds?: number;
@@ -41,7 +44,11 @@ interface PickedRowProps {
   round?: string;
 }
 
-/** A task from a list shown in Today or Week: it is only shown here, and taken out with ×, the task itself staying where it is. */
+/**
+ * A task from a list shown in Today or Week: it is only shown here, the task itself staying where it is. In Week it is
+ * taken out with ×; in Today it has the ⋯ menu instead, as the tasks written into Today have, with what the × did
+ * (Not today, Take out of Today, or what now for an overdue one) and Go to its list (2026-11-09, the user's ask).
+ */
 export function PickedRow({ node, path, today, box, dueSince, auto, onNotToday, missed = false, rounds = 0, round }: PickedRowProps) {
   const tree = useTree();
   const navigate = useNavigate();
@@ -65,24 +72,22 @@ export function PickedRow({ node, path, today, box, dueSince, auto, onNotToday, 
   const overdue = !inWeek && isOverdue(node, today);
   const takeOut = () => (auto ? onNotToday?.() : setToday.mutate({ id: node.id, today: false }));
 
+  const goToTask = useGoToTask();
+  // Where "Go to its list" goes: a task with no list is in this box, on the tab it was written into.
   const { data: trees = [] } = useTaskTrees();
+  const main = findNode(trees, pathIdsTo(trees, node.id)?.[0] ?? node.id);
+  const goesTo = main?.listId ? "Go to its list" : `Show it in ${boxTabOf(main) === "week" ? "Week" : "Today"}`;
   // A click on the row (not on one of its buttons) goes to the task itself, to be edited there: its own page if it has
-  // one, else its row in its list (on the Tasks page, if this page doesn't show that list), marked for a moment. The
-  // arrow shows its subtasks here.
+  // one, else its row in its list wherever that list is shown, or in this box for one with no list (see useGoToTask),
+  // marked for a moment. The arrow shows its subtasks here.
   const hasPage = hasTaskPage(node);
   // Its deadline is today: that is what it says, not since when its round is due.
   const dueToday = node.deadlineDate === today && !node.isComplete;
   function onRowClick(e: MouseEvent<HTMLDivElement>) {
-    if ((e.target as Element).closest("button, input, a, label") || isTipTap(e.target)) return;
+    // The ⋯ menu is put on the page itself (a portal), yet its clicks still come up through this row.
+    if (!e.currentTarget.contains(e.target as Node) || (e.target as Element).closest("button, input, a, label") || isTipTap(e.target)) return;
     if (hasPage) navigate(`/tasks/${node.id}`);
-    else showInList();
-  }
-
-  function showInList() {
-    const pathIds = pathIdsTo(trees, node.id) ?? [];
-    const main = pathIds[0] ?? node.id;
-    if (!taskRow(main, "lists")) navigate("/");
-    showOnPage((isLast) => findTaskRow(node.id, pathIds, isLast, "lists"));
+    else goToTask(node.id);
   }
 
   const name = plainFirstLine(node.title);
@@ -191,17 +196,31 @@ export function PickedRow({ node, path, today, box, dueSince, auto, onNotToday, 
               </button>
             </>
           ) : (
-            // A task here because it is due, or its deadline near, comes back tomorrow if it is taken out.
+            // A task here because it is due, or its deadline near, comes back tomorrow if it is taken out; one planned
+            // for today in Week stays on its day there.
             <>
-              <button
-                type="button"
-                className="btn-quiet glyph"
-                aria-label={overdue ? `"${name}" is overdue: what now?` : auto ? `Not "${name}" today` : `Take "${name}" out of Today`}
-                title={overdue ? "It's overdue: what now?" : auto ? "Not today: it is back tomorrow, as long as it is still due (on this device)" : "Take out of Today (the task itself stays where it is)"}
-                onClick={() => (overdue ? setIsAsking(true) : takeOut())}
-              >
-                ×
-              </button>
+              <TaskMenu
+                node={node}
+                depth={path.length}
+                onOpenNote={() => tree.showNote(node.id, !node.notes)}
+                actions={(close) => (
+                  <>
+                    <button
+                      type="button"
+                      className="btn-quiet"
+                      aria-label={overdue ? `"${name}" is overdue: what now?` : auto ? `Not "${name}" today` : `Take "${name}" out of Today`}
+                      title={overdue ? "It's overdue: what now?" : auto === "week" ? "Not today: it stays on its day in Week (on this device)" : auto ? "Not today: it is back tomorrow, as long as it is still due (on this device)" : "Take out of Today (the task itself stays where it is)"}
+                      onClick={() => (close(), overdue ? setIsAsking(true) : takeOut())}
+                      data-take-out
+                    >
+                      {overdue ? "Overdue: what now?" : auto ? "Not today" : "Take out of Today"}
+                    </button>
+                    <button type="button" className="btn-quiet" onClick={() => (close(), goToTask(node.id))} data-go-to-task>
+                      {goesTo}
+                    </button>
+                  </>
+                )}
+              />
               {/* Dropped on the Next week bin under the day's tasks, it is put off: out of Today, its days waiting forgotten.
                   What came in by itself can be put off too, and comes back after that. */}
               <button

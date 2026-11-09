@@ -1,7 +1,9 @@
 // Notifications pushed by the server (backend/src/lib/push.ts), shown even with the app closed. Loaded into the
 // service worker the build makes (importScripts in vite.config.ts), so it is plain script, not a module.
 
-const ACTION_TITLES = { done: "Done", snooze: "Snooze" };
+const ACTION_TITLES = { done: "Done" };
+// The small icon Android shows at the left (white dragon on transparent: it draws only the shape). Ignored elsewhere.
+const BADGE = "/notification-badge.png";
 
 self.addEventListener("push", (event) => {
   let message;
@@ -15,10 +17,12 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(message.title, {
       body: message.body,
       icon: message.icon || "/favicon.svg",
+      badge: BADGE,
       // A second one with the same tag (the plan sent again) takes the first one's place.
       tag: message.tag,
-      // Done and Snooze, where the device shows buttons (not on iPhones: a tap opens the page there).
-      actions: (message.actions || []).map((action) => ({ action, title: ACTION_TITLES[action] })),
+      // Done, where the device shows buttons (not on iPhones: a tap opens the page there). One sent before Snooze was
+      // taken out may still ask for it: only the buttons there are now are shown.
+      actions: (message.actions || []).filter((action) => ACTION_TITLES[action]).map((action) => ({ action, title: ACTION_TITLES[action] })),
       data: { url: message.url || "/", key: message.key, taskId: message.taskId, press: message.press },
     }),
   );
@@ -61,9 +65,7 @@ self.addEventListener("notificationclick", (event) => {
     // Ticks the task, or presses it if it is done again and again. Refused (subtasks still open, logged out, no
     // connection): a notification says why, and a tap on it opens the task.
     const done = press ? call("POST", `/tasks/${taskId}/completions`, { fromNotification: true }) : call("PATCH", `/tasks/${taskId}/toggle`, { done: true, fromNotification: true });
-    event.waitUntil(done.catch((err) => self.registration.showNotification("Not done", { body: err.message, icon: "/favicon.svg", tag: `${key}:failed`, data: { url } })));
-  } else if (event.action === "snooze" && key) {
-    event.waitUntil(call("POST", "/notifications/snooze", { key }).catch((err) => self.registration.showNotification("Not snoozed", { body: err.message, icon: "/favicon.svg", tag: `${key}:failed`, data: { url } })));
+    event.waitUntil(done.catch((err) => self.registration.showNotification("Not done", { body: err.message, icon: "/favicon.svg", badge: BADGE, tag: `${key}:failed`, data: { url } })));
   } else {
     event.waitUntil(open(url || "/"));
   }
