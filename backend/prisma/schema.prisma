@@ -501,20 +501,26 @@ model Note {
   @@index([userId, deletedAt])
 }
 
-// A folder for notes only, along the top of the Notes page. Removing it puts its notes back under "All".
+// A folder for notes only, on the Notes page: a top-level one along the top of the page, a subfolder (parentId) as a
+// card inside its folder. Removing it puts its notes and subfolders in its parent (or back under "All").
 model NoteFolder {
   id        String   @id @default(uuid())
   userId    String
   name      String
   // The colour of its icon, "#rrggbb"; null = the icon as drawn.
   color     String?
+  // The folder it is in; null = a top-level one.
+  parentId  String?
   position  Int      @default(0)
   createdAt DateTime @default(now())
 
-  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  notes Note[]
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent   NoteFolder?  @relation("NoteFolderTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children NoteFolder[] @relation("NoteFolderTree")
+  notes    Note[]
 
   @@index([userId])
+  @@index([parentId])
 }
 
 // Two people, once: `userA` is the lower id, so two people asking each other at the same moment can't make two rows.

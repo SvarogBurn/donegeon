@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { alreadyMade } from "../lib/clientId.js";
 import { needsRestore } from "../lib/deleted.js";
-import { notFound } from "../lib/httpError.js";
+import { HttpError, notFound } from "../lib/httpError.js";
 import { prisma } from "../lib/prisma.js";
 import { userId } from "../middleware/requireAuth.js";
 import { color, id, name } from "../schemas/common.js";
@@ -24,11 +24,23 @@ const notePatch = z.object({
   text: text.optional(),
   noteFolderId: id.nullable().optional(),
 });
-const noteFolderInput = z.object({ name: name(60).optional(), color: color.optional() });
+const noteFolderInput = z.object({ name: name(60).optional(), color: color.optional(), parentId: id.nullable().optional() });
 
 /** A folder named for a note must be the user's own. */
 async function checkFolder(owner: string, noteFolderId: string | null | undefined) {
   if (noteFolderId) await ownNoteFolder(owner, noteFolderId);
+}
+
+/** The folder a note folder is put in must be the user's own, and not the folder itself or one inside it. */
+async function checkParent(owner: string, folderId: string | null, parentId: string | null | undefined) {
+  if (!parentId) return;
+  const folders = await prisma.noteFolder.findMany({ where: { userId: owner }, select: { id: true, parentId: true } });
+  const parentOf = new Map(folders.map((f) => [f.id, f.parentId]));
+  if (!parentOf.has(parentId)) throw notFound("Note folder");
+  // Up from the new parent to the top: meeting the folder on the way would make a loop.
+  for (let at: string | null | undefined = parentId, steps = 0; at && steps <= folders.length; at = parentOf.get(at), steps++) {
+    if (at === folderId) throw new HttpError(400, "A folder can't go inside itself");
+  }
 }
 
 /**
@@ -96,13 +108,15 @@ notesRouter.post("/:id/restore", async (req, res) => {
 notesRouter.post("/folders", async (req, res) => {
   const input = noteFolderInput.parse(req.body);
   const owner = userId(req);
+  await checkParent(owner, null, input.parentId);
   const noteFolder = await prisma.noteFolder.create({
-    data: { userId: owner, name: input.name ?? "Folder", color: input.color ?? null, position: await nextPosition(prisma, "noteFolder", owner) },
+    data: { userId: owner, name: input.name ?? "Folder", color: input.color ?? null, parentId: input.parentId ?? null, position: await nextPosition(prisma, "noteFolder", owner) },
   });
   res.status(201).json({ noteFolder });
 });
 
-// The folders dragged into another order: `ids` left to right. A folder left out (made meanwhile) keeps its place after them.
+// The folders dragged into another order: `ids` left to right (the app sends the top-level ones). A folder left out (made
+// meanwhile, or a subfolder) keeps its place after them.
 notesRouter.put("/folders/order", async (req, res) => {
   const { ids } = z.object({ ids: z.array(id).max(200) }).parse(req.body);
   const folders = await prisma.noteFolder.findMany({
@@ -117,16 +131,27 @@ notesRouter.put("/folders/order", async (req, res) => {
   res.status(204).end();
 });
 
+// Moved into another folder (`parentId`; null = to the top level), it goes last there.
 notesRouter.patch("/folders/:id", async (req, res) => {
   const input = noteFolderInput.parse(req.body);
-  const folder = await ownNoteFolder(userId(req), req.params.id);
-  const noteFolder = await prisma.noteFolder.update({ where: { id: folder.id }, data: input });
+  const owner = userId(req);
+  const folder = await ownNoteFolder(owner, req.params.id);
+  const moved = input.parentId !== undefined && input.parentId !== folder.parentId;
+  if (moved) await checkParent(owner, folder.id, input.parentId);
+  const noteFolder = await prisma.noteFolder.update({
+    where: { id: folder.id },
+    data: { ...input, ...(moved && { position: await nextPosition(prisma, "noteFolder", owner) }) },
+  });
   res.json({ noteFolder });
 });
 
-// Its notes stay, back under "All" (the relation sets their folder to null).
+// Its notes and subfolders stay, in the folder it was in (or back under "All").
 notesRouter.delete("/folders/:id", async (req, res) => {
   const folder = await ownNoteFolder(userId(req), req.params.id);
-  await prisma.noteFolder.delete({ where: { id: folder.id } });
+  await prisma.$transaction([
+    prisma.noteFolder.updateMany({ where: { parentId: folder.id }, data: { parentId: folder.parentId } }),
+    prisma.note.updateMany({ where: { noteFolderId: folder.id }, data: { noteFolderId: folder.parentId } }),
+    prisma.noteFolder.delete({ where: { id: folder.id } }),
+  ]);
   res.status(204).end();
 });
