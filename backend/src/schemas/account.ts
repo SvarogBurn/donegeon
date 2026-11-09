@@ -67,6 +67,12 @@ const profile = z
     bigEvery: z.number().int().min(1).max(999).nullable().optional(),
     /** The kinds of big moment unticked (BIG_KINDS in frontend/src/lib/bigMoment.ts); a kind not known now is kept for later. */
     bigOff: z.array(z.string().max(20)).max(20).optional(),
+    /** The page's background (BACKGROUNDS in frontend/src/lib/backgrounds.ts); one not known now is the theme's. */
+    background: z.string().max(40).optional(),
+    /** The task bars' background (BAR_FILLS in frontend/src/lib/backgrounds.ts); one not known now is the theme's. */
+    bars: z.string().max(20).optional(),
+    /** The boxes' background (BOX_FILLS there), the same way. */
+    boxes: z.string().max(20).optional(),
   })
   .nullable();
 
