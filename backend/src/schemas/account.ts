@@ -122,7 +122,6 @@ const notifications = z
       .optional(),
     passed: z.object({ on: z.boolean() }).optional(),
     undone: z.object({ push: z.boolean(), time: time.optional() }).optional(),
-    snoozeMinutes: z.number().int().min(5).max(120).optional(),
     bell: z.enum(BELL_SHOWS).optional(),
     news: z.object({ on: z.boolean() }).optional(),
     people: z.object({ on: z.boolean() }).optional(),

@@ -102,14 +102,15 @@ tasksRouter.post("/:id/week", async (req, res) => {
   res.status(204).end();
 });
 
-// Ticks or unticks this one node (see toggleTask); the answer says how many were done today, for the break reminder.
+// Ticks or unticks this one node (see toggleTask); the answer says how many were done today, for the break reminder
+// (null for a reward: buying one is no task done).
 // `fromNotification`: the Done on a pushed reminder. The app isn't open to plan again, so its other reminders stop here.
 tasksRouter.patch("/:id/toggle", async (req, res) => {
   const { done, fromNotification } = z.object({ done: z.boolean().optional(), fromNotification: z.boolean().optional() }).parse(req.body ?? {});
   const task = await pathTask(req);
   const toggled = await toggleTask(task, done, momentOf(req));
   if (fromNotification && toggled.isComplete) await clearAnswered(task.userId, task.id);
-  res.json({ task: toggled, doneToday: await doneToday(task.userId, req.localDate) });
+  res.json({ task: toggled, doneToday: await doneToday(task, req.localDate) });
 });
 
 tasksRouter.use("/:id/completions", completionsRouter);

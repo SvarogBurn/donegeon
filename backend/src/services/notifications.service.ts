@@ -1,10 +1,11 @@
-import { Prisma, type ScheduledNotification } from "@prisma/client";
+import type { ScheduledNotification } from "@prisma/client";
+import { CHEER_LINES } from "../../../shared/constants.js";
 import { addDays } from "../../../shared/dates.js";
 import { heartsText, restDays, restRanges } from "../../../shared/health.js";
-import { HttpError } from "../lib/httpError.js";
 import { prisma } from "../lib/prisma.js";
 import { pushTo, type PushDevice, type PushMessage } from "../lib/push.js";
-import type { ScheduledInput } from "../schemas/notification.js";
+import type { ScheduledInput, TestReminderInput } from "../schemas/notification.js";
+import { cheerPush } from "./peopleRules.js";
 
 /**
  * Notifications are planned by the app, which knows the user's days and what Today and the Week will show, and sent
@@ -28,14 +29,13 @@ export async function removeSubscription(userId: string, endpoint: string) {
 
 /**
  * Puts the app's new plan in place of the old one: what is no longer in it is not sent, the rest is written over,
- * and a notification already sent is left as it was, so it isn't sent again. Snoozed ones are the server's, not the
- * plan's, and stay. Two statements, whatever the plan's size.
+ * and a notification already sent is left as it was, so it isn't sent again. Two statements, whatever the plan's size.
  */
 export async function replaceSchedule(userId: string, items: ScheduledInput[]) {
   const keys = items.map((item) => item.key);
   // The moments go as text and are turned into the columns' UTC here, so nothing hangs on the database's time zone.
   await prisma.$transaction([
-    prisma.scheduledNotification.deleteMany({ where: { userId, sentAt: null, key: { notIn: keys }, NOT: { key: { startsWith: "snooze:" } } } }),
+    prisma.scheduledNotification.deleteMany({ where: { userId, sentAt: null, key: { notIn: keys } } }),
     prisma.$executeRaw`
       INSERT INTO "ScheduledNotification" ("id", "userId", "key", "kind", "sendAt", "title", "body", "url", "params")
       SELECT gen_random_uuid()::text, ${userId}, v.key, v.kind, v."sendAt"::timestamptz AT TIME ZONE 'UTC', v.title, v.body, v.url, v.params::jsonb
@@ -62,7 +62,7 @@ interface RowParams extends Partial<RecapParams> {
   taskId?: string;
   press?: boolean;
   dueDay?: string;
-  actions?: ("done" | "snooze")[];
+  actions?: "done"[];
 }
 
 /**
@@ -129,8 +129,8 @@ export async function sendDue(now = new Date()): Promise<number> {
 }
 
 /**
- * A task done from its notification: the app isn't open to plan again, so what that answers is called off here, snoozed
- * copies too. Ticked (no `nextDue`): all its reminders. Pressed: those coming on days it is due, for the days before its
+ * A task done from its notification: the app isn't open to plan again, so what that answers is called off here.
+ * Ticked (no `nextDue`): all its reminders. Pressed: those coming on days it is due, for the days before its
  * next round; one coming every day keeps coming, as the user asked it to.
  */
 export async function clearAnswered(userId: string, taskId: string, nextDue?: string) {
@@ -138,35 +138,6 @@ export async function clearAnswered(userId: string, taskId: string, nextDue?: st
     DELETE FROM "ScheduledNotification"
     WHERE "userId" = ${userId} AND "sentAt" IS NULL AND "params"->>'taskId' = ${taskId}
       AND (${nextDue ?? null}::text IS NULL OR ("params"->>'dueDay')::date < ${nextDue ?? null}::date)`;
-}
-
-/** How long a Snooze puts a notification off, unless the user set their own (Settings › Notifications). */
-const SNOOZE_MINUTES = 15;
-
-/**
- * The notification's Snooze: the same notification again, `snoozeMinutes` from now, as a row of the server's own
- * (`snooze:<its key>:<when>`). One that lands while the server sleeps is dropped, as any late one is.
- */
-export async function snooze(userId: string, key: string, now = new Date()) {
-  const row = await prisma.scheduledNotification.findUnique({ where: { userId_key: { userId, key } } });
-  if (!row) throw new HttpError(404, "That notification is gone");
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { notifications: true } });
-  const saved = (user.notifications ?? {}) as { snoozeMinutes?: number };
-  const minutes = saved.snoozeMinutes ?? SNOOZE_MINUTES;
-  // A snooze of a snooze goes back to the first notification's key, so the keys don't grow.
-  const first = key.startsWith("snooze:") ? key.slice("snooze:".length, key.lastIndexOf(":")) : key;
-  await prisma.scheduledNotification.create({
-    data: {
-      userId,
-      key: `snooze:${first}:${now.getTime()}`,
-      kind: row.kind,
-      sendAt: new Date(now.getTime() + minutes * 60_000),
-      title: row.title,
-      body: row.body,
-      url: row.url,
-      params: row.params ?? Prisma.DbNull,
-    },
-  });
 }
 
 /** What a test says, one picked at random each time; {username} is the user's name. */
@@ -189,6 +160,30 @@ export async function sendTest(userId: string) {
   const [devices, user] = await Promise.all([prisma.pushSubscription.findMany({ where: { userId } }), prisma.user.findUnique({ where: { id: userId }, select: { username: true } })]);
   const body = TEST_LINES[Math.floor(Math.random() * TEST_LINES.length)].replace("{username}", user?.username ?? "adventurer");
   return pushToUser(devices, { title: "Donegeon", body, url: "/user", tag: "test" });
+}
+
+/**
+ * The settings' "Send a test cheer": a cheer from the user themselves, with their face, to every device of theirs. Nothing is saved, so
+ * no friend is needed, there's no one-a-day limit and nothing pops in the app. False when no device took it.
+ */
+export async function sendTestCheer(user: { id: string; username: string }, face?: string) {
+  const devices = await prisma.pushSubscription.findMany({ where: { userId: user.id } });
+  return pushToUser(devices, cheerPush(user, CHEER_LINES[Math.floor(Math.random() * CHEER_LINES.length)], face));
+}
+
+/**
+ * The settings' "Send a test reminder": the reminders the app made of today's tasks, pushed at once to every device of the
+ * user's, as sendDue would push them (a Done on one works as on a planned one). Nothing is saved. False when no device took them.
+ */
+export async function sendTestReminders(userId: string, items: TestReminderInput["items"]) {
+  const devices = await prisma.pushSubscription.findMany({ where: { userId } });
+  let took = false;
+  for (const [at, item] of items.entries()) {
+    const key = `test-reminder:${at}`;
+    const { actions, taskId, press } = item.params ?? {};
+    if (await pushToUser(devices, { title: item.title, body: item.body, url: item.url, tag: key, key, actions, taskId, press })) took = true;
+  }
+  return took;
 }
 
 /**

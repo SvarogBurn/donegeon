@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { NOTIFICATION_KINDS } from "../../../shared/enums.js";
 import { localDate } from "./common.js";
+import { cheerInput } from "./people.js";
 
 /** What a browser gives when notifications are turned on in it (PushSubscription.toJSON()). */
 export const subscriptionInput = z.object({
@@ -10,15 +11,12 @@ export const subscriptionInput = z.object({
 
 export const endpointInput = z.object({ endpoint: z.string().max(1000) });
 
-/** The notification's Snooze: its key, from the push. */
-export const snoozeInput = z.object({ key: z.string().min(1).max(200) });
-
 /** How far ahead a notice may be planned: a deadline a year off, with weeks to spare. */
 const MAX_AHEAD_MS = 400 * 24 * 60 * 60_000;
 
 const scheduled = z.object({
-  key: z.string().min(1).max(120).refine((key) => !key.startsWith("snooze:"), "Snoozed notifications are the server's"),
-  kind: z.enum(NOTIFICATION_KINDS).exclude(["test", "snooze"]),
+  key: z.string().min(1).max(120),
+  kind: z.enum(NOTIFICATION_KINDS).exclude(["test"]),
   sendAt: z.iso.datetime({ offset: true }).transform((value) => new Date(value)).refine((at) => at.getTime() < Date.now() + MAX_AHEAD_MS, "A notification can be planned at most a year ahead"),
   title: z.string().max(100),
   body: z.string().max(500),
@@ -35,8 +33,8 @@ const scheduled = z.object({
       press: z.boolean().optional(),
       /** The day of a reminder that comes on days its task is due: a Done from a notification calls it off if that day is passed by the next round. */
       dueDay: localDate.optional(),
-      /** The buttons under the notification, where the device shows them. */
-      actions: z.array(z.enum(["done", "snooze"])).max(2).optional(),
+      /** The button under the notification, where the device shows it. */
+      actions: z.array(z.enum(["done"])).max(1).optional(),
     })
     .optional(),
 });
@@ -49,3 +47,10 @@ export const scheduleInput = z.object({
     .max(300, "At most 300 notifications planned")
     .refine((items) => new Set(items.map((item) => item.key)).size === items.length, "Two notifications have the same key"),
 });
+
+/** A test reminder: what the app made of today's tasks, as a planned one would say it; pushed at once, nothing saved. */
+export const testReminderInput = z.object({ items: z.array(scheduled.pick({ title: true, body: true, url: true, params: true })).min(1).max(2) });
+export type TestReminderInput = z.infer<typeof testReminderInput>;
+
+/** A test cheer: only their face, as a real cheer carries it. */
+export const testCheerInput = cheerInput.pick({ face: true });

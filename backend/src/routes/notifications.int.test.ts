@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
 import { closeSessions } from "../lib/sessions.js";
-import { recapText, sendDue, snooze } from "../services/notifications.service.js";
+import { recapText, sendDue } from "../services/notifications.service.js";
 
 /*
  * The planned notifications against the real database: a plan sent again, a sent one never sent twice, the recap's
@@ -73,6 +73,13 @@ describe("the plan", () => {
     expect((await call("PUT", "/notifications/schedule", { items: [item("a", soon), item("a", soon)] })).status).toBe(400);
     expect((await call("PUT", "/notifications/schedule", { items: [{ ...item("a", soon), url: "https://elsewhere.example" }] })).status).toBe(400);
     expect((await call("PUT", "/notifications/schedule", { items: [{ ...item("a", soon), kind: "test" }] })).status).toBe(400);
+    expect((await call("PUT", "/notifications/schedule", { items: [{ ...item("a", soon), params: { actions: ["snooze"] } }] })).status).toBe(400);
+  });
+
+  it("refuses a test cheer with a face that isn't a PNG, or no device to take it", async () => {
+    const { call } = await user();
+    expect((await call("POST", "/notifications/test-cheer", {})).status).toBe(409);
+    expect((await call("POST", "/notifications/test-cheer", { face: "https://elsewhere.example/face.png" })).status).toBe(400);
   });
 
   it("claims what is due once, however many senders at once, and drops what is long overdue", async () => {
@@ -100,29 +107,9 @@ describe("the plan", () => {
   });
 });
 
-describe("snooze", () => {
-  it("plans the notification again after the user's minutes, and a new plan leaves it be", async () => {
-    const { call, id } = await user();
-    await call("PATCH", "/auth/me", { notifications: { snoozeMinutes: 30 } });
-    const at = new Date();
-    await call("PUT", "/notifications/schedule", { items: [item("r:a:2026-10-20:0800", new Date(at.getTime() + 1000), "Water the plants")] });
-    expect((await call("POST", "/notifications/snooze", { key: "nothing" })).status).toBe(404);
-    expect((await call("POST", "/notifications/snooze", { key: "r:a:2026-10-20:0800" })).status).toBe(204);
-    await call("PUT", "/notifications/schedule", { items: [] });
-    const [again] = (await planned(id)).filter((row) => row.key.startsWith("snooze:"));
-    expect(again.title).toBe("Water the plants");
-    expect(Math.round((again.sendAt.getTime() - at.getTime()) / 60_000)).toBe(30);
-    // A snooze of the snooze goes back to the first key.
-    await snooze(id, again.key, new Date(at.getTime() + 5000));
-    const keys = (await planned(id)).map((row) => row.key).filter((key) => key.startsWith("snooze:"));
-    expect(keys.every((key) => key.startsWith("snooze:r:a:2026-10-20:0800:"))).toBe(true);
-    expect(keys).toHaveLength(2);
-  });
-});
-
 describe("Done on a notification", () => {
   const later = () => new Date(Date.now() + HOUR);
-  const onTask = (key: string, taskId: string, params: object) => ({ ...item(key, later()), params: { taskId, press: true, actions: ["done", "snooze"], ...params } });
+  const onTask = (key: string, taskId: string, params: object) => ({ ...item(key, later()), params: { taskId, press: true, actions: ["done"], ...params } });
   const keysOf = async (id: string) => (await planned(id)).map((row) => row.key);
 
   async function scheduled(call: Awaited<ReturnType<typeof user>>["call"], listId: string, repeatEvery: number) {
@@ -131,7 +118,7 @@ describe("Done on a notification", () => {
     return task;
   }
 
-  it("calls off the rest of the day and a snoozed copy, keeps tomorrow and what comes every day, and a second Done does nothing", async () => {
+  it("calls off the rest of the day, keeps tomorrow and what comes every day, and a second Done does nothing", async () => {
     const { call, id, listId } = await user();
     const task = await scheduled(call, listId, 1);
     await call("PUT", "/notifications/schedule", {
@@ -142,7 +129,6 @@ describe("Done on a notification", () => {
         onTask(`r:all:${TODAY}:2200`, task, {}),
       ],
     });
-    await call("POST", "/notifications/snooze", { key: `r:a:${TODAY}:0900` });
 
     expect((await call("POST", `/tasks/${task}/completions`, { fromNotification: true })).status).toBe(201);
     expect(await keysOf(id)).toEqual(["r:a:2026-10-21:0900", `r:all:${TODAY}:2200`]);

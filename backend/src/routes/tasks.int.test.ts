@@ -184,8 +184,8 @@ describe("progress", () => {
     const treat = (await call("POST", "/tasks", { title: "Treat", listId: rewards.id })).body.task;
     const bought = await call("PATCH", `/tasks/${treat.id}/toggle`, { done: true });
     expect(bought.status).toBe(200);
-    // The day's count, for the break reminder and the big moments, leaves it out too.
-    expect(bought.body.doneToday).toBe(4);
+    // No count for the break reminder and the big moments: a reward bought sets nothing off.
+    expect(bought.body.doneToday).toBeNull();
     const gone = (await call("POST", "/tasks", { title: "Gone", listId })).body.task;
     await call("PATCH", `/tasks/${gone.id}/toggle`, { done: true });
     await call("DELETE", `/tasks/${gone.id}`);

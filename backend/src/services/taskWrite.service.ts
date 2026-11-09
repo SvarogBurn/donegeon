@@ -10,7 +10,7 @@ import { assertOwnLabels, ownList, ownTask } from "./ownership.js";
 import { bookTick, openTickBooking, reverseTaskBooking } from "./points.service.js";
 import { progressDays } from "./taskRead.service.js";
 import { assertDeadlineDepth, assertDividerEdit, assertDividerPlace, assertNewDivider, assertNoDeadlineIfPersistent, assertNoNewDeadlineInRound, assertNotDivider, MAX_DEADLINE_DEPTH, taskPatchData, tickBecomesPress } from "./taskRules.js";
-import { completionPatch, countedIds, findDepth, findSubtree, persistentAtOrAbove } from "./taskTree.service.js";
+import { completionPatch, countedIds, findDepth, findRoot, findSubtree, persistentAtOrAbove } from "./taskTree.service.js";
 
 const NO_SUBTASKS = "A divider has no subtasks";
 
@@ -155,9 +155,16 @@ export async function toggleTask(task: Task, done: boolean | undefined, { today,
   });
 }
 
-/** How many tasks the user has done on this day: every ticked one (subtasks too) and every "done it" press. */
-export async function doneToday(owner: string, day: string) {
-  const [counted] = await progressDays(owner, day);
+/**
+ * How many tasks the user has done on this day: every ticked one (subtasks too) and every "done it" press; for the break
+ * reminder and the big moments after `task` was done. Null when `task` is in a reward list: buying a reward is no task
+ * done, so nothing goes off (the count leaves it out, and would only say the last task's number again).
+ */
+export async function doneToday(task: Pick<Task, "id" | "userId" | "parentId" | "listId">, day: string) {
+  const root = task.parentId ? await prisma.task.findUnique({ where: { id: await findRoot(prisma, task.id) }, select: { listId: true } }) : task;
+  const list = root?.listId ? await prisma.list.findUnique({ where: { id: root.listId }, select: { kind: true } }) : null;
+  if (list?.kind === "reward") return null;
+  const [counted] = await progressDays(task.userId, day);
   return counted?.count ?? 0;
 }
 

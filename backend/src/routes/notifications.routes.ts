@@ -1,10 +1,11 @@
 import { timingSafeEqual } from "node:crypto";
 import { Router } from "express";
 import { HttpError } from "../lib/httpError.js";
+import { prisma } from "../lib/prisma.js";
 import { vapidPublicKey } from "../lib/push.js";
 import { requireAuth, userId } from "../middleware/requireAuth.js";
-import { endpointInput, scheduleInput, snoozeInput, subscriptionInput } from "../schemas/notification.js";
-import { removeSubscription, replaceSchedule, saveSubscription, sendDue, sendTest, snooze } from "../services/notifications.service.js";
+import { endpointInput, scheduleInput, subscriptionInput, testCheerInput, testReminderInput } from "../schemas/notification.js";
+import { removeSubscription, replaceSchedule, saveSubscription, sendDue, sendTest, sendTestCheer, sendTestReminders } from "../services/notifications.service.js";
 
 export const notificationsRouter = Router();
 
@@ -50,15 +51,27 @@ notificationsRouter.put("/schedule", async (req, res) => {
   res.status(204).end();
 });
 
-// A notification's Snooze button (from the service worker): the same notification again in a little while.
-notificationsRouter.post("/snooze", async (req, res) => {
-  await snooze(userId(req), snoozeInput.parse(req.body).key);
-  res.status(204).end();
-});
-
 // The settings' "Send a test".
 notificationsRouter.post("/test", async (req, res) => {
   if (!vapidPublicKey()) throw new HttpError(503, "Notifications aren't set up on this server");
   if (!(await sendTest(userId(req)))) throw new HttpError(409, "No device took it: turn notifications on for this device first");
+  res.status(204).end();
+});
+
+// The settings' "Send a test reminder": today's tasks as their reminders would come, to see one with Done, and the tick list.
+notificationsRouter.post("/test-reminder", async (req, res) => {
+  const { items } = testReminderInput.parse(req.body);
+  if (!vapidPublicKey()) throw new HttpError(503, "Notifications aren't set up on this server");
+  if (!(await sendTestReminders(userId(req), items))) throw new HttpError(409, "No device took it: turn notifications on for this device first");
+  res.status(204).end();
+});
+
+// The settings' "Send a test cheer", to see a cheer's push without a friend or the one-a-day limit.
+notificationsRouter.post("/test-cheer", async (req, res) => {
+  const { face } = testCheerInput.parse(req.body);
+  const me = await prisma.user.findUnique({ where: { id: userId(req) }, select: { id: true, username: true } });
+  if (!me) throw new HttpError(401, "Log in again");
+  if (!vapidPublicKey()) throw new HttpError(503, "Notifications aren't set up on this server");
+  if (!(await sendTestCheer(me, face))) throw new HttpError(409, "No device took it: turn notifications on for this device first");
   res.status(204).end();
 });

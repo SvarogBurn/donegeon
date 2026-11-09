@@ -24,14 +24,14 @@ completionsRouter.post("/", async (req, res) => {
   const input = z.object({ id: id.optional(), fromNotification: z.boolean().optional() }).parse(req.body ?? {});
   const task = await ownTask(userId(req), (req.params as { id: string }).id);
   if (input.fromNotification && isDoneForNow(task, req.localDate)) {
-    res.json({ completion: null, doneToday: await doneToday(task.userId, req.localDate) });
+    res.json({ completion: null, doneToday: await doneToday(task, req.localDate) });
     return;
   }
   const { completion, isNew, nextDue } = await pressTask(task, input.id, { today: req.localDate, at: req.clientTime });
   if (input.fromNotification && nextDue) await clearAnswered(task.userId, task.id, nextDue);
   res.status(isNew ? 201 : 200).json({
     completion: { id: completion.id, day: completion.day },
-    doneToday: await doneToday(task.userId, req.localDate),
+    doneToday: await doneToday(task, req.localDate),
   });
 });
 

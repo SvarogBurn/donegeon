@@ -30,10 +30,10 @@ export interface PushMessage {
   tag: string;
   /** A picture of its own, as a data URL, in place of the app's icon (a cheer's face). Not on iPhones, which always show the app's. */
   icon?: string;
-  /** The planned row's key, for its Snooze. */
+  /** The planned row's key, for the tag of a Done that failed. */
   key?: string;
   /** The buttons under it, where the device shows them (not on iPhones). */
-  actions?: ("done" | "snooze")[];
+  actions?: "done"[];
   /** The task its Done ticks, or presses (`press`). */
   taskId?: string;
   press?: boolean;
