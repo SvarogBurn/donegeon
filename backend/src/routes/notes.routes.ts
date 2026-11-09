@@ -10,7 +10,10 @@ import { nextPosition, writeOrder } from "../services/ordering.service.js";
 import { ownNote, ownNoteFolder } from "../services/ownership.js";
 
 const title = z.string().trim().max(100);
-const text = z.string().max(5000);
+// No limit anyone will reach; only so one request can't be made huge.
+const text = z.string().max(1_000_000);
+
+const SYNC_OVERLAP_MS = 10_000;
 
 const noteInput = z.object({
   // Made on the device for a note written offline; see lib/clientId.
@@ -49,13 +52,25 @@ async function checkParent(owner: string, folderId: string | null, parentId: str
  */
 export const notesRouter = Router();
 
+/**
+ * The notes and the folders. With `since` (the `syncedAt` of the device's last answer), only the notes changed since then,
+ * and `ids`: every note there is, in order, so the device drops the ones not in it (deleted, however long ago). The
+ * folders always come in full: they are few and small. A note is sent again if it changed in the SYNC_OVERLAP_MS before
+ * `since`, so one being saved while the last answer was read isn't missed.
+ */
 notesRouter.get("/", async (req, res) => {
+  const since = z.iso.datetime().optional().parse(req.query.since);
   const owner = userId(req);
-  const [notes, noteFolders] = await Promise.all([
-    prisma.note.findMany({ where: { userId: owner, deletedAt: null }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] }),
-    prisma.noteFolder.findMany({ where: { userId: owner }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] }),
+  const syncedAt = new Date();
+  const live = { userId: owner, deletedAt: null };
+  const order = [{ position: "asc" as const }, { createdAt: "asc" as const }];
+  const changed = since ? { updatedAt: { gte: new Date(Date.parse(since) - SYNC_OVERLAP_MS) } } : {};
+  const [notes, noteFolders, ids] = await Promise.all([
+    prisma.note.findMany({ where: { ...live, ...changed }, orderBy: order }),
+    prisma.noteFolder.findMany({ where: { userId: owner }, orderBy: order }),
+    since ? prisma.note.findMany({ where: live, orderBy: order, select: { id: true } }) : undefined,
   ]);
-  res.json({ notes, noteFolders });
+  res.json({ notes, noteFolders, syncedAt, ...(ids && { ids: ids.map((note) => note.id) }) });
 });
 
 // A new note goes first: the newest is at the top until it is moved.

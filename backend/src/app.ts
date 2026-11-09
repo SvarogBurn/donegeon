@@ -53,6 +53,8 @@ export function createApp() {
   // One line per request, in production (or with LOG_REQUESTS=1): the host keeps what the process writes.
   if ((process.env.LOG_REQUESTS ?? (isProd ? "1" : "0")) === "1") app.use(logRequests);
 
+  // A note may be a million characters long: more room for its requests (body-parser skips a body already read).
+  app.use("/api/notes", express.json({ limit: "4mb" }));
   app.use(express.json({ limit: "100kb" }));
 
   app.use(sessions(sessionSecret, isProd));
