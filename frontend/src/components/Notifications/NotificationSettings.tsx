@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { sendTestCheer, sendTestNotification, sendTestReminders } from "../../api/notifications";
 import { ApiError } from "../../api/client";
 import { usePushDevice } from "../../hooks/notifications";
+import { useNotes } from "../../hooks/notes";
 import { useTaskTrees } from "../../hooks/tasks";
 import { useDeadlineToday, useNotifySettings, useReminders, useTickedTasks } from "../../hooks/useAuth";
 import { localDate } from "../../lib/clock";
@@ -131,18 +132,27 @@ function Indented({ children }: { children: ReactNode }) {
   return <div className="ml-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">{children}</div>;
 }
 
-/** What a reminder is called in the list: its kind, or its own words, or the task or note it is on. */
-function reminderName(reminder: Reminder, trees: TaskTreeNode[]) {
+/**
+ * What a reminder is called in the list: its kind, or its own words, or the task or note it is on. `noteTitle`: the
+ * note's title, as the notes kept on the device have it (an encrypted note's isn't saved with the reminder).
+ */
+function reminderName(reminder: Reminder, trees: TaskTreeNode[], noteTitle: string | undefined) {
   if (reminder.kind !== "text") return KIND_NAMES[reminder.kind];
   const task = reminder.taskId ? findTask(trees, reminder.taskId)?.node : undefined;
   if (reminder.taskId) return reminder.text ?? (task ? plainFirstLine(task.title) : "A task done or deleted");
-  return reminder.text ?? reminder.linkTitle ?? "Reminder";
+  return reminder.text ?? noteTitle ?? "Reminder";
 }
 
 /** The account's reminders: each on or off, changed in place, and a new one at the bottom. */
 function Reminders() {
   const { reminders, put, remove } = useReminders();
   const { data: trees = [] } = useTaskTrees();
+  // Not asked for here: only what the device already has.
+  const { data: notesData } = useNotes(false);
+  const noteTitle = (reminder: Reminder) => {
+    const note = notesData?.notes.find((n) => n.id === reminder.noteId);
+    return reminder.linkTitle ?? (note ? note.title || "Note" : undefined);
+  };
   // The reminder being changed, or "new"; null = none.
   const [editing, setEditing] = useState<string | null>(null);
 
@@ -165,12 +175,12 @@ function Reminders() {
         }
         return (
           <div key={reminder.id} className="flex items-start gap-2 text-xs" data-reminder={reminder.id}>
-            <PixelCheckbox small checked={reminder.on} onChange={(e) => put({ ...reminder, on: e.target.checked })} aria-label={`${reminderName(reminder, trees)}: on`} />
+            <PixelCheckbox small checked={reminder.on} onChange={(e) => put({ ...reminder, on: e.target.checked })} aria-label={`${reminderName(reminder, trees, noteTitle(reminder))}: on`} />
             <button type="button" className="min-w-0 flex-1 text-left hover:underline" onClick={() => setEditing(reminder.id)} title="Change it">
               <span className="block truncate">
-                {reminderName(reminder, trees)}
+                {reminderName(reminder, trees, noteTitle(reminder))}
                 {reminder.taskId && <span className="text-stone-500"> · on {reminder.text && task ? plainFirstLine(task.title) : "a task"}</span>}
-                {reminder.noteId && <span className="text-stone-500"> · opens {reminder.linkTitle ?? "a note"}</span>}
+                {reminder.noteId && <span className="text-stone-500"> · opens {noteTitle(reminder) ?? "a note"}</span>}
               </span>
               <span className="block text-stone-500">{reminderSummary(reminder)}</span>
             </button>

@@ -1,5 +1,7 @@
 import type { Note, NoteFolder } from "../types";
 import type { When } from "../lib/clock";
+import { openNote, sealNote } from "../lib/noteCrypto";
+import { deviceKey } from "../lib/notesKey";
 import { api } from "./client";
 
 export interface NoteChanges {
@@ -26,10 +28,23 @@ export interface NotesAnswer {
   syncedAt: string;
   ids?: string[];
 }
+/** As the server keeps them: while the notes are encrypted, their words are sealed (lib/noteSync opens them). */
 export const listNotes = (since?: string) => api<NotesAnswer>(since ? `/notes?since=${encodeURIComponent(since)}` : "/notes");
-export const createNote = (body: NewNote, when?: When) => api<{ note: Note }>("/notes", { body, when }).then((r) => r.note);
-export const updateNote = (id: string, body: NoteChanges, when?: When) =>
-  api<{ note: Note }>(`/notes/${id}`, { method: "PATCH", body, when }).then((r) => r.note);
+
+/** A note's words sealed with this device's notes key, while it has one (lib/noteCrypto); as they are otherwise. */
+async function sealed<T extends NoteChanges>(body: T): Promise<T> {
+  const kept = await deviceKey();
+  return kept ? sealNote(kept.key, body) : body;
+}
+/** The note the server answers with, readable. */
+async function opened(note: Note): Promise<Note> {
+  const kept = await deviceKey();
+  return kept ? openNote(kept.key, note).catch(() => note) : note;
+}
+
+export const createNote = async (body: NewNote, when?: When) => api<{ note: Note }>("/notes", { body: await sealed(body), when }).then((r) => opened(r.note));
+export const updateNote = async (id: string, body: NoteChanges, when?: When) =>
+  api<{ note: Note }>(`/notes/${id}`, { method: "PATCH", body: await sealed(body), when }).then((r) => opened(r.note));
 export const deleteNote = (id: string, when?: When) => api(`/notes/${id}`, { method: "DELETE", when });
 
 export const createNoteFolder = (body: NoteFolderChanges = {}) =>

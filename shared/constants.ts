@@ -25,6 +25,12 @@ export const KEPT_WHEN_DONE_MS = 24 * 60 * 60 * 1000;
 export const NOTIFY_FROM = "07:00";
 export const NOTIFY_TO = "22:00";
 
+/**
+ * The start of a note's title or text sealed on the user's devices (Settings › Theme and design › Encrypt notes,
+ * frontend/src/lib/noteCrypto.ts): base64 the server can't read follows it.
+ */
+export const SEALED_PREFIX = "sealed:v1:";
+
 /** The most reminders an account can have, and times a reminder can come in a day. */
 export const MAX_REMINDERS = 50;
 export const MAX_REMINDER_TIMES = 12;

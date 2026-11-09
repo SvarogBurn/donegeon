@@ -88,6 +88,7 @@ export function useFolderPick(noteFolders: NoteFolder[] | undefined) {
 /**
  * "+ New note" on the Notes page, and the installed app's "+" there: a note made in the folder that is shown, opened to
  * be written in. The folders are read from what the page has loaded, at the click (so the bar doesn't load the notes).
+ * While the notes are locked, it goes to the Notes page instead.
  */
 export function useNewNote() {
   const { mutate } = useAddNote();
@@ -95,7 +96,10 @@ export function useNewNote() {
   const navigate = useNavigate();
   const { search } = useLocation();
   return useCallback(() => {
-    const noteFolders = queryClient.getQueryData<NotesData>(NOTES)?.noteFolders ?? [];
+    const data = queryClient.getQueryData<NotesData>(NOTES);
+    // Locked, a note written here couldn't be sealed: the Notes page asks for the passphrase first.
+    if (data?.locked) return navigate("/notes");
+    const noteFolders = data?.noteFolders ?? [];
     const id = mutate({ noteFolderId: pickedFolderId(new URLSearchParams(search), noteFolders) });
     navigate(`/notes/${id}`, { state: { fresh: true } satisfies NoteScreenState });
   }, [mutate, queryClient, navigate, search]);

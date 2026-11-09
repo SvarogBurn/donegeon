@@ -25,6 +25,7 @@ import { useOnline } from "../lib/offline/online";
 import { BIG_EVERY, BIG_KINDS, bigKindsIn, type BigKind } from "../lib/bigMoment";
 import { readStored } from "../lib/storage";
 import { NeedsConnection } from "../components/NeedsConnection";
+import { NotesEncryption } from "../components/Notes/NotesLock";
 import { BACKGROUNDS, BAR_FILLS, BOX_FILLS, backgroundIn, barsIn, boxesIn } from "../lib/backgrounds";
 import { FONT_CHOICES, FONT_STACKS, textFont } from "../lib/fonts";
 import { typedPoints } from "../lib/points";
@@ -473,6 +474,8 @@ export function SettingsBox() {
           ? "A Notes tab for notes of their own, on no task, with folders of their own."
           : "No Notes tab. A task can still have its note."}
       </p>
+      {/* Only with the Notes page there, or encrypted already (switched off from here too). */}
+      {(user.notesTab || user.notesKey) && <NotesEncryption />}
       <label className="flex items-center gap-2 text-xs">
         <PixelCheckbox small checked={user.newsTab ?? true} onChange={(e) => update.mutate({ newsTab: e.target.checked })} data-news-tab />
         News tab

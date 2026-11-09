@@ -144,6 +144,10 @@ model User {
   // Which notifications the account gets and at what hour: {morning: {on, hour}, deadline: {on, dayBefore, days: {on, amount},
   // weeks: {on, amount}}, ...} (see frontend/src/lib/notifySettings.ts). null = the defaults.
   notifications   Json?
+  // The notes key while the Notes page's notes are encrypted (Settings › Theme and design › Encrypt notes): {id, salt, iv,
+  // key, rounds}, the key sealed with the user's notes passphrase, which only their devices know (see
+  // frontend/src/lib/noteCrypto.ts). The server can't open it. null = the notes aren't encrypted.
+  notesKey        Json?
   // People switched off: this account sees nobody and nobody sees it (see backend/src/services/peopleRules.ts).
   peopleOff       Boolean  @default(false)
   // What the card shows besides the character, title and level (shared/enums.ts SHARE_KEYS). What is shown is what is seen.

@@ -135,6 +135,13 @@ const notifications = z
   })
   .nullable();
 
+/**
+ * The notes key sealed with the user's notes passphrase (frontend/src/lib/noteCrypto.ts), only kept: the server can't
+ * open it. `id` stays the same when the passphrase changes. null = the notes aren't encrypted.
+ */
+const base64 = (max: number) => z.string().max(max).regex(/^[A-Za-z0-9+/]+=*$/);
+const notesKey = z.object({ id: ref, salt: base64(64), iv: base64(64), key: base64(200), rounds: z.number().int().min(100_000).max(10_000_000) }).nullable();
+
 /** The account's own settings, from the user's page; any of them at a time. */
 export const settings = z
   .object({
@@ -171,5 +178,6 @@ export const settings = z
     deadlineTable,
     /** null = back to the defaults. */
     notifications,
+    notesKey,
   })
   .partial();

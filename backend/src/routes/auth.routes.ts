@@ -2,6 +2,7 @@ import { Prisma, type User } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { Router, type Request } from "express";
 import { z } from "zod";
+import { SEALED_PREFIX } from "../../../shared/constants.js";
 import { restRanges, settleRest } from "../../../shared/health.js";
 import { isDev } from "../lib/devs.js";
 import { HttpError } from "../lib/httpError.js";
@@ -52,6 +53,7 @@ const publicUser = (user: User) => ({
   boxColorEdit: user.boxColorEdit,
   deadlineTable: user.deadlineTable,
   notifications: user.notifications,
+  notesKey: user.notesKey,
   isDev: isDev(user.username),
 });
 
@@ -118,14 +120,32 @@ async function cardChange(id: string, change: CardSettings): Promise<Prisma.User
   return { shares, card: card === null ? Prisma.DbNull : (card as Prisma.InputJsonObject) };
 }
 
+/** How many of the user's notes have a title or text sealed with their notes key. */
+const sealedNotes = (id: string) =>
+  prisma.note.count({ where: { userId: id, deletedAt: null, OR: [{ title: { startsWith: SEALED_PREFIX } }, { text: { startsWith: SEALED_PREFIX } }] } });
+
+/**
+ * The notes key set, changed or taken away. Another key (or none) only while no note is sealed with the one there: those
+ * notes could never be read again.
+ */
+async function notesKeyChange(id: string, notesKey: z.infer<typeof settings>["notesKey"]): Promise<Prisma.UserUpdateInput> {
+  if (notesKey === undefined) return {};
+  const before = (await prisma.user.findUniqueOrThrow({ where: { id }, select: { notesKey: true } })).notesKey as { id?: string } | null;
+  if (before && before.id !== notesKey?.id && (await sealedNotes(id)) > 0) {
+    throw new HttpError(409, "Some notes are still encrypted with the key there: decrypt them first");
+  }
+  return { notesKey: notesKey ?? Prisma.DbNull };
+}
+
 // The account's own settings, from the user's page.
 authRouter.patch("/me", requireAuth, async (req, res) => {
-  const { profile, taskBar, boxColors, deadlineTable, notifications, restDays, ...rest } = settings.parse(req.body);
+  const { profile, taskBar, boxColors, deadlineTable, notifications, restDays, notesKey, ...rest } = settings.parse(req.body);
   const before = restDays && (await prisma.user.findUniqueOrThrow({ where: { id: userId(req) }, select: { restDays: true } }));
   const data = {
     ...rest,
     ...(restDays && { restDays: settleRest(restRanges(before?.restDays), restDays, req.localDate) as unknown as Prisma.InputJsonArray }),
     ...(await cardChange(userId(req), rest)),
+    ...(await notesKeyChange(userId(req), notesKey)),
     ...(profile !== undefined && { profile: profile ?? Prisma.DbNull }),
     ...(taskBar !== undefined && { taskBar: taskBar ?? Prisma.DbNull }),
     ...(boxColors !== undefined && { boxColors: boxColors ?? Prisma.DbNull }),

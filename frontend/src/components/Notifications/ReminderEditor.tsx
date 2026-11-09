@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { REMINDER_KINDS } from "../../../../shared/enums";
 import { usePushDevice } from "../../hooks/notifications";
 import { useNotes } from "../../hooks/notes";
+import { useNotesEncrypted } from "../../hooks/notesKey";
 import { usePointsOff } from "../../hooks/useAuth";
 import {
   AHEAD,
@@ -86,6 +87,7 @@ export function ReminderEditor({ value, task, onSave, onCancel, onDelete }: Prop
   // The notes an own-text reminder can open: asked for only then.
   const canLink = kind === "text" && !task;
   const { data: notesData } = useNotes(canLink);
+  const isEncrypted = useNotesEncrypted();
   const notes = canLink ? (notesData?.notes ?? []) : [];
 
   function save(e: FormEvent) {
@@ -107,7 +109,8 @@ export function ReminderEditor({ value, task, onSave, onCancel, onDelete }: Prop
       ...(kind === "text" && words && { text: words }),
       ...(kind === "deadlines" && { ahead: days }),
       ...(task && { taskId: task.id }),
-      ...(note && { noteId: note.id, linkTitle: note.title || "Note" }),
+      // Encrypted, the note's title isn't for the server: the push says "Your note".
+      ...(note && { noteId: note.id, ...(!isEncrypted && { linkTitle: note.title || "Note" }) }),
     });
   }
 

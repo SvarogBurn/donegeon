@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { SEALED_PREFIX } from "../../../shared/constants.js";
 import { alreadyMade } from "../lib/clientId.js";
 import { needsRestore } from "../lib/deleted.js";
 import { HttpError, notFound } from "../lib/httpError.js";
@@ -9,9 +10,15 @@ import { color, id, name } from "../schemas/common.js";
 import { nextPosition, writeOrder } from "../services/ordering.service.js";
 import { ownNote, ownNoteFolder } from "../services/ownership.js";
 
-const title = z.string().trim().max(100);
+/**
+ * A title or text sealed on the user's devices (Settings › Theme and design › Encrypt notes): its prefix and base64, as
+ * long as the longest plain one can come out (3 bytes a character at most, 28 more, a third more again as base64).
+ */
+const sealed = (plainMax: number) =>
+  z.string().max(SEALED_PREFIX.length + Math.ceil((plainMax * 3 + 28) / 3) * 4).regex(new RegExp(`^${SEALED_PREFIX}[A-Za-z0-9+/]+=*$`));
+const title = z.union([sealed(100), z.string().trim().max(100)]);
 // No limit anyone will reach; only so one request can't be made huge.
-const text = z.string().max(1_000_000);
+const text = z.union([sealed(1_000_000), z.string().max(1_000_000)]);
 
 const SYNC_OVERLAP_MS = 10_000;
 
@@ -28,6 +35,16 @@ const notePatch = z.object({
   noteFolderId: id.nullable().optional(),
 });
 const noteFolderInput = z.object({ name: name(60).optional(), color: color.optional(), parentId: id.nullable().optional() });
+
+/**
+ * Words sealed with the notes key only while the account has one: sent after encryption was turned off on another
+ * device, they could never be read again.
+ */
+async function checkSealed(owner: string, input: { title?: string; text?: string }) {
+  if (![input.title, input.text].some((words) => words?.startsWith(SEALED_PREFIX))) return;
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: owner }, select: { notesKey: true } });
+  if (!user.notesKey) throw new HttpError(409, "Notes encryption was turned off on another device");
+}
 
 /** A folder named for a note must be the user's own. */
 async function checkFolder(owner: string, noteFolderId: string | null | undefined) {
@@ -80,6 +97,7 @@ notesRouter.post("/", async (req, res) => {
   const made = noteId && alreadyMade(await prisma.note.findUnique({ where: { id: noteId } }), owner);
   if (made) return void res.json({ note: made });
   await checkFolder(owner, input.noteFolderId);
+  await checkSealed(owner, input);
   const first = await prisma.note.aggregate({ where: { userId: owner, deletedAt: null }, _min: { position: true } });
   const note = await prisma.note.create({
     data: {
@@ -100,6 +118,7 @@ notesRouter.patch("/:id", async (req, res) => {
   const owner = userId(req);
   const { id: noteId } = await ownNote(owner, req.params.id);
   await checkFolder(owner, data.noteFolderId);
+  await checkSealed(owner, data);
   const note = await prisma.note.update({ where: { id: noteId }, data });
   res.json({ note });
 });

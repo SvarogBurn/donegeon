@@ -7,6 +7,7 @@ export type { DeadlineToday, FeedbackKind, HitKind, ListKind, RepeatUnit, ShareK
 
 // The rest is mirrored by hand from what the server sends (its Prisma models); the rules both sides follow are in shared/.
 import type { DashboardLayout } from "../lib/tileLayout";
+import type { SealedKey } from "../lib/noteCrypto";
 
 export interface User {
   id: string;
@@ -58,6 +59,8 @@ export interface User {
   deadlineTable?: unknown;
   /** Which notifications the account gets, and when, as saved; null = the defaults. Read it with normalizeNotifications (lib/notifySettings.ts). Missing in an account kept on the device from before. */
   notifications?: unknown;
+  /** The notes key sealed with the notes passphrase while the Notes page's notes are encrypted (lib/noteCrypto); null = they aren't. Missing in an account kept on the device from before. */
+  notesKey?: SealedKey | null;
   /** One of the developers' accounts: its page has the inbox of the suggestion box. */
   isDev: boolean;
 }

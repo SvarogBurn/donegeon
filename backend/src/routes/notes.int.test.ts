@@ -2,6 +2,7 @@ import "dotenv/config";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { SEALED_PREFIX } from "../../../shared/constants.js";
 import { createApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
 import { closeSessions } from "../lib/sessions.js";
@@ -104,5 +105,43 @@ describe("asking for what changed", () => {
   it("refuses a since that isn't a time", async () => {
     const { call } = await user();
     expect((await call("GET", "/notes?since=yesterday")).status).toBe(400);
+  });
+});
+
+describe("encrypted notes", () => {
+  // What the app sends: the prefix and base64 the server can't read (frontend/src/lib/noteCrypto.ts).
+  const sealed = (bytes: number) => `${SEALED_PREFIX}${Buffer.alloc(bytes, 7).toString("base64")}`;
+  const notesKey = { id: "key-1", salt: "c2FsdHNhbHRzYWx0c2FsdA==", iv: "aXZpdml2aXZpdml2", key: "a2V5a2V5a2V5a2V5a2V5a2V5a2V5a2V5a2V5a2V5a2V5a2V5", rounds: 600_000 };
+
+  it("refuses sealed words while the account has no notes key", async () => {
+    const { call } = await user();
+    expect((await call("POST", "/notes", { text: sealed(40) })).status).toBe(409);
+    const note = (await call("POST", "/notes", { text: "plain" })).body.note;
+    expect((await call("PATCH", `/notes/${note.id}`, { title: sealed(40) })).status).toBe(409);
+  });
+
+  it("keeps a sealed title longer than a plain one can be, as it was sent", async () => {
+    const { call } = await user();
+    expect((await call("PATCH", "/auth/me", { notesKey })).body.user.notesKey).toEqual(notesKey);
+    const title = sealed(300 + 28);
+    const made = await call("POST", "/notes", { title, text: sealed(1000) });
+    expect(made.status).toBe(201);
+    expect((await call("GET", "/notes")).body.notes[0].title).toBe(title);
+    expect((await call("POST", "/notes", { title: "a".repeat(101) })).status).toBe(400);
+    expect((await call("POST", "/notes", { title: sealed(1000) })).status).toBe(400);
+  });
+
+  it("won't take the key away or swap it while a note is sealed with it", async () => {
+    const { call } = await user();
+    await call("PATCH", "/auth/me", { notesKey });
+    const note = (await call("POST", "/notes", { text: sealed(40) })).body.note;
+    expect((await call("PATCH", "/auth/me", { notesKey: null })).status).toBe(409);
+    expect((await call("PATCH", "/auth/me", { notesKey: { ...notesKey, id: "key-2" } })).status).toBe(409);
+    // A new passphrase seals the same key again: same id.
+    expect((await call("PATCH", "/auth/me", { notesKey: { ...notesKey, salt: "bmV3c2FsdG5ld3NhbHQ=" } })).status).toBe(200);
+    await call("PATCH", `/notes/${note.id}`, { text: "readable again" });
+    const off = await call("PATCH", "/auth/me", { notesKey: null });
+    expect(off.status).toBe(200);
+    expect(off.body.user.notesKey).toBeNull();
   });
 });

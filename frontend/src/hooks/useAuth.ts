@@ -10,6 +10,7 @@ import { useRunningChapter } from "../lib/tutorialRun";
 import { readStored, writeStored } from "../lib/storage";
 import { normalizeDeadlineTable, type DeadlineTable } from "../lib/deadlineTable";
 import { normalizeNotifications, type NotifySettings, type Reminder } from "../lib/notifySettings";
+import { forgetDeviceKey } from "../lib/notesKey";
 import { unsubscribe } from "../lib/pushDevice";
 
 export const ME = ["me"];
@@ -203,7 +204,10 @@ export function useLogin(mode: "login" | "signup") {
       if (keptFor() === user.id) {
         void queryClient.resumePausedMutations();
         void queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== ME[0] });
-      } else queryClient.clear();
+      } else {
+        queryClient.clear();
+        forgetDeviceKey();
+      }
       keepFor(user.id);
       queryClient.setQueryData(ME, user);
     },
@@ -217,6 +221,7 @@ function forgetAccount(queryClient: QueryClient) {
   queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== ME[0] });
   queryClient.getMutationCache().clear();
   keepFor(null);
+  forgetDeviceKey();
 }
 
 export function useLogout() {

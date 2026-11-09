@@ -4,9 +4,11 @@ import { NeedsConnection } from "../components/NeedsConnection";
 import { dragAlong, useTabPress, type OnTabDrag } from "../components/layout/tabDrag";
 import { NoteCard } from "../components/Notes/NoteCard";
 import { NoteFolderCard } from "../components/Notes/NoteFolderCard";
+import { NotesLock } from "../components/Notes/NotesLock";
 import { TileControlsContext } from "../components/Tiles/TileFrame";
 import { useTabDrag } from "../components/Tiles/useTabDrag";
 import { useDropOnTab } from "../hooks/folders";
+import { useSealPlainNotes } from "../hooks/notesKey";
 import { useCreateNoteFolder, useDeleteNoteFolder, useEditNote, useFolderPick, useMoveNoteFolder, useNewNote, useNotes, useReorderNoteFolders, useUpdateNoteFolder } from "../hooks/notes";
 import { noteView } from "../lib/folders";
 import { FOLDER_COLOR, folderIn } from "../lib/frameTones";
@@ -197,8 +199,11 @@ export function NotesPage() {
     () => {},
   );
 
+  useSealPlainNotes(notes.data);
+
   if (notes.error) return <p className="text-sm text-red-600">Couldn't load your notes: {notes.error.message}</p>;
   if (!notes.data) return <p className="text-sm text-stone-500">Loading…</p>;
+  if (notes.data.locked) return <NotesLock />;
   const { noteFolders } = notes.data;
   const { pickedId } = folderPick;
   const pick = (id: string | null) => {

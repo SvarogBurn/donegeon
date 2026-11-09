@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, Outlet } from "react-router";
 import type { TextFont } from "../../types";
+import { useNotesKeyCheck } from "../../hooks/notesKey";
 import { useMe } from "../../hooks/useAuth";
 import { BACKGROUNDS, backgroundIn, barsIn, boxesIn, themeOf, type BackgroundId, type BarFillId } from "../../lib/backgrounds";
 import { FONT_STACKS, textFont } from "../../lib/fonts";
@@ -87,6 +88,7 @@ export function AppShell() {
   useTextFont("boxFont", textFont(user?.boxFont));
   useTextFont("notesFont", textFont(user?.notesFont));
   usePageLook(backgroundIn(user?.profile), barsIn(user?.profile), boxesIn(user?.profile));
+  useNotesKeyCheck();
 
   if (isLoading && !online) return <p className="p-8 text-center text-sm text-stone-500">You're offline, and nothing was kept on this device yet.</p>;
   if (isLoading) return <p className="p-8 text-center text-sm text-stone-500" data-loading="app">Loading…</p>;

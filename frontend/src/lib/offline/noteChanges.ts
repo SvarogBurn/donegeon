@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import * as notesApi from "../../api/notes";
 import { NOTES } from "../../hooks/queryKeys";
+import { ME } from "../../hooks/useAuth";
 import type { Note, NoteFolder } from "../../types";
 import { quoted, type Saved, type Specs } from "./changeSpec";
 
@@ -12,6 +13,10 @@ export interface NotesData {
   noteFolders: NoteFolder[];
   /** When the server answered last: the next check asks only for what changed since. Without it, it asks for every note. */
   syncedAt?: string;
+  /** The notes are encrypted and this device has no key to open them (lib/noteCrypto): `notes` is empty until it is unlocked. */
+  locked?: boolean;
+  /** The notes the server keeps unsealed while this device has the notes key: the Notes page seals them (useSealPlainNotes). */
+  plain?: string[];
 }
 
 export interface NoteEditChange {
@@ -35,8 +40,14 @@ async function changeNotes(queryClient: QueryClient, change: (notes: Note[]) => 
   return [[NOTES, before]];
 }
 
-/** A refused change made a while ago stays on screen (lib/offline/changes): the next check asks for every note. */
-const askForAll = (queryClient: QueryClient) => queryClient.setQueryData<NotesData>(NOTES, (data) => data && { ...data, syncedAt: undefined });
+/**
+ * A refused change made a while ago stays on screen (lib/offline/changes): the next check asks for every note. The
+ * account is asked for again too: the refusal may be that encryption was switched off on another device (useNotesKeyCheck).
+ */
+const askForAll = (queryClient: QueryClient) => {
+  queryClient.setQueryData<NotesData>(NOTES, (data) => data && { ...data, syncedAt: undefined });
+  void queryClient.invalidateQueries({ queryKey: ME });
+};
 
 const noteName = (title: string | undefined) => (title ? `the note ${quoted(title)}` : "a note");
 
