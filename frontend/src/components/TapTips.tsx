@@ -7,7 +7,7 @@ const INTERACTIVE = "button, a, input, textarea, select, label, [role=button]";
 export const isTipTap = (target: EventTarget | null) => target instanceof Element && Boolean(target.closest("[data-tip]")) && matchMedia("(pointer: coarse)").matches;
 
 /** What an element marked `data-tip` says: its own text there, else its tooltip (a bare `data-tip` is "true" in React's hands). */
-const tipOf = (el: HTMLElement) => (el.dataset.tip && el.dataset.tip !== "true" ? el.dataset.tip : el.getAttribute("title")) || "";
+export const tipOf = (el: HTMLElement) => (el.dataset.tip && el.dataset.tip !== "true" ? el.dataset.tip : el.getAttribute("title")) || "";
 
 /**
  * Tooltips for a touch screen, which has no hover (2026-11-04, playtest 1: what a chip meant was only in its tooltip):

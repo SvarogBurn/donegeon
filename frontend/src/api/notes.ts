@@ -15,9 +15,18 @@ export interface NewNote extends NoteChanges {
 export interface NoteFolderChanges {
   name?: string;
   color?: string | null;
+  /** The folder it goes in; null = the top level. */
+  parentId?: string | null;
 }
 
-export const listNotes = () => api<{ notes: Note[]; noteFolders: NoteFolder[] }>("/notes");
+/** What the server answers: with `since`, only the notes changed since then, and `ids` (every note there is, in order). */
+export interface NotesAnswer {
+  notes: Note[];
+  noteFolders: NoteFolder[];
+  syncedAt: string;
+  ids?: string[];
+}
+export const listNotes = (since?: string) => api<NotesAnswer>(since ? `/notes?since=${encodeURIComponent(since)}` : "/notes");
 export const createNote = (body: NewNote, when?: When) => api<{ note: Note }>("/notes", { body, when }).then((r) => r.note);
 export const updateNote = (id: string, body: NoteChanges, when?: When) =>
   api<{ note: Note }>(`/notes/${id}`, { method: "PATCH", body, when }).then((r) => r.note);
@@ -29,5 +38,5 @@ export const updateNoteFolder = (id: string, body: NoteFolderChanges) =>
   api<{ noteFolder: NoteFolder }>(`/notes/folders/${id}`, { method: "PATCH", body }).then((r) => r.noteFolder);
 /** The folders dragged into another order, left to right. */
 export const reorderNoteFolders = (ids: string[]) => api(`/notes/folders/order`, { method: "PUT", body: { ids } });
-/** Its notes stay, back under "All". */
+/** Its notes and subfolders stay, in the folder it was in (or back under "All"). */
 export const deleteNoteFolder = (id: string) => api(`/notes/folders/${id}`, { method: "DELETE" });

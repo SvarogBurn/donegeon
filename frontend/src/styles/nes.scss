@@ -10,4 +10,9 @@
   @import "nes.css/scss/helpers/_index.scss";
   @import "nes.css/scss/elements/_index.scss";
   @import "nes.css/scss/form/_index.scss";
+
+  // The keyboard's cursor (KeyCursor) gets every NES hover look too: each ":hover" here also matches [data-key-hover].
+  [data-key-hover] {
+    @extend :hover;
+  }
 }

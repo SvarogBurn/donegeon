@@ -27,6 +27,17 @@
     }
   }
 }
+/* Hover: the mouse's (where there is one, as Tailwind has it), and the keyboard's cursor (data-key-hover, KeyCursor). */
+@custom-variant hover {
+  @media (hover: hover) {
+    &:hover {
+      @slot;
+    }
+  }
+  &[data-key-hover] {
+    @slot;
+  }
+}
 
 /*
  * The whole app is set in the pixel font NES.css is designed around. It is
@@ -71,6 +82,21 @@
     scroll-padding-bottom: calc(var(--bar-h, 5rem) + 0.5rem);
   }
   /* The installed app scrolls like a phone app: no scrollbar, and no room kept for one. */
+  /*
+   * The keyboard's cursor (KeyCursor): on top of the hover look, a square outline in the frame's blue, so it is seen on
+   * what has none. A checkbox's input is invisible over its drawn box: the box takes the outline.
+   */
+  [data-key-hover],
+  .pixel-check:has(> [data-key-hover]) {
+    outline: 2px solid #3544a1;
+    outline-offset: 2px;
+    @variant dark {
+      outline-color: #cbdbfc;
+    }
+  }
+  .pixel-check > [data-key-hover] {
+    outline: none;
+  }
   html[data-standalone] {
     scrollbar-width: none;
     scrollbar-gutter: auto;
@@ -179,10 +205,10 @@
 [data-chart] .nes-btn.is-primary::after {
   box-shadow: inset -4px -4px color-mix(in srgb, var(--chart) 70%, #000);
 }
-[data-chart] .nes-btn.is-primary:hover {
+[data-chart] .nes-btn.is-primary:is(:hover, [data-key-hover]) {
   background-color: color-mix(in srgb, var(--chart) 88%, #000);
 }
-[data-chart] .nes-btn.is-primary:hover::after {
+[data-chart] .nes-btn.is-primary:is(:hover, [data-key-hover])::after {
   box-shadow: inset -6px -6px color-mix(in srgb, var(--chart) 70%, #000);
 }
 :root {
@@ -274,7 +300,7 @@
     font-size: max(10px, calc(3.5 * var(--u)));
     color: #7592ce;
   }
-  .band-tab:hover {
+  .band-tab:is(:hover, [data-key-hover]) {
     color: #3f3f74;
   }
   /* A text button on the same plate as a band's tab, in its dark text ("Edit" at the bottom of the Character box). */
@@ -282,7 +308,7 @@
     @apply ml-auto flex-none disabled:cursor-not-allowed disabled:opacity-50;
     color: #222034;
   }
-  .band-button:hover:not(:disabled) {
+  .band-button:is(:hover, [data-key-hover]):not(:disabled) {
     color: #3f3f74;
   }
   /* A dropdown on a band, after a word saying what it is, on the same plate in the dark text (a day's "in <list>"). */
@@ -442,6 +468,11 @@
   }
   [data-bar-side][data-reorder="into"] {
     outline: 2px solid var(--color-emerald-600) !important;
+  }
+  /* A Notes page folder (a chip, a folder's card, a part of the path) a dragged folder would go into. */
+  [data-nest][data-reorder="into"] {
+    outline: 2px solid var(--color-emerald-600);
+    outline-offset: -2px;
   }
   /*
    * The tutorial. The dim covers the screen but for holes cut where the things being talked about are (an SVG mask,
@@ -690,9 +721,12 @@
   .tab-icon-calendar {
     background-image: url("../../assets/icons/21x21calendar_icon_v1.svg");
   }
-  /* 19x18 art pixels: kept at the others' pixel size, a little smaller in its square. */
+  /* The News tab's envelope: 21x16 art pixels, so it fills its square's width at the others' pixel size. */
   .tab-icon-news {
-    @apply bg-size-[19px] sm:bg-size-[38px];
+    background-image: url("../../assets/icons/21x21mail_icon_v1.svg");
+  }
+  /* The newspaper (19x18 art pixels) is kept for the photo on the News page's features (pages/News.tsx). */
+  .tab-icon-newspaper {
     background-image: url("../../assets/icons/21x21newspaper_icon_v2.svg");
   }
   /* This one is 15x15 art pixels: kept at the same pixel size as the others, so it sits smaller in its square. */
@@ -812,11 +846,11 @@
   .nes-btn.plus-button::after {
     box-shadow: inset -4px -4px #9fb6e8;
   }
-  .nes-btn.plus-button:hover,
+  .nes-btn.plus-button:is(:hover, [data-key-hover]),
   .nes-btn.plus-button[aria-expanded="true"] {
     background-color: #bccef7;
   }
-  .nes-btn.plus-button:hover::after,
+  .nes-btn.plus-button:is(:hover, [data-key-hover])::after,
   .nes-btn.plus-button[aria-expanded="true"]::after {
     box-shadow: inset -6px -6px #9fb6e8;
   }
@@ -969,7 +1003,7 @@
     filter: grayscale(1);
     opacity: 0.45;
   }
-  .notes-button[data-empty]:hover {
+  .notes-button[data-empty]:is(:hover, [data-key-hover]) {
     opacity: 1;
   }
   .notes-button[data-empty]:not([aria-expanded="true"]) {
@@ -1434,7 +1468,7 @@
     text-decoration-thickness: var(--u);
     text-underline-offset: calc(1.5 * var(--u));
   }
-  .news-paper a:not(.news-button):hover {
+  .news-paper a:not(.news-button):is(:hover, [data-key-hover]) {
     color: var(--news-red);
   }
   /*
@@ -1479,7 +1513,7 @@
   .news-stand-paper {
     transition: translate 150ms ease-out;
   }
-  .news-stand-paper:hover {
+  .news-stand-paper:is(:hover, [data-key-hover]) {
     translate: 0 calc(-1 * var(--u));
   }
   @media (prefers-reduced-motion: reduce) {
@@ -1604,7 +1638,7 @@
       var(--u) calc(100% - var(--u)), 0 calc(100% - var(--u)), 0 var(--u), var(--u) var(--u)
     );
   }
-  .news-button:not(:disabled):is(:hover, :active) {
+  .news-button:not(:disabled):is(:hover, :active, [data-key-hover]) {
     background: var(--news-red);
     box-shadow: inset 0 calc(-1 * var(--u)) 0 color-mix(in srgb, var(--news-red), black 20%);
   }

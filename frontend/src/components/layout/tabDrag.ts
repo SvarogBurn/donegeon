@@ -94,13 +94,17 @@ export function useTabPress<T extends HTMLElement = HTMLElement>({ onDrag, onHol
  * than one): the tab it would land beside is marked on that side (data-reorder), a side with nothing on it is marked
  * whole ("into"), a row that scrolls sideways scrolls on near its ends, and letting go there calls `onDrop`. Let go away
  * from the rows, nothing changes. `onEnd` comes either way. `at` is where the pointer is as the drag begins.
+ * With `nest`, it can also go into another (the Notes page's folders): an element marked `data-nest="<id>"` that
+ * `nest.allows` is marked whole ("into"), a tab in a row only over its middle half (its edges still place it beside), and
+ * letting go there calls `nest.onDrop` with that id.
  */
-export function dragAlong({ key, rows, at, onDrop, onEnd }: {
+export function dragAlong({ key, rows, at, onDrop, onEnd, nest }: {
   key: string;
   rows: HTMLElement[];
   at: { x: number; y: number };
   onDrop: (drop: BarDrop) => void;
   onEnd: () => void;
+  nest?: { allows: (into: string) => boolean; onDrop: (into: string) => void };
 }) {
   let pointer = at;
   let target: { el: HTMLElement; mark: "before" | "after" | "into" } | null = null;
@@ -114,8 +118,15 @@ export function dragAlong({ key, rows, at, onDrop, onEnd }: {
     return pointer.y >= bounds.top - ROW_SLACK_PX && pointer.y <= bounds.bottom + ROW_SLACK_PX;
   };
   const retarget = () => {
+    const under = document.elementFromPoint(pointer.x, pointer.y);
+    const into = nest && under?.closest<HTMLElement>("[data-nest]");
+    if (into && nest.allows(into.dataset.nest!)) {
+      const rect = into.getBoundingClientRect();
+      const isTab = into.matches("[data-bar-item]") && rows.some((row) => row.contains(into));
+      if (!isTab || Math.abs(pointer.x - (rect.left + rect.width / 2)) < rect.width / 4) return mark({ el: into, mark: "into" });
+    }
     if (!rows.some(near)) return mark(null);
-    const over = document.elementFromPoint(pointer.x, pointer.y)?.closest<HTMLElement>("[data-bar-item]");
+    const over = under?.closest<HTMLElement>("[data-bar-item]");
     if (over && rows.some((row) => row.contains(over))) {
       if (over.dataset.barItem === key) return mark(null);
       const rect = over.getBoundingClientRect();
@@ -159,7 +170,8 @@ export function dragAlong({ key, rows, at, onDrop, onEnd }: {
     mark(null);
     onEnd();
     if (!drop || !landed) return;
-    if (landed.mark === "into") onDrop({ side: landed.el.dataset.barSide as BarSide });
+    if (landed.mark === "into" && landed.el.dataset.nest !== undefined) nest?.onDrop(landed.el.dataset.nest);
+    else if (landed.mark === "into") onDrop({ side: landed.el.dataset.barSide as BarSide });
     else onDrop({ beside: landed.el.dataset.barItem!, after: landed.mark === "after" });
   };
   const onUp = () => finish(true);

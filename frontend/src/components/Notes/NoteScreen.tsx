@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router";
 import { useDeleteNote, useEditNote, useNotes } from "../../hooks/notes";
 import { useOnline } from "../../lib/offline/online";
 import { lineAlign, type Align } from "../../lib/noteText";
 import { FOLDER_COLOR, folderIn } from "../../lib/frameTones";
+import { pathTo, treeOrder } from "../../lib/noteFolders";
 import type { Note, NoteFolder } from "../../types";
 import { NoteEditor } from "../TaskTree/NoteEditor";
 import { DeleteOrKeep } from "../DeleteOrKeep";
@@ -34,7 +35,7 @@ export interface NoteScreenState {
 
 /**
  * A note on a screen of its own (/notes/:id), over everything else: a blank page with just the note, its title over it.
- * A tap on the text writes in it; leaving it saves, as does going back (also with the phone's own back button).
+ * A tap on the text writes in it; leaving it saves, as does going back (also with the phone's own back button, or Escape).
  */
 export function NoteScreen() {
   const { noteId } = useParams();
@@ -52,35 +53,39 @@ function FolderIcon({ folder }: { folder?: NoteFolder }) {
 
 /**
  * The folder the note is in, as a tag in its colour beside the title (without one, a quiet "No folder"). A click opens
- * the folders under it, to move the note to another; a click outside or Escape closes them.
+ * the folders under it, each under the one it is in, to move the note to another; a click outside or Escape closes them.
  */
 function FolderTag({ noteFolderId, folders, onMove }: { noteFolderId: string | null; folders: NoteFolder[]; onMove: (id: string | null) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
   const folder = folders.find((f) => f.id === noteFolderId);
   const color = folder ? (folder.color ?? FOLDER_COLOR) : undefined;
+  const path = pathTo(folders, noteFolderId).map((f) => f.name).join(" › ");
 
   useEffect(() => {
     if (!isOpen) return;
     const onPointerDown = (e: PointerEvent) => {
       if (!ref.current?.contains(e.target as Node)) setIsOpen(false);
     };
-    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && setIsOpen(false);
+    // Caught first, and marked as used: Escape closes just the folders, not the note under them.
+    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && (e.preventDefault(), setIsOpen(false));
     document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("keydown", onKeyDown, true);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("keydown", onKeyDown, true);
     };
   }, [isOpen]);
 
-  const row = (to: NoteFolder | undefined) => {
+  const row = (to: NoteFolder | undefined, depth = 0) => {
     const isCurrent = (to?.id ?? null) === (folder?.id ?? null);
     return (
       <button
         key={to?.id ?? "none"}
         type="button"
-        className={`flex w-full items-center gap-1.5 px-1.5 py-1 text-left font-pixel text-[8px] ${isCurrent ? "bg-stone-200 text-stone-950 dark:bg-stone-800 dark:text-white" : "text-stone-700 hover:bg-stone-200/60 dark:text-stone-300 dark:hover:bg-stone-800/60"}`}
+        className={`flex w-full items-center gap-1.5 py-1 pr-1.5 pl-(--indent) text-left font-pixel text-[8px] ${isCurrent ? "bg-stone-200 text-stone-950 dark:bg-stone-800 dark:text-white" : "text-stone-700 hover:bg-stone-200/60 dark:text-stone-300 dark:hover:bg-stone-800/60"}`}
+        style={{ "--indent": `${6 + depth * 12}px` } as CSSProperties}
+        title={to ? pathTo(folders, to.id).map((f) => f.name).join(" › ") : undefined}
         aria-pressed={isCurrent}
         onClick={() => {
           setIsOpen(false);
@@ -100,7 +105,7 @@ function FolderTag({ noteFolderId, folders, onMove }: { noteFolderId: string | n
         className={`flex max-w-36 items-center gap-1.5 border-l-4 py-1 pr-2 pl-1.5 font-pixel text-[8px] ${folder ? "text-stone-700 dark:text-stone-300" : "border-stone-300 text-stone-500 dark:border-stone-700"}`}
         style={color ? { borderColor: color, backgroundColor: `${color}33` } : undefined}
         aria-expanded={isOpen}
-        title={folder ? `In the folder "${folder.name}". Click to move the note to another folder` : "In no folder. Click to put the note in one"}
+        title={folder ? `In the folder "${path}". Click to move the note to another folder` : "In no folder. Click to put the note in one"}
         onClick={() => setIsOpen(!isOpen)}
       >
         <FolderIcon folder={folder} />
@@ -109,7 +114,7 @@ function FolderTag({ noteFolderId, folders, onMove }: { noteFolderId: string | n
       {isOpen && (
         <div className="card absolute top-full right-0 z-20 mt-1 max-h-[50dvh] w-48 overflow-y-auto !p-1 shadow-lg" role="dialog" aria-label="Move the note to a folder">
           {row(undefined)}
-          {folders.map(row)}
+          {treeOrder(folders).map(({ folder: to, depth }) => row(to, depth))}
         </div>
       )}
     </span>
@@ -129,6 +134,7 @@ function Screen({ note, folders }: { note: Note; folders: NoteFolder[] }) {
   // Offline, the notice that says so stays along the top of the screen (ServerStatus): the note starts under it.
   const online = useOnline();
   const field = useRef<HTMLElement>(null);
+  const titleField = useRef<HTMLInputElement>(null);
   const aligner = useRef<(to: Align | null) => number>(null);
   // Where the caret is, for the alignment button of its line to show pressed.
   const [caret, setCaret] = useState(0);
@@ -176,6 +182,27 @@ function Screen({ note, folders }: { note: Note; folders: NoteFolder[] }) {
 
   // Back where it was opened from: the Notes page, a folder, the search.
   const back = () => (location.key === "default" ? navigate("/notes", { replace: true }) : navigate(-1));
+
+  // Not writing: Escape goes back, as Back does (asking whether to delete, it keeps the note instead), and Space starts
+  // writing, in the title at its end. While writing, Escape only stops it (the editor's own, or the title's), and it is
+  // left alone when something else used it (the folders' list closing); Space on a button presses it.
+  const onEscape = useRef(back);
+  onEscape.current = () => (confirming ? setConfirming(false) : back());
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      const target = e.target as Element;
+      if (target.closest?.("input, textarea, select, [contenteditable=true]")) return;
+      if (e.key === "Escape") onEscape.current();
+      else if (e.key === " " && !e.ctrlKey && !e.altKey && !e.metaKey && !target.closest?.("button")) {
+        e.preventDefault();
+        titleField.current?.focus();
+        titleField.current?.setSelectionRange(titleField.current.value.length, titleField.current.value.length);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return createPortal(
     <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-100 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] dark:bg-stone-950" role="dialog" aria-label="Note">
@@ -232,7 +259,11 @@ function Screen({ note, folders }: { note: Note; folders: NoteFolder[] }) {
               placeholder="Title"
               onChange={(e) => setTitle(e.target.value)}
               onBlur={() => save()}
-              onKeyDown={(e) => e.key === "Enter" && (field.current?.focus(), e.preventDefault())}
+              ref={titleField}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") field.current?.focus(), e.preventDefault();
+                else if (e.key === "Escape") e.currentTarget.blur();
+              }}
               aria-label="Note title"
               maxLength={100}
             />

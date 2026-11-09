@@ -10,6 +10,8 @@ import { quoted, type Saved, type Specs } from "./changeSpec";
 export interface NotesData {
   notes: Note[];
   noteFolders: NoteFolder[];
+  /** When the server answered last: the next check asks only for what changed since. Without it, it asks for every note. */
+  syncedAt?: string;
 }
 
 export interface NoteEditChange {
@@ -33,6 +35,9 @@ async function changeNotes(queryClient: QueryClient, change: (notes: Note[]) => 
   return [[NOTES, before]];
 }
 
+/** A refused change made a while ago stays on screen (lib/offline/changes): the next check asks for every note. */
+const askForAll = (queryClient: QueryClient) => queryClient.setQueryData<NotesData>(NOTES, (data) => data && { ...data, syncedAt: undefined });
+
 const noteName = (title: string | undefined) => (title ? `the note ${quoted(title)}` : "a note");
 
 export const noteSpecs: Specs<NoteChangeVars> = {
@@ -45,6 +50,7 @@ export const noteSpecs: Specs<NoteChangeVars> = {
         ...all,
       ]),
     refresh: [NOTES],
+    onRefused: askForAll,
     name: ({ title }) => `the new note${title ? ` ${quoted(title)}` : ""}`,
   },
   noteEdit: {
@@ -52,6 +58,7 @@ export const noteSpecs: Specs<NoteChangeVars> = {
     show: (queryClient, { id, changes, when }) =>
       changeNotes(queryClient, (all) => all.map((note) => (note.id === id ? { ...note, ...changes, updatedAt: when.at } : note))),
     refresh: [NOTES],
+    onRefused: askForAll,
     name: ({ changes }) => `the change to ${noteName(changes.title)}`,
   },
   noteDelete: {
@@ -59,6 +66,7 @@ export const noteSpecs: Specs<NoteChangeVars> = {
     show: (queryClient, { id }) =>
       changeNotes(queryClient, (all) => all.filter((n) => n.id !== id)),
     refresh: [NOTES],
+    onRefused: askForAll,
     name: () => "deleting a note",
   },
 };

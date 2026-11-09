@@ -120,7 +120,7 @@ function DividerRow({ node }: { node: TaskTreeNode }) {
   return (
     <li className={isDragged ? "opacity-40" : ""}>
       {/* Clicking the row selects it, which shows its buttons, without a phone's keyboard; clicking the title edits it too. */}
-      <div data-task-row={node.id} data-divider="" tabIndex={-1} className={`task-divider ${drop ? DROP_STYLES[drop] : ""}`}>
+      <div data-task-row={node.id} data-divider="" data-key-row="" tabIndex={-1} className={`task-divider ${drop ? DROP_STYLES[drop] : ""}`}>
         <TitleEditor editorId={node.id} fitText value={title} onChange={setTitle} onKeyDown={onKeyDown} onBlur={saveTitle} aria-label="Divider title" />
         <span className="task-divider-line" aria-hidden />
         {/* Keeps the focus in the row, or the click would hide the button it lands on. */}
@@ -235,6 +235,8 @@ export function TaskNode({ node, depth, inWeek = false }: { node: TaskTreeNode; 
     <li className={isDragged ? "opacity-40" : ""} data-week-item={inWeek ? node.id : undefined}>
       <div
         data-task-row={node.id}
+        // One stop for the keyboard's cursor (KeyCursor), with its page for Enter.
+        data-key-row={opens ? `/tasks/${node.id}` : ""}
         onPointerDown={(e) => (pressedControl.current = Boolean((e.target as Element).closest(ROW_CONTROLS)))}
         onClick={openTask}
         data-today={node.todaySince === today ? "" : undefined}

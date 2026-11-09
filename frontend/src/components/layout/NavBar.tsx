@@ -9,7 +9,7 @@ import type { User } from "../../types";
 import { CharacterFace } from "../Character/CharacterFace";
 import { Bell } from "../Notifications/Bell";
 import { AppBars } from "./AppBars";
-import { barTab as tab, useNewFolderTab, usePublishedHeight } from "./barHooks";
+import { barTab as tab, useNewFolderTab, useNumberKeys, usePublishedHeight } from "./barHooks";
 import { Clock } from "./Clock";
 import { FolderTab, NewFolderTab, useFolderEditing } from "./FolderTabs";
 import { dragAlong, useTabPress, type OnTabDrag } from "./tabDrag";
@@ -50,6 +50,7 @@ function TaskBar({ user }: { user: User }) {
   const leftSide = useRef<HTMLElement>(null);
   const rightSide = useRef<HTMLDivElement>(null);
   usePublishedHeight(bar, "--bar-h");
+  useNumberKeys(bar);
   const { isNewShown, onNewUsed, handlers } = useNewFolderTab(bar);
   const [editingId, setEditingId] = useFolderEditing();
   const [draggedKey, setDraggedKey] = useState<string | null>(null);

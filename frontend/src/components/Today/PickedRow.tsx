@@ -1,8 +1,8 @@
-import { useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { useNavigate } from "react-router";
 import { useDismissed } from "../../hooks/notifications";
 import { useGoToTask } from "../../hooks/goToTask";
-import { useSetToday, useSetWeek, useTaskTrees } from "../../hooks/tasks";
+import { useEditTask, useSetToday, useSetWeek, useTaskTrees } from "../../hooks/tasks";
 import { formatDay } from "../../lib/dates";
 import { firstLine, plainFirstLine } from "../../lib/markup";
 import { isOverdue, passedItem, passedKey } from "../../lib/notifications";
@@ -19,9 +19,13 @@ import { RichText } from "../RichText";
 import { DeadlineBadge } from "../TaskTree/DeadlineBadge";
 import { zoneOn } from "../TaskTree/dragState";
 import { PressCopies } from "../TaskTree/PressCopies";
+import { ShortSyntaxEditor } from "../TaskTree/ShortSyntaxEditor";
 import { TaskMenu } from "../TaskTree/TaskMenu";
 import { DROP_STYLES, TaskTree } from "../TaskTree/TaskNode";
 import { TickOrPress } from "../TaskTree/TickOrPress";
+
+/** What a click on the row leaves alone: its buttons, its title field, and the ⋯ menu's popup. */
+const ROW_CONTROLS = "button, input, textarea, a, label, [role=dialog]";
 import { useDrag, useTree } from "../TaskTree/TreeContext";
 
 interface PickedRowProps {
@@ -56,7 +60,8 @@ export function PickedRow({ node, path, today, box, dueSince, auto, onNotToday, 
   const setWeek = useSetWeek();
   const isPersistent = node.isPersistent;
   const pressedToday = node.completions.filter((press) => press.day === today).length;
-  const error = setToday.error ?? setWeek.error;
+  const rename = useEditTask();
+  const error = setToday.error ?? setWeek.error ?? rename.error;
   const hasChildren = node.children.length > 0;
   const inWeek = box === "week";
   // A round of a schedule still to come: only there to be seen, nothing to press yet.
@@ -72,22 +77,46 @@ export function PickedRow({ node, path, today, box, dueSince, auto, onNotToday, 
   const overdue = !inWeek && isOverdue(node, today);
   const takeOut = () => (auto ? onNotToday?.() : setToday.mutate({ id: node.id, today: false }));
 
+  // In Today the title is renamed in place, as in its list (shortcuts typed into it work there too).
+  const [title, setTitle] = useState(node.title);
+  useEffect(() => setTitle(node.title), [node.title]);
+  // The text last saved: Enter saves and the blur after it would save it again before the first one shows.
+  const savedText = useRef<string | null>(null);
+  useEffect(() => void (savedText.current = null), [node.title]);
+  function saveTitle() {
+    const next = title.trim();
+    if (!next) setTitle(node.title);
+    else if (next !== node.title && next !== savedText.current) {
+      savedText.current = next;
+      rename.mutate({ node, text: next }, { onApplied: setTitle, onError: () => (savedText.current = null) });
+    }
+  }
+  function onTitleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      saveTitle();
+      e.currentTarget.blur();
+    } else if (e.key === "Escape") setTitle(node.title);
+  }
+
   const goToTask = useGoToTask();
   // Where "Go to its list" goes: a task with no list is in this box, on the tab it was written into.
   const { data: trees = [] } = useTaskTrees();
   const main = findNode(trees, pathIdsTo(trees, node.id)?.[0] ?? node.id);
   const goesTo = main?.listId ? "Go to its list" : `Show it in ${boxTabOf(main) === "week" ? "Week" : "Today"}`;
-  // A click on the row (not on one of its buttons) goes to the task itself, to be edited there: its own page if it has
-  // one, else its row in its list wherever that list is shown, or in this box for one with no list (see useGoToTask),
-  // marked for a moment. The arrow shows its subtasks here.
+  // A click on the row (not on one of its buttons or its title) opens the task's own page if it has one. In Week, one
+  // with no page goes to its row in its list wherever that list is shown, or in this box for one with no list (see
+  // useGoToTask), marked for a moment; in Today its title is edited here, and Go to its list is in its ⋯ menu (2026-11-09,
+  // the user's ask: a click there seemed to do nothing). The arrow shows its subtasks here.
   const hasPage = hasTaskPage(node);
+  // A text selection started in the title can end on the row's empty space, which the browser reports as a click there.
+  const pressedControl = useRef(false);
   // Its deadline is today: that is what it says, not since when its round is due.
   const dueToday = node.deadlineDate === today && !node.isComplete;
   function onRowClick(e: MouseEvent<HTMLDivElement>) {
     // The ⋯ menu is put on the page itself (a portal), yet its clicks still come up through this row.
-    if (!e.currentTarget.contains(e.target as Node) || (e.target as Element).closest("button, input, a, label") || isTipTap(e.target)) return;
+    if (!e.currentTarget.contains(e.target as Node) || pressedControl.current || (e.target as Element).closest(ROW_CONTROLS) || isTipTap(e.target)) return;
     if (hasPage) navigate(`/tasks/${node.id}`);
-    else goToTask(node.id);
+    else if (inWeek) goToTask(node.id);
   }
 
   const name = plainFirstLine(node.title);
@@ -101,10 +130,12 @@ export function PickedRow({ node, path, today, box, dueSince, auto, onNotToday, 
       className={isDragged ? "opacity-40" : isAhead ? "opacity-60" : ""}
     >
       <div
+        onPointerDown={(e) => (pressedControl.current = Boolean((e.target as Element).closest(ROW_CONTROLS)))}
         onClick={onRowClick}
         data-opens={hasPage ? node.id : undefined}
+        data-key-row={hasPage ? `/tasks/${node.id}` : ""}
         data-week-row={inWeek ? "" : undefined}
-        className={`flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-1 rounded px-1 py-0.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 ${drop ? DROP_STYLES[drop] : ""}`}
+        className={`flex ${hasPage || inWeek ? "cursor-pointer" : ""} flex-wrap items-center gap-x-2 gap-y-1 rounded px-1 py-0.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 ${drop ? DROP_STYLES[drop] : ""}`}
       >
         <button
           type="button"
@@ -125,8 +156,32 @@ export function PickedRow({ node, path, today, box, dueSince, auto, onNotToday, 
           </span>
         )}
         {/* A day of the week is narrow: the title wraps there rather than being cut short, and the buttons go under it. */}
-        <span className={`min-w-0 ${inWeek ? "min-w-32 flex-1 break-words" : "truncate"} ${node.isComplete ? "text-stone-400 line-through" : ""}`}><RichText text={firstLine(node.title)} /></span>
-        {path.length > 0 && <span className="min-w-0 shrink-[2] truncate text-stone-500">{path.join(" › ")}</span>}
+        {inWeek ? (
+          <>
+            <span className={`min-w-0 min-w-32 flex-1 break-words ${node.isComplete ? "text-stone-400 line-through" : ""}`}><RichText text={firstLine(node.title)} /></span>
+            {path.length > 0 && <span className="min-w-0 shrink-[2] truncate text-stone-500">{path.join(" › ")}</span>}
+          </>
+        ) : (
+          // The title and where it is from share what the row has left, the title wrapping there rather than pushing
+          // the buttons onto a line of their own.
+          <div className="flex min-w-32 flex-1 items-center gap-x-2">
+            <div className="min-w-0" data-today-title>
+              <ShortSyntaxEditor
+                parentId={node.parentId}
+                before={node.title}
+                editorId={node.id}
+                fitText
+                value={title}
+                onChange={setTitle}
+                onKeyDown={onTitleKeyDown}
+                onBlur={saveTitle}
+                aria-label="Task title"
+                className={node.isComplete ? "text-stone-400 line-through" : ""}
+              />
+            </div>
+            {path.length > 0 && <span className="min-w-0 shrink-[2] truncate text-stone-500">{path.join(" › ")}</span>}
+          </div>
+        )}
         <span className="ml-auto flex items-center gap-1.5">
           {isPersistent && pressedToday > 0 && !isAhead && <span className="text-xs text-stone-500 tabular-nums">×{pressedToday} today</span>}
           {rounds > 1 && (

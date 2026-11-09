@@ -19,6 +19,8 @@ export interface Spec<V> {
   /** Its refusal shows next to the click, not only in the box that made it. */
   popup?: boolean;
   onSaved?: (queryClient: QueryClient, result: unknown, change: Change<V>) => void;
+  /** Refused a while after it was made, when what it showed is left on screen. */
+  onRefused?: (queryClient: QueryClient) => void;
 }
 
 /** One Spec per kind of change: the change's variables by kind, `M`. */

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useState, type MouseEvent, type RefObject } from "react";
+import { useNavigate } from "react-router";
 import { justDropped } from "../Tiles/useTabDrag";
 
 /** A tab of the task bar (and of the installed app's bottom bar): the label under its icon, near-black, the frame's blue on the open page. */
@@ -57,6 +58,28 @@ export function useNewFolderTab(ref: RefObject<HTMLElement | null>) {
     },
   };
   return { isNewShown, onNewUsed: () => setIsNewShown(false), handlers };
+}
+
+/**
+ * On a computer, the keys 1 to 9 open the bar's tabs, left to right as the user has laid them out (both sides of the
+ * logo, folders, points and account too; the clock isn't a tab). Not while typing, nor with Ctrl, Alt or Cmd held.
+ */
+export function useNumberKeys(ref: RefObject<HTMLElement | null>) {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.repeat || e.ctrlKey || e.altKey || e.metaKey || !/^[1-9]$/.test(e.key)) return;
+      const target = e.target as HTMLElement;
+      if (target.isContentEditable || target.closest("input, textarea, select")) return;
+      const tabs = ref.current?.querySelectorAll<HTMLAnchorElement>("[data-bar-item] a[href]") ?? [];
+      const to = tabs[Number(e.key) - 1]?.getAttribute("href");
+      if (!to) return;
+      e.preventDefault();
+      navigate(to);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [ref, navigate]);
 }
 
 /** How far the page must move one way before the bar goes or comes back, so a finger's wobble doesn't flicker it. */

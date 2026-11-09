@@ -131,7 +131,7 @@ export function AppBars({ user }: { user: User }) {
               )}
               {(user.newsTab ?? true) && (
                 <NavLink to="/news" className={(state) => `${folderTab(state)} flex-none`} aria-label="News" title="News">
-                  <span className="tab-icon tab-icon-news !size-[21px] !bg-size-[19px]" aria-hidden />
+                  <span className="tab-icon tab-icon-news !size-[21px]" aria-hidden />
                 </NavLink>
               )}
               <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]" aria-label="Folders">

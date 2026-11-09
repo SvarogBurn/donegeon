@@ -41,6 +41,17 @@ registerSW({
     });
   },
 });
+// The browser looks for a new deploy by itself as soon as the page is opened, before registerSW listens: workbox then
+// never hears of the new worker, which takes over without a reload, and the page stayed on the old app until the next
+// open (or Ctrl+F5). Whoever found it, a new worker taking over a page that had one reloads the page into it.
+if (navigator.serviceWorker?.controller) {
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloading) return;
+    reloading = true;
+    window.location.reload();
+  });
+}
 
 /** How long what was fetched is kept on the device, to show when there is no connection. */
 const KEEP_MS = 7 * 24 * 60 * 60_000;

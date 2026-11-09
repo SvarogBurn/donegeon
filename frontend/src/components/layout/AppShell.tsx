@@ -8,6 +8,7 @@ import { useOnline } from "../../lib/offline/online";
 import { useAppLayout } from "../../lib/standalone";
 import { BigMoment } from "../BigMoment";
 import { BreakReminder } from "../BreakReminder";
+import { KeyCursor } from "../KeyCursor";
 import { NotificationPlanner } from "../Notifications/NotificationPlanner";
 import { CardPublisher } from "../People/CardPublisher";
 import { RefusalPopup } from "../RefusalPopup";
@@ -104,6 +105,7 @@ export function AppShell() {
       <Tutorial user={user} />
       <RefusalPopup />
       <TapTips />
+      <KeyCursor />
       <LearnHints />
       <BigMoment />
       <BreakReminder />

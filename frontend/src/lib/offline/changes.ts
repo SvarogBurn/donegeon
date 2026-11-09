@@ -101,6 +101,7 @@ function register<V>(queryClient: QueryClient, kind: string, spec: Spec<V>) {
       }
       // Made a while ago (offline, most likely): changes made after it build on what it showed, so nothing is put
       // back by hand; the refresh once the queue is empty shows the server's own. Said in the notice at the top.
+      spec.onRefused?.(queryClient);
       const what = `${spec.name(change, titleOf(queryClient, change, saved))}: ${error.message}`;
       const earlier = getServerStatus().failure;
       reportFailure(earlier?.startsWith("Couldn't save") ? `${earlier}; ${what}` : `Couldn't save ${what}`);

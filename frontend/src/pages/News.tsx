@@ -26,7 +26,7 @@ function Article({ feature }: { feature: Feature }) {
       {/* Its "photo": the paper itself, drawn big. */}
       <figure className="mb-2 space-y-1 sm:float-right sm:ml-4 sm:w-56" aria-hidden>
         <div className="flex h-36 items-center justify-center">
-          <span className="tab-icon tab-icon-news !size-[calc(42*var(--u))] !bg-size-[calc(38*var(--u))] max-w-full" />
+          <span className="tab-icon tab-icon-newspaper !size-[calc(42*var(--u))] !bg-size-[calc(38*var(--u))] max-w-full" />
         </div>
         <figcaption className="news-dateline text-center">Fresh off the press</figcaption>
       </figure>

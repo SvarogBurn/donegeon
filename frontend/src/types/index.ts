@@ -155,12 +155,14 @@ export interface Note {
   updatedAt: string;
 }
 
-/** A folder for notes only, along the top of the Notes page. */
+/** A folder for notes only, on the Notes page: a top-level one along the top of the page, a subfolder inside its folder. */
 export interface NoteFolder {
   id: string;
   name: string;
   /** The colour of its icon, "#rrggbb"; null = the icon as drawn. */
   color: string | null;
+  /** The folder it is in; null = a top-level one. */
+  parentId: string | null;
   position: number;
 }
 

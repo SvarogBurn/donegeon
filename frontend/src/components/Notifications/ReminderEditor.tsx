@@ -1,9 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { REMINDER_KINDS } from "../../../../shared/enums";
-import { listNotes } from "../../api/notes";
 import { usePushDevice } from "../../hooks/notifications";
-import { NOTES } from "../../hooks/queryKeys";
+import { useNotes } from "../../hooks/notes";
 import { usePointsOff } from "../../hooks/useAuth";
 import {
   AHEAD,
@@ -87,7 +85,7 @@ export function ReminderEditor({ value, task, onSave, onCancel, onDelete }: Prop
   const [problem, setProblem] = useState<string | null>(null);
   // The notes an own-text reminder can open: asked for only then.
   const canLink = kind === "text" && !task;
-  const { data: notesData } = useQuery({ queryKey: NOTES, queryFn: listNotes, enabled: canLink });
+  const { data: notesData } = useNotes(canLink);
   const notes = canLink ? (notesData?.notes ?? []) : [];
 
   function save(e: FormEvent) {

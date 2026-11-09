@@ -19,6 +19,17 @@ const KEYS: [key: string, does: string][] = [
   ["Esc", "Discard the new row, or undo the edit in progress."],
 ];
 
+/** The keys that work anywhere on a computer, outside a field. */
+const PAGE_KEYS: [key: string, does: string][] = [
+  ["1 – 9", "Open the task bar's tabs, left to right as you laid them out."],
+  ["Space", "Show the cursor, as if the mouse were on what is under it (or on the first thing on screen). Again to hide it."],
+  ["↑ ↓ ← →", "Move the cursor to the nearest thing that way, a task at a time. Rest on something to see its tooltip."],
+  ["→ on a task", "Go into it: its title, then along its buttons."],
+  ["Space on a title", "Edit the title. Esc comes back to the cursor."],
+  ["Enter", "Press what the cursor is on. On a task: open its page (a task with none: edit its title)."],
+  ["Esc", "Hide the cursor (in a popup: close the popup)."],
+];
+
 /** The markup of a title: [what to type, how it looks, the key that puts it on]. */
 const STYLES: [type: string, shows: string, key?: string][] = [
   ["**bold**", "**bold**", "Ctrl+B"],
@@ -87,6 +98,12 @@ export function Cheatsheet() {
       <h3 className={`border-t-2 border-stone-300 pt-3 dark:border-stone-700 ${HEADING}`}>Keys in a task</h3>
       <ul className="divide-y-2 divide-stone-200 dark:divide-stone-800">
         {KEYS.map(([key, does]) => (
+          <Line key={key} keys={key} does={does} />
+        ))}
+      </ul>
+      <h3 className={`border-t-2 border-stone-300 pt-3 dark:border-stone-700 ${HEADING}`}>Keys on a computer</h3>
+      <ul className="divide-y-2 divide-stone-200 dark:divide-stone-800">
+        {PAGE_KEYS.map(([key, does]) => (
           <Line key={key} keys={key} does={does} />
         ))}
       </ul>
