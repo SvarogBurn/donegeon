@@ -1058,6 +1058,103 @@
   .note-editor .cm-note-heading:not(:first-child) {
     @apply pt-2;
   }
+  /*
+   * A table in the editor, a grid to write in (see TableWidget): a cell being written in holds a field in the cell's
+   * own font, as wide as the cell was (wider as it fills, where the browser can); the table's buttons only show then.
+   */
+  .note-editor .cm-note-table {
+    @apply py-1 text-left;
+  }
+  .note-editor .note-table {
+    @apply my-0;
+  }
+  /*
+   * As wide as the text, never wider (the editor would grow with it): a wide table scrolls inside. Room at its left and
+   * top for the handles.
+   */
+  .note-editor .note-table-wrap {
+    width: 0;
+    min-width: 100%;
+    padding: 22px 0 0 14px;
+  }
+  .note-editor .cm-note-table {
+    @apply outline-none;
+  }
+  .note-editor .note-table :is(td, th) {
+    @apply relative cursor-text;
+  }
+  /*
+   * A row's handle at its left and a column's above it, one small circle each; the table's out at its top-left corner,
+   * an arrow four ways. Shown on hover and while the table is written in (on a touch screen, only then); pressed:
+   * selected; dragged: moved.
+   */
+  .note-editor .cm-note-handle {
+    @apply invisible absolute flex size-3 cursor-grab touch-none items-center justify-center text-stone-400 select-none hover:text-[#3544a1] dark:text-stone-500 dark:hover:text-[#cbdbfc];
+  }
+  /* Hit beyond its art, for a finger. */
+  .note-editor .cm-note-handle::before {
+    @apply absolute -inset-1.5 content-[''];
+  }
+  .note-editor :is(.cm-note-handle-row, .cm-note-handle-column)::after {
+    @apply size-2 rounded-full bg-current content-[''];
+  }
+  .note-editor .cm-note-handle-row {
+    @apply top-1/2 -left-[13px] -translate-y-1/2;
+  }
+  .note-editor .cm-note-handle-column {
+    @apply -top-[13px] left-1/2 -translate-x-1/2;
+  }
+  .note-editor .cm-note-handle-table {
+    @apply -top-[22px] -left-[14px] size-[18px] cursor-move text-stone-500 dark:text-stone-400;
+  }
+  .note-editor .cm-note-table:focus-within .cm-note-handle,
+  .note-editor .cm-note-handle[aria-pressed="true"] {
+    @apply visible;
+  }
+  @media (hover: hover) {
+    .note-editor .cm-note-table:hover .cm-note-handle {
+      @apply visible;
+    }
+  }
+  .note-editor .cm-note-handle[aria-pressed="true"] {
+    @apply text-[#3544a1] dark:text-[#cbdbfc];
+  }
+  /* Selected cells: the art's light blue behind them. */
+  .note-editor .note-table .cm-note-picked {
+    @apply bg-[#639bff]/20;
+  }
+  /* Where a dragged row or column will go: a blue line on that side; a dragged table: a line between the note's lines. */
+  .note-editor .note-table .cm-note-drop-before {
+    box-shadow: inset 0 2px #639bff;
+  }
+  .note-editor .note-table .cm-note-drop-after {
+    box-shadow: inset 0 -2px #639bff;
+  }
+  .note-editor .note-table .cm-note-drop-left {
+    box-shadow: inset 2px 0 #639bff;
+  }
+  .note-editor .note-table .cm-note-drop-right {
+    box-shadow: inset -2px 0 #639bff;
+  }
+  .note-editor .cm-note-drop-line {
+    @apply pointer-events-none absolute right-0 left-0 h-0.5 bg-[#639bff];
+  }
+  .note-editor .cm-note-cell {
+    @apply block w-full resize-none overflow-hidden bg-transparent p-0 outline-none;
+    font: inherit;
+    color: inherit;
+    field-sizing: content;
+    max-width: 24rem;
+  }
+  .note-editor .cm-note-table-bar {
+    @apply hidden flex-wrap gap-1 pt-1;
+  }
+  .note-editor .cm-note-table:focus-within .cm-note-table-bar {
+    @apply flex;
+  }
+  .note-editor .cm-note-table-bar [aria-pressed="true"] {
+    @apply text-[#3544a1] dark:text-[#cbdbfc];
+  }
   .note-editor.note-paper:focus-within {
     box-shadow:
       -2px 0 #639bff,
@@ -1091,6 +1188,29 @@
   }
   .note-heading-3 {
     @apply text-sm text-[#3544a1] dark:text-[#cbdbfc];
+  }
+  /*
+   * A note's table ("| a | b |"): 2px lines, the header's words in the third heading's blue over a rule of the bullets'
+   * blue. Wider than the note, it scrolls sideways on its own, not the page.
+   */
+  .note-table-wrap {
+    @apply max-w-full overflow-x-auto;
+  }
+  .note-table {
+    @apply my-1 border-collapse;
+    /* Its columns as wide as their words (a long cell wraps at a width of its own), not squeezed into the note. */
+    width: max-content;
+  }
+  .note-table :is(td, th) {
+    @apply min-w-12 border-2 border-stone-400 px-2 py-1 text-left align-top whitespace-pre-wrap dark:border-stone-600;
+    max-width: min(16rem, 70vw);
+  }
+  /* An empty cell keeps its row a line high. */
+  .note-table :is(td, th):empty::before {
+    content: "\200b";
+  }
+  .note-table th {
+    @apply border-b-[#639bff] font-normal text-[#3544a1] dark:border-b-[#639bff] dark:text-[#cbdbfc];
   }
   /* On a small card, a heading is the text's own size: there is little room. */
   .note-card .note-heading {
@@ -1350,8 +1470,8 @@
     text-shadow: none;
   }
   /* The other fonts have a real bold for a note's headings; the pixel font's size and colour have to do. */
-  html[data-box-font] :is(.tile-body, .card, [data-text="box"]) .note-heading,
-  html[data-notes-font] [data-text="notes"] .note-heading {
+  html[data-box-font] :is(.tile-body, .card, [data-text="box"]) :is(.note-heading, .note-table th),
+  html[data-notes-font] [data-text="notes"] :is(.note-heading, .note-table th) {
     font-weight: 700;
   }
   /* Already bold: **bold** inside it would only smear it. */
@@ -1657,6 +1777,12 @@
     border-bottom: 0;
   }
   .news-paper .note-heading-3 {
+    color: inherit;
+  }
+  .news-paper .note-table :is(td, th) {
+    border-color: var(--text-soft);
+  }
+  .news-paper .note-table th {
     color: inherit;
   }
   /* A field to write in: lighter paper, sunk a pixel at its top and left, as the hole is. */

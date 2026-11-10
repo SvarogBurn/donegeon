@@ -20,6 +20,8 @@ export interface NoteEditorProps {
   onSelect?: (start: number, end: number) => void;
   /** Given a way to put the lines the selection is on to the left (null), the centre or the right; it says where the caret went. */
   aligner?: Ref<(to: Align | null) => number>;
+  /** Given a way to put a new table in after the caret's line, its first cell written in. */
+  tableMaker?: Ref<() => void>;
   /** Shown while it is empty. */
   hint?: string;
   /** Written in at once, the caret at the end. */
@@ -45,7 +47,7 @@ else setTimeout(() => void loadEditor(), 2000);
  * markup are shown, and their marks only on the line being written on (markup's, only around the caret). Enter makes
  * a new line, and on a list item ("* ", "- ", "1. ") the next item; Enter on an empty item ends the list. Tab /
  * Shift+Tab move an item a level in or out. Ctrl+B / I / U put markup around the selection as in a title; Ctrl+Z
- * undoes. Leaving the field saves it; Escape saves and stops. Not a task editor, so ↑ / ↓ between titles step over it.
+ * undoes. A table ("| a | b |" lines) is a grid written in cell by cell, never its pipes. Leaving the field saves it; Escape saves and stops. Not a task editor, so ↑ / ↓ between titles step over it.
  */
 export function NoteEditor(props: NoteEditorProps) {
   // Already fetched: shown at once (through lazy() it would wait a moment, and keys typed in it would be lost). Kept

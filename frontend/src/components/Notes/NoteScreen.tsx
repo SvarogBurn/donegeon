@@ -28,6 +28,23 @@ function AlignIcon({ to }: { to: Align | null }) {
   );
 }
 
+/** The table button's picture: a little grid of two by two, its top row filled as a header. */
+function TableIcon() {
+  return (
+    <svg viewBox="0 0 14 11" width="14" height="11" className="fill-current" shapeRendering="crispEdges" aria-hidden>
+      {[
+        [0, 0, 14, 4],
+        [0, 0, 2, 11],
+        [12, 0, 2, 11],
+        [6, 0, 2, 11],
+        [0, 9, 14, 2],
+      ].map(([x, y, width, height], i) => (
+        <rect key={i} x={x} y={y} width={width} height={height} />
+      ))}
+    </svg>
+  );
+}
+
 /** What opening a note can say: it was just made, so it opens to be written in. */
 export interface NoteScreenState {
   fresh?: boolean;
@@ -136,6 +153,7 @@ function Screen({ note, folders }: { note: Note; folders: NoteFolder[] }) {
   const field = useRef<HTMLElement>(null);
   const titleField = useRef<HTMLInputElement>(null);
   const aligner = useRef<(to: Align | null) => number>(null);
+  const tableMaker = useRef<() => void>(null);
   // Where the caret is, for the alignment button of its line to show pressed.
   const [caret, setCaret] = useState(0);
   // What was last sent, and what is typed now (read when the screen goes, however it goes).
@@ -213,23 +231,36 @@ function Screen({ note, folders }: { note: Note; folders: NoteFolder[] }) {
             ‹ Back
           </button>
           {editing && (
-            // Pressed without taking the caret out of the text: the line it is on (or every line selected) moves.
-            <span className="flex items-center gap-1" role="group" aria-label="Line alignment">
-              {ALIGNS.map(({ to, name }) => (
-                <button
-                  key={name}
-                  type="button"
-                  className={`btn-quiet !px-2 ${lineAlign(text, caret) === to ? "text-[#3544a1] dark:text-[#cbdbfc]" : "text-stone-500"}`}
-                  aria-label={`Line to the ${name}`}
-                  aria-pressed={lineAlign(text, caret) === to}
-                  title={`Puts this line ${to ? `in the ${name}` : "on the left"} (or every line selected). Typed: ${to === "center" ? '"<> "' : to === "right" ? '">> "' : "no mark"} at the start of the line`}
-                  onPointerDown={(e) => e.preventDefault()}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => aligner.current && setCaret(aligner.current(to))}
-                >
-                  <AlignIcon to={to} />
-                </button>
-              ))}
+            <span className="flex items-center gap-3">
+              {/* Pressed without taking the caret out of the text: the line it is on (or every line selected) moves. */}
+              <span className="flex items-center gap-1" role="group" aria-label="Line alignment">
+                {ALIGNS.map(({ to, name }) => (
+                  <button
+                    key={name}
+                    type="button"
+                    className={`btn-quiet !px-2 ${lineAlign(text, caret) === to ? "text-[#3544a1] dark:text-[#cbdbfc]" : "text-stone-500"}`}
+                    aria-label={`Line to the ${name}`}
+                    aria-pressed={lineAlign(text, caret) === to}
+                    title={`Puts this line ${to ? `in the ${name}` : "on the left"} (or every line selected). Typed: ${to === "center" ? '"<> "' : to === "right" ? '">> "' : "no mark"} at the start of the line`}
+                    onPointerDown={(e) => e.preventDefault()}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => aligner.current && setCaret(aligner.current(to))}
+                  >
+                    <AlignIcon to={to} />
+                  </button>
+                ))}
+              </span>
+              <button
+                type="button"
+                className="btn-quiet !px-2 text-stone-500"
+                aria-label="Insert table"
+                title='Puts a table in under this line. Typed: "| a | b |" lines'
+                onPointerDown={(e) => e.preventDefault()}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => tableMaker.current?.()}
+              >
+                <TableIcon />
+              </button>
             </span>
           )}
           {confirming ? (
@@ -282,6 +313,7 @@ function Screen({ note, folders }: { note: Note; folders: NoteFolder[] }) {
             label="Note"
             bare
             aligner={aligner}
+            tableMaker={tableMaker}
             onSelect={setCaret}
             hint="Tap to write. * or - starts a list"
             autoFocus={isFresh}

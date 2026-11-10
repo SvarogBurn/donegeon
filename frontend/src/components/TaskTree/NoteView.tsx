@@ -71,8 +71,9 @@ export function NoteView({ node, startEditing = false }: { node: TaskTreeNode; s
             type="button"
             className="nes-btn btn-small"
             // Done: leaving the field saves it. The field must not lose its focus before the click, or the button goes first.
+            // What has the focus: the text, or a table's cell in it.
             onMouseDown={(e) => editing && e.preventDefault()}
-            onClick={() => (editing ? field.current?.blur() : setEditing(true))}
+            onClick={() => (editing ? (document.activeElement as HTMLElement | null)?.blur() : setEditing(true))}
           >
             {editing ? "Done" : text ? "Edit" : "Write a note"}
           </button>

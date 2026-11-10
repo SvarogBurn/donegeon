@@ -1,4 +1,4 @@
-import { parseNote, type Align } from "../../lib/noteText";
+import { parseNote, type Align, type NoteTable } from "../../lib/noteText";
 import { RichText } from "../RichText";
 
 const HEADING_TAG = { 1: "h3", 2: "h4", 3: "h5" } as const;
@@ -6,9 +6,38 @@ const HEADING_TAG = { 1: "h3", 2: "h4", 3: "h5" } as const;
 const TEXT_ALIGN: Record<Align, string> = { center: "text-center", right: "text-right" };
 const ITEM_ALIGN: Record<Align, string> = { center: "justify-center", right: "justify-end" };
 
+/** A note's table: the header's row on top if it has one, each column on its side. Too wide, it scrolls sideways on its own. */
+export function TableView({ table }: { table: NoteTable }) {
+  const head = table.header ? table.rows[0] : null;
+  const cell = (text: string, c: number, Tag: "th" | "td") => {
+    const align = table.aligns[c];
+    return (
+      <Tag key={c} className={align ? TEXT_ALIGN[align] : ""} scope={Tag === "th" ? "col" : undefined}>
+        <RichText text={text} />
+      </Tag>
+    );
+  };
+  return (
+    <div className="note-table-wrap">
+      <table className="note-table">
+        {head && (
+          <thead>
+            <tr>{head.map((text, c) => cell(text, c, "th"))}</tr>
+          </thead>
+        )}
+        <tbody>
+          {(head ? table.rows.slice(1) : table.rows).map((row, r) => (
+            <tr key={r}>{row.map((text, c) => cell(text, c, "td"))}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /**
  * A note as it reads: its lines with their markup, headings, list items with a square bullet or their number, indented
- * by level; each line on the left, in the centre or on the right.
+ * by level, tables; each line on the left, in the centre or on the right.
  */
 export function NoteText({ text, className = "" }: { text: string; className?: string }) {
   return (
@@ -16,6 +45,8 @@ export function NoteText({ text, className = "" }: { text: string; className?: s
       {parseNote(text).map((line, i) =>
         line.kind === "blank" ? (
           <div key={i} className="h-3" />
+        ) : line.kind === "table" ? (
+          <TableView key={i} table={line} />
         ) : line.kind === "heading" ? (
           // A level under the page's own headings, so the page's outline stays whole.
           (() => {

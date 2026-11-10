@@ -19,6 +19,11 @@ const KEYS: [key: string, does: string][] = [
   ["Esc", "Discard the new row, or undo the edit in progress."],
 ];
 
+/** What makes a table in a note, and what is done with one. */
+const TABLE_HELP: [key: string, does: string][] = [
+  ["//table", "On a line of its own in a note, then Enter: a table there. Tap a cell to write in it. The small circle beside a row or above a column selects it when tapped and moves it when dragged; with a mouse, sweep across cells (or Shift+click) to select several. Delete takes out the rows or columns selected whole (else empties the cells), Backspace empties them. The arrow at the table's corner drags the whole table anywhere in the note."],
+];
+
 /** The keys that work anywhere on a computer, outside a field. */
 const PAGE_KEYS: [key: string, does: string][] = [
   ["1 – 9", "Open the task bar's tabs, left to right as you laid them out."],
@@ -98,6 +103,12 @@ export function Cheatsheet() {
       <h3 className={`border-t-2 border-stone-300 pt-3 dark:border-stone-700 ${HEADING}`}>Keys in a task</h3>
       <ul className="divide-y-2 divide-stone-200 dark:divide-stone-800">
         {KEYS.map(([key, does]) => (
+          <Line key={key} keys={key} does={does} />
+        ))}
+      </ul>
+      <h3 className={`border-t-2 border-stone-300 pt-3 dark:border-stone-700 ${HEADING}`}>Tables in a note</h3>
+      <ul className="divide-y-2 divide-stone-200 dark:divide-stone-800">
+        {TABLE_HELP.map(([key, does]) => (
           <Line key={key} keys={key} does={does} />
         ))}
       </ul>
