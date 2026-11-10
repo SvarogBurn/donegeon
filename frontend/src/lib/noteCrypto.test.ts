@@ -42,7 +42,7 @@ describe("sealing a note's words", () => {
 
   it("seals only the words a change has", async () => {
     const change = await sealNote(key, { text: "new text", noteFolderId: null });
-    expect(change.title).toBeUndefined();
+    expect(change).not.toHaveProperty("title");
     expect(change.noteFolderId).toBeNull();
     expect(isSealed(change.text!)).toBe(true);
     expect(await openNote(key, { id: "a", title: "", text: change.text! })).toEqual({ id: "a", title: "", text: "new text" });

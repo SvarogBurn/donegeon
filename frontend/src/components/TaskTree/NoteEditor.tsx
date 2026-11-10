@@ -26,6 +26,8 @@ export interface NoteEditorProps {
   hint?: string;
   /** Written in at once, the caret at the end. */
   autoFocus?: boolean;
+  /** The most characters it takes; a task note's 5000 by default (the server's limit for each). */
+  maxLength?: number;
 }
 
 // The editor is a library of its own, not part of the app's first load: fetched once the page has settled, so it is

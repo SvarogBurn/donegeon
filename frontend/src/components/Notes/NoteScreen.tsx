@@ -317,6 +317,7 @@ function Screen({ note, folders }: { note: Note; folders: NoteFolder[] }) {
             onSelect={setCaret}
             hint="Tap to write. * or - starts a list"
             autoFocus={isFresh}
+            maxLength={1_000_000}
             className="min-h-[60dvh] cursor-text text-sm"
           />
         </div>

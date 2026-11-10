@@ -988,7 +988,7 @@ const looks = EditorView.theme({
  * NoteEditor's field (see there): a CodeMirror editor, loaded only when a note is first written in. The note reads as it
  * will look while it is written; only the line being written on (and the markup the caret is in) shows its marks.
  */
-export default function LiveNoteEditor({ value, onChange, onDone, onFocus, ref, className = "", label = "Task note", bare = false, onSelect, aligner, tableMaker, hint = "Note. * or - starts a list", autoFocus = false }: NoteEditorProps) {
+export default function LiveNoteEditor({ value, onChange, onDone, onFocus, ref, className = "", label = "Task note", bare = false, onSelect, aligner, tableMaker, hint = "Note. * or - starts a list", autoFocus = false, maxLength = MAX_LENGTH }: NoteEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const stop = useRef(false);
@@ -1034,7 +1034,7 @@ export default function LiveNoteEditor({ value, onChange, onDone, onFocus, ref, 
             ...historyKeymap,
           ]),
           EditorView.lineWrapping,
-          EditorState.transactionFilter.of((tr) => (tr.docChanged && tr.newDoc.length > MAX_LENGTH ? [] : tr)),
+          EditorState.transactionFilter.of((tr) => (tr.docChanged && tr.newDoc.length > maxLength ? [] : tr)),
           EditorView.contentAttributes.of({ "aria-label": label }),
           placeholder(hint),
           // Typing keeps the line being written above a phone's keyboard, with a line to spare.
