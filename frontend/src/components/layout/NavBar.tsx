@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { Link, NavLink } from "react-router";
 import { useFolders, useReorderFolders } from "../../hooks/folders";
 import { usePoints } from "../../hooks/points";
-import { useBarTheme, useCalendarTab, useStatsTab, useUpdateMe } from "../../hooks/useAuth";
+import { useBarTheme, useCalendarTab, useCalm, useNewsTab, useStatsTab, useUpdateMe } from "../../hooks/useAuth";
 import { useAppLayout } from "../../lib/standalone";
 import { folderOfKey, folderOrder, moveItem, resolveTaskBar, type BarSide } from "../../lib/taskBar";
 import type { User } from "../../types";
@@ -57,6 +57,8 @@ function TaskBar({ user }: { user: User }) {
   const updateMe = useUpdateMe();
   const statsTab = useStatsTab();
   const calendarTab = useCalendarTab();
+  const newsTab = useNewsTab();
+  const calm = useCalm();
   const reorderFolders = useReorderFolders();
   const layout = resolveTaskBar(user.taskBar, folders.map((folder) => folder.id));
 
@@ -131,7 +133,7 @@ function TaskBar({ user }: { user: User }) {
         );
         break;
       case "news":
-        content = (user.newsTab ?? true) && (
+        content = newsTab && (
           <NavLink to="/news" className={tab} aria-label="News" title={`News: what's new, our projects and the story events. ${DRAG_HINT}`} draggable={false}>
             <span className="tab-icon tab-icon-news" aria-hidden />
             News
@@ -203,7 +205,8 @@ function TaskBar({ user }: { user: User }) {
           {layout.left.map((key) => item(key, "left"))}
           <NewFolderTab tab={tab} isNewShown={isNewShown} onNewUsed={onNewUsed} onMade={setEditingId} />
         </nav>
-        <Link to="/" className="logo h-[42px] max-xl:hidden" aria-label="Donegeon" />
+        {/* In Distraction free no logo: an empty middle, so the two sides stay at the ends. */}
+        {calm ? <span /> : <Link to="/" className="logo h-[42px] max-xl:hidden" aria-label="Donegeon" />}
         <div ref={rightSide} className="flex flex-none flex-wrap items-center justify-end gap-x-2 sm:gap-x-3" data-bar-side="right">
           {layout.right.map((key) => item(key, "right"))}
         </div>

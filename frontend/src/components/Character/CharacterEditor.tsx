@@ -40,7 +40,7 @@ export function CharacterEditor({ onClose, trying }: { onClose: () => void; tryi
   };
   useEscape(onClose);
   const set = (changes: Partial<Profile>) => setDraft((d) => ({ ...d, ...changes }));
-  const goals = progress && !profile.hideNews ? nextGoals(progress) : [];
+  const goals = progress && !profile.hideNews && !profile.calm ? nextGoals(progress) : [];
 
   return createPortal(
     <div

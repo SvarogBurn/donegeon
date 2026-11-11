@@ -7,7 +7,7 @@ import * as tasksApi from "../../api/tasks";
 import { COUNTDOWN, DONE, FEEDBACK_SENT, GOALS, LISTS, POINTS, PRESSURE, TAGS, TASK_DATA, TASKS } from "../../hooks/queryKeys";
 import { ME } from "../../hooks/useAuth";
 import type { Countdown, DonePage, Goal, Health, List, PointsSummary, Tag, TaskPress, TaskTreeNode, User } from "../../types";
-import { bigEveryIn, bigKindsIn, celebrate, celebrateLevel, celebrateStreak, isBigMoment, isStreakMilestone, LEVEL_MS, levelKindsIn, levelReached, milestoneOffIn, MOMENT_WORDS_MS, STREAK_MILESTONE_MS, STREAK_MS, streakAfterFirst, streakOffIn } from "../bigMoment";
+import { bigEveryIn, bigKindsIn, calmIn, celebrate, celebrateLevel, celebrateStreak, isBigMoment, isStreakMilestone, LEVEL_MS, levelKindsIn, levelReached, milestoneOffIn, MOMENT_WORDS_MS, STREAK_MILESTONE_MS, STREAK_MS, streakAfterFirst, streakOffIn } from "../bigMoment";
 import { taskDone } from "../breakReminder";
 import {
   draftNode,
@@ -126,6 +126,8 @@ function newLevel(queryClient: QueryClient, doneToday: number, day: string) {
 function counted(queryClient: QueryClient, doneToday: number | null, day: string) {
   if (doneToday === null) return;
   const profile = queryClient.getQueryData<User | null>(ME)?.profile;
+  // Distraction free: no moment at all, only the break reminder when it is due.
+  if (calmIn(profile)) return taskDone(doneToday, breakEvery(queryClient), 0);
   const bigEvery = bigEveryIn(profile);
   const milestones = !milestoneOffIn(profile);
   const levelKinds = levelKindsIn(profile);

@@ -87,12 +87,12 @@ export function useCardBasics(user: User) {
 /**
  * Whether something earned waits to be announced on the sheet, for the dot on the task bar's face: only what levels,
  * streaks and mail bring counts here (useBarProgress). None with the dot or the sheet's boxes switched off in Settings
- * (Profile.hideDot / hideNews).
+ * (Profile.hideDot / hideNews), or in Distraction free.
  */
 export function useSomethingNew(user: User) {
   const bar = useBarProgress();
   const profile = useMemo(() => normalizeProfile(user.profile), [user.profile]);
-  if (!bar || profile.hideDot || profile.hideNews) return false;
+  if (!bar || profile.hideDot || profile.hideNews || profile.calm) return false;
   const { rewards, titles } = unseenOf(bar.progress, profile.seen ?? []);
   return rewards.length + titles.length > 0;
 }

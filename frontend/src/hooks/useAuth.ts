@@ -4,7 +4,7 @@ import * as authApi from "../api/auth";
 import { ApiError } from "../api/client";
 import type { DeadlineToday, TickedTasks, User } from "../types";
 import { restDays, restRanges } from "../../../shared/health";
-import { soundOffIn } from "../lib/bigMoment";
+import { calmIn, soundOffIn } from "../lib/bigMoment";
 import { BAR_FILLS, BOX_FILLS, barsIn, boxesIn, themeOf } from "../lib/backgrounds";
 import { useRunningChapter } from "../lib/tutorialRun";
 import { readStored, writeStored } from "../lib/storage";
@@ -88,9 +88,10 @@ export function useNotesTab(): boolean {
   return useMe().user?.notesTab ?? false;
 }
 
-/** Whether the News tab is shown; on unless switched off on the user's page. */
+/** Whether the News tab is shown; on unless switched off on the user's page, and never in Distraction free (the News page is all pixel art). */
 export function useNewsTab(): boolean {
-  return useMe().user?.newsTab ?? true;
+  const user = useMe().user;
+  return (user?.newsTab ?? true) && !calmIn(user?.profile);
 }
 
 /** Whether the tutorial is on: its core (until it was finished or skipped) or a chapter of Learn Donegeon. */
@@ -141,6 +142,11 @@ export function useBoxTheme(): "light" | "dark" | undefined {
 /** Whether the tick sounds are off (Settings › Gamification). */
 export function useSoundOff(): boolean {
   return soundOffIn(useMe().user?.profile);
+}
+
+/** Whether Distraction free is on (Settings › Theme and design): no shows, a plain look, none of the character's news in sight. */
+export function useCalm(): boolean {
+  return calmIn(useMe().user?.profile);
 }
 
 /** Whether the streak freeze is off (Settings › Gamification, under Health; off with it too): a day missed breaks the streak. */

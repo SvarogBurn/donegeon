@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore, type CSSProperties,
 import { createPortal } from "react-dom";
 import type { ReceivedCheer } from "../api/people";
 import { useCheerPops } from "../hooks/people";
-import { useMe, useSoundOff } from "../hooks/useAuth";
+import { useCalm, useMe, useSoundOff } from "../hooks/useAuth";
 import { getBigMoment, onBigMoment, type Moment } from "../lib/bigMoment";
 import { DEFAULT_LOOK } from "../lib/character/bodies";
 import { normalizeLook, normalizeProfile } from "../lib/character/profile";
@@ -157,10 +157,11 @@ function soundOf({ kind, milestone }: Moment): SoundName {
   return kind === "lightning" || kind === "cheer" ? kind : "fanfare";
 }
 
-/** Every so many tasks of a day, the kinds ticked in Settings in turn (the words alone with none), a pop of confetti for a cheer, saying the cheers that came in, the character cheering the streak at the first task of a day (more on a milestone), and a level up. It takes no clicks; with reduced motion it is the words alone (or the character), still, and the sound. */
+/** Every so many tasks of a day, the kinds ticked in Settings in turn (the words alone with none), a pop of confetti for a cheer, saying the cheers that came in, the character cheering the streak at the first task of a day (more on a milestone), and a level up. It takes no clicks; with reduced motion it is the words alone (or the character), still, and the sound; in Distraction free only a cheer's card, still. */
 export function BigMoment() {
   const moment = useSyncExternalStore(onBigMoment, getBigMoment);
   const soundOff = useSoundOff();
+  const calm = useCalm();
   const [shown, setShown] = useState(0);
   const [still, setStill] = useState(false);
   useCheerPops();
@@ -168,7 +169,8 @@ export function BigMoment() {
   useEffect(() => {
     if (!moment) return;
     if (!soundOff) playSound(soundOf(moment));
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Distraction free plays only a cheer (the ticks bring none then), as with reduced motion: its card alone, still.
+    const reduced = calm || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     setStill(reduced);
     setShown(moment.id);
     if (!reduced) return;

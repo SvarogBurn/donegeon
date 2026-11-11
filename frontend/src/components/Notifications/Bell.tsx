@@ -175,7 +175,7 @@ export function Bell({
   const label = count ? `Notifications: ${count} new` : "Notifications";
   // The strip's bell is small: the count sits off its corner rather than over it.
   const badge = count > 0 && (
-    <span className="absolute -top-1 -right-2.5 min-w-3 bg-red-600 px-0.5 text-center font-pixel text-[8px] leading-3 text-white tabular-nums" aria-hidden>
+    <span className="bell-badge absolute -top-1 -right-2.5 min-w-3 bg-red-600 px-0.5 text-center font-pixel text-[8px] leading-3 text-white tabular-nums" aria-hidden>
       {count > 9 ? "9+" : count}
     </span>
   );

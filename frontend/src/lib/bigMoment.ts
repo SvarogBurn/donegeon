@@ -7,9 +7,12 @@ import { daysProgress } from "./character/unlocks";
 export const BIG_EVERY = 3;
 
 /** The settings kept in the user's profile, read without making the whole profile (lib/character/profile.ts). */
-const settingsIn = (profile: unknown) => (profile ?? {}) as { soundOff?: unknown; bigEvery?: unknown; bigOff?: unknown; streakOff?: unknown; milestoneOff?: unknown; levelOff?: unknown };
+const settingsIn = (profile: unknown) => (profile ?? {}) as { soundOff?: unknown; bigEvery?: unknown; bigOff?: unknown; streakOff?: unknown; milestoneOff?: unknown; levelOff?: unknown; calm?: unknown };
 
 export const soundOffIn = (profile: unknown) => settingsIn(profile).soundOff === true;
+
+/** Distraction free (Settings › Theme and design): no shows at the tick, a plain look, none of the character's news in sight. The settings it covers stay as they were. */
+export const calmIn = (profile: unknown) => settingsIn(profile).calm === true;
 
 /** No streak moment on the first task of a day (Settings › Gamification). */
 export const streakOffIn = (profile: unknown) => settingsIn(profile).streakOff === true;

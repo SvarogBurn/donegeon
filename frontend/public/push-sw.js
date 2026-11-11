@@ -4,6 +4,8 @@
 const ACTION_TITLES = { done: "Done" };
 // The small icon Android shows at the left (white dragon on transparent: it draws only the shape). Ignored elsewhere.
 const BADGE = "/notification-badge.png";
+// The logo beside the words, on transparent. A PNG: Chrome (Android too) draws no SVG there, so favicon.svg showed nothing.
+const ICON = "/notification-icon.png";
 
 self.addEventListener("push", (event) => {
   let message;
@@ -16,7 +18,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(message.title, {
       body: message.body,
-      icon: message.icon || "/favicon.svg",
+      icon: message.icon || ICON,
       badge: BADGE,
       // A second one with the same tag (the plan sent again) takes the first one's place.
       tag: message.tag,
@@ -65,7 +67,7 @@ self.addEventListener("notificationclick", (event) => {
     // Ticks the task, or presses it if it is done again and again. Refused (subtasks still open, logged out, no
     // connection): a notification says why, and a tap on it opens the task.
     const done = press ? call("POST", `/tasks/${taskId}/completions`, { fromNotification: true }) : call("PATCH", `/tasks/${taskId}/toggle`, { done: true, fromNotification: true });
-    event.waitUntil(done.catch((err) => self.registration.showNotification("Not done", { body: err.message, icon: "/favicon.svg", badge: BADGE, tag: `${key}:failed`, data: { url } })));
+    event.waitUntil(done.catch((err) => self.registration.showNotification("Not done", { body: err.message, icon: ICON, badge: BADGE, tag: `${key}:failed`, data: { url } })));
   } else {
     event.waitUntil(open(url || "/"));
   }

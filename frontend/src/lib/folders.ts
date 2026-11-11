@@ -32,6 +32,8 @@ export const noteOfView = (view: string) => (view.startsWith(NOTE_PREFIX) ? view
 const USER_PREFIX = "user:";
 /** The user page's boxes, by name: dropped on the Tasks tab or a folder's, they are shown there too. */
 export const USER_BOXES: Record<string, string> = { character: "Character", learn: "Learn Donegeon", people: "Friends", news: "News", settings: "Settings", cheatsheet: "Cheat sheet", feedback: "Send mail to devs", inbox: "Inbox" };
+/** The user page's boxes of the game around the tasks, out of sight in Distraction free (Settings › Theme and design): there, copied elsewhere, and in the search. */
+export const GAME_BOXES: ReadonlySet<string> = new Set(["character", "people", "news"]);
 export const userView = (name: string) => `${USER_PREFIX}${name}`;
 /** The user page's box a view shows, or null for any other view. */
 export const userOfView = (view: string) => (view.startsWith(USER_PREFIX) ? view.slice(USER_PREFIX.length) : null);

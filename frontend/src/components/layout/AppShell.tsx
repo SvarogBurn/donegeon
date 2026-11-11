@@ -3,7 +3,8 @@ import { Navigate, Outlet } from "react-router";
 import type { TextFont } from "../../types";
 import { useNotesKeyCheck } from "../../hooks/notesKey";
 import { useMe } from "../../hooks/useAuth";
-import { BACKGROUNDS, backgroundIn, barsIn, boxesIn, themeOf, type BackgroundId, type BarFillId } from "../../lib/backgrounds";
+import { calmIn } from "../../lib/bigMoment";
+import { BACKGROUNDS, backgroundIn, barsIn, boxesIn, calmLook, themeOf, type BackgroundId, type BarFillId } from "../../lib/backgrounds";
 import { FONT_STACKS, textFont } from "../../lib/fonts";
 import { useOnline } from "../../lib/offline/online";
 import { useAppLayout } from "../../lib/standalone";
@@ -79,15 +80,32 @@ function usePageLook(id: BackgroundId, bars: BarFillId, boxes: BarFillId) {
   }, [boxes]);
 }
 
+/** Distraction free on the page, as data-calm, for what index.css stills then (the tutorial's nudging arrow, the news paper's lift). */
+function useCalmPage(calm: boolean) {
+  useEffect(() => {
+    if (!calm) return;
+    const html = document.documentElement;
+    html.dataset.calm = "";
+    return () => {
+      delete html.dataset.calm;
+    };
+  }, [calm]);
+}
+
 /** Wraps every logged-in page; sends anonymous visitors to /login. */
 export function AppShell() {
   const { user, isLoading, error } = useMe();
   const online = useOnline();
   const usesAppLayout = useAppLayout();
+  // Distraction free puts the simple font in the pixel one's place, and the theme's own for a picture or a see-through fill; the settings stay as saved.
+  const calm = calmIn(user?.profile);
+  const calmFont = (font: TextFont) => (calm && font === "pixel" ? "plain" : font);
+  const look = [backgroundIn(user?.profile), barsIn(user?.profile), boxesIn(user?.profile)] as const;
   // The account's fonts, on the page itself so that popups drawn outside the shell follow them too (see index.css).
-  useTextFont("boxFont", textFont(user?.boxFont));
-  useTextFont("notesFont", textFont(user?.notesFont));
-  usePageLook(backgroundIn(user?.profile), barsIn(user?.profile), boxesIn(user?.profile));
+  useTextFont("boxFont", calmFont(textFont(user?.boxFont)));
+  useTextFont("notesFont", calmFont(textFont(user?.notesFont)));
+  usePageLook(...(calm ? calmLook(...look) : look));
+  useCalmPage(calm);
   useNotesKeyCheck();
 
   if (isLoading && !online) return <p className="p-8 text-center text-sm text-stone-500">You're offline, and nothing was kept on this device yet.</p>;
@@ -99,8 +117,8 @@ export function AppShell() {
   return (
     <>
       {/* The bottom padding is the room the task bar covers (--bar-h, set by NavBar); installed, the top strip's too (--top-h),
-          and the "+" standing up out of the bottom bar (24px, PLUS_ABOVE in AppBars). */}
-      <main className={`px-4 ${usesAppLayout ? "pt-[calc(var(--top-h,4rem)+1rem)] pb-[calc(var(--bar-h,5rem)+24px+1.5rem)]" : "pt-6 pb-[calc(var(--bar-h,5rem)+1.5rem)]"}`}>
+          and the "+" standing up out of the bottom bar (24px, PLUS_ABOVE in AppBars; inside it in Distraction free). */}
+      <main className={`px-4 ${usesAppLayout ? `pt-[calc(var(--top-h,4rem)+1rem)] ${calm ? "pb-[calc(var(--bar-h,5rem)+1.5rem)]" : "pb-[calc(var(--bar-h,5rem)+24px+1.5rem)]"}` : "pt-6 pb-[calc(var(--bar-h,5rem)+1.5rem)]"}`}>
         <Outlet />
       </main>
       <NavBar user={user} />

@@ -4,7 +4,7 @@ import { Navigate, useLocation, useNavigate, useParams } from "react-router";
 import { useDeleteNote, useEditNote, useNotes } from "../../hooks/notes";
 import { useOnline } from "../../lib/offline/online";
 import { lineAlign, type Align } from "../../lib/noteText";
-import { FOLDER_COLOR, folderIn } from "../../lib/frameTones";
+import { FOLDER_COLOR, folderIconStyle } from "../../lib/frameTones";
 import { pathTo, treeOrder } from "../../lib/noteFolders";
 import type { Note, NoteFolder } from "../../types";
 import { NoteEditor } from "../TaskTree/NoteEditor";
@@ -65,7 +65,7 @@ export function NoteScreen() {
 
 /** A folder's icon, in its colour; without a folder, dimmed. */
 function FolderIcon({ folder }: { folder?: NoteFolder }) {
-  return <span className={`tab-icon tab-icon-folder !size-[21px] flex-none ${folder ? "" : "opacity-50"}`} style={folder?.color ? { backgroundImage: folderIn(folder.color) } : undefined} aria-hidden />;
+  return <span className={`tab-icon tab-icon-folder !size-[21px] flex-none ${folder ? "" : "opacity-50"}`} style={folderIconStyle(folder?.color)} aria-hidden />;
 }
 
 /**

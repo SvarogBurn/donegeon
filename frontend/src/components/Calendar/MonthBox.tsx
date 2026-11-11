@@ -200,7 +200,7 @@ export function MonthBox() {
                       pickDay(day);
                       setOpenDay(day);
                     }}
-                    className={`flex min-h-12 min-w-0 cursor-pointer flex-col gap-1 border-2 p-1 text-xs hover:bg-stone-100 @xl:min-h-24 dark:hover:bg-stone-800 ${
+                    className={`month-cell flex min-h-12 min-w-0 cursor-pointer flex-col gap-1 border-2 p-1 text-xs hover:bg-stone-100 @xl:min-h-24 dark:hover:bg-stone-800 ${
                       day === selected ? "border-[#3544a1] dark:border-[#cbdbfc]" : "border-stone-200 dark:border-stone-800"
                     } ${monthOf(day) === month ? "" : "opacity-40"}`}
                   >
@@ -208,7 +208,7 @@ export function MonthBox() {
                       type="button"
                       aria-pressed={day === selected}
                       aria-label={`${formatDay(day, true)}${open ? `, ${open} to do` : ""}${done.length ? `, ${done.length} done` : ""}`}
-                      className={`min-h-6 min-w-6 cursor-pointer self-center px-1 tabular-nums @xl:self-start ${day === today ? "bg-[#3544a1] text-white" : ""}`}
+                      className={`month-day min-h-6 min-w-6 cursor-pointer self-center px-1 tabular-nums @xl:self-start ${day === today ? "bg-[#3544a1] text-white" : ""}`}
                     >
                       {Number(day.slice(8))}
                     </button>

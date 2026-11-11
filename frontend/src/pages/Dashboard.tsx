@@ -16,7 +16,7 @@ import { TileGrid, type Tile } from "../components/Tiles/TileGrid";
 import { TreeProvider } from "../components/TaskTree/TreeContext";
 import { TreeError, UndoBar } from "../components/TaskTree/TreeStatus";
 import { TodayBox } from "../components/Today/TodayBox";
-import { useMe, useTickedTasks } from "../hooks/useAuth";
+import { useCalm, useMe, useTickedTasks } from "../hooks/useAuth";
 import { useDropOnTab, useFolders, useUpdateFolder } from "../hooks/folders";
 import { useCreateGoal, useCreateTag, useDeleteGoal, useDeleteTag, useGoals, useTags } from "../hooks/labels";
 import { useLayout, useSaveLayout } from "../hooks/layout";
@@ -24,7 +24,7 @@ import { useLists } from "../hooks/lists";
 import { useNotes } from "../hooks/notes";
 import { useCombinedCountdown, usePressure, useTaskTrees } from "../hooks/tasks";
 import { countLabels, isFiltering, NO_FILTER, toggleId, type LabelFilter } from "../lib/labels";
-import { calOfView, DEADLINES_VIEW, DONE_VIEW, GOALS_VIEW, listOfView, listView, noteOfView, PRESSURE_VIEW, statOfView, TAGS_VIEW, TODAY_VIEW, USER_BOXES, userOfView } from "../lib/folders";
+import { calOfView, DEADLINES_VIEW, DONE_VIEW, GOALS_VIEW, listOfView, listView, noteOfView, PRESSURE_VIEW, statOfView, TAGS_VIEW, TODAY_VIEW, GAME_BOXES, USER_BOXES, userOfView } from "../lib/folders";
 import { useOnline } from "../lib/offline/online";
 import { findTaskRow, pathIdsTo, showOnPage } from "../lib/showOnPage";
 import { useAppLayout } from "../lib/standalone";
@@ -66,6 +66,7 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
   const saveLayout = useSaveLayout();
   const ticked = useTickedTasks();
   const isDev = useMe().user?.isDev;
+  const calm = useCalm();
   // Only a folder's page shows notes: those dropped on its tab.
   const notes = useNotes();
   const [picked, setPicked] = useState<LabelFilter>(NO_FILTER);
@@ -139,7 +140,8 @@ export function Dashboard({ folderId = null }: { folderId?: string | null }) {
     const stat = statOfView(view);
     if (stat !== null) return stat in STAT_BOXES ? [{ key: view, view, name: STAT_BOXES[stat], label: STAT_BOXES[stat], node: <StatBoxView name={stat} /> }] : [];
     const user = userOfView(view);
-    if (user === null || !(user in USER_BOXES) || (user === "inbox" && !isDev)) return [];
+    // Distraction free leaves out a copy of the character, friends or news too.
+    if (user === null || !(user in USER_BOXES) || (user === "inbox" && !isDev) || (calm && GAME_BOXES.has(user))) return [];
     // Its picked colour is the user page's box's, kept under its name there.
     return [{ key: view, view, colorKey: user, name: USER_BOXES[user], label: USER_BOXES[user], node: <UserBox name={user} /> }];
   };

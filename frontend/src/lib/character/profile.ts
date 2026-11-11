@@ -82,6 +82,8 @@ export interface Profile {
   bars?: Exclude<BarFillId, "default">;
   /** Settings › Theme and design: the boxes' background, inside their frames (lib/backgrounds.ts); left out = the theme's. */
   boxes?: Exclude<BarFillId, "default">;
+  /** Settings › Theme and design: Distraction free, the pixel look taken off, no shows at the tick, and none of the game in sight; the settings it covers are kept as they are (lib/bigMoment.ts). */
+  calm?: boolean;
 }
 
 export const STAT_NAME_MAX = 12;
@@ -145,7 +147,7 @@ export function normalizeProfile(raw: unknown, known?: Known): Profile {
   const bigOff = BIG_KINDS.filter((kind) => Array.isArray(p.bigOff) && p.bigOff.includes(kind));
   const levelOff = LEVEL_KINDS.filter((kind) => Array.isArray(p.levelOff) && p.levelOff.includes(kind));
   const seenIds = Array.isArray(p.seen) ? [...new Set(p.seen.filter((id): id is string => typeof id === "string"))] : null;
-  return { ...(title && { title }), stats, custom, skills, ...(p.look !== undefined && { look: normalizeLook(p.look) }), ...(seenIds && { seen: seenIds }), ...(p.hideDot === true && { hideDot: true }), ...(p.hideNews === true && { hideNews: true }), ...(p.soundOff === true && { soundOff: true }), ...(Array.isArray(p.learned) && { learned: [...new Set(p.learned.filter((id): id is string => typeof id === "string"))] }), ...(p.bigEvery === null && { bigEvery: null }), ...(typeof p.bigEvery === "number" && p.bigEvery >= 1 && { bigEvery: Math.floor(p.bigEvery) }), ...(bigOff.length && { bigOff }), ...(p.streakOff === true && { streakOff: true }), ...(p.milestoneOff === true && { milestoneOff: true }), ...(levelOff.length && { levelOff }), ...(isBackground(p.background) && p.background !== "default" && { background: p.background }), ...(isBarFill(p.bars) && p.bars !== "default" && { bars: p.bars }), ...(isBarFill(p.boxes) && p.boxes !== "default" && { boxes: p.boxes }) };
+  return { ...(title && { title }), stats, custom, skills, ...(p.look !== undefined && { look: normalizeLook(p.look) }), ...(seenIds && { seen: seenIds }), ...(p.hideDot === true && { hideDot: true }), ...(p.hideNews === true && { hideNews: true }), ...(p.soundOff === true && { soundOff: true }), ...(Array.isArray(p.learned) && { learned: [...new Set(p.learned.filter((id): id is string => typeof id === "string"))] }), ...(p.bigEvery === null && { bigEvery: null }), ...(typeof p.bigEvery === "number" && p.bigEvery >= 1 && { bigEvery: Math.floor(p.bigEvery) }), ...(bigOff.length && { bigOff }), ...(p.streakOff === true && { streakOff: true }), ...(p.milestoneOff === true && { milestoneOff: true }), ...(levelOff.length && { levelOff }), ...(isBackground(p.background) && p.background !== "default" && { background: p.background }), ...(isBarFill(p.bars) && p.bars !== "default" && { bars: p.bars }), ...(isBarFill(p.boxes) && p.boxes !== "default" && { boxes: p.boxes }), ...(p.calm === true && { calm: true }) };
 }
 
 /** A fresh id for a custom stat. */

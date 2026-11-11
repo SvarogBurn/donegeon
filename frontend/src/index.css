@@ -1,6 +1,8 @@
 /* NES.css components (styles/nes.scss) rank above Tailwind's reset and below the app's own classes and utilities. */
 @layer theme, base, nes, components, utilities;
 @import "tailwindcss";
+/* Distraction free: the pixel look taken off while it is on (html[data-calm]). */
+@import "./styles/plain.css";
 
 /*
  * The theme: the OS's, unless data-theme says otherwise (on <html> for the page, set by AppShell from the background
@@ -525,6 +527,10 @@
     .tutorial-arrow {
       animation: none;
     }
+  }
+  /* Distraction free (components/layout/AppShell): still, as with reduced motion. */
+  html[data-calm] .tutorial-arrow {
+    animation: none;
   }
   /*
    * A big moment (components/BigMoment), rare enough to be a show. Lightning: the sky darkens, the big bolt strikes from
@@ -2083,6 +2089,9 @@
     .news-stand-paper {
       transition: none;
     }
+  }
+  html[data-calm] .news-stand-paper {
+    transition: none;
   }
   .news-stand-photo {
     width: calc(96 * var(--u));

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
-import { useCalendarTab, useNewsTab, useNotesTab, usePointsOff, useStatsTab } from "../../hooks/useAuth";
+import { useCalendarTab, useCalm, useNewsTab, useNotesTab, usePointsOff, useStatsTab } from "../../hooks/useAuth";
 import { useFolders } from "../../hooks/folders";
 import { useGoToTask } from "../../hooks/goToTask";
 import { useGoals, useTags } from "../../hooks/labels";
@@ -8,7 +8,7 @@ import { useLists } from "../../hooks/lists";
 import { useNotes } from "../../hooks/notes";
 import { useTaskSearch, useTaskTrees } from "../../hooks/tasks";
 import { formatDay } from "../../lib/dates";
-import { listView, noteView, USER_BOXES } from "../../lib/folders";
+import { GAME_BOXES, listView, noteView, USER_BOXES } from "../../lib/folders";
 import { useOnline } from "../../lib/offline/online";
 import { findNode } from "../../lib/optimisticToggle";
 import { boxTabOf, showOnPage } from "../../lib/showOnPage";
@@ -127,6 +127,8 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false, autoFocus = fal
   // Nor the Points page and box while the points system is off, nor News, Stats (and its boxes) or Calendar without their tabs.
   const pointsOff = usePointsOff();
   const newsTab = useNewsTab();
+  // Nor, in Distraction free, the character, friends and news boxes.
+  const calm = useCalm();
   const statsTab = useStatsTab();
   const calendarTab = useCalendarTab();
   // What the Tasks page shows: a task that is in here can be gone to.
@@ -150,7 +152,7 @@ export function SiteSearch({ onPickLabel, onHide, inBar = false, autoFocus = fal
           kind: key === null ? "Page" : `Box on ${path === "/" ? "Tasks" : "Stats"}`,
           go: goTo(path, key === null ? undefined : tile(key)),
         })),
-        ...USER_PAGE_BOXES.filter(([key, words]) => has(USER_BOXES[key], words)).map(([key]) => ({
+        ...USER_PAGE_BOXES.filter(([key, words]) => !(calm && GAME_BOXES.has(key)) && has(USER_BOXES[key], words)).map(([key]) => ({
           key: `user:${key}`,
           title: USER_BOXES[key],
           kind: "Box on Account",

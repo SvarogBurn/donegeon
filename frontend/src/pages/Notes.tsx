@@ -11,7 +11,7 @@ import { useDropOnTab } from "../hooks/folders";
 import { useSealPlainNotes } from "../hooks/notesKey";
 import { useCreateNoteFolder, useDeleteNoteFolder, useEditNote, useFolderPick, useMoveNoteFolder, useNewNote, useNotes, useReorderNoteFolders, useUpdateNoteFolder } from "../hooks/notes";
 import { noteView } from "../lib/folders";
-import { FOLDER_COLOR, folderIn } from "../lib/frameTones";
+import { FOLDER_COLOR, folderIconStyle } from "../lib/frameTones";
 import { childrenOf, insideOf, pathTo } from "../lib/noteFolders";
 import { moveItem } from "../lib/taskBar";
 import type { NoteFolder } from "../types";
@@ -166,7 +166,7 @@ function NoteFolderChip({ folder, isActive, isOpen, isEditing, isDragged, onPick
         onEdit(folder.id);
       }}
     >
-      <span className="tab-icon tab-icon-folder !size-[21px]" style={folder.color ? { backgroundImage: folderIn(folder.color) } : undefined} aria-hidden />
+      <span className="tab-icon tab-icon-folder !size-[21px]" style={folderIconStyle(folder.color)} aria-hidden />
       <span className="max-w-28 truncate">{folder.name}</span>
       {/* Shown, it opens on another click. */}
       {isActive && <span className="text-stone-500" aria-hidden>▾</span>}

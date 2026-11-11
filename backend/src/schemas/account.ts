@@ -78,6 +78,8 @@ const profile = z
     bars: z.string().max(20).optional(),
     /** The boxes' background (BOX_FILLS there), the same way. */
     boxes: z.string().max(20).optional(),
+    /** Distraction free: no shows at the tick, a plain look and none of the character's news in sight, over the settings above (frontend/src/lib/bigMoment.ts). */
+    calm: z.boolean().optional(),
   })
   .nullable();
 

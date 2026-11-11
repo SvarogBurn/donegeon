@@ -1,0 +1,526 @@
+/*
+ * Distraction free (Settings › Theme and design, profile.calm; html[data-calm], set by AppShell): the pixel look taken
+ * off. An ordinary font at ordinary sizes, rounded corners, boxes as plain cards with a dot of their colour by the
+ * title, flat buttons and fields, the browser's own checkboxes, and simple line icons in place of the pixel art (drawn
+ * as masks, so they take the words' colour). Everything here is html[data-calm] and something, so it wins over the
+ * pixel rules in index.css and NES.css without touching them; off, nothing here applies.
+ */
+
+/* The icons: line drawings on a 24-unit grid (assets/icons/plain), used as masks (black = drawn). */
+html[data-calm] {
+  --i-tasks: url("../../../assets/icons/plain/24x24tasks_line_v1.svg");
+  --i-folder: url("../../../assets/icons/plain/24x24folder_line_v1.svg");
+  --i-stats: url("../../../assets/icons/plain/24x24stats_line_v1.svg");
+  --i-calendar: url("../../../assets/icons/plain/24x24calendar_line_v1.svg");
+  --i-mail: url("../../../assets/icons/plain/24x24mail_line_v1.svg");
+  --i-paper: url("../../../assets/icons/plain/24x24newspaper_line_v1.svg");
+  --i-user: url("../../../assets/icons/plain/24x24user_line_v1.svg");
+  --i-note: url("../../../assets/icons/plain/24x24note_line_v1.svg");
+  --i-search: url("../../../assets/icons/plain/24x24search_line_v1.svg");
+  --i-bell: url("../../../assets/icons/plain/24x24bell_line_v1.svg");
+  --i-chevron: url("../../../assets/icons/plain/24x24chevron_line_v1.svg");
+  --i-repeat: url("../../../assets/icons/plain/24x24repeat_line_v1.svg");
+  --i-x: url("../../../assets/icons/plain/24x24x_line_v1.svg");
+  --i-minus: url("../../../assets/icons/plain/24x24minus_line_v1.svg");
+  --i-pin: url("../../../assets/icons/plain/24x24pin_line_v1.svg");
+  --i-grip: url("../../../assets/icons/plain/24x24grip_line_v1.svg");
+  --i-arrow: url("../../../assets/icons/plain/24x24arrow_line_v1.svg");
+
+  /* The one accent, and the cards' edges. */
+  --plain-accent: #5b6ee1;
+  --plain-edge: var(--color-stone-200);
+  --plain-edge-strong: var(--color-stone-300);
+  --plain-card: #fff;
+  --plain-hover: var(--color-stone-100);
+
+  /* An ordinary font at ordinary sizes, as the fonts picked for the boxes have them (index.css), and rounded corners. */
+  --font-pixel: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --text-xs: 12px;
+  --text-xs--line-height: 1.4;
+  --text-sm: 14px;
+  --text-sm--line-height: 1.45;
+  --text-base: 16px;
+  --text-base--line-height: 1.5;
+  --text-lg: 18px;
+  --text-lg--line-height: 1.4;
+  --text-xl: 22px;
+  --text-xl--line-height: 1.3;
+  --text-2xl: 26px;
+  --text-2xl--line-height: 1.25;
+  --text-3xl: 30px;
+  --text-3xl--line-height: 1.2;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 24px;
+  --radius-4xl: 32px;
+}
+html[data-calm] {
+  @variant dark {
+    --plain-edge: var(--color-stone-800);
+    --plain-edge-strong: var(--color-stone-700);
+    --plain-card: var(--color-stone-900);
+    --plain-hover: var(--color-stone-800);
+    --plain-accent: #8b9cf0;
+  }
+}
+
+@layer components {
+  html[data-calm] body {
+    font-synthesis: weight style;
+    -webkit-font-smoothing: antialiased;
+  }
+  html[data-calm] * {
+    image-rendering: auto;
+  }
+  /* Bold is the font's own. */
+  html[data-calm] .markup-bold {
+    font-weight: 700;
+    text-shadow: none;
+  }
+
+  /*
+   * A box: a plain card, its title at the top left with a dot of the box's colour (--tone: its tone's, or the colour
+   * picked, frameStyle), its buttons at the top right as small grey icons.
+   */
+  html[data-calm] .tile-frame {
+    --tone: #5b6ee1;
+    border: 1px solid var(--plain-edge);
+    border-image: none;
+    border-radius: 12px;
+    padding-top: 40px;
+    min-height: 0;
+    min-width: 0;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  }
+  html[data-calm] .tile-tone-reward {
+    --tone: #df7126;
+  }
+  html[data-calm] .tile-tone-setup {
+    --tone: #37946e;
+  }
+  html[data-calm] .tile-tone-record {
+    --tone: #ad61cb;
+  }
+  html[data-calm] .tile-frame.tile-collapsed {
+    height: 42px;
+    padding-top: 0;
+    border-width: 1px;
+    border-image: none;
+  }
+  html[data-calm] .tile-band {
+    top: 8px;
+    left: 14px;
+    right: 8px;
+    height: 24px;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    color: inherit;
+  }
+  html[data-calm] .tile-band::before {
+    content: "";
+    flex: none;
+    width: 8px;
+    height: 8px;
+    margin-right: 4px;
+    border-radius: 9999px;
+    background-color: var(--tone);
+  }
+  html[data-calm] .tile-title {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    padding-left: 0;
+  }
+  html[data-calm] .tile-body {
+    padding: 0 16px 16px;
+  }
+  html[data-calm] .kind-plate-corner {
+    margin: 0;
+  }
+
+  /* An icon drawn by a mask in the words' colour (or --icon-color: a folder's picked colour). */
+  html[data-calm] :is(.tab-icon, .tile-button, .task-arrow, .repeat-button, .notes-button, .bar-glyph, .tutorial-arrow) {
+    background-image: none !important;
+    background-color: var(--icon-color, currentColor);
+    mask: var(--icon) center / contain no-repeat;
+    filter: none;
+  }
+  /* 22px in the bars; where a folder is drawn bigger (a note folder's card, 84px) the line drawing fills it all the same. */
+  html[data-calm] .tab-icon {
+    width: 22px;
+    height: 22px;
+    mask-size: contain;
+  }
+  html[data-calm] .tab-icon-tasks {
+    --icon: var(--i-tasks);
+  }
+  html[data-calm] .tab-icon-folder {
+    --icon: var(--i-folder);
+  }
+  html[data-calm] .tab-icon-stats {
+    --icon: var(--i-stats);
+  }
+  html[data-calm] .tab-icon-calendar {
+    --icon: var(--i-calendar);
+  }
+  html[data-calm] .tab-icon-news {
+    --icon: var(--i-mail);
+  }
+  html[data-calm] .tab-icon-newspaper {
+    --icon: var(--i-paper);
+  }
+  html[data-calm] .tab-icon-user {
+    --icon: var(--i-user);
+  }
+  html[data-calm] :is(.tab-icon-notes, .tab-icon-notes-small) {
+    --icon: var(--i-note);
+  }
+  html[data-calm] .bar-glyph-search {
+    --icon: var(--i-search);
+    mask-size: 18px;
+  }
+  html[data-calm] :is(.bar-glyph-bell, .bar-glyph-bell-tiny) {
+    --icon: var(--i-bell);
+  }
+  html[data-calm] .bar-glyph-bell-tiny {
+    width: 12px;
+    height: 12px;
+  }
+  html[data-calm] .tile-button {
+    width: 22px;
+    height: 22px;
+    margin-top: 0;
+    mask-size: 16px;
+    color: var(--color-stone-400);
+  }
+  html[data-calm] .tile-button:is(:hover, [data-key-hover]) {
+    color: var(--color-stone-700);
+    @variant dark {
+      color: var(--color-stone-200);
+    }
+  }
+  html[data-calm] .tile-button[aria-pressed="true"] {
+    color: var(--plain-accent);
+    outline: none;
+  }
+  html[data-calm] .tile-button-x {
+    --icon: var(--i-x);
+  }
+  html[data-calm] .tile-button-min {
+    --icon: var(--i-minus);
+  }
+  html[data-calm] .tile-button-pin {
+    --icon: var(--i-pin);
+  }
+  html[data-calm] .tile-button-tab {
+    --icon: var(--i-grip);
+  }
+  /* The colour button: a round swatch of the box's colour, no mask. */
+  html[data-calm] .tile-button-color {
+    mask: none;
+    background-color: transparent;
+    box-shadow: none;
+  }
+  html[data-calm] .tile-button-color::after {
+    top: 5px;
+    left: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 9999px;
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15);
+  }
+  html[data-calm] .task-arrow {
+    --icon: var(--i-chevron);
+    mask-size: 12px;
+    color: var(--color-stone-400);
+  }
+  html[data-calm] .repeat-button {
+    --icon: var(--i-repeat);
+    mask-size: 16px;
+    color: var(--plain-accent);
+  }
+  html[data-calm] .notes-button {
+    --icon: var(--i-note);
+    mask-size: 16px;
+    color: var(--color-stone-500);
+  }
+  html[data-calm] .notes-button[data-empty] {
+    filter: none;
+    opacity: 0.45;
+  }
+  html[data-calm] .tutorial-arrow {
+    --icon: var(--i-arrow);
+    width: 36px;
+    height: 24px;
+    color: var(--plain-accent);
+  }
+
+  /* The tabs and buttons on a box's band: plain words, the open one on a light grey. */
+  html[data-calm] :is(.band-tab, .band-button, .band-pick select) {
+    height: 24px;
+    padding: 0 8px;
+    border: 0;
+    border-image: none;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--color-stone-500);
+  }
+  html[data-calm] .band-tab[aria-selected="true"],
+  html[data-calm] .band-button,
+  html[data-calm] .band-pick select {
+    color: var(--color-stone-900);
+    background-color: var(--plain-hover);
+    @variant dark {
+      color: var(--color-stone-100);
+    }
+  }
+  html[data-calm] :is(.band-tab, .band-button):is(:hover, [data-key-hover]) {
+    color: var(--color-stone-900);
+    @variant dark {
+      color: var(--color-stone-100);
+    }
+  }
+  html[data-calm] .band-pick {
+    font-size: 13px;
+  }
+
+  /* A list's Task / Reward switch: a small toggle, its words plain. */
+  html[data-calm] .kind-plate {
+    height: auto;
+    gap: 6px;
+    padding: 0;
+    border: 0;
+    border-image: none;
+  }
+  html[data-calm] .kind-label {
+    font-size: 12px;
+    color: var(--color-stone-400);
+  }
+  html[data-calm] .kind-label[data-active="true"] {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-stone-900);
+    @variant dark {
+      color: var(--color-stone-100);
+    }
+  }
+  html[data-calm] .kind-points {
+    font-size: 12px;
+    color: inherit;
+  }
+  /* In the box's colour (--tone), a picked one too: the slider art recoloured (sliderIn) is left out. */
+  html[data-calm] .kind-switch {
+    width: 32px;
+    height: 18px;
+    border-radius: 9999px;
+    background-image: none !important;
+    background-color: var(--tone, #5b6ee1);
+  }
+  html[data-calm] .kind-switch > span {
+    inset: 2px auto auto 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 9999px;
+    background: #fff;
+    transform: none;
+    transition: transform 150ms ease-out;
+  }
+  html[data-calm] .kind-switch[data-kind="reward"] > span {
+    transform: translateX(14px);
+  }
+
+  /* Buttons: flat, rounded, a thin edge; the main one in the accent, a dangerous one red. */
+  html[data-calm] .nes-btn {
+    margin: 2px;
+    padding: 6px 12px;
+    border: 1px solid var(--plain-edge-strong);
+    border-image: none;
+    border-radius: 8px;
+    box-shadow: none;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-stone-900);
+    background-color: var(--plain-card);
+    cursor: pointer;
+    @variant dark {
+      color: var(--color-stone-100);
+    }
+  }
+  html[data-calm] .nes-btn::after {
+    display: none;
+  }
+  html[data-calm] .nes-btn:is(:hover, [data-key-hover]) {
+    color: inherit;
+    background-color: var(--plain-hover);
+  }
+  html[data-calm] .nes-btn:focus-visible {
+    outline: 2px solid var(--plain-accent);
+    outline-offset: 2px;
+  }
+  html[data-calm] .nes-btn.is-primary {
+    border-color: transparent;
+    color: #fff;
+    background-color: #5b6ee1;
+  }
+  html[data-calm] .nes-btn.is-primary:is(:hover, [data-key-hover]) {
+    background-color: #4a5bd0;
+  }
+  html[data-calm] .nes-btn.is-error {
+    border-color: transparent;
+    color: #fff;
+    background-color: var(--color-red-600);
+  }
+  html[data-calm] .nes-btn.is-error:is(:hover, [data-key-hover]) {
+    background-color: var(--color-red-700);
+  }
+  html[data-calm] .nes-btn:is(.is-disabled, :disabled) {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  html[data-calm] .btn-small {
+    padding: 3px 8px;
+    font-size: 12px;
+  }
+  /* The installed app's "+": a flat round button in the accent, inside the bar (AppBars). */
+  html[data-calm] .nes-btn.plus-button {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    font-size: 24px;
+    font-weight: 400;
+    color: #fff;
+    background-color: #5b6ee1;
+  }
+  html[data-calm] .nes-btn.plus-button:is(:hover, [data-key-hover]),
+  html[data-calm] .nes-btn.plus-button[aria-expanded="true"] {
+    background-color: #4a5bd0;
+  }
+
+  /* Fields: a thin edge, rounded, the accent while typed in. */
+  html[data-calm] .nes-input {
+    margin: 2px;
+    border: 1px solid var(--plain-edge-strong);
+    border-image: none;
+    border-radius: 8px;
+    outline: none;
+  }
+  html[data-calm] .nes-input:focus {
+    border-color: var(--plain-accent);
+    box-shadow: 0 0 0 3px rgb(91 110 225 / 0.2);
+  }
+  /* A list's points: a light field, not a black one. */
+  html[data-calm] .points-field {
+    border-radius: 6px;
+    color: inherit;
+    background-color: var(--plain-hover);
+  }
+
+  /* Checkboxes: the browser's own, in the accent. */
+  html[data-calm] .pixel-check > .nes-checkbox {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 1;
+    appearance: auto;
+    accent-color: #5b6ee1;
+  }
+  html[data-calm] .pixel-check > .nes-checkbox + span {
+    display: none;
+  }
+
+  /* Chips and the pills the pixel art rounds in steps: rounded the ordinary way, a thin edge. */
+  html[data-calm] .pixel-chip {
+    margin: 1px;
+    border-radius: 6px;
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.15);
+  }
+  html[data-calm] .pixel-chip-soft {
+    box-shadow: none;
+    outline: 1px dashed currentColor;
+    outline-offset: 0;
+  }
+  html[data-calm] .pixel-round {
+    clip-path: none;
+    border-radius: 9999px;
+  }
+  html[data-calm] .pixel-round-edge {
+    filter: none;
+  }
+  html[data-calm] .pixel-round-edge .pixel-round {
+    box-shadow: 0 0 0 1px var(--plain-edge-strong);
+  }
+  html[data-calm] .pixel-round-edge:focus-within .pixel-round {
+    box-shadow: 0 0 0 2px var(--plain-accent);
+  }
+  /* The search field: a light pill with a line spyglass. */
+  html[data-calm] .search-pill {
+    color: var(--color-stone-900);
+    background-color: var(--plain-card);
+    @variant dark {
+      color: var(--color-stone-100);
+    }
+  }
+  html[data-calm] .search-pill::before {
+    width: 18px;
+    height: 18px;
+    background: currentColor;
+    mask: var(--i-search) center / contain no-repeat;
+    opacity: 0.6;
+  }
+  html[data-calm] .search-pill > input::placeholder {
+    color: var(--color-stone-400);
+  }
+  html[data-calm] [data-in-bar] .search-pill::before {
+    width: 15px;
+    height: 15px;
+    filter: none;
+  }
+
+  /* Small boxes without a band (menus, dialogs, notices), a note's paper: cards, the same as the boxes. */
+  html[data-calm] .card {
+    border-width: 1px;
+    border-color: var(--plain-edge);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.08);
+  }
+  /* The month's days: thin, rounded cells, today's number in a round mark. The bell's count in a round badge. */
+  html[data-calm] .month-day {
+    border-radius: 9999px;
+  }
+  html[data-calm] .bell-badge {
+    border-radius: 9999px;
+    padding: 0 3px;
+    line-height: 14px;
+  }
+  html[data-calm] [data-bell-dot] {
+    border-radius: 9999px;
+  }
+  html[data-calm] .note-paper {
+    margin: 0;
+    border: 1px solid var(--plain-edge);
+    border-radius: 8px;
+    box-shadow: none;
+  }
+}
+
+/* The few sizes written in pixels for the pixel font: up to what an ordinary font reads at. */
+@layer utilities {
+  /* Over the month's border-2: thin, rounded cells. */
+  html[data-calm] .month-cell {
+    border-width: 1px;
+    border-radius: 8px;
+  }
+  html[data-calm] .text-\[8px\] {
+    font-size: 11px;
+  }
+  html[data-calm] .text-\[10px\] {
+    font-size: 12px;
+  }
+}

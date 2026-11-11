@@ -18,7 +18,7 @@ import { HiddenRow } from "../components/Tiles/HiddenRow";
 import { TileControlsContext, TileFrame } from "../components/Tiles/TileFrame";
 import { useTabDrag } from "../components/Tiles/useTabDrag";
 import { forgetTutorialPlace } from "../components/Tutorial/Tutorial";
-import { useDeleteAccount, useLogout, useMe, useTutorialRunning, useUpdateMe } from "../hooks/useAuth";
+import { useCalm, useDeleteAccount, useLogout, useMe, useTutorialRunning, useUpdateMe } from "../hooks/useAuth";
 import { useDropOnTab, useFolders } from "../hooks/folders";
 import { useLayout, useSaveLayout } from "../hooks/layout";
 import { useOnline } from "../lib/offline/online";
@@ -30,7 +30,7 @@ import { BACKGROUNDS, BAR_FILLS, BOX_FILLS, backgroundIn, barsIn, boxesIn } from
 import { FONT_CHOICES, FONT_STACKS, textFont } from "../lib/fonts";
 import { typedPoints } from "../lib/points";
 import { USER_BOX_COLORS } from "../lib/frameTones";
-import { USER_BOXES, userView } from "../lib/folders";
+import { GAME_BOXES, USER_BOXES, userView } from "../lib/folders";
 import { normalizeLayout, withCollapsed, withHidden } from "../lib/tileLayout";
 import type { DeadlineToday, TextFont, TickedTasks } from "../types";
 
@@ -495,6 +495,12 @@ export function SettingsBox() {
       </SettingsSection>
       {/* How the app looks, and which tabs it has. Open while the tutorial runs: it points at the Notes tab's switch. */}
       <SettingsSection name="design" title="Theme and design" forceOpen={tutorialRuns}>
+      {/* Over the other settings, without changing them: off again, everything is as it was. */}
+      <label className="flex items-center gap-2 text-xs">
+        <PixelCheckbox small checked={!!profile.calm} onChange={(e) => saveProfile({ ...profile, calm: e.target.checked || undefined })} data-calm-mode />
+        Distraction free
+      </label>
+      <p className="text-xs text-stone-500">A plain, modern look: no pixel art, simple boxes and icons, no shows when you tick, and no character, friends or news. Your own settings are kept for when you switch it off.</p>
       <label className="flex items-center gap-2 text-xs">
         <PixelCheckbox small checked={user.notesTab} onChange={(e) => update.mutate({ notesTab: e.target.checked })} data-notes-tab />
         Notes tab
@@ -629,6 +635,7 @@ export function UserBox({ name }: { name: string }) {
 export function UserPage() {
   const { user } = useMe();
   const tutorialRuns = useTutorialRunning();
+  const calm = useCalm();
   const { hash } = useLocation();
   const layout = useLayout("user");
   const saveLayout = useSaveLayout("user");
@@ -656,6 +663,8 @@ export function UserPage() {
   const saved = normalizeLayout(layout.data);
   // The tutorial points at these boxes, and the "All shortcuts" link at the cheat sheet: those show even when minimized.
   const isHidden = (key: string) => !tutorialRuns && !(key === "cheatsheet" && hash === "#shortcuts") && (saved.hidden ?? []).includes(key);
+  // Distraction free leaves out the character, friends and news (but for the tutorial, which points at them); they keep their place for when it is off.
+  const isGameOff = (key: string) => calm && !tutorialRuns && GAME_BOXES.has(key);
 
   // Their names are the buttons' labels and the Hidden row's.
   // The Inbox is the devs' only.
@@ -676,7 +685,7 @@ export function UserPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       {boxes
-        .filter((box) => !isHidden(box.key))
+        .filter((box) => !isHidden(box.key) && !isGameOff(box.key))
         .map((box) => (
           <div
             key={box.key}
@@ -701,7 +710,7 @@ export function UserPage() {
           </div>
         ))}
       <HiddenRow
-        tiles={boxes.filter((box) => isHidden(box.key)).map((box) => ({ key: box.key, label: box.name }))}
+        tiles={boxes.filter((box) => isHidden(box.key) && !isGameOff(box.key)).map((box) => ({ key: box.key, label: box.name }))}
         onShow={(key) => saveLayout.mutate(withHidden(saved, key, false))}
       />
       {note && !drop.error && (

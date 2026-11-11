@@ -101,6 +101,11 @@ describe("normalizeProfile", () => {
     expect(normalizeProfile({ soundOff: "yes", bigEvery: -1 })).toEqual({ stats: ["streak", "longest", "year"], custom: [], skills: [] });
   });
 
+  it("keeps Distraction free, and only a real true", () => {
+    expect(normalizeProfile({ calm: true }).calm).toBe(true);
+    expect(normalizeProfile({ calm: "yes" })).not.toHaveProperty("calm");
+  });
+
   it("fills in the defaults for nothing saved", () => {
     expect(normalizeProfile(null)).toEqual({ stats: ["streak", "longest", "year"], custom: [], skills: [] });
   });

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { NavLink, useMatch, useNavigate } from "react-router";
 import { useCreateFolder, useDeleteFolder, useFolders, useReorderFolders, useUpdateFolder } from "../../hooks/folders";
-import { FOLDER_COLOR, folderIn } from "../../lib/frameTones";
+import { FOLDER_COLOR, folderIconStyle } from "../../lib/frameTones";
 import { NAME_FOLDER_EVENT } from "../../lib/folders";
 import { useOnline } from "../../lib/offline/online";
 import { folderKey, folderOrder, moveItem } from "../../lib/taskBar";
@@ -135,7 +135,7 @@ export function FolderTab({ folder, tab, opensBelow, isEditing, onEdit, isDragge
           onEdit(folder.id);
         }}
       >
-        <span className="tab-icon tab-icon-folder" style={folder.color ? { backgroundImage: folderIn(folder.color) } : undefined} aria-hidden />
+        <span className="tab-icon tab-icon-folder" style={folderIconStyle(folder.color)} aria-hidden />
         <span className="max-w-16 truncate sm:max-w-24">{folder.name}</span>
       </NavLink>
       {isEditing && <FolderEditor folder={folder} opensBelow={opensBelow} onClose={() => onEdit(null)} />}

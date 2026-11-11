@@ -4,7 +4,7 @@ import type { Look } from "../../lib/character/bodies";
 import { composeFace, FACE, type PartsData } from "../../lib/character/compose";
 import { faceIcon } from "../../lib/character/faceIcon";
 import { normalizeProfile } from "../../lib/character/profile";
-import { useMe } from "../../hooks/useAuth";
+import { useCalm, useMe } from "../../hooks/useAuth";
 import type { User } from "../../types";
 import { useFaceLook, useSomethingNew } from "./useUnlocks";
 
@@ -56,11 +56,13 @@ export function useFaceIcon() {
   };
 }
 
-/** The user's character's face where the bar had the user icon. A red dot says something earned waits to be seen on the character sheet. */
+/** The user's character's face where the bar had the user icon. A red dot says something earned waits to be seen on the character sheet. In Distraction free the plain user icon, and no dot. */
 export function CharacterFace({ user, className, iconClass }: { user: User; className: string; iconClass: string }) {
   const saved = useMemo(() => normalizeProfile(user.profile).look ?? DEFAULT_LOOK, [user.profile]);
   const look = useFaceLook(user, saved);
   const isNew = useSomethingNew(user);
+  const calm = useCalm();
+  if (calm) return <span className={iconClass} aria-hidden />;
   // A red dot, like the bell's: something earned waits on the user's page.
   return (
     <span className="relative flex-none">

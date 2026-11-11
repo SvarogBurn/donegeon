@@ -17,7 +17,8 @@ export function showOnPage(find: (isLast: boolean) => HTMLElement | null) {
       if (frames < LOOK_FRAMES) requestAnimationFrame(look);
       return;
     }
-    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Distraction free (data-calm, AppShell) jumps straight there too, as with reduced motion.
+    const still = "calm" in document.documentElement.dataset || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     // A whole box is shown from its top; a single row in the middle of the screen.
     el.scrollIntoView({ block: el.offsetHeight > window.innerHeight / 2 ? "start" : "center", behavior: still ? "auto" : "smooth" });
     el.dataset.found = "";

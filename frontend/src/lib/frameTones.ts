@@ -88,9 +88,9 @@ function recolour(art: string, artDark: string, bright: string, name: string, ar
 export const frameIn = (hex: string) => recolour(frameSvg, BAND_DARK, hex, "frame");
 /** The same for a tile folded to its band (its own art, in the same two blues). */
 const minimizedIn = (hex: string) => recolour(minimizedSvg, BAND_DARK, hex, "minimized");
-/** A tile frame's style for a band in any colour: the recoloured border (open and folded), and the title dark on a light colour. */
+/** A tile frame's style for a band in any colour: the recoloured border (open and folded), the title dark on a light colour, and the colour itself (--tone: the dot by the title in Distraction free, styles/plain.css). */
 export const frameStyle = (hex: string) =>
-  ({ "--frame": frameIn(hex), "--frame-min": minimizedIn(hex), "--band-text": isLight(hex) ? "#222034" : "#fff" }) as CSSProperties;
+  ({ "--frame": frameIn(hex), "--frame-min": minimizedIn(hex), "--band-text": isLight(hex) ? "#222034" : "#fff", "--tone": hex }) as CSSProperties;
 /**
  * What a list's frame looks like, for its own box and for anything shown as being in it (a task's note): the
  * reward tone for a reward list, and the band in the list's picked colour, its title dark on a light one.
@@ -105,6 +105,8 @@ export const sliderIn = (hex: string) => recolour(sliderSvg, SLIDER_DARK, hex, "
 
 /** A folder's icon in any colour. */
 export const folderIn = (hex: string) => recolour(folderSvg, FOLDER_DARK, hex, "folder", FOLDER_COLOR.toUpperCase());
+/** A folder icon's style for a picked colour: the recoloured art, and the colour itself (--icon-color: the line icon's in Distraction free). */
+export const folderIconStyle = (hex: string | null | undefined) => (hex ? ({ backgroundImage: folderIn(hex), "--icon-color": hex } as CSSProperties) : undefined);
 
 /** Sets --frame-<tone> and --frame-min-<tone> (folded) on the page for each tone; index.css picks them up. Blue needs none: it is the files themselves. */
 export function installFrameTones() {

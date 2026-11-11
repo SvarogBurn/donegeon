@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { folderIn } from "../../lib/frameTones";
+import { folderIconStyle } from "../../lib/frameTones";
 import type { NoteFolder } from "../../types";
 import { useTabPress, type OnTabDrag } from "../layout/tabDrag";
 
@@ -44,7 +44,7 @@ export function NoteFolderCard({ folder, isEditing, isDragged, onOpen, onEdit, o
           onEdit(folder.id);
         }}
       >
-        <span className="tab-icon tab-icon-folder !size-[84px] flex-none" style={folder.color ? { backgroundImage: folderIn(folder.color) } : undefined} aria-hidden />
+        <span className="tab-icon tab-icon-folder !size-[84px] flex-none" style={folderIconStyle(folder.color)} aria-hidden />
         <span className="max-w-full truncate note-title text-xs leading-4" data-on-page>
           {folder.name}
         </span>

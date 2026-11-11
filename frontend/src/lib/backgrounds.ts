@@ -57,3 +57,10 @@ export const boxesIn = (profile: unknown): BarFillId => {
 
 /** The theme a choice forces ("light" / "dark"), if it forces one. */
 export const themeOf = (choice: { value: string }): "light" | "dark" | undefined => ("theme" in choice ? (choice.theme as "light" | "dark") : undefined);
+
+/** What Distraction free shows of the three (Settings › Theme and design): no picture and nothing see-through, the theme's own in their place; White and Black stay, plain as they are. */
+export function calmLook(background: BackgroundId, bars: BarFillId, boxes: BarFillId): [BackgroundId, BarFillId, BarFillId] {
+  const plain = (fill: BarFillId) => (fill === "clear" ? "default" : fill);
+  const isPicture = "image" in BACKGROUNDS.find((b) => b.value === background)!;
+  return [isPicture ? "default" : background, plain(bars), plain(boxes)];
+}

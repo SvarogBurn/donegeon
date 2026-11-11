@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bigEveryIn, BIG_EVERY, bigKindsIn, celebrate, celebrateLevel, celebrateStreak, getBigMoment, isBigMoment, isStreakMilestone, kindOf, levelKindsIn, levelReached, milestoneOffIn, onBigMoment, popCheer, soundOffIn, streakAfterFirst, streakOffIn } from "./bigMoment";
+import { bigEveryIn, BIG_EVERY, bigKindsIn, calmIn, celebrate, celebrateLevel, celebrateStreak, getBigMoment, isBigMoment, isStreakMilestone, kindOf, levelKindsIn, levelReached, milestoneOffIn, onBigMoment, popCheer, soundOffIn, streakAfterFirst, streakOffIn } from "./bigMoment";
 
 describe("isBigMoment", () => {
   it("comes at each multiple", () => {
@@ -27,6 +27,11 @@ describe("the settings", () => {
     expect(bigKindsIn({ bigOff: ["lightning"] })).toEqual(["confetti"]);
     expect(bigKindsIn({ bigOff: ["lightning", "confetti"] })).toEqual([]);
     expect(bigKindsIn({ bigOff: "lightning" })).toEqual(["lightning", "confetti"]);
+  });
+  it("start out of Distraction free, and read it when saved", () => {
+    expect(calmIn(null)).toBe(false);
+    expect(calmIn({ calm: true })).toBe(true);
+    expect(calmIn({ calm: "yes" })).toBe(false);
   });
   it("ignore nonsense", () => {
     expect(bigEveryIn({ bigEvery: "a lot" })).toBe(BIG_EVERY);

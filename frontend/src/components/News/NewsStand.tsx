@@ -2,6 +2,7 @@ import { useContext } from "react";
 import { Link } from "react-router";
 import photo from "../../../../assets/news/48x32castle_photo_v1.svg";
 import stamp from "../../../../assets/news/24x11new_stamp_v1.svg";
+import { useCalm } from "../../hooks/useAuth";
 import { localDate } from "../../lib/clock";
 import { useUnseenNews } from "../../lib/newsSeen";
 import { TileControlsContext } from "../Tiles/TileFrame";
@@ -10,12 +11,13 @@ import { LATEST_ISSUE, paperDate } from "./Paper";
 /**
  * The News box on the user's page, the way to the News page: no box frame, but the paper itself, folded small. The
  * masthead and strip as the front page has them, "Recent updates" for a headline beside its photo (the art, not its
- * text: lines of print in its place), and a red NEW stamp on the photo while an article is unread on this device. The
+ * text: lines of print in its place), and a red NEW stamp on the photo while an article is unread on this device (none in Distraction free). The
  * whole sheet opens the paper. Its tab and minimize buttons sit on its top right corner.
  */
 export function NewsStand() {
   const controls = useContext(TileControlsContext);
-  const isNew = useUnseenNews().length > 0;
+  const calm = useCalm();
+  const isNew = useUnseenNews().length > 0 && !calm;
 
   return (
     <section className="news-stand relative" aria-label="News" data-news-stand>

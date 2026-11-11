@@ -98,7 +98,7 @@ export function CharacterSheet() {
       color={USER_BOX_COLORS.character}
       data-character
     >
-      {progress && !profile.hideNews && <Unlocked progress={progress} profile={profile} knockedOut={unlocks.knockedOut} onTry={(reward) => setEditing({ trying: tryOn(look, reward) })} onSeen={(seen) => save({ ...profile, seen })} />}
+      {progress && !profile.hideNews && !profile.calm && <Unlocked progress={progress} profile={profile} knockedOut={unlocks.knockedOut} onTry={(reward) => setEditing({ trying: tryOn(look, reward) })} onSeen={(seen) => save({ ...profile, seen })} />}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="flex flex-none flex-col items-center gap-2 sm:w-[calc(var(--u)*76)]">
           <div className="character-stage max-sm:w-full max-sm:!px-0">

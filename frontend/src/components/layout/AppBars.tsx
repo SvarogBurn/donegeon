@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { useNewNote } from "../../hooks/notes";
 import { usePoints } from "../../hooks/points";
-import { useBarTheme, useCalendarTab, useStatsTab, useTutorialRunning } from "../../hooks/useAuth";
+import { useBarTheme, useCalendarTab, useCalm, useNewsTab, useStatsTab, useTutorialRunning } from "../../hooks/useAuth";
 import type { User } from "../../types";
 import { CharacterFace } from "../Character/CharacterFace";
 import { Bell } from "../Notifications/Bell";
@@ -36,6 +36,8 @@ const NOTCH_HALF = PLUS / 2 + NES_OUTSET + GAP;
 const NOTCH_DEPTH = PLUS - PLUS_ABOVE + NES_OUTSET + GAP;
 /** Width of the notch piece in the middle of the bottom bar, where the "+" sits. */
 const NOTCH_W = 2 * NOTCH_HALF + 8;
+/** In Distraction free the "+" is a round button inside a flat bar, no notch: this big. */
+const PLAIN_PLUS = 38;
 
 /**
  * The middle of the bottom bar's top edge, with a notch the shape of the "+" cut out of it: the bar's colour, and its
@@ -98,10 +100,27 @@ export function AppBars({ user }: { user: User }) {
   const isOnNotes = pathname === "/notes";
   const statsTab = useStatsTab();
   const calendarTab = useCalendarTab();
+  const newsTab = useNewsTab();
+  const calm = useCalm();
   // Kept in place while the tutorial runs, too: its arrows point at them.
   const isHidden = useHideOnScroll(isAdding || isSearching || isBellOpen || tutorialRuns);
   // Another page: the search has done its job.
   useEffect(() => setIsSearching(false), [pathname]);
+  // Half of it above the bar's top edge, the rest down in the notch with a gap all round; in Distraction free inside the bar, in the middle.
+  const plus = (
+    <button
+      type="button"
+      className={`nes-btn plus-button ${calm ? "" : "absolute top-0 left-1/2"}`}
+      style={calm ? { width: PLAIN_PLUS, height: PLAIN_PLUS } : { width: PLUS, height: PLUS, translate: `-50% -${PLUS_ABOVE}px` }}
+      data-quick-add
+      aria-label={isOnNotes ? "New note" : "New task for today"}
+      aria-expanded={isOnNotes ? undefined : isAdding}
+      title={isOnNotes ? "A new note, in the folder shown" : "A new task, just for today"}
+      onClick={() => (isOnNotes ? (setIsAdding(false), newNote()) : setIsAdding(!isAdding))}
+    >
+      +
+    </button>
+  );
 
   return (
     <>
@@ -113,7 +132,7 @@ export function AppBars({ user }: { user: User }) {
         data-bar-hidden={isHidden || undefined}
         data-top-strip
       >
-        <div className={`flex items-center gap-2 py-1 pr-3 ${user.notesTab || (user.newsTab ?? true) ? "" : "pl-1"}`}>
+        <div className={`flex items-center gap-2 py-1 pr-3 ${user.notesTab || newsTab ? "" : "pl-1"}`}>
           {isSearching ? (
             <SiteSearch
               inBar
@@ -129,7 +148,7 @@ export function AppBars({ user }: { user: User }) {
                   <span className="tab-icon tab-icon-notes-small" aria-hidden />
                 </NavLink>
               )}
-              {(user.newsTab ?? true) && (
+              {newsTab && (
                 <NavLink to="/news" className={(state) => `${folderTab(state)} flex-none`} aria-label="News" title="News">
                   <span className="tab-icon tab-icon-news !size-[21px]" aria-hidden />
                 </NavLink>
@@ -162,11 +181,15 @@ export function AppBars({ user }: { user: User }) {
 
       {/* Slid out by more than its height, so the "+" standing up out of it goes too. */}
       <header ref={bottom} className={`${BAR} bottom-0 ${isHidden ? "translate-y-[calc(100%+2rem)]" : ""}`} data-bar-hidden={isHidden || undefined} data-task-bar data-theme={barTheme}>
-        {/* The bar itself: flat to either side, the notch in the middle; under the phone's own buttons too (safe area). */}
+        {/* The bar itself: flat to either side, the notch in the middle (in Distraction free flat all along); under the phone's own buttons too (safe area). */}
         <div className="absolute inset-0 flex" aria-hidden>
           <div className="app-bar-fill flex-1 border-t" />
-          <Notch />
-          <div className="app-bar-fill flex-1 border-t" />
+          {!calm && (
+            <>
+              <Notch />
+              <div className="app-bar-fill flex-1 border-t" />
+            </>
+          )}
         </div>
         {/* Two tabs each side of the "+"; with a tab switched off, the one left stands in the middle of its half, as wide as ever, and the "+" stays where it is. */}
         <nav className="relative grid pb-[env(safe-area-inset-bottom)]" style={{ gridTemplateColumns: `minmax(0, 1fr) ${NOTCH_W}px minmax(0, 1fr)` }} aria-label="Pages">
@@ -183,7 +206,7 @@ export function AppBars({ user }: { user: User }) {
               </NavLink>
             )}
           </div>
-          <span />
+          {calm ? <span className="flex items-center justify-center">{plus}</span> : <span />}
           <div className="flex justify-center [&>a]:w-1/2">
             {calendarTab && (
               <NavLink to="/calendar" className={barTab} aria-label="Calendar">
@@ -198,19 +221,7 @@ export function AppBars({ user }: { user: User }) {
             </NavLink>
           </div>
         </nav>
-        {/* Half of it above the bar's top edge, the rest down in the notch with a gap all round. */}
-        <button
-          type="button"
-          className="nes-btn plus-button absolute top-0 left-1/2"
-          style={{ width: PLUS, height: PLUS, translate: `-50% -${PLUS_ABOVE}px` }}
-          data-quick-add
-          aria-label={isOnNotes ? "New note" : "New task for today"}
-          aria-expanded={isOnNotes ? undefined : isAdding}
-          title={isOnNotes ? "A new note, in the folder shown" : "A new task, just for today"}
-          onClick={() => (isOnNotes ? (setIsAdding(false), newNote()) : setIsAdding(!isAdding))}
-        >
-          +
-        </button>
+        {!calm && plus}
         <div hidden>
           <Clock />
         </div>
