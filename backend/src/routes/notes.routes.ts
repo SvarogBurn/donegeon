@@ -1,6 +1,6 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { z } from "zod";
-import { SEALED_PREFIX } from "../../../shared/constants.js";
+import { OPENS_SEALED_HEADER, SEALED_PREFIX } from "../../../shared/constants.js";
 import { alreadyMade } from "../lib/clientId.js";
 import { needsRestore } from "../lib/deleted.js";
 import { HttpError, notFound } from "../lib/httpError.js";
@@ -46,6 +46,17 @@ async function checkSealed(owner: string, input: { title?: string; text?: string
   if (!user.notesKey) throw new HttpError(409, "Notes encryption was turned off on another device");
 }
 
+/**
+ * An app from before notes could be encrypted (a device whose service worker is still on an old build) shows sealed words
+ * as they are and saves them back as text, after which they could never be opened: while the notes are encrypted, it is
+ * refused. Today's app says it opens them (OPENS_SEALED_HEADER), so it costs nothing.
+ */
+async function checkApp(req: Request) {
+  if (req.get(OPENS_SEALED_HEADER)) return;
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId(req) }, select: { notesKey: true } });
+  if (user.notesKey) throw new HttpError(409, "This version of Donegeon can't read encrypted notes: close it and open it again");
+}
+
 /** A folder named for a note must be the user's own. */
 async function checkFolder(owner: string, noteFolderId: string | null | undefined) {
   if (noteFolderId) await ownNoteFolder(owner, noteFolderId);
@@ -77,6 +88,7 @@ export const notesRouter = Router();
  */
 notesRouter.get("/", async (req, res) => {
   const since = z.iso.datetime().optional().parse(req.query.since);
+  await checkApp(req);
   const owner = userId(req);
   const syncedAt = new Date();
   const live = { userId: owner, deletedAt: null };
@@ -93,6 +105,7 @@ notesRouter.get("/", async (req, res) => {
 // A new note goes first: the newest is at the top until it is moved.
 notesRouter.post("/", async (req, res) => {
   const { id: noteId, ...input } = noteInput.parse(req.body);
+  await checkApp(req);
   const owner = userId(req);
   const made = noteId && alreadyMade(await prisma.note.findUnique({ where: { id: noteId } }), owner);
   if (made) return void res.json({ note: made });
@@ -115,6 +128,7 @@ notesRouter.post("/", async (req, res) => {
 
 notesRouter.patch("/:id", async (req, res) => {
   const data = notePatch.parse(req.body);
+  await checkApp(req);
   const owner = userId(req);
   const { id: noteId } = await ownNote(owner, req.params.id);
   await checkFolder(owner, data.noteFolderId);

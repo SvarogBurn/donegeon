@@ -1,3 +1,4 @@
+import { OPENS_SEALED_HEADER } from "../../../shared/constants";
 import { localDate, type When } from "../lib/clock";
 import { ensureAwake, markOk, markStale } from "../lib/serverStatus";
 
@@ -50,6 +51,7 @@ export async function api<T = void>(path: string, options: { method?: string; bo
         method,
         headers: {
           "X-Local-Date": options.when?.day ?? localDate(),
+          [OPENS_SEALED_HEADER]: "1",
           ...(options.when && { "X-Client-Time": options.when.at }),
           ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
         },

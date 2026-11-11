@@ -30,6 +30,11 @@ export const NOTIFY_TO = "22:00";
  * frontend/src/lib/noteCrypto.ts): base64 the server can't read follows it.
  */
 export const SEALED_PREFIX = "sealed:v1:";
+/**
+ * Sent by every request of an app that opens sealed notes. An older one (a device still on a build from before) would
+ * show the sealed words as they are and save them back as text: while the notes are encrypted, the server refuses it.
+ */
+export const OPENS_SEALED_HEADER = "X-Opens-Sealed";
 
 /** The most reminders an account can have, and times a reminder can come in a day. */
 export const MAX_REMINDERS = 50;

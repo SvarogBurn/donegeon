@@ -2,7 +2,7 @@ import "dotenv/config";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { SEALED_PREFIX } from "../../../shared/constants.js";
+import { OPENS_SEALED_HEADER, SEALED_PREFIX } from "../../../shared/constants.js";
 import { createApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
 import { closeSessions } from "../lib/sessions.js";
@@ -30,10 +30,11 @@ afterAll(async () => {
 
 async function user() {
   let cookie = "";
-  const call = async (method: string, path: string, body?: unknown) => {
+  // As today's app sends it; `oldApp`: as one from before notes could be encrypted, without OPENS_SEALED_HEADER.
+  const call = async (method: string, path: string, body?: unknown, { oldApp = false } = {}) => {
     const res = await fetch(base + path, {
       method,
-      headers: { "X-Local-Date": TODAY, Cookie: cookie, ...(body !== undefined && { "Content-Type": "application/json" }) },
+      headers: { "X-Local-Date": TODAY, Cookie: cookie, ...(!oldApp && { [OPENS_SEALED_HEADER]: "1" }), ...(body !== undefined && { "Content-Type": "application/json" }) },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const set = res.headers.get("set-cookie");
@@ -143,5 +144,21 @@ describe("encrypted notes", () => {
     const off = await call("PATCH", "/auth/me", { notesKey: null });
     expect(off.status).toBe(200);
     expect(off.body.user.notesKey).toBeNull();
+  });
+
+  it("refuses an app from before encryption while the notes are encrypted", async () => {
+    const { call } = await user();
+    const old = { oldApp: true };
+    // Not encrypted: an old app works as it always did.
+    const note = (await call("POST", "/notes", { text: "plain" }, old)).body.note;
+    expect((await call("GET", "/notes", undefined, old)).status).toBe(200);
+    expect((await call("PATCH", `/notes/${note.id}`, { text: "still plain" }, old)).status).toBe(200);
+    await call("PATCH", "/auth/me", { notesKey });
+    expect((await call("GET", "/notes", undefined, old)).status).toBe(409);
+    expect((await call("POST", "/notes", { text: "plain" }, old)).status).toBe(409);
+    // What it would save: the sealed words it showed, with more typed after them.
+    expect((await call("PATCH", `/notes/${note.id}`, { text: `${sealed(40)} and more` }, old)).status).toBe(409);
+    expect((await call("GET", "/notes")).status).toBe(200);
+    expect((await call("PATCH", `/notes/${note.id}`, { text: sealed(40) })).status).toBe(200);
   });
 });

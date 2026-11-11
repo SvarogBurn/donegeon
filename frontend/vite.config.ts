@@ -85,6 +85,11 @@ export default defineConfig({
       // public/manifest.webmanifest, linked from index.html.
       manifest: false,
       workbox: {
+        // A new deploy's worker takes over at once, the pages already open too. The plugin only sets these for autoUpdate
+        // when it injects the registration itself (injectRegister "auto"): without them every deploy waited until each
+        // Donegeon window on the device was closed, which an installed phone app hardly ever is.
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
         // The fonts only some pick (lib/fonts.ts) and the pixel font's Greek and Cyrillic letters aren't fetched on the
         // first visit, where they held up the phone's connection: each is kept once it is first used (below).

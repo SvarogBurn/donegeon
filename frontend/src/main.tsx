@@ -29,9 +29,32 @@ import { PEOPLE } from "./hooks/queryKeys";
 installFrameTones();
 installOnlineManager();
 installStandalone();
+
+/** The fields that take typing: words written there and not saved yet (a note saves when it is left) would go in a reload. */
+const TYPED = 'textarea, input:not([type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="reset"], [type="range"], [type="color"])';
+const isTyping = () => document.activeElement instanceof HTMLElement && (document.activeElement.isContentEditable || document.activeElement.matches(TYPED));
+let reloading = false;
+/**
+ * A new deploy took over the page: it reloads into it once nothing is being typed (when the field is left), a second
+ * later, so a change just made is kept in IndexedDB first (the persister below) and sent again after the reload.
+ */
+function reloadIntoNewDeploy() {
+  if (reloading) return;
+  reloading = true;
+  const tryReload = () =>
+    setTimeout(() => {
+      if (isTyping()) return;
+      document.removeEventListener("focusout", tryReload);
+      window.location.reload();
+    }, 1000);
+  document.addEventListener("focusout", tryReload);
+  tryReload();
+}
+
 // The app's files are kept on the device by a service worker (vite.config.ts); a new deploy reloads into itself.
 registerSW({
   immediate: true,
+  onNeedReload: reloadIntoNewDeploy,
   // The browser only asks for a new deploy when the page is opened, and an installed app is mostly brought back from
   // the background instead: ask again whenever it comes back into view.
   onRegisteredSW(_url, registration) {
@@ -41,17 +64,9 @@ registerSW({
     });
   },
 });
-// The browser looks for a new deploy by itself as soon as the page is opened, before registerSW listens: workbox then
-// never hears of the new worker, which takes over without a reload, and the page stayed on the old app until the next
-// open (or Ctrl+F5). Whoever found it, a new worker taking over a page that had one reloads the page into it.
-if (navigator.serviceWorker?.controller) {
-  let reloading = false;
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (reloading) return;
-    reloading = true;
-    window.location.reload();
-  });
-}
+// The browser looks for a new deploy by itself as soon as the page is opened, before registerSW listens, so workbox may
+// never hear of it. Whoever found it, a new worker taking over a page that had one reloads the page into it.
+if (navigator.serviceWorker?.controller) navigator.serviceWorker.addEventListener("controllerchange", reloadIntoNewDeploy);
 
 /** How long what was fetched is kept on the device, to show when there is no connection. */
 const KEEP_MS = 7 * 24 * 60 * 60_000;
