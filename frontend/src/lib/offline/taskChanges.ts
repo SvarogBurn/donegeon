@@ -4,10 +4,10 @@ import type { InfiniteData, QueryClient } from "@tanstack/react-query";
 import * as goalsApi from "../../api/goals";
 import * as tagsApi from "../../api/tags";
 import * as tasksApi from "../../api/tasks";
-import { COUNTDOWN, DONE, GOALS, LISTS, POINTS, PRESSURE, TAGS, TASK_DATA, TASKS } from "../../hooks/queryKeys";
+import { COUNTDOWN, DONE, FEEDBACK_SENT, GOALS, LISTS, POINTS, PRESSURE, TAGS, TASK_DATA, TASKS } from "../../hooks/queryKeys";
 import { ME } from "../../hooks/useAuth";
-import type { Countdown, DonePage, Goal, List, PointsSummary, Tag, TaskPress, TaskTreeNode, User } from "../../types";
-import { bigEveryIn, bigKindsIn, celebrate, isBigMoment, MOMENT_WORDS_MS } from "../bigMoment";
+import type { Countdown, DonePage, Goal, Health, List, PointsSummary, Tag, TaskPress, TaskTreeNode, User } from "../../types";
+import { bigEveryIn, bigKindsIn, celebrate, celebrateLevel, celebrateStreak, isBigMoment, isStreakMilestone, LEVEL_MS, levelKindsIn, levelReached, milestoneOffIn, MOMENT_WORDS_MS, STREAK_MILESTONE_MS, STREAK_MS, streakAfterFirst, streakOffIn } from "../bigMoment";
 import { taskDone } from "../breakReminder";
 import {
   draftNode,
@@ -106,14 +106,39 @@ const beforePress = new Map<string, TaskTreeNode>();
 /** After how many tasks done in a day the user wants to be reminded to take a break; null = never. */
 const breakEvery = (queryClient: QueryClient) => queryClient.getQueryData<User | null>(ME)?.breakEvery ?? null;
 
-/** After every tick and press: the day's count so far, for the break reminder and the big moments. None for a reward (null): it is no task done. */
-function counted(queryClient: QueryClient, doneToday: number | null) {
+/** The streak the first task of `day` makes (again after a tick taken back and done again), from the days the task bar's face reads; null when it isn't the first, or the days aren't in. */
+function firstOfDay(queryClient: QueryClient, doneToday: number, day: string) {
+  if (doneToday !== 1) return null;
+  const days = queryClient.getQueryData<{ day: string; count: number }[]>([...TASKS, "progress"]);
+  if (!days) return null;
+  return streakAfterFirst(days.map((d) => d.day), day, queryClient.getQueryData<Health>([...TASKS, "hp"])?.frozen);
+}
+
+/** The level this task takes the character to, when it is a new one, from what the task bar's face reads; null when it isn't, or the counts aren't in. */
+function newLevel(queryClient: QueryClient, doneToday: number, day: string) {
+  const days = queryClient.getQueryData<{ day: string; count: number }[]>([...TASKS, "progress"]);
+  const mail = queryClient.getQueryData<{ count: number }>(FEEDBACK_SENT)?.count;
+  if (!days || mail === undefined) return null;
+  return levelReached(days, day, doneToday, mail, queryClient.getQueryData<Health>([...TASKS, "hp"])?.lost ?? 0);
+}
+
+/** After every tick and press: the day's count so far, for the break reminder, the milestones, the streak and the big moments. None for a reward (null): it is no task done. */
+function counted(queryClient: QueryClient, doneToday: number | null, day: string) {
   if (doneToday === null) return;
   const profile = queryClient.getQueryData<User | null>(ME)?.profile;
   const bigEvery = bigEveryIn(profile);
-  // With a big moment at the same task, the break reminder comes after it, not over its words.
-  taskDone(doneToday, breakEvery(queryClient), isBigMoment(doneToday, bigEvery) ? MOMENT_WORDS_MS : 0);
-  celebrate(doneToday, bigEvery, bigKindsIn(profile));
+  const milestones = !milestoneOffIn(profile);
+  const levelKinds = levelKindsIn(profile);
+  const level = milestones && levelKinds.length ? newLevel(queryClient, doneToday, day) : null;
+  const streak = firstOfDay(queryClient, doneToday, day);
+  const milestone = streak !== null && milestones && isStreakMilestone(streak);
+  // A streak milestone plays with the streak moment switched off too: it has the milestones' switch.
+  const cheers = streak !== null && (milestone || !streakOffIn(profile));
+  // One moment a task, the biggest: a level up, then the streak (a milestone's or the plain one), then a big moment, whose turn isn't used. The break reminder comes after it, not over its words.
+  taskDone(doneToday, breakEvery(queryClient), level !== null ? LEVEL_MS : cheers ? (milestone ? STREAK_MILESTONE_MS : STREAK_MS) : isBigMoment(doneToday, bigEvery) ? MOMENT_WORDS_MS : 0);
+  if (level !== null) celebrateLevel(level, levelKinds);
+  else if (cheers && streak !== null) celebrateStreak(streak, milestone);
+  else celebrate(doneToday, bigEvery, bigKindsIn(profile));
 }
 
 /** A task's title for the notice, from the trees as they are, or as they were before the change. */
@@ -213,9 +238,9 @@ export const taskSpecs: Specs<TaskChangeVars> = {
     name: ({ done }, title) => `${done ? "the tick on" : "unticking"} ${quoted(title)}`,
     popup: true,
     // An untick is not a task done.
-    onSaved: (queryClient, task) => {
+    onSaved: (queryClient, task, { when }) => {
       const { isComplete, doneToday } = task as { isComplete: boolean; doneToday: number | null };
-      if (isComplete) counted(queryClient, doneToday);
+      if (isComplete) counted(queryClient, doneToday, when.day);
     },
   },
   press: {
@@ -230,7 +255,7 @@ export const taskSpecs: Specs<TaskChangeVars> = {
     refresh: TASK_DATA,
     name: (_change, title) => `“done it” on ${quoted(title)}`,
     popup: true,
-    onSaved: (queryClient, press) => counted(queryClient, (press as { doneToday: number | null }).doneToday),
+    onSaved: (queryClient, press, { when }) => counted(queryClient, (press as { doneToday: number | null }).doneToday, when.day),
   },
   undoPress: {
     send: ({ id, completionId, when }) => tasksApi.undoPress(id, completionId, when),

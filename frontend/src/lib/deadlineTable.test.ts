@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CombinedRow } from "../types";
-import { DEADLINE_DEFAULTS, deadlineColor, foldedDays, normalizeDeadlineTable, perDayOf, rangeEnd, rangeLabel } from "./deadlineTable";
+import { DEADLINE_DEFAULTS, deadlineColor, foldedDays, normalizeDeadlineTable, perDayOf } from "./deadlineTable";
 
 describe("normalizeDeadlineTable", () => {
   it("gives the defaults for nothing saved", () => {
@@ -10,14 +10,12 @@ describe("normalizeDeadlineTable", () => {
 
   it("keeps what is good and fills in the rest", () => {
     const table = normalizeDeadlineTable({
-      range: { amount: 10, unit: "day" },
       perDay: "columns",
       soft: false,
       colors: { hard: "#ABCDEF", soft: "blue" },
       taskColors: { a: "#112233", b: 5 },
     });
     expect(table).toEqual({
-      range: { amount: 10, unit: "day" },
       perDay: "columns",
       soft: false,
       colors: { hard: "#abcdef", soft: DEADLINE_DEFAULTS.colors.soft, big: DEADLINE_DEFAULTS.colors.big },
@@ -25,23 +23,9 @@ describe("normalizeDeadlineTable", () => {
     });
   });
 
-  it("drops a range out of bounds and an unknown mode", () => {
-    const table = normalizeDeadlineTable({ range: { amount: 0, unit: "week" }, perDay: "max" });
-    expect(table.range).toEqual(DEADLINE_DEFAULTS.range);
-    expect(table.perDay).toBe("sum");
-  });
-});
-
-describe("the range", () => {
-  it("counts today as its first day", () => {
-    expect(rangeEnd("2026-10-23", { amount: 1, unit: "day" })).toBe("2026-10-23");
-    expect(rangeEnd("2026-10-23", { amount: 2, unit: "week" })).toBe("2026-11-05");
-    expect(rangeEnd("2026-12-30", { amount: 3, unit: "day" })).toBe("2027-01-01");
-  });
-
-  it("is named by its length", () => {
-    expect(rangeLabel({ amount: 2, unit: "week" })).toBe("2 weeks");
-    expect(rangeLabel({ amount: 1, unit: "day" })).toBe("1 day");
+  it("drops an unknown mode, and a range saved from before", () => {
+    const table = normalizeDeadlineTable({ range: { amount: 3, unit: "week" }, perDay: "max" });
+    expect(table).toEqual(DEADLINE_DEFAULTS);
   });
 });
 

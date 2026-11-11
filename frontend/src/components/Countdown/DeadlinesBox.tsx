@@ -5,7 +5,7 @@ import { useDismissed } from "../../hooks/notifications";
 import { useCombinedCountdown, useTaskTrees } from "../../hooks/tasks";
 import { useDeadlineTable, useTutorialRunning } from "../../hooks/useAuth";
 import { formatPace, formatShortDay } from "../../lib/dates";
-import { deadlineColor, foldedDays, perDayOf, rangeEnd, rangeLabel, type PerDayMode } from "../../lib/deadlineTable";
+import { deadlineColor, foldedDays, perDayOf, type PerDayMode } from "../../lib/deadlineTable";
 import { firstLine } from "../../lib/markup";
 import { passedDeadlines, type PassedDeadline } from "../../lib/notifications";
 import { findNode } from "../../lib/optimisticToggle";
@@ -23,36 +23,10 @@ import { pressureColor } from "./pressureColor";
 import { CELL, DayCells, dayRow, PaceCell, SheetTable, SummaryCells } from "./sheet";
 import { InfoTip } from "../InfoTip";
 
-type Tab = "range" | "all" | "list";
-/** The tab last opened, kept on this device. */
-const TAB_KEY = "donegeon.deadlineTab";
 /** Whether the whole table is shown, or the next few days (the summary), kept on this device. */
 const OPEN_KEY = "donegeon.deadlineOpen";
 /** The days with work the summary shows, from today. */
 const SUMMARY_DAYS = 3;
-
-function savedTab(): Tab {
-  const tab = readStored(TAB_KEY);
-  return tab === "all" || tab === "list" ? tab : "range";
-}
-
-/** The range set on the user's page ("2 weeks"), All and List on the box's band. */
-function Tabs({ tab, onPick, range }: { tab: Tab; onPick: (tab: Tab) => void; range: string }) {
-  const tabs: [Tab, string, string][] = [
-    ["range", range, `The next ${range}, today first (set on your page); from a passed deadline's day while it is still open`],
-    ["all", "All", "Every deadline, day by day"],
-    ["list", "List", "The tasks with a deadline, soonest first"],
-  ];
-  return (
-    <span role="tablist" className="band-tabs">
-      {tabs.map(([key, label, title]) => (
-        <button key={key} type="button" role="tab" className="band-tab" aria-selected={tab === key} title={title} onClick={() => onPick(key)} data-deadline-tab={key}>
-          {label}
-        </button>
-      ))}
-    </span>
-  );
-}
 
 /** A deadline's colour, light behind its marker row's text, full in a bar down its left. */
 const markerStyle = (color: string): CSSProperties => ({
@@ -61,10 +35,10 @@ const markerStyle = (color: string): CSSProperties => ({
 });
 
 /**
- * Every deadline still open, hard and soft (unless soft ones are left out on the user's page), as three tabs: the
- * next days or weeks set on the user's page, all of them, and a list of their tasks. A merged row in the tables marks
- * where each deadline falls (just under its day), in its colour; a click on it opens the task's page, to be edited
- * there. Hidden until there is a deadline.
+ * Every deadline still open, hard and soft (unless soft ones are left out on the user's page), in one table: the next
+ * days with work from today, or the whole table a click away (2026-11-11, the user's ask: no range, All or List tabs).
+ * A merged row marks where each deadline falls (just under its day), in its colour; a click on it opens the task's
+ * page, to be edited there. Hidden until there is a deadline.
  * A deadline gone by with its task still open shows the table back to its day, until the task is done, the deadline
  * moved, or it is dismissed (with the bell: one dismissal for both). Its marker asks for a new day, as the bell does.
  */
@@ -73,7 +47,6 @@ export function DeadlinesBox() {
   const { data: countdown } = useCombinedCountdown();
   const { data: trees = [] } = useTaskTrees();
   const [table] = useDeadlineTable();
-  const [tab, setTab] = useState<Tab>(savedTab);
   // A summary by default, the whole table a click away (2026-11-04, playtest 1: the table stood over everything else).
   const [isOpen, setIsOpen] = useState(() => readStored(OPEN_KEY) === "1");
   // While the tutorial shows it, the whole table.
@@ -81,11 +54,6 @@ export function DeadlinesBox() {
   const [dismissed, dismiss] = useDismissed();
   const [asking, setAsking] = useState<PassedDeadline | null>(null);
   if (!countdown || countdown.items.length === 0) return null;
-
-  function pick(next: Tab) {
-    setTab(next);
-    writeStored(TAB_KEY, next);
-  }
 
   const colorOf = (item: CombinedItem) => {
     const node = findNode(trees, item.taskId);
@@ -108,7 +76,7 @@ export function DeadlinesBox() {
   const left = today?.remaining ?? countdown.totalTasks;
 
   return (
-    <TileFrame title={<Tabs tab={tab} onPick={pick} range={rangeLabel(table.range)} />} aria-label="All deadlines" data-tab={tab}>
+    <TileFrame title="All deadlines" aria-label="All deadlines">
       <SummaryCells
         cells={[
           ["Tasks", countdown.totalTasks, undefined, "Every task the table counts: those with a deadline and the subtasks under them."],
@@ -117,31 +85,24 @@ export function DeadlinesBox() {
           ["Deadlines", countdown.items.length, undefined, "The deadlines the table counts: the hard ones, and the soft ones too if it is set to."],
         ]}
       />
-      {tab === "list" ? (
-        <DeadlineList items={countdown.items} trees={trees} colorOf={colorOf} onOpen={open} />
-      ) : (
-        <DeadlineSheet
-          countdown={countdown}
-          mode={table.perDay}
-          colorOf={colorOf}
-          onOpen={openMarker}
-          to={tab === "range" ? rangeEnd(countdown.today, table.range) : undefined}
-          lookBack={lookBack}
-          days={isOpen || tutorialRuns ? undefined : SUMMARY_DAYS}
-        />
-      )}
-      {tab !== "list" && (
-        <button
-          type="button"
-          className="btn-quiet mt-1 w-full text-xs"
-          aria-expanded={isOpen}
-          onClick={() => (setIsOpen(!isOpen), writeStored(OPEN_KEY, isOpen ? "" : "1"))}
-          data-deadline-toggle
-          data-deadline-open={isOpen || undefined}
-        >
-          {isOpen ? "Show the next days only ▴" : "Show the whole table ▾"}
-        </button>
-      )}
+      <DeadlineSheet
+        countdown={countdown}
+        mode={table.perDay}
+        colorOf={colorOf}
+        onOpen={openMarker}
+        lookBack={lookBack}
+        days={isOpen || tutorialRuns ? undefined : SUMMARY_DAYS}
+      />
+      <button
+        type="button"
+        className="btn-quiet mt-1 w-full text-xs"
+        aria-expanded={isOpen}
+        onClick={() => (setIsOpen(!isOpen), writeStored(OPEN_KEY, isOpen ? "" : "1"))}
+        data-deadline-toggle
+        data-deadline-open={isOpen || undefined}
+      >
+        {isOpen ? "Show the next days only ▴" : "Show the whole table ▾"}
+      </button>
       {asking && (
         <PostponeDeadline
           item={asking}
@@ -163,11 +124,12 @@ interface SheetProps {
   colorOf: (item: CombinedItem) => string;
   /** A marker's click: the task's page, or for a deadline gone by, the popup asking for a new day. */
   onOpen: (item: CombinedItem) => void;
-  /** The range tab: today to this day, deadlines already past above today. Left out: every day, weeks over hidden. */
-  to?: string;
-  /** The day of the oldest passed deadline still open and not dismissed: both tabs show the days from it. */
+  /** The day of the oldest passed deadline still open and not dismissed: the table shows the days from it. */
   lookBack?: string;
-  /** The summary: only this many days with work from today (and what is overdue before them). Left out: every day. */
+  /**
+   * The summary: from today, only this many days with work, deadlines already past above today. Left out: the whole
+   * table, from this Monday, weeks already over hidden.
+   */
   days?: number;
 }
 
@@ -175,11 +137,11 @@ interface SheetProps {
  * The day-by-day table. Per day adds every deadline up, takes only the soonest one with work left, or (columns) gives
  * each deadline a column of its own, headed in its colour.
  */
-function DeadlineSheet({ countdown, mode, colorOf, onOpen, to, lookBack, days }: SheetProps) {
+function DeadlineSheet({ countdown, mode, colorOf, onOpen, lookBack, days }: SheetProps) {
   const { today, items } = countdown;
-  const isRange = to !== undefined;
-  // The first day shown: today (range) or this Monday (All), or a passed deadline's day before it.
-  const from = [isRange ? today : mondayOf(today), lookBack ?? today].sort()[0];
+  const isSummary = days !== undefined;
+  // The first day shown: today (summary) or this Monday (whole table), or a passed deadline's day before it.
+  const from = [isSummary ? today : mondayOf(today), lookBack ?? today].sort()[0];
   const columns = mode === "columns";
   const headers = [
     "Day",
@@ -250,15 +212,15 @@ function DeadlineSheet({ countdown, mode, colorOf, onOpen, to, lookBack, days }:
   const foldBefore = mondayOf(today);
   const fold = lookBack && lookBack < foldBefore ? foldedDays(countdown.rows, from, foldBefore) : null;
   const isFolded = (date: string) => fold !== null && date < foldBefore;
-  const inRange = isRange ? countdown.rows.filter((row) => row.date >= from && row.date <= to) : countdown.rows;
+  const inRange = isSummary ? countdown.rows.filter((row) => row.date >= from) : countdown.rows;
   // The summary stops after its last day with work from today (the days before today are what is overdue).
   const worked = inRange.filter((row) => row.date >= today && (row.perDay > 0 || row.doneThatDay > 0 || row.date === today));
   const last = days === undefined ? undefined : worked[days - 1]?.date;
   const rows = last === undefined ? inRange : inRange.filter((row) => row.date <= last);
   return (
     <SheetTable headers={headers} wide={columns}>
-      {/* In the range, deadlines already past (still open, so overdue) and dismissed come first. */}
-      {isRange && items.filter((item) => item.deadlineDate < from).map(marker)}
+      {/* In the summary, deadlines already past (still open, so overdue) and dismissed come first. */}
+      {isSummary && items.filter((item) => item.deadlineDate < from).map(marker)}
       {fold && (
         <tr data-folded-days={fold.since} className={dayRow(fold.last.date, today).row}>
           <td colSpan={2} className={`${CELL} whitespace-nowrap font-semibold text-red-700 dark:text-red-400`} data-tip title={`Every day from ${formatShortDay(fold.since)} to last week in one row`}>
@@ -269,7 +231,7 @@ function DeadlineSheet({ countdown, mode, colorOf, onOpen, to, lookBack, days }:
           {paceCells(fold.last, dayRow(fold.last.date, today).number)}
         </tr>
       )}
-      {fold && items.filter((item) => isFolded(item.deadlineDate) && (!isRange || item.deadlineDate >= from)).map(marker)}
+      {fold && items.filter((item) => isFolded(item.deadlineDate) && (!isSummary || item.deadlineDate >= from)).map(marker)}
       {rows.map((row) => {
         const style = dayRow(row.date, today);
         const deadlines = items.filter((item) => item.deadlineDate === row.date);
@@ -288,7 +250,7 @@ function DeadlineSheet({ countdown, mode, colorOf, onOpen, to, lookBack, days }:
                 {paceCells(row, style.number)}
               </tr>
             )}
-            {(!isRange || row.date >= from) && !isFolded(row.date) && deadlines.map(marker)}
+            {(!isSummary || row.date >= from) && !isFolded(row.date) && deadlines.map(marker)}
           </Fragment>
         );
       })}
@@ -303,7 +265,7 @@ interface ListProps {
   onOpen: (taskId: string) => void;
 }
 
-/** The tasks the table counts, soonest deadline first, each as in its list: ticked here, its subtasks under its arrow. */
+/** The tasks with a deadline, soonest first (the calendar's List tab), each as in its list: ticked here, its subtasks under its arrow. */
 export function DeadlineList({ items, trees, colorOf, onOpen }: ListProps) {
   return (
     <ul className="space-y-1 text-sm" data-deadline-list>

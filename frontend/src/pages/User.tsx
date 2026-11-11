@@ -22,7 +22,7 @@ import { useDeleteAccount, useLogout, useMe, useTutorialRunning, useUpdateMe } f
 import { useDropOnTab, useFolders } from "../hooks/folders";
 import { useLayout, useSaveLayout } from "../hooks/layout";
 import { useOnline } from "../lib/offline/online";
-import { BIG_EVERY, BIG_KINDS, bigKindsIn, type BigKind } from "../lib/bigMoment";
+import { BIG_EVERY, BIG_KINDS, bigKindsIn, LEVEL_KINDS, type BigKind, type LevelKind } from "../lib/bigMoment";
 import { readStored } from "../lib/storage";
 import { NeedsConnection } from "../components/NeedsConnection";
 import { NotesEncryption } from "../components/Notes/NotesLock";
@@ -122,6 +122,8 @@ const DEADLINE_TODAY_NOTES: Record<DeadlineToday, string> = {
 };
 
 const BIG_KIND_NAMES: Record<BigKind, string> = { lightning: "Lightning", confetti: "Confetti" };
+
+const LEVEL_KIND_NAMES: Record<LevelKind, string> = { pillar: "Pillar of light", banner: "Banner" };
 
 /** What a big moment will be, by the kinds ticked. */
 function bigNote(kinds: BigKind[], every: number) {
@@ -454,6 +456,34 @@ export function SettingsBox() {
                 {...{ [`data-big-${kind}`]: true }}
               />
               {BIG_KIND_NAMES[kind]}
+            </label>
+          ))}
+        </div>
+      )}
+      <label className="flex items-center gap-2 text-xs">
+        <PixelCheckbox small checked={!profile.streakOff} onChange={(e) => saveProfile({ ...profile, streakOff: !e.target.checked || undefined })} data-streak-moment />
+        Streak moment
+      </label>
+      <p className="text-xs text-stone-500">Your character pops up to cheer your streak at the first task of each day.</p>
+      <label className="flex items-center gap-2 text-xs">
+        <PixelCheckbox small checked={!profile.milestoneOff} onChange={(e) => saveProfile({ ...profile, milestoneOff: !e.target.checked || undefined })} data-milestones />
+        Milestones
+      </label>
+      <p className="text-xs text-stone-500">A show when you reach a new level, and a bigger cheer at a 3, 7, 14, 30, 60 and 100-day streak, then every 100 days.</p>
+      {!profile.milestoneOff && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+          {LEVEL_KINDS.map((kind) => (
+            <label key={kind} className="flex items-center gap-2">
+              <PixelCheckbox
+                small
+                checked={!profile.levelOff?.includes(kind)}
+                onChange={(e) => {
+                  const levelOff = LEVEL_KINDS.filter((k) => (k === kind ? !e.target.checked : profile.levelOff?.includes(k)));
+                  saveProfile({ ...profile, levelOff: levelOff.length ? levelOff : undefined });
+                }}
+                {...{ [`data-level-${kind}`]: true }}
+              />
+              {LEVEL_KIND_NAMES[kind]}
             </label>
           ))}
         </div>

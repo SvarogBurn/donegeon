@@ -11,3 +11,5 @@ news/README.md
 frontend/tsconfig.tsbuildinfo
 DOCUMENTATION.md
 brandbook/
+.claude
+.vite

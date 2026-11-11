@@ -1,5 +1,5 @@
 import type { RangeKey } from "../stats";
-import { BIG_KINDS, type BigKind } from "../bigMoment";
+import { BIG_KINDS, LEVEL_KINDS, type BigKind, type LevelKind } from "../bigMoment";
 import { isBackground, isBarFill, type BackgroundId, type BarFillId } from "../backgrounds";
 import { BODY_BY_ID, DEFAULT_LOOK, type Look } from "./bodies";
 
@@ -70,6 +70,12 @@ export interface Profile {
   bigEvery?: number | null;
   /** Settings › Gamification: the kinds of big moment unticked (BIG_KINDS, lib/bigMoment.ts); left out = all ticked. */
   bigOff?: BigKind[];
+  /** Settings › Gamification: no streak moment, the character cheering the first task of a day (lib/bigMoment.ts). */
+  streakOff?: boolean;
+  /** Settings › Gamification: no milestone moments, a level up or a streak milestone at the tick (lib/bigMoment.ts). */
+  milestoneOff?: boolean;
+  /** Settings › Gamification: the level-up looks unticked (LEVEL_KINDS, lib/bigMoment.ts); left out = all ticked. */
+  levelOff?: LevelKind[];
   /** Settings › Theme and design: the page's background (lib/backgrounds.ts); left out = the theme's. */
   background?: Exclude<BackgroundId, "default">;
   /** Settings › Theme and design: the task bars' background (lib/backgrounds.ts); left out = the theme's. */
@@ -137,8 +143,9 @@ export function normalizeProfile(raw: unknown, known?: Known): Profile {
   });
   const title = text(p.title, 80);
   const bigOff = BIG_KINDS.filter((kind) => Array.isArray(p.bigOff) && p.bigOff.includes(kind));
+  const levelOff = LEVEL_KINDS.filter((kind) => Array.isArray(p.levelOff) && p.levelOff.includes(kind));
   const seenIds = Array.isArray(p.seen) ? [...new Set(p.seen.filter((id): id is string => typeof id === "string"))] : null;
-  return { ...(title && { title }), stats, custom, skills, ...(p.look !== undefined && { look: normalizeLook(p.look) }), ...(seenIds && { seen: seenIds }), ...(p.hideDot === true && { hideDot: true }), ...(p.hideNews === true && { hideNews: true }), ...(p.soundOff === true && { soundOff: true }), ...(Array.isArray(p.learned) && { learned: [...new Set(p.learned.filter((id): id is string => typeof id === "string"))] }), ...(p.bigEvery === null && { bigEvery: null }), ...(typeof p.bigEvery === "number" && p.bigEvery >= 1 && { bigEvery: Math.floor(p.bigEvery) }), ...(bigOff.length && { bigOff }), ...(isBackground(p.background) && p.background !== "default" && { background: p.background }), ...(isBarFill(p.bars) && p.bars !== "default" && { bars: p.bars }), ...(isBarFill(p.boxes) && p.boxes !== "default" && { boxes: p.boxes }) };
+  return { ...(title && { title }), stats, custom, skills, ...(p.look !== undefined && { look: normalizeLook(p.look) }), ...(seenIds && { seen: seenIds }), ...(p.hideDot === true && { hideDot: true }), ...(p.hideNews === true && { hideNews: true }), ...(p.soundOff === true && { soundOff: true }), ...(Array.isArray(p.learned) && { learned: [...new Set(p.learned.filter((id): id is string => typeof id === "string"))] }), ...(p.bigEvery === null && { bigEvery: null }), ...(typeof p.bigEvery === "number" && p.bigEvery >= 1 && { bigEvery: Math.floor(p.bigEvery) }), ...(bigOff.length && { bigOff }), ...(p.streakOff === true && { streakOff: true }), ...(p.milestoneOff === true && { milestoneOff: true }), ...(levelOff.length && { levelOff }), ...(isBackground(p.background) && p.background !== "default" && { background: p.background }), ...(isBarFill(p.bars) && p.bars !== "default" && { bars: p.bars }), ...(isBarFill(p.boxes) && p.boxes !== "default" && { boxes: p.boxes }) };
 }
 
 /** A fresh id for a custom stat. */

@@ -4,7 +4,7 @@
 const VOLUME = 0.04;
 const NOTE_SECONDS = 0.06;
 
-export type SoundName = "tick" | "press" | "untick" | "lightning" | "fanfare" | "cheer";
+export type SoundName = "tick" | "press" | "untick" | "lightning" | "fanfare" | "cheer" | "streak" | "levelup" | "pillar" | "milestone";
 
 // The notes of each sound, in Hz, one after the other.
 const NOTES: Record<"tick" | "press" | "untick", number[]> = {
@@ -87,6 +87,44 @@ function playCheer(ctx: AudioContext) {
   for (const frequency of [1568, 1976]) playNote(ctx, frequency, 0.03 + 4 * run, 0.3, VOLUME);
 }
 
+/** The character's two hops (.streak-cheer in index.css), each a little blip up, then a short tune as the bubble pops in. */
+function playStreak(ctx: AudioContext) {
+  for (const hop of [0.35, 0.6]) {
+    playNote(ctx, 392, hop, 0.04, VOLUME);
+    playNote(ctx, 587, hop + 0.04, 0.05, VOLUME);
+  }
+  [659, 784, 1047].forEach((frequency, i) => playNote(ctx, frequency, 0.85 + i * 0.08, i === 2 ? 0.3 : 0.08, VOLUME * 1.2));
+}
+
+// The words of a level up land then (.level-words in index.css).
+const LEVEL_WORDS = 0.85;
+
+// The character goes up off the top of the pillar then (.level-pillar-hero in index.css).
+const LAUNCH = 2.62;
+
+/** A shimmer climbing up as the light opens or the banner unrolls, into a held chord as "LEVEL UP!" lands; the pillar's ends in a quick swoop up as the character goes. */
+function playLevelUp(ctx: AudioContext, pillar: boolean) {
+  const step = (LEVEL_WORDS - 0.1) / 8;
+  [392, 440, 494, 523, 587, 659, 740, 784].forEach((frequency, i) => playNote(ctx, frequency, 0.1 + i * step, step, VOLUME * (0.6 + i * 0.1)));
+  const pop = noiseBurst(ctx, LEVEL_WORDS, 0.05, "bandpass", 1500);
+  pop.gain.setValueAtTime(VOLUME * 5, pop.at);
+  pop.gain.exponentialRampToValueAtTime(0.001, pop.at + 0.05);
+  for (const frequency of [784, 988, 1175, 1568]) playNote(ctx, frequency, LEVEL_WORDS, 0.7, VOLUME);
+  if (pillar) [523, 784, 1047, 1568].forEach((frequency, i) => playNote(ctx, frequency, LAUNCH + i * 0.04, 0.04, VOLUME));
+}
+
+// The third hop lands then (.streak-cheer.is-milestone in index.css).
+const THIRD_HOP = 1.1;
+
+/** The streak's hops and tune, then a pop and a chord as the third hop lands. */
+function playMilestone(ctx: AudioContext) {
+  playStreak(ctx);
+  const pop = noiseBurst(ctx, THIRD_HOP, 0.05, "bandpass", 1200);
+  pop.gain.setValueAtTime(VOLUME * 5, pop.at);
+  pop.gain.exponentialRampToValueAtTime(0.001, pop.at + 0.05);
+  [1047, 1319, 1568].forEach((frequency, i) => playNote(ctx, frequency, THIRD_HOP + i * 0.06, 0.5 - i * 0.06, VOLUME));
+}
+
 export function playSound(name: SoundName) {
   // A cheer can come in before the first click. Sound couldn't start then, and its notes would all wait for that click.
   if (navigator.userActivation?.hasBeenActive === false) return;
@@ -95,6 +133,9 @@ export function playSound(name: SoundName) {
     if (name === "lightning") playLightning(ctx);
     else if (name === "fanfare") playFanfare(ctx);
     else if (name === "cheer") playCheer(ctx);
+    else if (name === "streak") playStreak(ctx);
+    else if (name === "levelup" || name === "pillar") playLevelUp(ctx, name === "pillar");
+    else if (name === "milestone") playMilestone(ctx);
     else NOTES[name].forEach((frequency, i) => playNote(ctx, frequency, i * NOTE_SECONDS, NOTE_SECONDS, VOLUME));
   } catch {
     // No sound, then.

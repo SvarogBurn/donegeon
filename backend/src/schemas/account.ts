@@ -67,6 +67,11 @@ const profile = z
     bigEvery: z.number().int().min(1).max(999).nullable().optional(),
     /** The kinds of big moment unticked (BIG_KINDS in frontend/src/lib/bigMoment.ts); a kind not known now is kept for later. */
     bigOff: z.array(z.string().max(20)).max(20).optional(),
+    /** No streak moment (the character cheering) at the first task of a day. */
+    streakOff: z.boolean().optional(),
+    /** No milestone moments (a level up, a streak milestone), and the level-up looks unticked (LEVEL_KINDS in frontend/src/lib/bigMoment.ts). */
+    milestoneOff: z.boolean().optional(),
+    levelOff: z.array(z.string().max(20)).max(20).optional(),
     /** The page's background (BACKGROUNDS in frontend/src/lib/backgrounds.ts); one not known now is the theme's. */
     background: z.string().max(40).optional(),
     /** The task bars' background (BAR_FILLS in frontend/src/lib/backgrounds.ts); one not known now is the theme's. */
@@ -87,7 +92,6 @@ const boxColors = capped(hex.transform((value) => value.toLowerCase()), 100).nul
 const lowerHex = hex.transform((value) => value.toLowerCase());
 const deadlineTable = z
   .object({
-    range: z.object({ amount: z.number().int().min(1).max(52), unit: z.enum(["day", "week"]) }).optional(),
     perDay: z.enum(["sum", "soonest", "columns"]).optional(),
     soft: z.boolean().optional(),
     colors: z.object({ hard: lowerHex.optional(), soft: lowerHex.optional(), big: lowerHex.optional() }).optional(),
