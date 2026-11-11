@@ -13,3 +13,15 @@ DOCUMENTATION.md
 brandbook/
 .claude
 .vite
+# Empty read-only stand-ins the Claude Code sandbox puts in the project to guard these files
+.bash_profile
+.bashrc
+.gitconfig
+.gitmodules
+.idea
+.mcp.json
+.profile
+.ripgreprc
+.vscode
+.zprofile
+.zshrc
