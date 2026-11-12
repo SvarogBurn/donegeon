@@ -158,6 +158,11 @@ function readAsWritten(view: EditorView): DecorationSet {
     const { alignEnd, markEnd, tail, line: read } = lineMarks(line.text);
     if (read.kind === "blank" || read.kind === "table") continue;
     const writing = touches(line.from, line.to);
+    // A break line: the line drawn across, its dashes faint while it is written on.
+    if (read.kind === "rule") {
+      marks.push(Decoration.line({ class: "cm-note-rule" }).range(line.from), (writing ? faint : hidden).range(line.from, line.to));
+      continue;
+    }
     const classes: string[] = [];
     if (read.align) classes.push(read.align === "center" ? "text-center" : "text-right");
     if (read.kind === "heading") classes.push("cm-note-heading", `note-heading-${read.level}`);
@@ -975,6 +980,22 @@ function putTable(view: EditorView, over?: Line) {
   view.dispatch({ changes: { from, to: line.to, insert: head + writeTable(newTable()) + tail }, selection: { anchor: from }, userEvent: "input", annotations: isolateHistory.of("full") });
   openCell(view, from + head.length, 0, 0);
 }
+
+/**
+ * A break line ("-----") put in after the caret's line (in its place, if it is empty; after the table whose cell is
+ * written in), with a line under it if it would be the note's last; the caret goes to the line under it.
+ */
+function putRule(view: EditorView) {
+  const { doc } = view.state;
+  const open = openCells.get(view);
+  const spot = open ? tableFrom(doc, open.from) : null;
+  const line = doc.lineAt(spot ? spot.to : view.state.selection.main.head);
+  const inPlace = !spot && !line.text.trim();
+  const insert = (inPlace ? "" : "\n") + "-----" + (line.number === doc.lines ? "\n" : "");
+  const from = inPlace ? line.from : line.to;
+  view.dispatch({ changes: { from, to: line.to, insert }, selection: { anchor: from + insert.length + (line.number === doc.lines ? 0 : 1) }, scrollIntoView: true, userEvent: "input", annotations: isolateHistory.of("full") });
+  view.focus();
+}
 // The page's own font, size and line height; no frame, no padding of its own.
 const looks = EditorView.theme({
   "&": { fontFamily: "inherit" },
@@ -988,7 +1009,7 @@ const looks = EditorView.theme({
  * NoteEditor's field (see there): a CodeMirror editor, loaded only when a note is first written in. The note reads as it
  * will look while it is written; only the line being written on (and the markup the caret is in) shows its marks.
  */
-export default function LiveNoteEditor({ value, onChange, onDone, onFocus, ref, className = "", label = "Task note", bare = false, onSelect, aligner, tableMaker, hint = "Note. * or - starts a list", autoFocus = false, maxLength = MAX_LENGTH }: NoteEditorProps) {
+export default function LiveNoteEditor({ value, onChange, onDone, onFocus, ref, className = "", label = "Task note", bare = false, onSelect, aligner, tableMaker, ruleMaker, hint = "Note. * or - starts a list", autoFocus = false, maxLength = MAX_LENGTH }: NoteEditorProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const stop = useRef(false);
@@ -1086,6 +1107,7 @@ export default function LiveNoteEditor({ value, onChange, onDone, onFocus, ref, 
     return aligned.start;
   });
   useImperativeHandle(tableMaker, () => () => view.current && putTable(view.current));
+  useImperativeHandle(ruleMaker, () => () => view.current && putRule(view.current));
 
   // A note changed from outside (not by writing in it here).
   useEffect(() => {

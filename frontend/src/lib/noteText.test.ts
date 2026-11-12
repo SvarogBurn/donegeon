@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addColumn, addRow, alignLines, clearCells, moveColumn, moveRow, isTableShortcut, placeTable, doubledMarker, enterOnLine, findTables, isTableRow, itemPrefix, lineAlign, newTable, parseNote, removeColumn, removeRow, withCell, writeTable } from "./noteText";
+import { addColumn, addRow, alignLines, clearCells, moveColumn, moveRow, isTableShortcut, placeTable, doubledMarker, enterOnLine, findTables, isRule, isTableRow, itemPrefix, lineAlign, newTable, parseNote, removeColumn, removeRow, withCell, writeTable } from "./noteText";
 
 describe("parseNote", () => {
   it("reads text, blank lines and list items", () => {
@@ -209,5 +209,24 @@ describe("moving and emptying in tables", () => {
 
   it("knows //table on a line of its own", () => {
     expect(["//table", "  //Table ", "// table", "//tables", "a //table"].map(isTableShortcut)).toEqual([true, true, false, false, false]);
+  });
+});
+
+describe("break lines", () => {
+  it("reads five dashes or more on a line of their own as a break line", () => {
+    expect(parseNote("above\n-----\n  ----------  \nbelow")).toEqual([{ kind: "text", text: "above" }, { kind: "rule" }, { kind: "rule" }, { kind: "text", text: "below" }]);
+    expect(isRule("-----")).toBe(true);
+  });
+
+  it("keeps fewer dashes, a list item of dashes and dashes with words as text", () => {
+    expect(isRule("---")).toBe(false);
+    expect(isRule("----")).toBe(false);
+    expect(isRule("----- a")).toBe(false);
+    expect(parseNote("- -----")).toEqual([{ kind: "item", depth: 0, number: undefined, text: "-----" }]);
+  });
+
+  it("is never aligned", () => {
+    expect(parseNote("<> -----")).toEqual([{ kind: "rule" }]);
+    expect(alignLines("a\n-----\nb", 0, 9, "center").text).toBe("<> a\n-----\n<> b");
   });
 });

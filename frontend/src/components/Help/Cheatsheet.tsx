@@ -19,9 +19,10 @@ const KEYS: [key: string, does: string][] = [
   ["Esc", "Discard the new row, or undo the edit in progress."],
 ];
 
-/** What makes a table in a note, and what is done with one. */
+/** What makes a table or a break line in a note, and what is done with one. */
 const TABLE_HELP: [key: string, does: string][] = [
   ["//table", "On a line of its own in a note, then Enter: a table there. Tap a cell to write in it. The small circle beside a row or above a column selects it when tapped and moves it when dragged; with a mouse, sweep across cells (or Shift+click) to select several. Delete takes out the rows or columns selected whole (else empties the cells), Backspace empties them. The arrow at the table's corner drags the whole table anywhere in the note."],
+  ["-----", "Five dashes or more on a line of their own in a note: a break line across it (or the break line button on a note's own screen). Delete the dashes to take it out."],
 ];
 
 /** The keys that work anywhere on a computer, outside a field. */
@@ -106,7 +107,7 @@ export function Cheatsheet() {
           <Line key={key} keys={key} does={does} />
         ))}
       </ul>
-      <h3 className={`border-t-2 border-stone-300 pt-3 dark:border-stone-700 ${HEADING}`}>Tables in a note</h3>
+      <h3 className={`border-t-2 border-stone-300 pt-3 dark:border-stone-700 ${HEADING}`}>Tables and break lines in a note</h3>
       <ul className="divide-y-2 divide-stone-200 dark:divide-stone-800">
         {TABLE_HELP.map(([key, does]) => (
           <Line key={key} keys={key} does={does} />

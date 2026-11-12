@@ -1507,6 +1507,10 @@
   .note-editor .cm-note-heading:not(:first-child) {
     @apply pt-2;
   }
+  /* A break line in the editor: drawn across the middle of its own line, under its dashes while they show. */
+  .note-editor .cm-note-rule {
+    background: linear-gradient(#639bff, #639bff) center / 100% 2px no-repeat;
+  }
   /*
    * A table in the editor, a grid to write in (see TableWidget): a cell being written in holds a field in the cell's
    * own font, as wide as the cell was (wider as it fills, where the browser can); the table's buttons only show then.
@@ -1637,6 +1641,10 @@
   }
   .note-heading-3 {
     @apply text-sm text-[#3544a1] dark:text-[#cbdbfc];
+  }
+  /* A break line ("-----"): a 2px rule of the bullets' blue, as under the first heading. */
+  .note-rule {
+    @apply my-2 border-0 border-t-2 border-[#639bff];
   }
   /*
    * A note's table ("| a | b |"): 2px lines, the header's words in the third heading's blue over a rule of the bullets'

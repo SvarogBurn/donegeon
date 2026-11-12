@@ -22,6 +22,8 @@ export interface NoteEditorProps {
   aligner?: Ref<(to: Align | null) => number>;
   /** Given a way to put a new table in after the caret's line, its first cell written in. */
   tableMaker?: Ref<() => void>;
+  /** Given a way to put a break line in after the caret's line. */
+  ruleMaker?: Ref<() => void>;
   /** Shown while it is empty. */
   hint?: string;
   /** Written in at once, the caret at the end. */

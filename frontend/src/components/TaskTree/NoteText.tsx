@@ -37,7 +37,7 @@ export function TableView({ table }: { table: NoteTable }) {
 
 /**
  * A note as it reads: its lines with their markup, headings, list items with a square bullet or their number, indented
- * by level, tables; each line on the left, in the centre or on the right.
+ * by level, tables, break lines; each line on the left, in the centre or on the right.
  */
 export function NoteText({ text, className = "" }: { text: string; className?: string }) {
   return (
@@ -45,6 +45,8 @@ export function NoteText({ text, className = "" }: { text: string; className?: s
       {parseNote(text).map((line, i) =>
         line.kind === "blank" ? (
           <div key={i} className="h-3" />
+        ) : line.kind === "rule" ? (
+          <hr key={i} className="note-rule" />
         ) : line.kind === "table" ? (
           <TableView key={i} table={line} />
         ) : line.kind === "heading" ? (

@@ -45,6 +45,17 @@ function TableIcon() {
   );
 }
 
+/** The break line button's picture: a line of text above and below, a bar right across between them. */
+function RuleIcon() {
+  return (
+    <svg viewBox="0 0 14 11" width="14" height="11" className="fill-current" shapeRendering="crispEdges" aria-hidden>
+      <rect x={0} y={0} width={8} height={2} opacity={0.5} />
+      <rect x={0} y={4} width={14} height={3} />
+      <rect x={0} y={9} width={8} height={2} opacity={0.5} />
+    </svg>
+  );
+}
+
 /** What opening a note can say: it was just made, so it opens to be written in. */
 export interface NoteScreenState {
   fresh?: boolean;
@@ -154,6 +165,7 @@ function Screen({ note, folders }: { note: Note; folders: NoteFolder[] }) {
   const titleField = useRef<HTMLInputElement>(null);
   const aligner = useRef<(to: Align | null) => number>(null);
   const tableMaker = useRef<() => void>(null);
+  const ruleMaker = useRef<() => void>(null);
   // Where the caret is, for the alignment button of its line to show pressed.
   const [caret, setCaret] = useState(0);
   // What was last sent, and what is typed now (read when the screen goes, however it goes).
@@ -261,6 +273,17 @@ function Screen({ note, folders }: { note: Note; folders: NoteFolder[] }) {
               >
                 <TableIcon />
               </button>
+              <button
+                type="button"
+                className="btn-quiet !px-2 text-stone-500"
+                aria-label="Insert break line"
+                title='Puts a break line under this line. Typed: "-----" on a line of its own'
+                onPointerDown={(e) => e.preventDefault()}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => ruleMaker.current?.()}
+              >
+                <RuleIcon />
+              </button>
             </span>
           )}
           {confirming ? (
@@ -314,6 +337,7 @@ function Screen({ note, folders }: { note: Note; folders: NoteFolder[] }) {
             bare
             aligner={aligner}
             tableMaker={tableMaker}
+            ruleMaker={ruleMaker}
             onSelect={setCaret}
             hint="Tap to write. * or - starts a list"
             autoFocus={isFresh}

@@ -2,7 +2,8 @@
  * A task's note, line by line: headings (a line starting "# ", "## " or "### "), list items (a line starting "* ",
  * "- " or "1. ", indented by two spaces a level), blank lines, and the lines of text between them. Each line's own
  * words take the title markup (lib/markup). In front of all that, "<> " centres a line and ">> " puts it to the right.
- * Lines that start and end with "|" make a table together, as one entry (see NoteTable).
+ * Lines that start and end with "|" make a table together, as one entry (see NoteTable). A line of five dashes or more
+ * is a break line across the note.
  */
 export type NoteLine =
   | ({ kind: "text"; text: string } & Aligned)
@@ -11,6 +12,8 @@ export type NoteLine =
   | ({ kind: "heading"; level: 1 | 2 | 3; text: string } & Aligned)
   /** `number`: a numbered item's own number; none for a bullet. */
   | ({ kind: "item"; depth: number; number?: number; text: string } & Aligned)
+  /** "-----" (or longer) on a line of its own. */
+  | { kind: "rule" }
   | ({ kind: "table" } & NoteTable);
 
 /**
@@ -59,8 +62,8 @@ export function alignLines(text: string, start: number, end: number, to: Align |
     at = lineEnd + 1;
     const old = alignMark(line);
     // A selection that ends at the very start of a line leaves that line out.
-    // A table's row stays as it is: a mark in front of it would make it text.
-    const touched = lineStart <= end && lineEnd >= start && !(start < end && end === lineStart) && !isTableRow(line);
+    // A table's row stays as it is: a mark in front of it would make it text. So does a break line, across the note anyway.
+    const touched = lineStart <= end && lineEnd >= start && !(start < end && end === lineStart) && !isTableRow(line) && !isRule(line);
     const next = touched && line.slice(old.length).trim() ? mark + line.slice(old.length) : line;
     const place = (pos: number) =>
       next === line ? pos + moved : lineStart + moved + mark.length + Math.max(0, pos - lineStart - old.length);
@@ -79,6 +82,9 @@ const ITEM = /^(\s*)(?:([*\-•])|(\d{1,3})[.)])\s+(.*)$/;
 // "#tag" and a "#" alone are text; so is a line whose "#" has a backslash in front.
 const HEADING = /^ {0,3}(#{1,6})\s+(\S.*)$/;
 
+/** Whether a line is a break line: five dashes or more, nothing else on it but spaces. */
+export const isRule = (line: string) => /^\s*-{5,}\s*$/.test(line);
+
 export function parseNote(text: string): NoteLine[] {
   const lines = text.split("\n");
   const out: NoteLine[] = [];
@@ -92,13 +98,14 @@ export function parseNote(text: string): NoteLine[] {
     }
     const mark = alignMark(lines[i]);
     const parsed = parseLine(lines[i].slice(mark.length));
-    out.push(mark && parsed.kind !== "blank" ? { ...parsed, align: alignOfMark(mark) } : parsed);
+    out.push(mark && parsed.kind !== "blank" && parsed.kind !== "rule" ? { ...parsed, align: alignOfMark(mark) } : parsed);
   }
   return out;
 }
 
 function parseLine(line: string): Exclude<NoteLine, { kind: "table" }> {
   if (!line.trim()) return { kind: "blank" };
+  if (isRule(line)) return { kind: "rule" };
   const heading = line.match(HEADING);
   // Markdown's optional closing hashes ("## Plan ##") aren't shown.
   if (heading) return { kind: "heading", level: Math.min(3, heading[1].length) as 1 | 2 | 3, text: heading[2].replace(/\s+#+\s*$/, "") };
