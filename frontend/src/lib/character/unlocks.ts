@@ -110,6 +110,8 @@ const BODY_RULES: [string, Rule[]][] = [
   ["boar", [{ steady: true }]],
   // Gets its ducks in a row: a week's streak.
   ["duck", [{ streak: 7 }]],
+  // Loyal: two weeks without missing a day (the human's puppy ears and tail come with the same streak).
+  ["dog", [{ streak: 14 }]],
   ["dragon", [{ level: 30 }, { streak: 100 }]],
 ];
 

@@ -107,11 +107,12 @@ const BOTTOMS: Choice[] = [
   { id: "overalls", name: "Overalls", layers: ["overalls"] },
 ];
 const SOCKS: Choice[] = [{ id: "plain", name: "Socks", layers: ["socks"] }, { id: "striped", name: "Striped socks", layers: ["socks stripes horizontal"] }];
+const BAREFOOT: Choice = { id: "none", name: "Barefoot", layers: [] };
 const SHOES: Choice[] = [
   { id: "shoes", name: "Shoes", layers: ["shooes normal"] },
   { id: "boots", name: "Boots", layers: ["shooes boots"] },
   { id: "flats", name: "Flats", layers: ["shoes flats"] },
-  { id: "none", name: "Barefoot", layers: [] },
+  BAREFOOT,
 ];
 /** The hat every body has; the human's first two are the bunny's own, which keeps its own instead. */
 const TOP_HAT: Choice = { id: "tophat", name: "Top hat", layers: ["top hat"] };
@@ -169,6 +170,7 @@ interface Own {
   bottoms?: Choice[];
   /** Its own socks, or "none": no socks until picked. */
   socks?: Choice[] | "none";
+  /** May be Barefoot, moved first: bare paws. */
   shoes?: Choice[];
   /** The human's nose ring, which fits no snout. */
   nosering?: boolean;
@@ -189,7 +191,7 @@ function outfit(own: Own = {}): BodyOption[] {
     { id: "scarf", name: "Scarf", choices: own.scarf ? [...own.scarf, ...SCARVES, NONE()] : [NONE(), ...SCARVES] },
     { id: "bottoms", name: "Bottoms", choices: [...(own.bottoms ?? []), ...BOTTOMS] },
     { id: "socks", name: "Socks", choices: socks },
-    { id: "shoes", name: "Shoes", choices: [...(own.shoes ?? []), ...SHOES] },
+    { id: "shoes", name: "Shoes", choices: [...(own.shoes ?? []), ...SHOES.filter((s) => !own.shoes?.includes(s))] },
     {
       id: "jewellery",
       name: "Jewellery",
@@ -630,6 +632,35 @@ export const BODIES: Body[] = ([
       { id: "buttons", name: "Buttons", hexes: ["#9C9585"], layers: ["wolf coat"] },
       { id: "trousers", name: "Trousers", hexes: ["#2A2238", "#140B26", "#3F394D"], layers: ["wolf trousers"] },
       { id: "boots", name: "Boots", hexes: ["#140B26", "#2A2238"], layers: ["wolf boots"] },
+    ],
+  },
+  {
+    id: "dog",
+    name: "Dog",
+    // Drawn 2026-11-11 (the user's ask): the wolf's body in golden fur with a cream bib, its own head (floppy ears, a
+    // cream muzzle) and a tail; the user's touches in v1: the head a row lower, a bigger far ear, a longer muzzle. v2 adds
+    // the shared wardrobe: the wolf's as fitted (the same body), the human's hats on its skull (the wolf's let its ears
+    // through), the glasses a pixel left for its eyes, the choker and the ruffled collar over the head (its neck is on
+    // that layer), the staff's gem under its chin. It has no outfit of its own, so it starts bare.
+    file: "48x32_dog_v2",
+    face: {
+      file: "21x21_dog_face_v1",
+      materials: [
+        // The nose is drawn in the same dark.
+        { id: "eyes", name: "Eyes", hexes: ["#140B26"], at: [[7, 9], [13, 9]] },
+        { id: "fur", name: "Fur", hexes: ["#D9A066", "#B57E4A"], layers: ["head"] },
+        { id: "ears", name: "Ears", hexes: ["#8F563B", "#663931"], layers: ["head"] },
+        { id: "markings", name: "Muzzle & chest", hexes: ["#F2E3CC", "#DCC4A4"], layers: ["head"] },
+        FACE_GLASSES,
+      ],
+    },
+    options: outfit({ top: [NONE()], bottoms: [NONE()], socks: "none", shoes: [BAREFOOT] }),
+    materials: [
+      { id: "eyes", name: "Eyes", hexes: ["#140B26"], layers: ["head"], at: [[22, 13], [18, 14]] },
+      // The hand over a held thing is fur.
+      { id: "fur", name: "Fur", hexes: ["#D9A066", "#B57E4A"], layers: ["back", "body", "head", ...HELD_LAYERS] },
+      { id: "ears", name: "Ears", hexes: ["#8F563B", "#663931"], layers: ["head"] },
+      { id: "markings", name: "Muzzle & chest", hexes: ["#F2E3CC", "#DCC4A4"], layers: ["head", "body"] },
     ],
   },
   {

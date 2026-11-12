@@ -84,6 +84,8 @@ describe("locks", () => {
     expect(bodyLock(unlocks({ longest: 100 }), "boar")?.id).toBe("body:boar");
     expect(bodyLock(unlocks({ steady: true }), "boar")).toBeNull();
     expect(bodyLock(unlocks({ level: 5 }), "sheep")).toBeNull();
+    expect(bodyLock(unlocks({ longest: 13 }), "dog")?.id).toBe("body:dog");
+    expect(bodyLock(unlocks({ longest: 14 }), "dog")).toBeNull();
     expect(bodyLock(unlocks({ level: 30 }), "dragon")).toBeNull();
     expect(bodyLock(unlocks({ longest: 100 }), "dragon")).toBeNull();
     expect(choiceLock(unlocks(), "human", "top", "shirt")?.id).toBe("top:shirt");
