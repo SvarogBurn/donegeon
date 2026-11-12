@@ -1912,10 +1912,12 @@
     text-shadow: 1px 0 currentColor;
   }
   .markup-italic {
+    font-style: italic;
     font-synthesis: style;
   }
   html[data-box-font] :is(.tile-body, .card, [data-text="box"]) .markup-bold,
   html[data-notes-font] [data-text="notes"] .markup-bold {
+    font-weight: 700;
     text-shadow: none;
   }
   /* The other fonts have a real bold for a note's headings; the pixel font's size and colour have to do. */

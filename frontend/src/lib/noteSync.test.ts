@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SEALED_PREFIX } from "../../../shared/constants";
 import type { Note } from "../types";
 import { mergeNotes } from "./noteSync";
 
@@ -22,5 +23,14 @@ describe("mergeNotes", () => {
   });
   it("is null when a note is neither changed nor kept", () => {
     expect(mergeNotes(kept, answer(["a", "x"]))).toBeNull();
+  });
+  it("is null when a kept note is still sealed (kept by an app from before encryption)", () => {
+    const sealed = { ...kept, notes: [note("a"), note("b", SEALED_PREFIX + "AAAA"), note("c")] };
+    expect(mergeNotes(sealed, answer(["a", "b", "c"]))).toBeNull();
+    expect(mergeNotes({ ...kept, notes: [{ ...note("a"), title: SEALED_PREFIX + "AAAA" }, note("b"), note("c")] }, answer(["a", "b", "c"]))).toBeNull();
+  });
+  it("takes a sealed kept note that the answer replaced", () => {
+    const sealed = { ...kept, notes: [note("a"), note("b", SEALED_PREFIX + "AAAA"), note("c")] };
+    expect(texts(mergeNotes(sealed, answer(["a", "b", "c"], [note("b", "opened")])))).toEqual(["a", "opened", "c"]);
   });
 });

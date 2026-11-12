@@ -7,13 +7,15 @@ import type { NotesData } from "./offline/noteChanges";
 /**
  * The notes kept on the device brought up to date by an answer to "what changed since": a changed note replaces the
  * one kept, every other note in `ids` is kept as it is, one not in `ids` is gone, in the server's order. Null when a
- * note in `ids` is neither changed nor kept: what is kept is missing something, so every note is to be asked for.
+ * note in `ids` is neither changed nor kept, or one kept is still sealed (an app that couldn't open it, from before
+ * encryption, kept it as the server sent it): what is kept is wrong, so every note is to be asked for.
  */
 export function mergeNotes(kept: NotesData, answer: NotesAnswer & { ids: string[] }): NotesData | null {
   const changed = new Map(answer.notes.map((note) => [note.id, note]));
   const before = new Map(kept.notes.map((note) => [note.id, note]));
   const notes = answer.ids.map((id) => changed.get(id) ?? before.get(id));
-  if (notes.some((note) => !note)) return null;
+  // The changed notes are opened before they come here: a sealed one is from what is kept.
+  if (notes.some((note) => !note || isSealed(note.title) || isSealed(note.text))) return null;
   return { notes: notes as NotesData["notes"], noteFolders: answer.noteFolders, syncedAt: answer.syncedAt };
 }
 
